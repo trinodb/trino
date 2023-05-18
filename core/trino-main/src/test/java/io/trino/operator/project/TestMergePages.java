@@ -34,8 +34,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Math.toIntExact;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergePages
 {
@@ -93,13 +92,13 @@ public class TestMergePages
                 pagesSource(page),
                 newSimpleAggregatedMemoryContext());
 
-        assertTrue(mergePages.process());
-        assertFalse(mergePages.isFinished());
+        assertThat(mergePages.process()).isTrue();
+        assertThat(mergePages.isFinished()).isFalse();
 
         Page result = mergePages.getResult();
-        assertFalse(channel1.isLoaded());
-        assertFalse(channel2.isLoaded());
-        assertFalse(channel3.isLoaded());
+        assertThat(channel1.isLoaded()).isFalse();
+        assertThat(channel2.isLoaded()).isFalse();
+        assertThat(channel3.isLoaded()).isFalse();
         assertPageEquals(TYPES, result, page);
     }
 

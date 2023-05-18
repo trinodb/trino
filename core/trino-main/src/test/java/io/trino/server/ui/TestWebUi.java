@@ -117,8 +117,6 @@ import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestWebUi
 {
@@ -309,10 +307,10 @@ public class TestWebUi
 
         logIn(baseUri, client, username, password, sendPassword);
         HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
-        assertEquals(cookie.getPath(), "/ui");
-        assertEquals(cookie.getDomain(), baseUri.getHost());
-        assertEquals(cookie.getMaxAge(), -1);
-        assertTrue(cookie.isHttpOnly());
+        assertThat(cookie.getPath()).isEqualTo("/ui");
+        assertThat(cookie.getDomain()).isEqualTo(baseUri.getHost());
+        assertThat(cookie.getMaxAge()).isEqualTo(-1);
+        assertThat(cookie.isHttpOnly()).isTrue();
 
         assertOk(client, getUiLocation(baseUri));
 
@@ -360,9 +358,9 @@ public class TestWebUi
                 .post(formData.build())
                 .build();
         try (Response response = client.newCall(request).execute()) {
-            assertEquals(response.code(), SC_SEE_OTHER);
-            assertEquals(response.header(LOCATION), getLoginHtmlLocation(httpsUrl));
-            assertTrue(cookieManager.getCookieStore().getCookies().isEmpty());
+            assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+            assertThat(response.header(LOCATION)).isEqualTo(getLoginHtmlLocation(httpsUrl));
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
         }
     }
 
@@ -396,8 +394,8 @@ public class TestWebUi
                 .url(getLocation(baseUri, "/ui/username/"))
                 .build();
         try (Response response = client.newCall(request).execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.header("user"), TEST_USER);
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.header("user")).isEqualTo(TEST_USER);
         }
     }
 
@@ -441,8 +439,8 @@ public class TestWebUi
                 .post(formData.build())
                 .build();
         Response response = client.newCall(request).execute();
-        assertEquals(response.code(), SC_SEE_OTHER);
-        assertEquals(response.header(LOCATION), getUiLocation(baseUri));
+        assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+        assertThat(response.header(LOCATION)).isEqualTo(getUiLocation(baseUri));
     }
 
     @Test
@@ -497,7 +495,7 @@ public class TestWebUi
                     .isValidCredential(TEST_USER, TEST_USER, true))
                     .hasMessage("authenticators were not loaded")
                     .isInstanceOf(IllegalStateException.class);
-            assertTrue(formAuthenticator.isLoginEnabled(true));
+            assertThat(formAuthenticator.isLoginEnabled(true)).isTrue();
         }
     }
 
@@ -828,7 +826,7 @@ public class TestWebUi
             assertAuth2Authentication(server, oauthClient.getAccessToken(), false);
             Identity identity = server.getInstance(Key.get(AuthenticatedIdentityCapturingFilter.class)).getAuthenticatedIdentity();
             assertThat(identity.getUser()).isEqualTo("test-user");
-            assertThat(identity.getPrincipal()).isEqualTo(Optional.of(new BasicPrincipal("test-user@email.com")));
+            assertThat(identity.getPrincipal()).hasValue(new BasicPrincipal("test-user@email.com"));
         }
         finally {
             jwkServer.stop();
@@ -861,12 +859,12 @@ public class TestWebUi
             assertCookieWithRefreshToken(server, cookie, accessToken);
         }
         else {
-            assertEquals(cookie.getValue(), accessToken);
-            assertThat(cookie.getMaxAge()).isGreaterThan(0).isLessThan(30);
+            assertThat(cookie.getValue()).isEqualTo(accessToken);
+            assertThat(cookie.getMaxAge()).isPositive().isLessThan(30);
         }
-        assertEquals(cookie.getPath(), "/ui/");
-        assertEquals(cookie.getDomain(), baseUri.getHost());
-        assertTrue(cookie.isHttpOnly());
+        assertThat(cookie.getPath()).isEqualTo("/ui/");
+        assertThat(cookie.getDomain()).isEqualTo(baseUri.getHost());
+        assertThat(cookie.isHttpOnly()).isTrue();
 
         // authentication cookie is now set, so UI should work
         testRootRedirect(baseUri, client);
@@ -905,9 +903,9 @@ public class TestWebUi
     {
         TokenPairSerializer tokenPairSerializer = server.getInstance(Key.get(TokenPairSerializer.class));
         TokenPair deserialize = tokenPairSerializer.deserialize(authCookie.getValue());
-        assertEquals(deserialize.getAccessToken(), accessToken);
-        assertEquals(deserialize.getRefreshToken(), Optional.of(REFRESH_TOKEN));
-        assertThat(authCookie.getMaxAge()).isGreaterThan(0).isLessThan(REFRESH_TOKEN_TIMEOUT.getSeconds());
+        assertThat(deserialize.getAccessToken()).isEqualTo(accessToken);
+        assertThat(deserialize.getRefreshToken()).hasValue(REFRESH_TOKEN);
+        assertThat(authCookie.getMaxAge()).isPositive().isLessThan(REFRESH_TOKEN_TIMEOUT.getSeconds());
     }
 
     private static void testAlwaysAuthorized(URI baseUri, OkHttpClient authorizedClient, String nodeId)
@@ -970,8 +968,8 @@ public class TestWebUi
             request = request.newBuilder().post(formBody).build();
         }
         try (Response response = client.newCall(request).execute()) {
-            assertEquals(response.code(), SC_SEE_OTHER);
-            assertEquals(response.header(LOCATION), redirectLocation);
+            assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+            assertThat(response.header(LOCATION)).isEqualTo(redirectLocation);
         }
 
         if (testProxy) {
@@ -982,10 +980,8 @@ public class TestWebUi
                     .header(X_FORWARDED_PORT, "123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .scheme("test")
                                 .host("my-load-balancer.local")
                                 .port(123)
@@ -998,10 +994,8 @@ public class TestWebUi
                     .header(X_FORWARDED_HOST, "my-load-balancer.local:123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .scheme("test")
                                 .host("my-load-balancer.local")
                                 .port(123)
@@ -1014,10 +1008,8 @@ public class TestWebUi
                     .header(X_FORWARDED_PORT, "123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .scheme("test")
                                 .port(123)
                                 .toString());
@@ -1028,10 +1020,8 @@ public class TestWebUi
                     .header(X_FORWARDED_PROTO, "test")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .scheme("test")
                                 .toString());
             }
@@ -1041,10 +1031,8 @@ public class TestWebUi
                     .header(X_FORWARDED_PORT, "123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .host("my-load-balancer.local")
                                 .port(123)
                                 .toString());
@@ -1055,10 +1043,8 @@ public class TestWebUi
                     .header(X_FORWARDED_HOST, "my-load-balancer.local:123")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .host("my-load-balancer.local")
                                 .port(123)
                                 .toString());
@@ -1069,10 +1055,8 @@ public class TestWebUi
                     .header(X_FORWARDED_HOST, "my-load-balancer.local")
                     .build();
             try (Response response = client.newCall(request).execute()) {
-                assertEquals(response.code(), SC_SEE_OTHER);
-                assertEquals(
-                        response.header(LOCATION),
-                        uriBuilderFrom(URI.create(redirectLocation))
+                assertThat(response.code()).isEqualTo(SC_SEE_OTHER);
+                assertThat(response.header(LOCATION)).isEqualTo(uriBuilderFrom(URI.create(redirectLocation))
                                 .host("my-load-balancer.local")
                                 .defaultPort()
                                 .toString());
@@ -1103,7 +1087,7 @@ public class TestWebUi
             request = request.newBuilder().post(formBody).build();
         }
         try (Response response = client.newCall(request).execute()) {
-            assertEquals(response.code(), expectedCode, url);
+            assertThat(response.code()).withFailMessage(url).isEqualTo(expectedCode);
             return Optional.ofNullable(response.body())
                     .map(responseBody -> {
                         try {

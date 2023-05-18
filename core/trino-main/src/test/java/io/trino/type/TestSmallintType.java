@@ -17,11 +17,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type.Range;
 
-import java.util.Optional;
-
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestSmallintType
         extends AbstractTestType
@@ -58,8 +55,8 @@ public class TestSmallintType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), (long) Short.MIN_VALUE);
-        assertEquals(range.getMax(), (long) Short.MAX_VALUE);
+        assertThat(range.getMin()).isEqualTo((long) Short.MIN_VALUE);
+        assertThat(range.getMax()).isEqualTo((long) Short.MAX_VALUE);
     }
 
     @Override
@@ -68,18 +65,13 @@ public class TestSmallintType
         long minValue = Short.MIN_VALUE;
         long maxValue = Short.MAX_VALUE;
 
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + 1))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(minValue)).isEmpty();
+        assertThat(type.getPreviousValue(minValue + 1)).hasValue(minValue);
 
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEqualTo(Optional.of(1110L));
+        assertThat(type.getPreviousValue(getSampleValue())).hasValue(1110L);
 
-        assertThat(type.getPreviousValue(maxValue - 1))
-                .isEqualTo(Optional.of(maxValue - 2));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - 1));
+        assertThat(type.getPreviousValue(maxValue - 1)).hasValue(maxValue - 2);
+        assertThat(type.getPreviousValue(maxValue)).hasValue(maxValue - 1);
     }
 
     @Override
@@ -88,17 +80,12 @@ public class TestSmallintType
         long minValue = Short.MIN_VALUE;
         long maxValue = Short.MAX_VALUE;
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + 1));
-        assertThat(type.getNextValue(minValue + 1))
-                .isEqualTo(Optional.of(minValue + 2));
+        assertThat(type.getNextValue(minValue)).hasValue(minValue + 1);
+        assertThat(type.getNextValue(minValue + 1)).hasValue(minValue + 2);
 
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEqualTo(Optional.of(1112L));
+        assertThat(type.getNextValue(getSampleValue())).hasValue(1112L);
 
-        assertThat(type.getNextValue(maxValue - 1))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(maxValue - 1)).hasValue(maxValue);
+        assertThat(type.getNextValue(maxValue)).isEmpty();
     }
 }

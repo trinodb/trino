@@ -13,7 +13,6 @@
  */
 package io.trino.operator.project;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.spi.Page;
@@ -41,15 +40,9 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestDictionaryAwarePageProjection
 {
@@ -74,9 +67,9 @@ public class TestDictionaryAwarePageProjection
     public void testDelegateMethods()
     {
         DictionaryAwarePageProjection projection = createProjection(false);
-        assertEquals(projection.isDeterministic(), true);
-        assertEquals(projection.getInputChannels().getInputChannels(), ImmutableList.of(3));
-        assertEquals(projection.getType(), BIGINT);
+        assertThat(projection.isDeterministic()).isTrue();
+        assertThat(projection.getInputChannels().getInputChannels()).containsExactly(3);
+        assertThat(projection.getType()).isEqualTo(BIGINT);
     }
 
     @Test(dataProvider = "forceYield")
@@ -192,21 +185,21 @@ public class TestDictionaryAwarePageProjection
         DriverYieldSignal yieldSignal = new DriverYieldSignal();
         Work<Block> firstWork = projection.project(null, yieldSignal, new Page(firstDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
-        assertTrue(firstWork.process());
+        assertThat(firstWork.process()).isTrue();
         Block firstOutputBlock = firstWork.getResult();
         assertInstanceOf(firstOutputBlock, DictionaryBlock.class);
 
         Work<Block> secondWork = projection.project(null, yieldSignal, new Page(secondDictionaryBlock), SelectedPositions.positionsList(new int[] {0, 1}, 0, 2));
 
-        assertTrue(secondWork.process());
+        assertThat(secondWork.process()).isTrue();
         Block secondOutputBlock = secondWork.getResult();
         assertInstanceOf(secondOutputBlock, DictionaryBlock.class);
 
-        assertNotSame(firstOutputBlock, secondOutputBlock);
+        assertThat(firstOutputBlock).isNotSameAs(secondOutputBlock);
         Block firstDictionary = ((DictionaryBlock) firstOutputBlock).getDictionary();
         Block secondDictionary = ((DictionaryBlock) secondOutputBlock).getDictionary();
-        assertSame(firstDictionary, secondDictionary);
-        assertSame(firstDictionary, dictionary);
+        assertThat(firstDictionary).isSameAs(secondDictionary);
+        assertThat(firstDictionary).isSameAs(dictionary);
     }
 
     private static Block createDictionaryBlock(int dictionarySize, int blockSize)
@@ -288,14 +281,14 @@ public class TestDictionaryAwarePageProjection
             result = projectWithYield(work, yieldSignal);
         }
         else {
-            assertTrue(work.process());
+            assertThat(work.process()).isTrue();
             result = work.getResult();
         }
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -320,14 +313,14 @@ public class TestDictionaryAwarePageProjection
             result = projectWithYield(work, yieldSignal);
         }
         else {
-            assertTrue(work.process());
+            assertThat(work.process()).isTrue();
             result = work.getResult();
         }
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -350,14 +343,14 @@ public class TestDictionaryAwarePageProjection
         yieldSignal.forceYieldForTesting();
 
         // yield signal is ignored given the block has already been loaded
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         Block result = work.getResult();
         yieldSignal.reset();
 
         if (produceLazyBlock) {
             assertInstanceOf(result, LazyBlock.class);
-            assertFalse(result.isLoaded());
-            assertFalse(block.isLoaded());
+            assertThat(result.isLoaded()).isFalse();
+            assertThat(block.isLoaded()).isFalse();
             result = result.getLoadedBlock();
         }
 
@@ -430,7 +423,7 @@ public class TestDictionaryAwarePageProjection
             @Override
             public boolean process()
             {
-                assertNull(result);
+                assertThat(result).isNull();
                 if (selectedPositions.isList()) {
                     int offset = selectedPositions.getOffset();
                     int[] positions = selectedPositions.getPositions();
@@ -460,7 +453,7 @@ public class TestDictionaryAwarePageProjection
             @Override
             public Block getResult()
             {
-                assertNotNull(result);
+                assertThat(result).isNotNull();
                 return result;
             }
         }

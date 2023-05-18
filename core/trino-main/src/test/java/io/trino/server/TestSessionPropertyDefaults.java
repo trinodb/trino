@@ -39,7 +39,7 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSessionPropertyDefaults
 {
@@ -81,32 +81,28 @@ public class TestSessionPropertyDefaults
                 .setCatalogSessionProperty(TEST_CATALOG_NAME, "explicit_set", "explicit_set") // Override this default catalog property
                 .build();
 
-        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+        assertThat(session.getSystemProperties()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
-        assertEquals(
-                session.getCatalogProperties(),
-                ImmutableMap.of(
+        assertThat(session.getCatalogProperties()).isEqualTo(ImmutableMap.of(
                         TEST_CATALOG_NAME,
                         ImmutableMap.of("explicit_set", "explicit_set")));
 
         session = sessionPropertyDefaults.newSessionWithDefaultProperties(session, Optional.empty(), TEST_RESOURCE_GROUP_ID);
 
-        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+        assertThat(session.getSystemProperties()).isEqualTo(ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB") // User provided value overrides default value
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned") // User provided value is used
                 .put(MAX_HASH_PARTITION_COUNT, "43") // User provided value is used
                 .put(QUERY_MAX_TOTAL_MEMORY, "2GB") // Default value is used
                 .buildOrThrow());
-        assertEquals(
-                session.getCatalogProperties(),
-                ImmutableMap.of(
-                        TEST_CATALOG_NAME,
-                        ImmutableMap.<String, String>builder()
-                                .put("explicit_set", "explicit_set") // User provided value overrides default value
-                                .put("catalog_default", "catalog_default") // Default value is used
-                                .buildOrThrow()));
+        assertThat(session.getCatalogProperties()).isEqualTo(ImmutableMap.of(
+                TEST_CATALOG_NAME,
+                ImmutableMap.<String, String>builder()
+                        .put("explicit_set", "explicit_set") // User provided value overrides default value
+                        .put("catalog_default", "catalog_default") // Default value is used
+                        .buildOrThrow()));
     }
 }

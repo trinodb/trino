@@ -15,13 +15,13 @@ package io.trino.testing;
 
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBytes
 {
     @Test
     public void testToString()
     {
-        assertEquals(Bytes.fromBytes(new byte[] {1, 2, 22, -22}).toString(), "X'01 02 16 ea'");
+        assertThat(Bytes.fromBytes(new byte[] {1, 2, 22, -22})).hasToString("X'01 02 16 ea'");
     }
 }

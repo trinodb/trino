@@ -43,10 +43,8 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestTopNOperator
@@ -174,10 +172,10 @@ public class TestTopNOperator
                 ImmutableList.of(DESC_NULLS_LAST));
 
         try (Operator operator = factory.createOperator(driverContext)) {
-            assertNull(operator.getOutput());
-            assertTrue(operator.isFinished());
-            assertFalse(operator.needsInput());
-            assertNull(operator.getOutput());
+            assertThat(operator.getOutput()).isNull();
+            assertThat(operator.isFinished()).isTrue();
+            assertThat(operator.needsInput()).isFalse();
+            assertThat(operator.getOutput()).isNull();
         }
     }
 

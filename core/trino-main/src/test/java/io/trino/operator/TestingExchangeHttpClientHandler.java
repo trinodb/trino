@@ -40,7 +40,7 @@ import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestingExchangeHttpClientHandler
         implements TestingHttpClient.Processor
@@ -59,11 +59,11 @@ public class TestingExchangeHttpClientHandler
     {
         ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
         if (request.getMethod().equals("DELETE")) {
-            assertEquals(parts.size(), 1);
+            assertThat(parts).hasSize(1);
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);
         }
 
-        assertEquals(parts.size(), 2);
+        assertThat(parts).hasSize(2);
         TaskId taskId = TaskId.valueOf(parts.get(0));
         int pageToken = Integer.parseInt(parts.get(1));
 

@@ -32,7 +32,7 @@ import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.SchedulingOrderVisitor.scheduleOrder;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSchedulingOrderVisitor
 {
@@ -43,7 +43,7 @@ public class TestSchedulingOrderVisitor
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.join(JoinNode.Type.INNER, a, b));
-        assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).containsExactly(b.getId(), a.getId());
     }
 
     @Test
@@ -53,7 +53,7 @@ public class TestSchedulingOrderVisitor
         TableScanNode a = planBuilder.tableScan(emptyList(), emptyMap());
         TableScanNode b = planBuilder.tableScan(emptyList(), emptyMap());
         List<PlanNodeId> order = scheduleOrder(planBuilder.indexJoin(IndexJoinNode.Type.INNER, a, b));
-        assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).containsExactly(b.getId(), a.getId());
     }
 
     @Test
@@ -72,6 +72,6 @@ public class TestSchedulingOrderVisitor
                 Optional.empty(),
                 a,
                 b));
-        assertEquals(order, ImmutableList.of(b.getId(), a.getId()));
+        assertThat(order).containsExactly(b.getId(), a.getId());
     }
 }

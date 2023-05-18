@@ -36,7 +36,7 @@ import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGetSourceTablesRowCount
 {
@@ -46,14 +46,12 @@ public class TestGetSourceTablesRowCount
         PlanBuilder planBuilder = planBuilder();
         Symbol symbol = planBuilder.symbol("col");
 
-        assertEquals(
-                getSourceTablesRowCount(
+        assertThat(getSourceTablesRowCount(
                         planBuilder.tableScan(
                                 tableScan -> tableScan
                                         .setSymbols(ImmutableList.of(symbol))
                                         .setAssignments(ImmutableMap.of(symbol, new TestingColumnHandle("col")))
-                                        .setStatistics(Optional.of(unknown())))),
-                NaN);
+                                        .setStatistics(Optional.of(unknown()))))).isEqualTo(NaN);
     }
 
     @Test
@@ -64,8 +62,7 @@ public class TestGetSourceTablesRowCount
         Symbol sourceSymbol1 = planBuilder.symbol("source1");
         Symbol sourceSymbol2 = planBuilder.symbol("soruce2");
 
-        assertEquals(
-                getSourceTablesRowCount(
+        assertThat(getSourceTablesRowCount(
                         planBuilder.union(
                                 ImmutableListMultimap.<Symbol, Symbol>builder()
                                         .put(symbol, sourceSymbol1)
@@ -77,8 +74,7 @@ public class TestGetSourceTablesRowCount
                                                         .setSymbols(ImmutableList.of(sourceSymbol1))
                                                         .setAssignments(ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col")))
                                                         .setStatistics(Optional.of(stats(10)))),
-                                        planBuilder.values(new PlanNodeId("valuesNode"), 20, sourceSymbol2)))),
-                30.0);
+                                        planBuilder.values(new PlanNodeId("valuesNode"), 20, sourceSymbol2))))).isEqualTo(30.0);
     }
 
     @Test
@@ -88,13 +84,11 @@ public class TestGetSourceTablesRowCount
         Symbol sourceSymbol1 = planBuilder.symbol("source1");
         Symbol sourceSymbol2 = planBuilder.symbol("soruce2");
 
-        assertEquals(
-                getSourceTablesRowCount(
+        assertThat(getSourceTablesRowCount(
                         planBuilder.join(
                                 INNER,
                                 planBuilder.values(sourceSymbol1),
-                                planBuilder.values(sourceSymbol2))),
-                NaN);
+                                planBuilder.values(sourceSymbol2)))).isEqualTo(NaN);
     }
 
     private double getSourceTablesRowCount(PlanNode planNode)

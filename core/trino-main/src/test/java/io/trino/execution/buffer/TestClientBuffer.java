@@ -46,11 +46,9 @@ import static io.trino.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestClientBuffer
 {
@@ -124,54 +122,54 @@ public class TestClientBuffer
         for (int i = 0; i < 3; i++) {
             supplier.addPage(createPage(i));
         }
-        assertEquals(supplier.getBufferedPages(), 3);
+        assertThat(supplier.getBufferedPages()).isEqualTo(3);
 
         // get the pages elements from the buffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 0, sizeOfPages(10), NO_WAIT), bufferResult(0, createPage(0), createPage(1), createPage(2)));
         // 3 pages are moved to the client buffer, but not acknowledged yet
-        assertEquals(supplier.getBufferedPages(), 0);
+        assertThat(supplier.getBufferedPages()).isEqualTo(0);
         assertBufferInfo(buffer, 3, 0);
 
         // acknowledge first three pages in the buffer
         ListenableFuture<BufferResult> pendingRead = buffer.getPages(3, sizeOfPages(1));
         // pages now acknowledged
-        assertEquals(supplier.getBufferedPages(), 0);
+        assertThat(supplier.getBufferedPages()).isEqualTo(0);
         assertBufferInfo(buffer, 0, 3);
-        assertFalse(pendingRead.isDone());
+        assertThat(pendingRead.isDone()).isFalse();
 
         // add 3 more pages
         for (int i = 3; i < 6; i++) {
             supplier.addPage(createPage(i));
         }
-        assertEquals(supplier.getBufferedPages(), 3);
+        assertThat(supplier.getBufferedPages()).isEqualTo(3);
 
         // notify the buffer that there is more data, and verify previous read completed
         buffer.loadPagesIfNecessary(supplier);
         assertBufferResultEquals(TYPES, getFuture(pendingRead, NO_WAIT), bufferResult(3, createPage(3)));
         // 1 page wad moved to the client buffer, but not acknowledged yet
-        assertEquals(supplier.getBufferedPages(), 2);
+        assertThat(supplier.getBufferedPages()).isEqualTo(2);
         assertBufferInfo(buffer, 1, 3);
 
         // set no more pages
         supplier.setNoMorePages();
         // state should not change
-        assertEquals(supplier.getBufferedPages(), 2);
+        assertThat(supplier.getBufferedPages()).isEqualTo(2);
         assertBufferInfo(buffer, 1, 3);
 
         // remove a page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 4, sizeOfPages(1), NO_WAIT), bufferResult(4, createPage(4)));
         assertBufferInfo(buffer, 1, 4);
-        assertEquals(supplier.getBufferedPages(), 1);
+        assertThat(supplier.getBufferedPages()).isEqualTo(1);
 
         // remove last pages from, should not be finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 5, sizeOfPages(30), NO_WAIT), bufferResult(5, createPage(5)));
         assertBufferInfo(buffer, 1, 5);
-        assertEquals(supplier.getBufferedPages(), 0);
+        assertThat(supplier.getBufferedPages()).isEqualTo(0);
 
         // acknowledge all pages from the buffer, should return a finished buffer result
         assertBufferResultEquals(TYPES, getBufferResult(buffer, supplier, 6, sizeOfPages(10), NO_WAIT), emptyResults(TASK_INSTANCE_ID, 6, true));
         assertBufferInfo(buffer, 0, 6);
-        assertEquals(supplier.getBufferedPages(), 0);
+        assertThat(supplier.getBufferedPages()).isEqualTo(0);
 
         // buffer is not destroyed until explicitly destroyed
         buffer.destroy();
@@ -259,7 +257,7 @@ public class TestClientBuffer
         ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one item
         addPage(buffer, createPage(0));
@@ -269,7 +267,7 @@ public class TestClientBuffer
 
         // attempt to get another page, and verify we are blocked
         future = buffer.getPages(1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // finish the buffer
         buffer.setNoMorePages();
@@ -288,18 +286,18 @@ public class TestClientBuffer
         ListenableFuture<BufferResult> future = buffer.getPages(0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one item
         addPage(buffer, createPage(0));
-        assertTrue(future.isDone());
+        assertThat(future.isDone()).isTrue();
 
         // verify we got one page
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
         future = buffer.getPages(1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // destroy the buffer
         buffer.destroy();
@@ -340,22 +338,22 @@ public class TestClientBuffer
         // add 2 pages and verify they are referenced
         addPage(buffer, createPage(0), onPagesReleased);
         addPage(buffer, createPage(1), onPagesReleased);
-        assertEquals(releasedPages.get(), 0);
+        assertThat(releasedPages.get()).isEqualTo(0);
         assertBufferInfo(buffer, 2, 0);
 
         // read one page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, 0, sizeOfPages(0), NO_WAIT), bufferResult(0, createPage(0)));
-        assertEquals(releasedPages.get(), 0);
+        assertThat(releasedPages.get()).isEqualTo(0);
         assertBufferInfo(buffer, 2, 0);
 
         // acknowledge first page
         assertBufferResultEquals(TYPES, getBufferResult(buffer, 1, sizeOfPages(1), NO_WAIT), bufferResult(1, createPage(1)));
-        assertEquals(releasedPages.get(), 1);
+        assertThat(releasedPages.get()).isEqualTo(1);
         assertBufferInfo(buffer, 1, 1);
 
         // destroy the buffer
         buffer.destroy();
-        assertEquals(releasedPages.get(), 2);
+        assertThat(releasedPages.get()).isEqualTo(2);
         assertBufferDestroyed(buffer, 1);
     }
 
@@ -369,10 +367,10 @@ public class TestClientBuffer
                 addPage(buffer, createPage(0));
             }
             fail("Expected AssertionError to be thrown, are assertions enabled in your testing environment?");
-            assertTrue(getFuture(pendingRead, NO_WAIT).isEmpty(), "Code should not reach here");
+            assertThat(getFuture(pendingRead, NO_WAIT).isEmpty()).withFailMessage("Code should not reach here").isTrue();
         }
         catch (AssertionError ae) {
-            assertEquals(ae.getMessage(), "Cannot process pending read while holding a lock on this");
+            assertThat(ae.getMessage()).isEqualTo("Cannot process pending read while holding a lock on this");
         }
         finally {
             buffer.destroy();
@@ -391,10 +389,10 @@ public class TestClientBuffer
                 result = buffer.getPages(0, sizeOfPages(1), Optional.of(supplier));
             }
             fail("Expected AssertionError to be thrown, are assertions enabled in your testing environment?");
-            assertTrue(getFuture(result, NO_WAIT).isEmpty(), "Code should not reach here");
+            assertThat(getFuture(result, NO_WAIT).isEmpty()).withFailMessage("Code should not reach here").isTrue();
         }
         catch (AssertionError ae) {
-            assertEquals(ae.getMessage(), "Cannot load pages while holding a lock on this");
+            assertThat(ae.getMessage()).isEqualTo("Cannot load pages while holding a lock on this");
         }
         finally {
             buffer.destroy();
@@ -437,18 +435,16 @@ public class TestClientBuffer
             int bufferedPages,
             int pagesSent)
     {
-        assertEquals(
-                buffer.getInfo(),
-                new PipelinedBufferInfo(
-                        BUFFER_ID,
-                        // every page has one row,
-                        bufferedPages + pagesSent,
-                        bufferedPages + pagesSent,
-                        bufferedPages,
-                        sizeOfPages(bufferedPages).toBytes(),
-                        pagesSent,
-                        false));
-        assertFalse(buffer.isDestroyed());
+        assertThat(buffer.getInfo()).isEqualTo(new PipelinedBufferInfo(
+                BUFFER_ID,
+                // every page has one row,
+                bufferedPages + pagesSent,
+                bufferedPages + pagesSent,
+                bufferedPages,
+                sizeOfPages(bufferedPages).toBytes(),
+                pagesSent,
+                false));
+        assertThat(buffer.isDestroyed()).isFalse();
     }
 
     private static BufferResult bufferResult(long token, Page firstPage, Page... otherPages)
@@ -461,10 +457,10 @@ public class TestClientBuffer
     private static void assertBufferDestroyed(ClientBuffer buffer, int pagesSent)
     {
         PipelinedBufferInfo bufferInfo = buffer.getInfo();
-        assertEquals(bufferInfo.getBufferedPages(), 0);
-        assertEquals(bufferInfo.getPagesSent(), pagesSent);
-        assertTrue(bufferInfo.isFinished());
-        assertTrue(buffer.isDestroyed());
+        assertThat(bufferInfo.getBufferedPages()).isEqualTo(0);
+        assertThat(bufferInfo.getPagesSent()).isEqualTo(pagesSent);
+        assertThat(bufferInfo.isFinished()).isTrue();
+        assertThat(buffer.isDestroyed()).isTrue();
     }
 
     @ThreadSafe

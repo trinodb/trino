@@ -25,8 +25,8 @@ import java.util.Optional;
 
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 public class TestTaskStats
 {
@@ -101,56 +101,56 @@ public class TestTaskStats
 
     public static void assertExpectedTaskStats(TaskStats actual)
     {
-        assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
-        assertEquals(actual.getFirstStartTime(), new DateTime(2, UTC));
-        assertEquals(actual.getLastStartTime(), new DateTime(100, UTC));
-        assertEquals(actual.getTerminatingStartTime(), new DateTime(102, UTC));
-        assertEquals(actual.getLastEndTime(), new DateTime(101, UTC));
-        assertEquals(actual.getEndTime(), new DateTime(3, UTC));
-        assertEquals(actual.getElapsedTime(), new Duration(4, NANOSECONDS));
-        assertEquals(actual.getQueuedTime(), new Duration(5, NANOSECONDS));
+        assertThat(actual.getCreateTime()).isEqualTo(new DateTime(1, UTC));
+        assertThat(actual.getFirstStartTime()).isEqualTo(new DateTime(2, UTC));
+        assertThat(actual.getLastStartTime()).isEqualTo(new DateTime(100, UTC));
+        assertThat(actual.getTerminatingStartTime()).isEqualTo(new DateTime(102, UTC));
+        assertThat(actual.getLastEndTime()).isEqualTo(new DateTime(101, UTC));
+        assertThat(actual.getEndTime()).isEqualTo(new DateTime(3, UTC));
+        assertThat(actual.getElapsedTime()).isEqualTo(new Duration(4, NANOSECONDS));
+        assertThat(actual.getQueuedTime()).isEqualTo(new Duration(5, NANOSECONDS));
 
-        assertEquals(actual.getTotalDrivers(), 6);
-        assertEquals(actual.getQueuedDrivers(), 7);
-        assertEquals(actual.getQueuedPartitionedDrivers(), 5);
-        assertEquals(actual.getQueuedPartitionedSplitsWeight(), 28L);
-        assertEquals(actual.getRunningDrivers(), 8);
-        assertEquals(actual.getRunningPartitionedDrivers(), 6);
-        assertEquals(actual.getRunningPartitionedSplitsWeight(), 29L);
-        assertEquals(actual.getBlockedDrivers(), 24);
-        assertEquals(actual.getCompletedDrivers(), 10);
+        assertThat(actual.getTotalDrivers()).isEqualTo(6);
+        assertThat(actual.getQueuedDrivers()).isEqualTo(7);
+        assertThat(actual.getQueuedPartitionedDrivers()).isEqualTo(5);
+        assertThat(actual.getQueuedPartitionedSplitsWeight()).isEqualTo(28L);
+        assertThat(actual.getRunningDrivers()).isEqualTo(8);
+        assertThat(actual.getRunningPartitionedDrivers()).isEqualTo(6);
+        assertThat(actual.getRunningPartitionedSplitsWeight()).isEqualTo(29L);
+        assertThat(actual.getBlockedDrivers()).isEqualTo(24);
+        assertThat(actual.getCompletedDrivers()).isEqualTo(10);
 
-        assertEquals(actual.getCumulativeUserMemory(), 11.0);
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(12));
-        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(120));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(13));
+        assertThat(actual.getCumulativeUserMemory()).isEqualTo(11.0);
+        assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(12));
+        assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(120));
+        assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(13));
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(15, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(16, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(18, NANOSECONDS));
+        assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(15, NANOSECONDS));
+        assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(16, NANOSECONDS));
+        assertThat(actual.getTotalBlockedTime()).isEqualTo(new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(191));
-        assertEquals(actual.getPhysicalInputPositions(), 201);
-        assertEquals(actual.getPhysicalInputReadTime(), new Duration(15, NANOSECONDS));
-        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(192));
-        assertEquals(actual.getInternalNetworkInputPositions(), 202);
+        assertThat(actual.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(191));
+        assertThat(actual.getPhysicalInputPositions()).isEqualTo(201);
+        assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(15, NANOSECONDS));
+        assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(192));
+        assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(202);
 
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(19));
-        assertEquals(actual.getRawInputPositions(), 20);
+        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(19));
+        assertThat(actual.getRawInputPositions()).isEqualTo(20);
 
-        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(21));
-        assertEquals(actual.getProcessedInputPositions(), 22);
+        assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(21));
+        assertThat(actual.getProcessedInputPositions()).isEqualTo(22);
 
-        assertEquals(actual.getInputBlockedTime(), new Duration(271, NANOSECONDS));
+        assertThat(actual.getInputBlockedTime()).isEqualTo(new Duration(271, NANOSECONDS));
 
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(23));
-        assertEquals(actual.getOutputPositions(), 24);
+        assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(23));
+        assertThat(actual.getOutputPositions()).isEqualTo(24);
 
-        assertEquals(actual.getOutputBlockedTime(), new Duration(272, NANOSECONDS));
+        assertThat(actual.getOutputBlockedTime()).isEqualTo(new Duration(272, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(25));
+        assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(25));
 
-        assertEquals(actual.getPipelines().size(), 1);
+        assertThat(actual.getPipelines()).hasSize(1);
         assertExpectedPipelineStats(actual.getPipelines().get(0));
     }
 }

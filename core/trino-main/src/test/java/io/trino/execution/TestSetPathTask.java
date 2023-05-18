@@ -42,8 +42,8 @@ import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSetPathTask
 {
@@ -83,7 +83,7 @@ public class TestSetPathTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH foo");
         executeSetPathTask(pathSpecification, stateMachine);
 
-        assertEquals(stateMachine.getSetPath(), "foo");
+        assertThat(stateMachine.getSetPath()).isEqualTo("foo");
     }
 
     @Test

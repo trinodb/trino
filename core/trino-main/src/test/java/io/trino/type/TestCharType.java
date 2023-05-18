@@ -30,8 +30,7 @@ import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.isSupplementaryCodePoint;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCharType
         extends AbstractTestType
@@ -80,11 +79,11 @@ public class TestCharType
             int codePointLengthInUtf16 = isSupplementaryCodePoint(codePoint) ? 2 : 1;
 
             String objectValue = (String) charType.getObjectValue(SESSION, block, 0);
-            assertNotNull(objectValue);
-            assertEquals(objectValue.codePointAt(0), codePoint, "first code point");
-            assertEquals(objectValue.length(), codePointLengthInUtf16 + 2, "size");
+            assertThat(objectValue).isNotNull();
+            assertThat(objectValue.codePointAt(0)).withFailMessage("first code point").isEqualTo(codePoint);
+            assertThat(objectValue.length()).withFailMessage("size").isEqualTo(codePointLengthInUtf16 + 2);
             for (int i = codePointLengthInUtf16; i < objectValue.length(); i++) {
-                assertEquals(objectValue.codePointAt(i), ' ');
+                assertThat(objectValue.codePointAt(i)).isEqualTo(' ');
             }
         }
     }
@@ -93,7 +92,7 @@ public class TestCharType
     public void testRange()
     {
         Type.Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), Slices.utf8Slice(Character.toString(MIN_CODE_POINT).repeat(((CharType) type).getLength())));
-        assertEquals(range.getMax(), Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((CharType) type).getLength())));
+        assertThat(range.getMin()).isEqualTo(Slices.utf8Slice(Character.toString(MIN_CODE_POINT).repeat(((CharType) type).getLength())));
+        assertThat(range.getMax()).isEqualTo(Slices.utf8Slice(Character.toString(MAX_CODE_POINT).repeat(((CharType) type).getLength())));
     }
 }

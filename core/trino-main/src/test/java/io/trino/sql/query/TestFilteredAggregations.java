@@ -26,7 +26,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
 
 public class TestFilteredAggregations
         extends BasePlanTest
@@ -152,10 +151,8 @@ public class TestFilteredAggregations
 
     private void assertPlanContainsNoFilter(String sql)
     {
-        assertFalse(
-                searchFrom(plan(sql, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(sql, OPTIMIZED).getRoot())
                         .whereIsInstanceOfAny(FilterNode.class)
-                        .matches(),
-                "Unexpected node for query: " + sql);
+                        .matches()).withFailMessage("Unexpected node for query: " + sql).isFalse();
     }
 }

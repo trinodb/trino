@@ -31,7 +31,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypedKeyValueHeap
 {
@@ -103,9 +103,9 @@ public class TestTypedKeyValueHeap
         heap.popAll(resultBlockBuilder);
 
         Block resultBlock = resultBlockBuilder.build();
-        assertEquals(resultBlock.getPositionCount(), OUTPUT_SIZE);
+        assertThat(resultBlock.getPositionCount()).isEqualTo(OUTPUT_SIZE);
         for (int i = 0; i < OUTPUT_SIZE; i++) {
-            assertEquals(VARCHAR.getSlice(resultBlock, i).toStringUtf8(), outputIterator.next());
+            assertThat(VARCHAR.getSlice(resultBlock, i).toStringUtf8()).isEqualTo(outputIterator.next());
         }
     }
 }

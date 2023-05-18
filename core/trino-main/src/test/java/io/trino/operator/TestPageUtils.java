@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.operator.PageUtils.recordMaterializedBytes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageUtils
 {
@@ -40,10 +40,10 @@ public class TestPageUtils
         AtomicLong sizeInBytes = new AtomicLong();
         recordMaterializedBytes(page, sizeInBytes::getAndAdd);
 
-        assertEquals(sizeInBytes.get(), first.getSizeInBytes() * 2);
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 2);
 
         page.getBlock(2).getLoadedBlock();
-        assertEquals(sizeInBytes.get(), first.getSizeInBytes() * 3);
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 3);
     }
 
     @Test
@@ -56,11 +56,11 @@ public class TestPageUtils
         AtomicLong sizeInBytes = new AtomicLong();
         recordMaterializedBytes(page, sizeInBytes::getAndAdd);
 
-        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes());
+        assertThat(sizeInBytes.get()).isEqualTo(dictBlock.getSizeInBytes());
 
         // dictionary block caches size in bytes
         dictBlock.getLoadedBlock();
-        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes() + elements.getSizeInBytes());
+        assertThat(sizeInBytes.get()).isEqualTo(dictBlock.getSizeInBytes() + elements.getSizeInBytes());
     }
 
     private static LazyBlock lazyWrapper(Block block)

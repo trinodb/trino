@@ -35,8 +35,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestJsonExtract
@@ -44,22 +42,22 @@ public class TestJsonExtract
     @Test
     public void testJsonTokenizer()
     {
-        assertEquals(tokenizePath("$"), ImmutableList.of());
-        assertEquals(tokenizePath("$"), ImmutableList.of());
-        assertEquals(tokenizePath("$.foo"), ImmutableList.of("foo"));
-        assertEquals(tokenizePath("$[\"foo\"]"), ImmutableList.of("foo"));
-        assertEquals(tokenizePath("$[\"foo.bar\"]"), ImmutableList.of("foo.bar"));
-        assertEquals(tokenizePath("$[42]"), ImmutableList.of("42"));
-        assertEquals(tokenizePath("$.42"), ImmutableList.of("42"));
-        assertEquals(tokenizePath("$.42.63"), ImmutableList.of("42", "63"));
-        assertEquals(tokenizePath("$.foo.42.bar.63"), ImmutableList.of("foo", "42", "bar", "63"));
-        assertEquals(tokenizePath("$.x.foo"), ImmutableList.of("x", "foo"));
-        assertEquals(tokenizePath("$.x[\"foo\"]"), ImmutableList.of("x", "foo"));
-        assertEquals(tokenizePath("$.x[42]"), ImmutableList.of("x", "42"));
-        assertEquals(tokenizePath("$.foo_42._bar63"), ImmutableList.of("foo_42", "_bar63"));
-        assertEquals(tokenizePath("$[foo_42][_bar63]"), ImmutableList.of("foo_42", "_bar63"));
-        assertEquals(tokenizePath("$.foo:42.:bar63"), ImmutableList.of("foo:42", ":bar63"));
-        assertEquals(tokenizePath("$[\"foo:42\"][\":bar63\"]"), ImmutableList.of("foo:42", ":bar63"));
+        assertThat(tokenizePath("$")).isEmpty();
+        assertThat(tokenizePath("$")).isEmpty();
+        assertThat(tokenizePath("$.foo")).containsExactly("foo");
+        assertThat(tokenizePath("$[\"foo\"]")).containsExactly("foo");
+        assertThat(tokenizePath("$[\"foo.bar\"]")).containsExactly("foo.bar");
+        assertThat(tokenizePath("$[42]")).containsExactly("42");
+        assertThat(tokenizePath("$.42")).containsExactly("42");
+        assertThat(tokenizePath("$.42.63")).containsExactly("42", "63");
+        assertThat(tokenizePath("$.foo.42.bar.63")).containsExactly("foo", "42", "bar", "63");
+        assertThat(tokenizePath("$.x.foo")).containsExactly("x", "foo");
+        assertThat(tokenizePath("$.x[\"foo\"]")).containsExactly("x", "foo");
+        assertThat(tokenizePath("$.x[42]")).containsExactly("x", "42");
+        assertThat(tokenizePath("$.foo_42._bar63")).containsExactly("foo_42", "_bar63");
+        assertThat(tokenizePath("$[foo_42][_bar63]")).containsExactly("foo_42", "_bar63");
+        assertThat(tokenizePath("$.foo:42.:bar63")).containsExactly("foo:42", ":bar63");
+        assertThat(tokenizePath("$[\"foo:42\"][\":bar63\"]")).containsExactly("foo:42", ":bar63");
 
         assertPathToken("foo");
 
@@ -97,9 +95,9 @@ public class TestJsonExtract
 
     private static void assertPathToken(String fieldName)
     {
-        assertTrue(fieldName.indexOf('"') < 0);
-        assertEquals(tokenizePath("$." + fieldName), ImmutableList.of(fieldName));
-        assertEquals(tokenizePath("$.foo." + fieldName + ".bar"), ImmutableList.of("foo", fieldName, "bar"));
+        assertThat(fieldName.indexOf('"')).isNegative();
+        assertThat(tokenizePath("$." + fieldName)).containsExactly(fieldName);
+        assertThat(tokenizePath("$.foo." + fieldName + ".bar")).containsExactly("foo", fieldName, "bar");
         assertPathTokenQuoting(fieldName);
     }
 
@@ -122,8 +120,8 @@ public class TestJsonExtract
 
     private static void assertPathTokenQuoting(String fieldName, String expectedTokenizedField)
     {
-        assertEquals(tokenizePath("$[\"" + fieldName + "\"]"), ImmutableList.of(expectedTokenizedField));
-        assertEquals(tokenizePath("$.foo[\"" + fieldName + "\"].bar"), ImmutableList.of("foo", expectedTokenizedField, "bar"));
+        assertThat(tokenizePath("$[\"" + fieldName + "\"]")).containsExactly(expectedTokenizedField);
+        assertThat(tokenizePath("$.foo[\"" + fieldName + "\"].bar")).containsExactly("foo", expectedTokenizedField, "bar");
     }
 
     public static void assertInvalidPath(String path)
@@ -139,20 +137,20 @@ public class TestJsonExtract
         ScalarValueJsonExtractor extractor = new ScalarValueJsonExtractor();
 
         // Check scalar values
-        assertEquals(doExtract(extractor, "123"), "123");
-        assertEquals(doExtract(extractor, "-1"), "-1");
-        assertEquals(doExtract(extractor, "0.01"), "0.01");
-        assertEquals(doExtract(extractor, "\"abc\""), "abc");
-        assertEquals(doExtract(extractor, "\"\""), "");
-        assertEquals(doExtract(extractor, "null"), null);
+        assertThat(doExtract(extractor, "123")).isEqualTo("123");
+        assertThat(doExtract(extractor, "-1")).isEqualTo("-1");
+        assertThat(doExtract(extractor, "0.01")).isEqualTo("0.01");
+        assertThat(doExtract(extractor, "\"abc\"")).isEqualTo("abc");
+        assertThat(doExtract(extractor, "\"\"")).isEmpty();
+        assertThat(doExtract(extractor, "null")).isEqualTo(null);
 
         // Test character escaped values
-        assertEquals(doExtract(extractor, "\"ab\\u0001c\""), "ab\001c");
-        assertEquals(doExtract(extractor, "\"ab\\u0002c\""), "ab\002c");
+        assertThat(doExtract(extractor, "\"ab\\u0001c\"")).isEqualTo("ab\001c");
+        assertThat(doExtract(extractor, "\"ab\\u0002c\"")).isEqualTo("ab\002c");
 
         // Complex types should return null
-        assertEquals(doExtract(extractor, "[1, 2, 3]"), null);
-        assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
+        assertThat(doExtract(extractor, "[1, 2, 3]")).isEqualTo(null);
+        assertThat(doExtract(extractor, "{\"a\": 1}")).isEqualTo(null);
     }
 
     @Test
@@ -162,20 +160,20 @@ public class TestJsonExtract
         JsonValueJsonExtractor extractor = new JsonValueJsonExtractor();
 
         // Check scalar values
-        assertEquals(doExtract(extractor, "123"), "123");
-        assertEquals(doExtract(extractor, "-1"), "-1");
-        assertEquals(doExtract(extractor, "0.01"), "0.01");
-        assertEquals(doExtract(extractor, "\"abc\""), "\"abc\"");
-        assertEquals(doExtract(extractor, "\"\""), "\"\"");
-        assertEquals(doExtract(extractor, "null"), "null");
+        assertThat(doExtract(extractor, "123")).isEqualTo("123");
+        assertThat(doExtract(extractor, "-1")).isEqualTo("-1");
+        assertThat(doExtract(extractor, "0.01")).isEqualTo("0.01");
+        assertThat(doExtract(extractor, "\"abc\"")).isEqualTo("\"abc\"");
+        assertThat(doExtract(extractor, "\"\"")).isEqualTo("\"\"");
+        assertThat(doExtract(extractor, "null")).isEqualTo("null");
 
         // Test character escaped values
-        assertEquals(doExtract(extractor, "\"ab\\u0001c\""), "\"ab\\u0001c\"");
-        assertEquals(doExtract(extractor, "\"ab\\u0002c\""), "\"ab\\u0002c\"");
+        assertThat(doExtract(extractor, "\"ab\\u0001c\"")).isEqualTo("\"ab\\u0001c\"");
+        assertThat(doExtract(extractor, "\"ab\\u0002c\"")).isEqualTo("\"ab\\u0002c\"");
 
         // Complex types should return json values
-        assertEquals(doExtract(extractor, "[1, 2, 3]"), "[1,2,3]");
-        assertEquals(doExtract(extractor, "{\"a\": 1}"), "{\"a\":1}");
+        assertThat(doExtract(extractor, "[1, 2, 3]")).isEqualTo("[1,2,3]");
+        assertThat(doExtract(extractor, "{\"a\": 1}")).isEqualTo("{\"a\":1}");
     }
 
     @Test
@@ -185,14 +183,14 @@ public class TestJsonExtract
         ObjectFieldJsonExtractor<Slice> firstExtractor = new ObjectFieldJsonExtractor<>("0", new ScalarValueJsonExtractor());
         ObjectFieldJsonExtractor<Slice> secondExtractor = new ObjectFieldJsonExtractor<>("1", new ScalarValueJsonExtractor());
 
-        assertEquals(doExtract(firstExtractor, "[]"), null);
-        assertEquals(doExtract(firstExtractor, "[1, 2, 3]"), "1");
-        assertEquals(doExtract(secondExtractor, "[1, 2]"), "2");
-        assertEquals(doExtract(secondExtractor, "[1, null]"), null);
+        assertThat(doExtract(firstExtractor, "[]")).isEqualTo(null);
+        assertThat(doExtract(firstExtractor, "[1, 2, 3]")).isEqualTo("1");
+        assertThat(doExtract(secondExtractor, "[1, 2]")).isEqualTo("2");
+        assertThat(doExtract(secondExtractor, "[1, null]")).isEqualTo(null);
         // Out of bounds
-        assertEquals(doExtract(secondExtractor, "[1]"), null);
+        assertThat(doExtract(secondExtractor, "[1]")).isEqualTo(null);
         // Check skipping complex structures
-        assertEquals(doExtract(secondExtractor, "[{\"a\": 1}, 2, 3]"), "2");
+        assertThat(doExtract(secondExtractor, "[{\"a\": 1}, 2, 3]")).isEqualTo("2");
     }
 
     @Test
@@ -201,118 +199,118 @@ public class TestJsonExtract
     {
         ObjectFieldJsonExtractor<Slice> extractor = new ObjectFieldJsonExtractor<>("fuu", new ScalarValueJsonExtractor());
 
-        assertEquals(doExtract(extractor, "{}"), null);
-        assertEquals(doExtract(extractor, "{\"a\": 1}"), null);
-        assertEquals(doExtract(extractor, "{\"fuu\": 1}"), "1");
-        assertEquals(doExtract(extractor, "{\"a\": 0, \"fuu\": 1}"), "1");
+        assertThat(doExtract(extractor, "{}")).isEqualTo(null);
+        assertThat(doExtract(extractor, "{\"a\": 1}")).isEqualTo(null);
+        assertThat(doExtract(extractor, "{\"fuu\": 1}")).isEqualTo("1");
+        assertThat(doExtract(extractor, "{\"a\": 0, \"fuu\": 1}")).isEqualTo("1");
         // Check skipping complex structures
-        assertEquals(doExtract(extractor, "{\"a\": [1, 2, 3], \"fuu\": 1}"), "1");
+        assertThat(doExtract(extractor, "{\"a\": [1, 2, 3], \"fuu\": 1}")).isEqualTo("1");
     }
 
     @Test
     public void testFullScalarExtract()
     {
-        assertEquals(doScalarExtract("{}", "$"), null);
-        assertEquals(doScalarExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), null); // Null b/c value is complex type
-        assertEquals(doScalarExtract("{\"fuu\": 1}", "$.fuu"), "1");
-        assertEquals(doScalarExtract("{\"fuu\": 1}", "$[fuu]"), "1");
-        assertEquals(doScalarExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertEquals(doScalarExtract("{\"fuu\": null}", "$.fuu"), null);
-        assertEquals(doScalarExtract("{\"fuu\": 1}", "$.bar"), null);
-        assertEquals(doScalarExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\001"); // Test escaped characters
-        assertEquals(doScalarExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar"), "abc");
-        assertEquals(doScalarExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]"), "0.1");
-        assertEquals(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]"), null); // Null b/c value is complex type
-        assertEquals(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]"), "101");
-        assertEquals(doScalarExtract("{\"fuu\": [0, {\"bar\": {\"key\" : [\"value\"]}}, 2]}", "$.fuu[1].bar.key[0]"), "value");
+        assertThat(doScalarExtract("{}", "$")).isEqualTo(null);
+        assertThat(doScalarExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu")).isEqualTo(null); // Null b/c value is complex type
+        assertThat(doScalarExtract("{\"fuu\": 1}", "$.fuu")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"fuu\": 1}", "$[fuu]")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"fuu\": 1}", "$[\"fuu\"]")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"fuu\": null}", "$.fuu")).isEqualTo(null);
+        assertThat(doScalarExtract("{\"fuu\": 1}", "$.bar")).isEqualTo(null);
+        assertThat(doScalarExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]")).isEqualTo("\001"); // Test escaped characters
+        assertThat(doScalarExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar")).isEqualTo("abc");
+        assertThat(doScalarExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]")).isEqualTo("0.1");
+        assertThat(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]")).isEqualTo(null); // Null b/c value is complex type
+        assertThat(doScalarExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]")).isEqualTo("101");
+        assertThat(doScalarExtract("{\"fuu\": [0, {\"bar\": {\"key\" : [\"value\"]}}, 2]}", "$.fuu[1].bar.key[0]")).isEqualTo("value");
 
         // Test non-object extraction
-        assertEquals(doScalarExtract("[0, 1, 2]", "$[0]"), "0");
-        assertEquals(doScalarExtract("\"abc\"", "$"), "abc");
-        assertEquals(doScalarExtract("123", "$"), "123");
-        assertEquals(doScalarExtract("null", "$"), null);
+        assertThat(doScalarExtract("[0, 1, 2]", "$[0]")).isEqualTo("0");
+        assertThat(doScalarExtract("\"abc\"", "$")).isEqualTo("abc");
+        assertThat(doScalarExtract("123", "$")).isEqualTo("123");
+        assertThat(doScalarExtract("null", "$")).isEqualTo(null);
 
         // Test numeric path expression matches arrays and objects
-        assertEquals(doScalarExtract("[0, 1, 2]", "$.1"), "1");
-        assertEquals(doScalarExtract("[0, 1, 2]", "$[1]"), "1");
-        assertEquals(doScalarExtract("[0, 1, 2]", "$[\"1\"]"), "1");
-        assertEquals(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1"), "1");
-        assertEquals(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]"), "1");
-        assertEquals(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]"), "1");
+        assertThat(doScalarExtract("[0, 1, 2]", "$.1")).isEqualTo("1");
+        assertThat(doScalarExtract("[0, 1, 2]", "$[1]")).isEqualTo("1");
+        assertThat(doScalarExtract("[0, 1, 2]", "$[\"1\"]")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]")).isEqualTo("1");
 
         // Test fields starting with a digit
-        assertEquals(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day"), "1");
-        assertEquals(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]"), "1");
-        assertEquals(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]"), "1");
+        assertThat(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]")).isEqualTo("1");
+        assertThat(doScalarExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]")).isEqualTo("1");
     }
 
     @Test
     public void testFullJsonExtract()
     {
-        assertEquals(doJsonExtract("{}", "$"), "{}");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu"), "{\"bar\":1}");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$.fuu"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[fuu]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": null}", "$.fuu"), "null");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$.bar"), null);
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]"), "0.1");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]"), "101");
+        assertThat(doJsonExtract("{}", "$")).isEqualTo("{}");
+        assertThat(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu")).isEqualTo("{\"bar\":1}");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$.fuu")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$[fuu]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": null}", "$.fuu")).isEqualTo("null");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$.bar")).isEqualTo(null);
+        assertThat(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$.bar")).isEqualTo("\"abc\"");
+        assertThat(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$.fuu[0]")).isEqualTo("0.1");
+        assertThat(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1]")).isEqualTo("[100,101]");
+        assertThat(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$.fuu[1][1]")).isEqualTo("101");
 
         // Test non-object extraction
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[0]"), "0");
-        assertEquals(doJsonExtract("\"abc\"", "$"), "\"abc\"");
-        assertEquals(doJsonExtract("123", "$"), "123");
-        assertEquals(doJsonExtract("null", "$"), "null");
+        assertThat(doJsonExtract("[0, 1, 2]", "$[0]")).isEqualTo("0");
+        assertThat(doJsonExtract("\"abc\"", "$")).isEqualTo("\"abc\"");
+        assertThat(doJsonExtract("123", "$")).isEqualTo("123");
+        assertThat(doJsonExtract("null", "$")).isEqualTo("null");
 
         // Test extraction using bracket json path
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"]"), "{\"bar\":1}");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": null}", "$[\"fuu\"]"), "null");
-        assertEquals(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]"), null);
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]"), "0.1");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1][1]"), "101");
+        assertThat(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"]")).isEqualTo("{\"bar\":1}");
+        assertThat(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"][\"bar\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$[\"fuu\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": null}", "$[\"fuu\"]")).isEqualTo("null");
+        assertThat(doJsonExtract("{\"fuu\": 1}", "$[\"bar\"]")).isEqualTo(null);
+        assertThat(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\"fuu\": 1, \"bar\": \"abc\"}", "$[\"bar\"]")).isEqualTo("\"abc\"");
+        assertThat(doJsonExtract("{\"fuu\": [0.1, 1, 2]}", "$[\"fuu\"][0]")).isEqualTo("0.1");
+        assertThat(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1]")).isEqualTo("[100,101]");
+        assertThat(doJsonExtract("{\"fuu\": [0, [100, 101], 2]}", "$[\"fuu\"][1][1]")).isEqualTo("101");
 
         // Test extraction using bracket json path with special json characters in path
-        assertEquals(doJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]"), "{\".b.ar\":1}");
-        assertEquals(doJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]"), "1");
-        assertEquals(doJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]"), "null");
-        assertEquals(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]"), null);
-        assertEquals(doJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]"), "\"abc\"");
-        assertEquals(doJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]"), "0.1");
-        assertEquals(doJsonExtract("{\"f?uu\": [0, [100, 101], 2]}", "$[\"f?uu\"][1]"), "[100,101]");
-        assertEquals(doJsonExtract("{\"fuu()\": [0, [100, 101], 2]}", "$[\"fuu()\"][1][1]"), "101");
+        assertThat(doJsonExtract("{\"@$fuu\": {\".b.ar\": 1}}", "$[\"@$fuu\"]")).isEqualTo("{\".b.ar\":1}");
+        assertThat(doJsonExtract("{\"fuu..\": 1}", "$[\"fuu..\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fu*u\": null}", "$[\"fu*u\"]")).isEqualTo("null");
+        assertThat(doJsonExtract("{\",fuu\": 1}", "$[\"bar\"]")).isEqualTo(null);
+        assertThat(doJsonExtract("{\",fuu\": [\"\\u0001\"]}", "$[\",fuu\"][0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\":fu:u:\": 1, \":b:ar:\": \"abc\"}", "$[\":b:ar:\"]")).isEqualTo("\"abc\"");
+        assertThat(doJsonExtract("{\"?()fuu\": [0.1, 1, 2]}", "$[\"?()fuu\"][0]")).isEqualTo("0.1");
+        assertThat(doJsonExtract("{\"f?uu\": [0, [100, 101], 2]}", "$[\"f?uu\"][1]")).isEqualTo("[100,101]");
+        assertThat(doJsonExtract("{\"fuu()\": [0, [100, 101], 2]}", "$[\"fuu()\"][1][1]")).isEqualTo("101");
 
         // Test extraction using mix of bracket and dot notation json path
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"].bar"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu[\"bar\"]"), "1");
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]"), "\"\\u0001\""); // Test escaped characters
-        assertEquals(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]"), "\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$[\"fuu\"].bar")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": {\"bar\": 1}}", "$.fuu[\"bar\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$[\"fuu\"][0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\"fuu\": [\"\\u0001\"]}", "$.fuu[0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
 
         // Test extraction using  mix of bracket and dot notation json path with special json characters in path
-        assertEquals(doJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar"), "1");
-        assertEquals(doJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]"), "\"\\u0001\""); // Test escaped characters
+        assertThat(doJsonExtract("{\"@$fuu\": {\"bar\": 1}}", "$[\"@$fuu\"].bar")).isEqualTo("1");
+        assertThat(doJsonExtract("{\",fuu\": {\"bar\": [\"\\u0001\"]}}", "$[\",fuu\"].bar[0]")).isEqualTo("\"\\u0001\""); // Test escaped characters
 
         // Test numeric path expression matches arrays and objects
-        assertEquals(doJsonExtract("[0, 1, 2]", "$.1"), "1");
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[1]"), "1");
-        assertEquals(doJsonExtract("[0, 1, 2]", "$[\"1\"]"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]"), "1");
-        assertEquals(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]"), "1");
+        assertThat(doJsonExtract("[0, 1, 2]", "$.1")).isEqualTo("1");
+        assertThat(doJsonExtract("[0, 1, 2]", "$[1]")).isEqualTo("1");
+        assertThat(doJsonExtract("[0, 1, 2]", "$[\"1\"]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$.1")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[1]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"0\" : 0, \"1\" : 1, \"2\" : 2, }", "$[\"1\"]")).isEqualTo("1");
 
         // Test fields starting with a digit
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day"), "1");
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]"), "1");
-        assertEquals(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]"), "1");
+        assertThat(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$.30day")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[30day]")).isEqualTo("1");
+        assertThat(doJsonExtract("{\"15day\" : 0, \"30day\" : 1, \"90day\" : 2, }", "$[\"30day\"]")).isEqualTo("1");
     }
 
     @Test

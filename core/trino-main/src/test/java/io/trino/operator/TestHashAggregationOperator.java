@@ -96,9 +96,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestHashAggregationOperator
@@ -216,7 +213,7 @@ public class TestHashAggregationOperator
         assertGreaterThan(pages.size(), 1, "Expected more than one output page");
         assertPagesEqualIgnoreOrder(driverContext, pages, expected, hashEnabled, Optional.of(hashChannels.size()));
 
-        assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
+        assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0)).withFailMessage(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount())).isTrue();
     }
 
     @Test(dataProvider = "hashEnabledAndMemoryLimitForMergeValues")
@@ -308,8 +305,8 @@ public class TestHashAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), spillEnabled && revokeMemoryWhenAddingPages ? 4_781_448 : 0);
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes(), 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(spillEnabled && revokeMemoryWhenAddingPages ? 4_781_448 : 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes()).isEqualTo(0);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
@@ -421,13 +418,13 @@ public class TestHashAggregationOperator
         int count = 0;
         for (Page page : result.getOutput()) {
             // value + hash + aggregation result
-            assertEquals(page.getChannelCount(), 3);
+            assertThat(page.getChannelCount()).isEqualTo(3);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                assertThat(page.getBlock(2).getLong(i, 0)).isEqualTo(1);
                 count++;
             }
         }
-        assertEquals(count, 6_000 * 600);
+        assertThat(count).isEqualTo(6_000 * 600);
     }
 
     @Test(dataProvider = "hashEnabled", expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 3MB.*")
@@ -500,7 +497,7 @@ public class TestHashAggregationOperator
                 blockTypeOperators,
                 Optional.empty());
 
-        assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
+        assertThat(toPages(operatorFactory, createDriverContext(), input)).hasSize(2);
     }
 
     @Test(dataProvider = "hashEnabled")
@@ -549,7 +546,7 @@ public class TestHashAggregationOperator
                 operator.addInput(inputIterator.next());
             }
 
-            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
+            assertThat(driverContext.getMemoryUsage()).isPositive();
 
             // Drain the output (partial flush)
             List<Page> outputPages = new ArrayList<>();
@@ -562,10 +559,10 @@ public class TestHashAggregationOperator
             }
 
             // There should be some pages that were drained
-            assertTrue(!outputPages.isEmpty());
+            assertThat(outputPages).isNotEmpty();
 
             // The operator need input again since this was a partial flush
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
 
             // Now, drive the operator to completion
             outputPages.addAll(toPages(operator, inputIterator));
@@ -577,12 +574,12 @@ public class TestHashAggregationOperator
             }
             actual = toMaterializedResult(operator.getOperatorContext().getSession(), expected.getTypes(), outputPages);
 
-            assertEquals(actual.getTypes(), expected.getTypes());
+            assertThat(actual.getTypes()).containsExactlyElementsOf(expected.getTypes());
             assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
         }
 
-        assertEquals(driverContext.getMemoryUsage(), 0);
-        assertEquals(driverContext.getRevocableMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+        assertThat(driverContext.getRevocableMemoryUsage()).isEqualTo(0);
     }
 
     @Test
@@ -707,16 +704,16 @@ public class TestHashAggregationOperator
         DriverContext driverContext = createDriverContext(1024);
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
             operator.addInput(input);
 
-            assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
+            assertThat(driverContext.getMemoryUsage()).isPositive();
 
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getMemoryUsage(), 0);
-        assertEquals(driverContext.getRevocableMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
+        assertThat(driverContext.getRevocableMemoryUsage()).isEqualTo(0);
     }
 
     @Test
@@ -744,7 +741,7 @@ public class TestHashAggregationOperator
                 Optional.of(partialAggregationController));
 
         // at the start partial aggregation is enabled
-        assertFalse(partialAggregationController.isPartialAggregationDisabled());
+        assertThat(partialAggregationController.isPartialAggregationDisabled()).isFalse();
         // First operator will trigger adaptive partial aggregation after the first page
         List<Page> operator1Input = rowPagesBuilder(false, hashChannels, BIGINT)
                 .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8, 8)) // first page will be hashed but the values are almost unique, so it will trigger adaptation
@@ -757,7 +754,7 @@ public class TestHashAggregationOperator
         assertOperatorEquals(operatorFactory, operator1Input, operator1Expected);
 
         // the first operator flush disables partial aggregation
-        assertTrue(partialAggregationController.isPartialAggregationDisabled());
+        assertThat(partialAggregationController.isPartialAggregationDisabled()).isTrue();
         // second operator using the same factory, reuses PartialAggregationControl, so it will only produce raw pages (partial aggregation is disabled at this point)
         List<Page> operator2Input = rowPagesBuilder(false, hashChannels, BIGINT)
                 .addBlocksPage(createRepeatedValuesBlock(1, 10))
@@ -779,10 +776,10 @@ public class TestHashAggregationOperator
                     .build();
             assertOperatorEquals(operatorFactory, operatorInput, operatorExpected);
             if (i <= 2) {
-                assertTrue(partialAggregationController.isPartialAggregationDisabled());
+                assertThat(partialAggregationController.isPartialAggregationDisabled()).isTrue();
             }
             else {
-                assertFalse(partialAggregationController.isPartialAggregationDisabled());
+                assertThat(partialAggregationController.isPartialAggregationDisabled()).isFalse();
             }
         }
 
@@ -799,7 +796,7 @@ public class TestHashAggregationOperator
                 .addBlocksPage(createRepeatedValuesBlock(2, 1), createRepeatedValuesBlock(2, 1))
                 .build();
         assertOperatorEquals(operatorFactory, operator3Input, operator3Expected);
-        assertFalse(partialAggregationController.isPartialAggregationDisabled());
+        assertThat(partialAggregationController.isPartialAggregationDisabled()).isFalse();
     }
 
     @Test
@@ -837,7 +834,7 @@ public class TestHashAggregationOperator
         assertOperatorEquals(driverContext, operatorFactory, operator1Input, operator1Expected);
 
         // the first operator flush disables partial aggregation
-        assertTrue(partialAggregationController.isPartialAggregationDisabled());
+        assertThat(partialAggregationController.isPartialAggregationDisabled()).isTrue();
         assertInputRowsWithPartialAggregationDisabled(driverContext, 0);
 
         // second operator using the same factory, reuses PartialAggregationControl, so it will only produce raw pages (partial aggregation is disabled at this point)
@@ -859,10 +856,10 @@ public class TestHashAggregationOperator
     {
         LongCount metric = ((LongCount) context.getDriverStats().getOperatorStats().get(0).getMetrics().getMetrics().get(INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME));
         if (metric == null) {
-            assertEquals(0, expectedRowCount);
+            assertThat(0).isEqualTo(expectedRowCount);
         }
         else {
-            assertEquals(metric.getTotal(), expectedRowCount);
+            assertThat(metric.getTotal()).isEqualTo(expectedRowCount);
         }
     }
 
@@ -895,12 +892,12 @@ public class TestHashAggregationOperator
 
     private int getHashCapacity(Operator operator)
     {
-        assertTrue(operator instanceof HashAggregationOperator);
+        assertThat(operator).isInstanceOf(HashAggregationOperator.class);
         HashAggregationBuilder aggregationBuilder = ((HashAggregationOperator) operator).getAggregationBuilder();
         if (aggregationBuilder == null) {
             return 0;
         }
-        assertTrue(aggregationBuilder instanceof InMemoryHashAggregationBuilder);
+        assertThat(aggregationBuilder).isInstanceOf(InMemoryHashAggregationBuilder.class);
         return ((InMemoryHashAggregationBuilder) aggregationBuilder).getCapacity();
     }
 

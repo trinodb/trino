@@ -29,8 +29,7 @@ public class TestSession
                 .setCatalogSessionProperty("some_catalog", "first_property", "some_value")
                 .build();
 
-        assertThat(session.getCatalogProperties())
-                .isEqualTo(Map.of("some_catalog", Map.of("first_property", "some_value")));
+        assertThat(session.getCatalogProperties()).containsExactlyInAnyOrderEntriesOf(Map.of("some_catalog", Map.of("first_property", "some_value")));
     }
 
     @Test
@@ -42,8 +41,7 @@ public class TestSession
         session = Session.builder(session)
                 .build();
 
-        assertThat(session.getCatalogProperties())
-                .isEqualTo(Map.of("some_catalog", Map.of("first_property", "some_value")));
+        assertThat(session.getCatalogProperties()).containsExactlyInAnyOrderEntriesOf(Map.of("some_catalog", Map.of("first_property", "some_value")));
     }
 
     @Test
@@ -56,8 +54,7 @@ public class TestSession
                 .setCatalogSessionProperty("some_catalog", "second_property", "another_value")
                 .build();
 
-        assertThat(session.getCatalogProperties())
-                .isEqualTo(Map.of("some_catalog", Map.of(
+        assertThat(session.getCatalogProperties()).containsExactlyInAnyOrderEntriesOf(Map.of("some_catalog", Map.of(
                         "first_property", "some_value",
                         "second_property", "another_value")));
     }

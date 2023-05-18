@@ -38,10 +38,8 @@ import static io.trino.operator.WorkProcessorAssertion.assertUnblocks;
 import static io.trino.operator.WorkProcessorAssertion.assertYields;
 import static io.trino.operator.WorkProcessorAssertion.processorFrom;
 import static io.trino.operator.WorkProcessorAssertion.transformationFrom;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestWorkProcessor
 {
@@ -54,11 +52,11 @@ public class TestWorkProcessor
                 ProcessState.finished()));
 
         Iterator<Integer> iterator = processor.iterator();
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next(), (Integer) 1);
-        assertTrue(iterator.hasNext());
-        assertEquals(iterator.next(), (Integer) 2);
-        assertFalse(iterator.hasNext());
+        assertThat(iterator.hasNext()).isTrue();
+        assertThat(iterator.next()).isEqualTo((Integer) 1);
+        assertThat(iterator.hasNext()).isTrue();
+        assertThat(iterator.next()).isEqualTo((Integer) 2);
+        assertThat(iterator.hasNext()).isFalse();
     }
 
     @Test
@@ -152,8 +150,8 @@ public class TestWorkProcessor
                 ImmutableList.of(processorFrom(firstStream), processorFrom(secondStream)),
                 Comparator.comparingInt(firstInteger -> firstInteger));
 
-        assertFalse(mergedStream.isBlocked());
-        assertFalse(mergedStream.isFinished());
+        assertThat(mergedStream.isBlocked()).isFalse();
+        assertThat(mergedStream.isFinished()).isFalse();
 
         // first stream blocked
         assertBlocks(mergedStream);
@@ -188,8 +186,8 @@ public class TestWorkProcessor
                 Comparator.comparingInt(firstInteger -> firstInteger));
 
         // before
-        assertFalse(mergedStream.isBlocked());
-        assertFalse(mergedStream.isFinished());
+        assertThat(mergedStream.isBlocked()).isFalse();
+        assertThat(mergedStream.isFinished()).isFalse();
 
         assertFinishes(mergedStream);
     }
@@ -291,7 +289,7 @@ public class TestWorkProcessor
         assertUnblocks(processor, future);
         assertFinishes(processor);
 
-        assertEquals(actions.build(), ImmutableList.of(RESULT, YIELD, BLOCKED, FINISHED));
+        assertThat(actions.build()).containsExactly(RESULT, YIELD, BLOCKED, FINISHED);
     }
 
     @Test(timeOut = 10_000)
@@ -468,8 +466,8 @@ public class TestWorkProcessor
                 .transform(transformationFrom(transformationScenario));
 
         // before
-        assertFalse(processor.isBlocked());
-        assertFalse(processor.isFinished());
+        assertThat(processor.isBlocked()).isFalse();
+        assertThat(processor.isFinished()).isFalse();
 
         // base.yield
         assertYields(processor);
@@ -519,8 +517,8 @@ public class TestWorkProcessor
         WorkProcessor<Integer> processor = processorFrom(scenario);
 
         // before
-        assertFalse(processor.isBlocked());
-        assertFalse(processor.isFinished());
+        assertThat(processor.isBlocked()).isFalse();
+        assertThat(processor.isFinished()).isFalse();
 
         assertYields(processor);
         assertResult(processor, 1);

@@ -17,7 +17,7 @@ package io.trino.operator.aggregation.groupby;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class GroupByAggregationTestUtils
 {
@@ -30,7 +30,7 @@ public final class GroupByAggregationTestUtils
     {
         int positions = blocks[0].getPositionCount();
         for (int i = 1; i < blocks.length; i++) {
-            assertEquals(positions, blocks[i].getPositionCount(), "input blocks provided are not equal in position count");
+            assertThat(positions).withFailMessage("input blocks provided are not equal in position count").isEqualTo(blocks[i].getPositionCount());
         }
         if (positions == 0) {
             return new Page[] {};

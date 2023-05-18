@@ -35,7 +35,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -50,7 +49,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartialTranslator
 {
@@ -99,16 +98,16 @@ public class TestPartialTranslator
     private void assertPartialTranslation(Expression expression, List<Expression> subexpressions)
     {
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
-        assertEquals(subexpressions.size(), translation.size());
+        assertThat(subexpressions).hasSize(translation.size());
         for (Expression subexpression : subexpressions) {
-            assertEquals(translation.get(NodeRef.of(subexpression)), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
+            assertThat(translation).containsEntry(NodeRef.of(subexpression), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
         }
     }
 
     private void assertFullTranslation(Expression expression)
     {
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
-        assertEquals(getOnlyElement(translation.keySet()), NodeRef.of(expression));
-        assertEquals(getOnlyElement(translation.values()), translate(TEST_SESSION, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
+        assertThat(translation.keySet()).containsExactly(NodeRef.of(expression));
+        assertThat(translation.values()).containsExactly(translate(TEST_SESSION, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
     }
 }

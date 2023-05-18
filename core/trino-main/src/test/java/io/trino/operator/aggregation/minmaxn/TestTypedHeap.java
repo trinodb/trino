@@ -30,7 +30,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypedHeap
 {
@@ -100,9 +100,9 @@ public class TestTypedHeap
         heap.writeAll(resultBlockBuilder);
 
         Block resultBlock = resultBlockBuilder.build();
-        assertEquals(resultBlock.getPositionCount(), OUTPUT_SIZE);
+        assertThat(resultBlock.getPositionCount()).isEqualTo(OUTPUT_SIZE);
         for (int i = OUTPUT_SIZE - 1; i >= 0; i--) {
-            assertEquals(BIGINT.getLong(resultBlock, i), outputIterator.nextInt());
+            assertThat(BIGINT.getLong(resultBlock, i)).isEqualTo(outputIterator.nextInt());
         }
     }
 }

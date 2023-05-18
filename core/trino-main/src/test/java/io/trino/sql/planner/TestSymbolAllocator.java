@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSymbolAllocator
 {
@@ -34,6 +34,6 @@ public class TestSymbolAllocator
                 .add(allocator.newSymbol("foo", BigintType.BIGINT))
                 .build();
 
-        assertEquals(symbols.size(), 4);
+        assertThat(symbols).hasSize(4);
     }
 }

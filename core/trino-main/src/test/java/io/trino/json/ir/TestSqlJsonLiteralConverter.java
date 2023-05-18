@@ -38,7 +38,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
@@ -138,8 +137,7 @@ public class TestSqlJsonLiteralConverter
     public void testNoConversionToJson()
     {
         // datetime types are supported in the path engine, but they are not supported in JSON
-        assertThat(getJsonNode(new TypedValue(DATE, 1L)))
-                .isEqualTo(Optional.empty());
+        assertThat(getJsonNode(new TypedValue(DATE, 1L))).isEmpty();
     }
 
     @Test
@@ -215,29 +213,23 @@ public class TestSqlJsonLiteralConverter
     @Test
     public void testJsonToIncompatibleType()
     {
-        assertThat(getNumericTypedValue(TextNode.valueOf("abc")))
-                .isEqualTo(Optional.empty());
+        assertThat(getNumericTypedValue(TextNode.valueOf("abc"))).isEmpty();
 
-        assertThat(getTextTypedValue(NullNode.instance))
-                .isEqualTo(Optional.empty());
+        assertThat(getTextTypedValue(NullNode.instance)).isEmpty();
     }
 
     @Test
     public void testNoConversionFromJson()
     {
         // unsupported node type
-        assertThat(getTextTypedValue(BinaryNode.valueOf(new byte[] {})))
-                .isEqualTo(Optional.empty());
+        assertThat(getTextTypedValue(BinaryNode.valueOf(new byte[] {}))).isEmpty();
 
         // not a value node
-        assertThat(getTextTypedValue(MissingNode.getInstance()))
-                .isEqualTo(Optional.empty());
+        assertThat(getTextTypedValue(MissingNode.getInstance())).isEmpty();
 
-        assertThat(getTextTypedValue(new ObjectNode(JsonNodeFactory.instance)))
-                .isEqualTo(Optional.empty());
+        assertThat(getTextTypedValue(new ObjectNode(JsonNodeFactory.instance))).isEmpty();
 
-        assertThat(getTextTypedValue(new ArrayNode(JsonNodeFactory.instance)))
-                .isEqualTo(Optional.empty());
+        assertThat(getTextTypedValue(new ArrayNode(JsonNodeFactory.instance))).isEmpty();
     }
 
     private static JsonNode json(TypedValue value)

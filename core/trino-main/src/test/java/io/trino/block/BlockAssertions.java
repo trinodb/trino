@@ -77,7 +77,7 @@ import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class BlockAssertions
 {
@@ -89,7 +89,7 @@ public final class BlockAssertions
 
     public static Object getOnlyValue(Type type, Block block)
     {
-        assertEquals(block.getPositionCount(), 1, "Block positions");
+        assertThat(block.getPositionCount()).withFailMessage("Block positions").isEqualTo(1);
         return type.getObjectValue(SESSION, block, 0);
     }
 
@@ -115,9 +115,9 @@ public final class BlockAssertions
 
     public static void assertBlockEquals(Type type, Block actual, Block expected)
     {
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         for (int position = 0; position < actual.getPositionCount(); position++) {
-            assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position), "position " + position);
+            assertThat(type.getObjectValue(SESSION, actual, position)).withFailMessage("position " + position).isEqualTo(type.getObjectValue(SESSION, expected, position));
         }
     }
 

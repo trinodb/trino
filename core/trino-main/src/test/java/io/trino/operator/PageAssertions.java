@@ -19,7 +19,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class PageAssertions
 {
@@ -27,9 +27,9 @@ public final class PageAssertions
 
     public static void assertPageEquals(List<? extends Type> types, Page actualPage, Page expectedPage)
     {
-        assertEquals(types.size(), actualPage.getChannelCount());
-        assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-        assertEquals(actualPage.getPositionCount(), expectedPage.getPositionCount());
+        assertThat(types).hasSize(actualPage.getChannelCount());
+        assertThat(actualPage.getChannelCount()).isEqualTo(expectedPage.getChannelCount());
+        assertThat(actualPage.getPositionCount()).isEqualTo(expectedPage.getPositionCount());
         for (int i = 0; i < actualPage.getChannelCount(); i++) {
             assertBlockEquals(types.get(i), actualPage.getBlock(i), expectedPage.getBlock(i));
         }

@@ -48,7 +48,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static java.lang.Math.toIntExact;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
@@ -205,7 +205,7 @@ public class BenchmarkDecimalAggregation
         BenchmarkData data = new BenchmarkData();
         data.setup();
 
-        assertEquals(data.groupIds.getPositionCount(), data.getValues().getPositionCount());
+        assertThat(data.groupIds.getPositionCount()).isEqualTo(data.getValues().getPositionCount());
 
         new BenchmarkDecimalAggregation().benchmark(data);
     }

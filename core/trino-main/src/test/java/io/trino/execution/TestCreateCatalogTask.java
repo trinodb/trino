@@ -41,8 +41,8 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.util.Collections.emptyList;
-import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestCreateCatalogTask
@@ -93,10 +93,10 @@ public class TestCreateCatalogTask
         CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG));
-        assertThatExceptionOfType(TrinoException.class)
-                .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
-                .withMessage("Catalog '%s' already exists", TEST_CATALOG);
+        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThatThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Catalog '%s' already exists", TEST_CATALOG);
     }
 
     @Test
@@ -105,17 +105,16 @@ public class TestCreateCatalogTask
         CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertTrue(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG));
+        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
     }
 
     @Test
     public void failCreateCatalog()
     {
         CreateCatalogTask task = getCreateCatalogTask();
-        assertThatExceptionOfType(IllegalArgumentException.class)
-                .isThrownBy(() -> getFutureValue(task.execute(
+        assertThatThrownBy(() -> getFutureValue(task.execute(
                         new CreateCatalog(
                                 new Identifier(TEST_CATALOG),
                                 true,
@@ -126,7 +125,8 @@ public class TestCreateCatalogTask
                         queryStateMachine,
                         emptyList(),
                         WarningCollector.NOOP)))
-                .withMessageContaining("TEST create catalog fail: " + TEST_CATALOG);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("TEST create catalog fail: " + TEST_CATALOG);
     }
 
     private CreateCatalogTask getCreateCatalogTask()

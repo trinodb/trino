@@ -20,8 +20,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.union;
 import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class PlanNodeStatsAssertion
 {
@@ -45,7 +44,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion outputRowsCountUnknown()
     {
-        assertTrue(Double.isNaN(actual.getOutputRowCount()), "expected unknown outputRowsCount but got " + actual.getOutputRowCount());
+        assertThat(Double.isNaN(actual.getOutputRowCount())).withFailMessage("expected unknown outputRowsCount but got " + actual.getOutputRowCount()).isTrue();
         return this;
     }
 
@@ -78,7 +77,7 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolsWithKnownStats(Symbol... symbols)
     {
-        assertEquals(actual.getSymbolsWithKnownStatistics(), ImmutableSet.copyOf(symbols), "symbols with known stats");
+        assertThat(actual.getSymbolsWithKnownStatistics()).withFailMessage("symbols with known stats").hasSameElementsAs(ImmutableSet.copyOf(symbols));
         return this;
     }
 

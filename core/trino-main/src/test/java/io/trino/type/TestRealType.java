@@ -23,7 +23,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRealType
         extends AbstractTestType
@@ -69,8 +69,8 @@ public class TestRealType
         blockBuilder.writeInt(0x7fc00000);
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 1));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 2));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 3));
     }
 }

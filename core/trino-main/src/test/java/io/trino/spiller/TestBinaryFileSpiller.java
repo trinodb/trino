@@ -46,7 +46,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestBinaryFileSpiller
@@ -146,31 +146,31 @@ public class TestBinaryFileSpiller
         long spilledBytesBefore = spillerStats.getTotalSpilledBytes();
         long spilledBytes = 0;
 
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
         for (List<Page> spill : spills) {
             spilledBytes += spill.stream()
                     .mapToLong(page -> serializer.serialize(page).length())
                     .sum();
             spiller.spill(spill.iterator()).get();
         }
-        assertEquals(spillerStats.getTotalSpilledBytes() - spilledBytesBefore, spilledBytes);
+        assertThat(spillerStats.getTotalSpilledBytes() - spilledBytesBefore).isEqualTo(spilledBytes);
         // At this point, the buffers should still be accounted for in the memory context, because
         // the spiller (FileSingleStreamSpiller) doesn't release its memory reservation until it's closed.
-        assertEquals(memoryContext.getBytes(), spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
+        assertThat(memoryContext.getBytes()).isEqualTo(spills.length * FileSingleStreamSpiller.BUFFER_SIZE);
 
         List<Iterator<Page>> actualSpills = spiller.getSpills();
-        assertEquals(actualSpills.size(), spills.length);
+        assertThat(actualSpills).hasSameSizeAs(spills);
 
         for (int i = 0; i < actualSpills.size(); i++) {
             List<Page> actualSpill = ImmutableList.copyOf(actualSpills.get(i));
             List<Page> expectedSpill = spills[i];
 
-            assertEquals(actualSpill.size(), expectedSpill.size());
+            assertThat(actualSpill).hasSameSizeAs(expectedSpill);
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }
         }
         spiller.close();
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 }

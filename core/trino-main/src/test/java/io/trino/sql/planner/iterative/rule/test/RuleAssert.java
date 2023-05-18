@@ -58,7 +58,7 @@ import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class RuleAssert
 {
@@ -130,7 +130,7 @@ public class RuleAssert
         RuleApplication ruleApplication = applyRule();
 
         if (ruleApplication.wasRuleApplied()) {
-            fail(format(
+            fail("", format(
                     "Expected %s to not fire for:\n%s",
                     rule,
                     inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, functionManager, StatsAndCosts.empty(), session, 2, false))));
@@ -143,7 +143,7 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail(format(
+            fail("", format(
                     "%s did not fire for:\n%s",
                     rule,
                     formatPlan(plan, types)));
@@ -152,14 +152,14 @@ public class RuleAssert
         PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-            fail(format(
+            fail("", format(
                     "%s: rule fired but return the original plan:\n%s",
                     rule,
                     formatPlan(plan, types)));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-            fail(format(
+            fail("", format(
                     "%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",

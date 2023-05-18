@@ -58,10 +58,8 @@ import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestTypeCoercion
 {
@@ -74,45 +72,45 @@ public class TestTypeCoercion
     @Test
     public void testIsTypeOnlyCoercion()
     {
-        assertTrue(typeCoercion.isTypeOnlyCoercion(BIGINT, BIGINT));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createVarcharType(42), createVarcharType(44)));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createVarcharType(44), createVarcharType(42)));
+        assertThat(typeCoercion.isTypeOnlyCoercion(BIGINT, BIGINT)).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createVarcharType(42), createVarcharType(44))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createVarcharType(44), createVarcharType(42))).isFalse();
 
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createCharType(42), createVarcharType(42)));
+        assertThat(typeCoercion.isTypeOnlyCoercion(createCharType(42), createVarcharType(42))).isFalse();
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(42)), new ArrayType(createVarcharType(44))));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(44)), new ArrayType(createVarcharType(42))));
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(42)), new ArrayType(createVarcharType(44)))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createVarcharType(44)), new ArrayType(createVarcharType(42)))).isFalse();
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createDecimalType(22, 1), createDecimalType(23, 1)));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(createDecimalType(2, 1), createDecimalType(3, 1)));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(23, 1), createDecimalType(22, 1)));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(2, 1)));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(22, 1)));
+        assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(22, 1), createDecimalType(23, 1))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(2, 1), createDecimalType(3, 1))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(23, 1), createDecimalType(22, 1))).isFalse();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(2, 1))).isFalse();
+        assertThat(typeCoercion.isTypeOnlyCoercion(createDecimalType(3, 1), createDecimalType(22, 1))).isFalse();
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(22, 1)), new ArrayType(createDecimalType(23, 1))));
-        assertTrue(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(2, 1)), new ArrayType(createDecimalType(3, 1))));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1))));
-        assertFalse(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(3, 1)), new ArrayType(createDecimalType(2, 1))));
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(22, 1)), new ArrayType(createDecimalType(23, 1)))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(2, 1)), new ArrayType(createDecimalType(3, 1)))).isTrue();
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1)))).isFalse();
+        assertThat(typeCoercion.isTypeOnlyCoercion(new ArrayType(createDecimalType(3, 1)), new ArrayType(createDecimalType(2, 1)))).isFalse();
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(
+        assertThat(typeCoercion.isTypeOnlyCoercion(
                 mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(3, 1))));
+                mapType(createDecimalType(2, 1), createDecimalType(3, 1)))).isTrue();
 
-        assertFalse(typeCoercion.isTypeOnlyCoercion(
+        assertThat(typeCoercion.isTypeOnlyCoercion(
                 mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(23, 1))));
+                mapType(createDecimalType(2, 1), createDecimalType(23, 1)))).isFalse();
 
-        assertFalse(typeCoercion.isTypeOnlyCoercion(
+        assertThat(typeCoercion.isTypeOnlyCoercion(
                 mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(3, 2))));
+                mapType(createDecimalType(2, 1), createDecimalType(3, 2)))).isFalse();
 
-        assertTrue(typeCoercion.isTypeOnlyCoercion(
+        assertThat(typeCoercion.isTypeOnlyCoercion(
                 mapType(createDecimalType(2, 1), createDecimalType(2, 1)),
-                mapType(createDecimalType(3, 1), createDecimalType(3, 1))));
+                mapType(createDecimalType(3, 1), createDecimalType(3, 1)))).isTrue();
 
-        assertFalse(typeCoercion.isTypeOnlyCoercion(
+        assertThat(typeCoercion.isTypeOnlyCoercion(
                 mapType(createDecimalType(3, 1), createDecimalType(3, 1)),
-                mapType(createDecimalType(2, 1), createDecimalType(2, 1))));
+                mapType(createDecimalType(2, 1), createDecimalType(2, 1)))).isFalse();
     }
 
     private Type mapType(Type keyType, Type valueType)
@@ -297,11 +295,11 @@ public class TestTypeCoercion
     @Test
     public void testCoerceTypeBase()
     {
-        assertEquals(typeCoercion.coerceTypeBase(createDecimalType(21, 1), "decimal"), Optional.of(createDecimalType(21, 1)));
-        assertEquals(typeCoercion.coerceTypeBase(BIGINT, "decimal"), Optional.of(createDecimalType(19, 0)));
-        assertEquals(typeCoercion.coerceTypeBase(INTEGER, "decimal"), Optional.of(createDecimalType(10, 0)));
-        assertEquals(typeCoercion.coerceTypeBase(TINYINT, "decimal"), Optional.of(createDecimalType(3, 0)));
-        assertEquals(typeCoercion.coerceTypeBase(SMALLINT, "decimal"), Optional.of(createDecimalType(5, 0)));
+        assertThat(typeCoercion.coerceTypeBase(createDecimalType(21, 1), "decimal")).hasValue(createDecimalType(21, 1));
+        assertThat(typeCoercion.coerceTypeBase(BIGINT, "decimal")).hasValue(createDecimalType(19, 0));
+        assertThat(typeCoercion.coerceTypeBase(INTEGER, "decimal")).hasValue(createDecimalType(10, 0));
+        assertThat(typeCoercion.coerceTypeBase(TINYINT, "decimal")).hasValue(createDecimalType(3, 0));
+        assertThat(typeCoercion.coerceTypeBase(SMALLINT, "decimal")).hasValue(createDecimalType(5, 0));
     }
 
     @Test
@@ -364,7 +362,7 @@ public class TestTypeCoercion
     {
         Optional<Type> commonSuperType1 = typeCoercion.getCommonSuperType(firstType, secondType);
         Optional<Type> commonSuperType2 = typeCoercion.getCommonSuperType(secondType, firstType);
-        assertEquals(commonSuperType1, commonSuperType2, "Expected getCommonSuperType to return the same result when invoked in either order");
+        assertThat(commonSuperType1).withFailMessage("Expected getCommonSuperType to return the same result when invoked in either order").isEqualTo(commonSuperType2);
         boolean canCoerceFirstToSecond = typeCoercion.canCoerce(firstType, secondType);
         boolean canCoerceSecondToFirst = typeCoercion.canCoerce(secondType, firstType);
         return new CompatibilityAssertion(commonSuperType1, canCoerceFirstToSecond, canCoerceSecondToFirst);
@@ -381,48 +379,48 @@ public class TestTypeCoercion
             this.commonSuperType = requireNonNull(commonSuperType, "commonSuperType is null");
 
             // Assert that: (canFirstCoerceToSecond || canSecondCoerceToFirst) => commonSuperType.isPresent
-            assertTrue(!(canCoerceFirstToSecond || canCoerceSecondToFirst) || commonSuperType.isPresent(), "Expected canCoercion to be false when there is no commonSuperType");
+            assertThat(!(canCoerceFirstToSecond || canCoerceSecondToFirst) || commonSuperType.isPresent()).withFailMessage("Expected canCoercion to be false when there is no commonSuperType").isTrue();
             this.canCoerceFirstToSecond = canCoerceFirstToSecond;
             this.canCoerceSecondToFirst = canCoerceSecondToFirst;
         }
 
         public void isIncompatible()
         {
-            assertTrue(commonSuperType.isEmpty(), "Expected to be incompatible");
+            assertThat(commonSuperType.isEmpty()).withFailMessage("Expected to be incompatible").isTrue();
         }
 
         public CompatibilityAssertion hasCommonSuperType(Type expected)
         {
-            assertTrue(commonSuperType.isPresent(), "Expected commonSuperType to be present");
-            assertEquals(commonSuperType.get(), expected, "commonSuperType");
+            assertThat(commonSuperType.isPresent()).withFailMessage("Expected commonSuperType to be present").isTrue();
+            assertThat(commonSuperType.get()).withFailMessage("commonSuperType").isEqualTo(expected);
             return this;
         }
 
         public CompatibilityAssertion canCoerceToEachOther()
         {
-            assertTrue(canCoerceFirstToSecond, "Expected first be coercible to second");
-            assertTrue(canCoerceSecondToFirst, "Expected second be coercible to first");
+            assertThat(canCoerceFirstToSecond).withFailMessage("Expected first be coercible to second").isTrue();
+            assertThat(canCoerceSecondToFirst).withFailMessage("Expected second be coercible to first").isTrue();
             return this;
         }
 
         public CompatibilityAssertion canCoerceFirstToSecondOnly()
         {
-            assertTrue(canCoerceFirstToSecond, "Expected first be coercible to second");
-            assertFalse(canCoerceSecondToFirst, "Expected second NOT be coercible to first");
+            assertThat(canCoerceFirstToSecond).withFailMessage("Expected first be coercible to second").isTrue();
+            assertThat(canCoerceSecondToFirst).withFailMessage("Expected second NOT be coercible to first").isFalse();
             return this;
         }
 
         public CompatibilityAssertion canCoerceSecondToFirstOnly()
         {
-            assertFalse(canCoerceFirstToSecond, "Expected first NOT be coercible to second");
-            assertTrue(canCoerceSecondToFirst, "Expected second be coercible to first");
+            assertThat(canCoerceFirstToSecond).withFailMessage("Expected first NOT be coercible to second").isFalse();
+            assertThat(canCoerceSecondToFirst).withFailMessage("Expected second be coercible to first").isTrue();
             return this;
         }
 
         public CompatibilityAssertion cannotCoerceToEachOther()
         {
-            assertFalse(canCoerceFirstToSecond, "Expected first NOT be coercible to second");
-            assertFalse(canCoerceSecondToFirst, "Expected second NOT be coercible to first");
+            assertThat(canCoerceFirstToSecond).withFailMessage("Expected first NOT be coercible to second").isFalse();
+            assertThat(canCoerceSecondToFirst).withFailMessage("Expected second NOT be coercible to first").isFalse();
             return this;
         }
     }

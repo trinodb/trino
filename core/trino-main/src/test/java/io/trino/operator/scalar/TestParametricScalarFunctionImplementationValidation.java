@@ -25,8 +25,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestParametricScalarFunctionImplementationValidation
 {
@@ -42,7 +42,7 @@ public class TestParametricScalarFunctionImplementationValidation
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionMethodHandle);
-        assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
+        assertThat(validFunction.getChoices().get(0).getMethodHandle()).isEqualTo(validFunctionMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
@@ -60,7 +60,7 @@ public class TestParametricScalarFunctionImplementationValidation
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionWithInstanceFactoryMethodHandle,
                 Optional.of(STATE_FACTORY));
-        assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
+        assertThat(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle()).isEqualTo(validFunctionWithInstanceFactoryMethodHandle);
 
         assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),

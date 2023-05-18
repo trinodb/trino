@@ -18,8 +18,8 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestCostComparator
 {
@@ -97,8 +97,8 @@ public class TestCostComparator
         {
             checkState(smaller != null, "smaller not set");
             checkState(larger != null, "larger not set");
-            assertTrue(costComparator.compare(session, smaller, larger) < 0, "smaller < larger is false");
-            assertTrue(costComparator.compare(session, larger, smaller) > 0, "larger > smaller is false");
+            assertThat(costComparator.compare(session, smaller, larger) < 0).withFailMessage("smaller < larger is false").isTrue();
+            assertThat(costComparator.compare(session, larger, smaller) > 0).withFailMessage("larger > smaller is false").isTrue();
         }
 
         public CostComparisonAssertion smaller(double cpu, double memory, double network)

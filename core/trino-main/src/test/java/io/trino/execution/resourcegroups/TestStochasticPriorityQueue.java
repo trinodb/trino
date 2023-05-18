@@ -18,9 +18,7 @@ import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStochasticPriorityQueue
 {
@@ -29,21 +27,21 @@ public class TestStochasticPriorityQueue
     {
         StochasticPriorityQueue<String> queue = new StochasticPriorityQueue<>();
         for (int i = 0; i < 100; i++) {
-            assertTrue(queue.addOrUpdate("test" + i, i + 1));
+            assertThat(queue.addOrUpdate("test" + i, i + 1)).isTrue();
         }
         for (int i = 0; i < 100; i += 2) {
-            assertTrue(queue.remove("test" + i));
+            assertThat(queue.remove("test" + i)).isTrue();
         }
         for (int i = 1; i < 100; i += 2) {
-            assertTrue(queue.contains("test" + i));
+            assertThat(queue.contains("test" + i)).isTrue();
         }
-        assertFalse(queue.isEmpty());
-        assertEquals(queue.size(), 50);
+        assertThat(queue.isEmpty()).isFalse();
+        assertThat(queue.size()).isEqualTo(50);
         for (int i = 1; i < 100; i += 2) {
-            assertTrue(queue.remove("test" + i));
+            assertThat(queue.remove("test" + i)).isTrue();
         }
-        assertTrue(queue.isEmpty());
-        assertEquals(queue.size(), 0);
+        assertThat(queue.isEmpty()).isTrue();
+        assertThat(queue.size()).isEqualTo(0);
     }
 
     @Test
@@ -51,10 +49,10 @@ public class TestStochasticPriorityQueue
     {
         StochasticPriorityQueue<String> queue = new StochasticPriorityQueue<>();
         for (int i = 0; i < 100; i++) {
-            assertTrue(queue.addOrUpdate("foo" + i, 1));
+            assertThat(queue.addOrUpdate("foo" + i, 1)).isTrue();
         }
         for (int i = 0; i < 100; i++) {
-            assertTrue(queue.addOrUpdate("bar" + i, 1));
+            assertThat(queue.addOrUpdate("bar" + i, 1)).isTrue();
         }
         int foo = 0;
         for (int i = 0; i < 1000; i++) {
@@ -62,7 +60,7 @@ public class TestStochasticPriorityQueue
             if (value.startsWith("foo")) {
                 foo++;
             }
-            assertTrue(queue.addOrUpdate(value, 1));
+            assertThat(queue.addOrUpdate(value, 1)).isTrue();
         }
         BinomialDistribution binomial = new BinomialDistribution(1000, 0.5);
         int lowerBound = binomial.inverseCumulativeProbability(0.000001);
@@ -72,17 +70,17 @@ public class TestStochasticPriorityQueue
 
         // Update foo weights to 2:1 distribution
         for (int i = 0; i < 100; i++) {
-            assertFalse(queue.addOrUpdate("foo" + i, 2));
+            assertThat(queue.addOrUpdate("foo" + i, 2)).isFalse();
         }
         foo = 0;
         for (int i = 0; i < 1000; i++) {
             String value = queue.poll();
             if (value.startsWith("foo")) {
                 foo++;
-                assertTrue(queue.addOrUpdate(value, 2));
+                assertThat(queue.addOrUpdate(value, 2)).isTrue();
             }
             else {
-                assertTrue(queue.addOrUpdate(value, 1));
+                assertThat(queue.addOrUpdate(value, 1)).isTrue();
             }
         }
         binomial = new BinomialDistribution(1000, 2.0 / 3.0);

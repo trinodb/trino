@@ -13,7 +13,6 @@
  */
 package io.trino.transaction;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -39,9 +38,7 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTransactionManager
 {
@@ -63,21 +60,21 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertFalse(transactionInfo.isAutoCommitContext());
-            assertTrue(transactionInfo.getCatalogNames().isEmpty());
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.isAutoCommitContext()).isFalse();
+            assertThat(transactionInfo.getCatalogNames()).isEmpty();
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.getCatalogNames()).containsExactly(TEST_CATALOG_NAME);
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             getFutureValue(transactionManager.asyncCommit(transactionId));
 
-            assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+            assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
         }
     }
 
@@ -91,21 +88,21 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertFalse(transactionInfo.isAutoCommitContext());
-            assertTrue(transactionInfo.getCatalogNames().isEmpty());
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.isAutoCommitContext()).isFalse();
+            assertThat(transactionInfo.getCatalogNames()).isEmpty();
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.getCatalogNames()).containsExactly(TEST_CATALOG_NAME);
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             getFutureValue(transactionManager.asyncAbort(transactionId));
 
-            assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+            assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
         }
     }
 
@@ -119,29 +116,29 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertFalse(transactionInfo.isAutoCommitContext());
-            assertTrue(transactionInfo.getCatalogNames().isEmpty());
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.isAutoCommitContext()).isFalse();
+            assertThat(transactionInfo.getCatalogNames()).isEmpty();
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             ConnectorMetadata metadata = transactionManager.getOptionalCatalogMetadata(transactionId, TEST_CATALOG_NAME).get().getMetadata(TEST_SESSION);
             metadata.listSchemaNames(TEST_SESSION.toConnectorSession(TEST_CATALOG_HANDLE));
             transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertEquals(transactionInfo.getCatalogNames(), ImmutableList.of(TEST_CATALOG_NAME));
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.getCatalogNames()).containsExactly(TEST_CATALOG_NAME);
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             transactionManager.fail(transactionId);
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
             assertTrinoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, TEST_CATALOG_HANDLE))
                     .hasErrorCode(TRANSACTION_ALREADY_ABORTED);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
 
             getFutureValue(transactionManager.asyncAbort(transactionId));
 
-            assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+            assertThat(transactionManager.getAllTransactionInfos()).isEmpty();
         }
     }
 
@@ -159,14 +156,14 @@ public class TestTransactionManager
 
             TransactionId transactionId = transactionManager.beginTransaction(false);
 
-            assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+            assertThat(transactionManager.getAllTransactionInfos()).hasSize(1);
             TransactionInfo transactionInfo = transactionManager.getTransactionInfo(transactionId);
-            assertFalse(transactionInfo.isAutoCommitContext());
-            assertTrue(transactionInfo.getCatalogNames().isEmpty());
-            assertFalse(transactionInfo.getWrittenCatalogName().isPresent());
+            assertThat(transactionInfo.isAutoCommitContext()).isFalse();
+            assertThat(transactionInfo.getCatalogNames()).isEmpty();
+            assertThat(transactionInfo.getWrittenCatalogName()).isEmpty();
 
             transactionManager.trySetInactive(transactionId);
-            assertEventually(new Duration(10, SECONDS), () -> assertTrue(transactionManager.getAllTransactionInfos().isEmpty()));
+            assertEventually(new Duration(10, SECONDS), () -> assertThat(transactionManager.getAllTransactionInfos().isEmpty()).isTrue());
         }
     }
 

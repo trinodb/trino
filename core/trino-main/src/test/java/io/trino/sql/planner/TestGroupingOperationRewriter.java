@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Set;
 
 import static io.trino.sql.planner.GroupingOperationRewriter.calculateGrouping;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupingOperationRewriter
 {
@@ -37,7 +37,7 @@ public class TestGroupingOperationRewriter
         List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(1), ImmutableSet.of(7, 3, 1), ImmutableSet.of(9, 1));
 
         for (Set<Integer> groupingSet : groupingSetOrdinals) {
-            assertEquals(calculateGrouping(groupingSet, groupingOrdinals), 7L);
+            assertThat(calculateGrouping(groupingSet, groupingOrdinals)).isEqualTo(7L);
         }
     }
 
@@ -48,7 +48,7 @@ public class TestGroupingOperationRewriter
         List<Set<Integer>> groupingSetOrdinals = ImmutableList.of(ImmutableSet.of(4, 6));
 
         for (Set<Integer> groupingSet : groupingSetOrdinals) {
-            assertEquals(calculateGrouping(groupingSet, groupingOrdinals), 0L);
+            assertThat(calculateGrouping(groupingSet, groupingOrdinals)).isEqualTo(0L);
         }
     }
 
@@ -61,7 +61,7 @@ public class TestGroupingOperationRewriter
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
             Set<Integer> groupingSet = groupingSetOrdinals.get(groupId);
-            assertEquals(Long.valueOf(calculateGrouping(groupingSet, groupingOrdinals)), expectedResults.get(groupId));
+            assertThat(Long.valueOf(calculateGrouping(groupingSet, groupingOrdinals))).isEqualTo(expectedResults.get(groupId));
         }
     }
 
@@ -73,7 +73,7 @@ public class TestGroupingOperationRewriter
 
         for (int groupId = 0; groupId < groupingSetOrdinals.size(); groupId++) {
             Set<Integer> groupingSet = groupingSetOrdinals.get(groupId);
-            assertEquals(Long.valueOf(calculateGrouping(groupingSet, fortyIntegers)), expectedResults.get(groupId));
+            assertThat(Long.valueOf(calculateGrouping(groupingSet, fortyIntegers))).isEqualTo(expectedResults.get(groupId));
         }
     }
 }

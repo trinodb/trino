@@ -47,11 +47,9 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestQueryStateInfoResource
@@ -135,7 +133,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertEquals(infos.size(), 2);
+        assertThat(infos).hasSize(2);
     }
 
     @Test
@@ -148,7 +146,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertEquals(infos.size(), 1);
+        assertThat(infos).hasSize(1);
     }
 
     @Test
@@ -161,7 +159,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-        assertTrue(infos.isEmpty());
+        assertThat(infos).isEmpty();
     }
 
     @Test
@@ -174,7 +172,7 @@ public class TestQueryStateInfoResource
                         .build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
 
-        assertNotNull(info);
+        assertThat(info).isNotNull();
     }
 
     @Test
@@ -186,7 +184,7 @@ public class TestQueryStateInfoResource
                         .setHeader(TRINO_HEADERS.requestUser(), "any-other-user")
                         .build(),
                 createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
-        assertEquals(infos.size(), 2);
+        assertThat(infos).hasSize(2);
 
         testGetAllQueryStateInfosDenied("user1", 1);
         testGetAllQueryStateInfosDenied("any-other-user", 0);
@@ -203,7 +201,7 @@ public class TestQueryStateInfoResource
                             .build(),
                     createJsonResponseHandler(listJsonCodec(QueryStateInfo.class)));
 
-            assertEquals(infos.size(), expectedCount);
+            assertThat(infos).hasSize(expectedCount);
         }
         finally {
             server.getAccessControl().reset();

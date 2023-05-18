@@ -33,7 +33,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSortExpressionExtractor
 {
@@ -100,7 +100,7 @@ public class TestSortExpressionExtractor
     private void assertNoSortExpression(Expression expression)
     {
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(PLANNER_CONTEXT.getMetadata(), BUILD_SYMBOLS, expression);
-        assertEquals(actual, Optional.empty());
+        assertThat(actual).isEmpty();
     }
 
     private void assertGetSortExpression(String expression, String expectedSymbol)
@@ -131,6 +131,6 @@ public class TestSortExpressionExtractor
     {
         Optional<SortExpressionContext> expected = Optional.of(new SortExpressionContext(new SymbolReference(expectedSymbol), searchExpressions));
         Optional<SortExpressionContext> actual = SortExpressionExtractor.extractSortExpression(PLANNER_CONTEXT.getMetadata(), BUILD_SYMBOLS, expression);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

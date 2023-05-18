@@ -36,9 +36,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestNestedLoopBuildOperator
@@ -75,7 +73,7 @@ public class TestNestedLoopBuildOperator
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
-        assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isFalse();
 
         // build pages
         Page buildPage1 = new Page(3, createLongSequenceBlock(11, 14));
@@ -87,12 +85,12 @@ public class TestNestedLoopBuildOperator
         nestedLoopBuildOperator.addInput(buildPage2);
         nestedLoopBuildOperator.finish();
 
-        assertTrue(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
 
-        assertEquals(buildPages.get(0), buildPage1);
-        assertEquals(buildPages.get(1), buildPage2);
-        assertEquals(buildPages.size(), 2);
+        assertThat(buildPages.get(0)).isEqualTo(buildPage1);
+        assertThat(buildPages.get(1)).isEqualTo(buildPage2);
+        assertThat(buildPages).hasSize(2);
     }
 
     @Test
@@ -110,7 +108,7 @@ public class TestNestedLoopBuildOperator
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
-        assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isFalse();
 
         // build pages
         Page buildPage1 = new Page(3);
@@ -122,11 +120,11 @@ public class TestNestedLoopBuildOperator
         nestedLoopBuildOperator.addInput(buildPage2);
         nestedLoopBuildOperator.finish();
 
-        assertTrue(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
 
-        assertEquals(buildPages.size(), 1);
-        assertEquals(buildPages.get(0).getPositionCount(), 3003);
+        assertThat(buildPages).hasSize(1);
+        assertThat(buildPages.get(0).getPositionCount()).isEqualTo(3003);
     }
 
     @Test
@@ -144,7 +142,7 @@ public class TestNestedLoopBuildOperator
         NestedLoopBuildOperator nestedLoopBuildOperator = (NestedLoopBuildOperator) nestedLoopBuildOperatorFactory.createOperator(driverContext);
         NestedLoopJoinBridge nestedLoopJoinBridge = nestedLoopJoinBridgeManager.getJoinBridge();
 
-        assertFalse(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isFalse();
 
         // build pages
         Page massivePage = new Page(PageProcessor.MAX_BATCH_SIZE + 100);
@@ -152,11 +150,11 @@ public class TestNestedLoopBuildOperator
         nestedLoopBuildOperator.addInput(massivePage);
         nestedLoopBuildOperator.finish();
 
-        assertTrue(nestedLoopJoinBridge.getPagesFuture().isDone());
+        assertThat(nestedLoopJoinBridge.getPagesFuture().isDone()).isTrue();
         List<Page> buildPages = nestedLoopJoinBridge.getPagesFuture().get().getPages();
-        assertEquals(buildPages.size(), 2);
-        assertEquals(buildPages.get(0).getPositionCount(), PageProcessor.MAX_BATCH_SIZE);
-        assertEquals(buildPages.get(1).getPositionCount(), 100);
+        assertThat(buildPages).hasSize(2);
+        assertThat(buildPages.get(0).getPositionCount()).isEqualTo(PageProcessor.MAX_BATCH_SIZE);
+        assertThat(buildPages.get(1).getPositionCount()).isEqualTo(100);
     }
 
     private TaskContext createTaskContext()

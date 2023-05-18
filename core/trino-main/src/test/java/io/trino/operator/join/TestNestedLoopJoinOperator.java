@@ -46,8 +46,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestNestedLoopJoinOperator
@@ -479,13 +478,13 @@ public class TestNestedLoopJoinOperator
         Page probePage = new Page(45);
 
         NestedLoopOutputIterator resultPageBuilder = NestedLoopJoinOperator.createNestedLoopOutputIterator(probePage, buildPage, new int[0], new int[0]);
-        assertTrue(resultPageBuilder.hasNext(), "There should be at least one page.");
+        assertThat(resultPageBuilder.hasNext()).withFailMessage("There should be at least one page.").isTrue();
 
         long result = 0;
         while (resultPageBuilder.hasNext()) {
             result += resultPageBuilder.next().getPositionCount();
         }
-        assertEquals(result, 4500);
+        assertThat(result).isEqualTo(4500);
 
         // force the product to be bigger than Integer.MAX_VALUE
         buildPage = new Page(Integer.MAX_VALUE - 10);
@@ -495,7 +494,7 @@ public class TestNestedLoopJoinOperator
         while (resultPageBuilder.hasNext()) {
             result += resultPageBuilder.next().getPositionCount();
         }
-        assertEquals((Integer.MAX_VALUE - 10) * 45L, result);
+        assertThat((Integer.MAX_VALUE - 10) * 45L).isEqualTo(result);
     }
 
     private TaskContext createTaskContext()

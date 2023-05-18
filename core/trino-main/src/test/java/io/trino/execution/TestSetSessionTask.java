@@ -57,8 +57,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSetSessionTask
 {
@@ -216,6 +216,6 @@ public class TestSetSessionTask
         getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
-        assertEquals(sessionProperties, ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
+        assertThat(sessionProperties).containsExactlyEntriesOf(ImmutableMap.of(qualifiedPropName.toString(), expectedValue));
     }
 }

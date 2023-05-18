@@ -13,7 +13,6 @@
  */
 package io.trino.operator.project;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
@@ -32,8 +31,8 @@ import java.util.stream.IntStream;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDictionaryAwarePageFilter
 {
@@ -41,8 +40,8 @@ public class TestDictionaryAwarePageFilter
     public void testDelegateMethods()
     {
         DictionaryAwarePageFilter filter = new DictionaryAwarePageFilter(new TestDictionaryFilter(true));
-        assertEquals(filter.isDeterministic(), true);
-        assertEquals(filter.getInputChannels().getInputChannels(), ImmutableList.of(3));
+        assertThat(filter.isDeterministic()).isTrue();
+        assertThat(filter.getInputChannels().getInputChannels()).containsExactly(3);
     }
 
     @Test
@@ -200,7 +199,7 @@ public class TestDictionaryAwarePageFilter
                 expectedSelectedPositions.add(position);
             }
         }
-        assertEquals(actualSelectedPositions, expectedSelectedPositions);
+        assertThat(actualSelectedPositions).hasSameElementsAs(expectedSelectedPositions);
     }
 
     private static IntSet toSet(SelectedPositions selectedPositions)
@@ -274,7 +273,7 @@ public class TestDictionaryAwarePageFilter
         @Override
         public SelectedPositions filter(ConnectorSession session, Page page)
         {
-            assertEquals(page.getChannelCount(), 1);
+            assertThat(page.getChannelCount()).isEqualTo(1);
             Block block = page.getBlock(0);
 
             boolean sequential = true;

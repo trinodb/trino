@@ -48,7 +48,7 @@ import static io.trino.sql.relational.Expressions.field;
 import static io.trino.sql.relational.SpecialForm.Form.IF;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionOptimizer
 {
@@ -73,14 +73,14 @@ public class TestExpressionOptimizer
     @Test
     public void testIfConstantOptimization()
     {
-        assertEquals(optimizer.optimize(ifExpression(constant(true, BOOLEAN), 1L, 2L)), constant(1L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
-        assertEquals(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L)), constant(2L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(true, BOOLEAN), 1L, 2L))).isEqualTo(constant(1L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(false, BOOLEAN), 1L, 2L))).isEqualTo(constant(2L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(constant(null, BOOLEAN), 1L, 2L))).isEqualTo(constant(2L, BIGINT));
 
         RowExpression condition = new CallExpression(
                 functionResolution.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
                 ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
-        assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
+        assertThat(optimizer.optimize(ifExpression(condition, 1L, 2L))).isEqualTo(constant(1L, BIGINT));
     }
 
     @Test
@@ -95,7 +95,7 @@ public class TestExpressionOptimizer
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
         assertInstanceOf(resultValue, IntArrayBlock.class);
-        assertEquals(toValues(INTEGER, (IntArrayBlock) resultValue), ImmutableList.of(1, 2));
+        assertThat(toValues(INTEGER, (IntArrayBlock) resultValue)).containsExactly(1, 2);
 
         // varchar to array
         testCastWithJsonParseOptimization(jsonParseFunction, new ArrayType(VARCHAR), JSON_STRING_TO_ARRAY_NAME);
@@ -112,9 +112,7 @@ public class TestExpressionOptimizer
         ResolvedFunction jsonCastFunction = functionResolution.getCoercion(JSON, targetType);
         RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, field(1, VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
-        assertEquals(
-                resultExpression,
-                call(
+        assertThat(resultExpression).isEqualTo(call(
                         functionResolution.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
                         field(1, VARCHAR)));
     }

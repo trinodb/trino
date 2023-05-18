@@ -23,8 +23,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInt128ArrayBlock
         extends AbstractTestBlock
@@ -52,16 +51,16 @@ public class TestInt128ArrayBlock
         BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
 
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isGreaterThan(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isGreaterThan(emptyBlockBuilder.getRetainedSizeInBytes());
 
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test

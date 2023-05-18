@@ -39,8 +39,7 @@ import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBasicQueryInfo
 {
@@ -165,39 +164,39 @@ public class TestBasicQueryInfo
                         false,
                         new NodeVersion("test")));
 
-        assertEquals(basicInfo.getQueryId().getId(), "0");
-        assertEquals(basicInfo.getState(), RUNNING);
-        assertTrue(basicInfo.isScheduled()); // from query stats
-        assertEquals(basicInfo.getQuery(), "SELECT 4");
-        assertEquals(basicInfo.getQueryType().get(), QueryType.SELECT);
+        assertThat(basicInfo.getQueryId().getId()).isEqualTo("0");
+        assertThat(basicInfo.getState()).isEqualTo(RUNNING);
+        assertThat(basicInfo.isScheduled()).isTrue(); // from query stats
+        assertThat(basicInfo.getQuery()).isEqualTo("SELECT 4");
+        assertThat(basicInfo.getQueryType().get()).isEqualTo(QueryType.SELECT);
 
-        assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));
-        assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));
-        assertEquals(basicInfo.getQueryStats().getElapsedTime(), new Duration(8, MINUTES));
-        assertEquals(basicInfo.getQueryStats().getExecutionTime(), new Duration(44, MINUTES));
+        assertThat(basicInfo.getQueryStats().getCreateTime()).isEqualTo(DateTime.parse("1991-09-06T05:00-05:30"));
+        assertThat(basicInfo.getQueryStats().getEndTime()).isEqualTo(DateTime.parse("1991-09-06T06:00-05:30"));
+        assertThat(basicInfo.getQueryStats().getElapsedTime()).isEqualTo(new Duration(8, MINUTES));
+        assertThat(basicInfo.getQueryStats().getExecutionTime()).isEqualTo(new Duration(44, MINUTES));
 
-        assertEquals(basicInfo.getQueryStats().getTotalDrivers(), 17);
-        assertEquals(basicInfo.getQueryStats().getQueuedDrivers(), 18);
-        assertEquals(basicInfo.getQueryStats().getRunningDrivers(), 19);
-        assertEquals(basicInfo.getQueryStats().getCompletedDrivers(), 20);
+        assertThat(basicInfo.getQueryStats().getTotalDrivers()).isEqualTo(17);
+        assertThat(basicInfo.getQueryStats().getQueuedDrivers()).isEqualTo(18);
+        assertThat(basicInfo.getQueryStats().getRunningDrivers()).isEqualTo(19);
+        assertThat(basicInfo.getQueryStats().getCompletedDrivers()).isEqualTo(20);
 
-        assertEquals(basicInfo.getQueryStats().getCumulativeUserMemory(), 21.0);
-        assertEquals(basicInfo.getQueryStats().getFailedCumulativeUserMemory(), 22.0);
-        assertEquals(basicInfo.getQueryStats().getUserMemoryReservation(), DataSize.valueOf("23GB"));
-        assertEquals(basicInfo.getQueryStats().getTotalMemoryReservation(), DataSize.valueOf("25GB"));
-        assertEquals(basicInfo.getQueryStats().getPeakUserMemoryReservation(), DataSize.valueOf("26GB"));
-        assertEquals(basicInfo.getQueryStats().getTotalScheduledTime(), new Duration(32, MINUTES));
-        assertEquals(basicInfo.getQueryStats().getFailedScheduledTime(), new Duration(33, MINUTES));
-        assertEquals(basicInfo.getQueryStats().getTotalCpuTime(), new Duration(34, MINUTES));
-        assertEquals(basicInfo.getQueryStats().getFailedCpuTime(), new Duration(35, MINUTES));
+        assertThat(basicInfo.getQueryStats().getCumulativeUserMemory()).isEqualTo(21.0);
+        assertThat(basicInfo.getQueryStats().getFailedCumulativeUserMemory()).isEqualTo(22.0);
+        assertThat(basicInfo.getQueryStats().getUserMemoryReservation()).isEqualTo(DataSize.valueOf("23GB"));
+        assertThat(basicInfo.getQueryStats().getTotalMemoryReservation()).isEqualTo(DataSize.valueOf("25GB"));
+        assertThat(basicInfo.getQueryStats().getPeakUserMemoryReservation()).isEqualTo(DataSize.valueOf("26GB"));
+        assertThat(basicInfo.getQueryStats().getTotalScheduledTime()).isEqualTo(new Duration(32, MINUTES));
+        assertThat(basicInfo.getQueryStats().getFailedScheduledTime()).isEqualTo(new Duration(33, MINUTES));
+        assertThat(basicInfo.getQueryStats().getTotalCpuTime()).isEqualTo(new Duration(34, MINUTES));
+        assertThat(basicInfo.getQueryStats().getFailedCpuTime()).isEqualTo(new Duration(35, MINUTES));
 
-        assertEquals(basicInfo.getQueryStats().isFullyBlocked(), true);
-        assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
+        assertThat(basicInfo.getQueryStats().isFullyBlocked()).isTrue();
+        assertThat(basicInfo.getQueryStats().getBlockedReasons()).containsExactly(BlockedReason.WAITING_FOR_MEMORY);
 
-        assertEquals(basicInfo.getQueryStats().getProgressPercentage(), OptionalDouble.of(100));
-        assertEquals(basicInfo.getQueryStats().getRunningPercentage(), OptionalDouble.of(0));
+        assertThat(basicInfo.getQueryStats().getProgressPercentage()).isEqualTo(OptionalDouble.of(100));
+        assertThat(basicInfo.getQueryStats().getRunningPercentage()).isEqualTo(OptionalDouble.of(0));
 
-        assertEquals(basicInfo.getErrorCode(), StandardErrorCode.ABANDONED_QUERY.toErrorCode());
-        assertEquals(basicInfo.getErrorType(), StandardErrorCode.ABANDONED_QUERY.toErrorCode().getType());
+        assertThat(basicInfo.getErrorCode()).isEqualTo(StandardErrorCode.ABANDONED_QUERY.toErrorCode());
+        assertThat(basicInfo.getErrorType()).isEqualTo(StandardErrorCode.ABANDONED_QUERY.toErrorCode().getType());
     }
 }

@@ -47,18 +47,15 @@ public class TestSetColumnTypeTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
-                .isEqualTo(ImmutableList.of(new ColumnMetadata("test", BIGINT)));
+        assertThat(metadata.getTableMetadata(testSession, table).getColumns()).containsExactly(new ColumnMetadata("test", BIGINT));
 
         // Change the column type to integer from bigint
         getFutureValue(executeSetColumnType(asQualifiedName(tableName), new Identifier("test"), toSqlType(INTEGER), false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
-                .isEqualTo(ImmutableList.of(new ColumnMetadata("test", INTEGER)));
+        assertThat(metadata.getTableMetadata(testSession, table).getColumns()).containsExactly(new ColumnMetadata("test", INTEGER));
 
         // Specify the same column type
         getFutureValue(executeSetColumnType(asQualifiedName(tableName), new Identifier("test"), toSqlType(INTEGER), false));
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
-                .isEqualTo(ImmutableList.of(new ColumnMetadata("test", INTEGER)));
+        assertThat(metadata.getTableMetadata(testSession, table).getColumns()).containsExactly(new ColumnMetadata("test", INTEGER));
     }
 
     @Test

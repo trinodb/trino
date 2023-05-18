@@ -236,11 +236,11 @@ public class TestOidcDiscovery
                             .buildOrThrow())) {
                 assertComponents(server);
                 OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-                assertThat(config.getAccessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
+                assertThat(config.getAccessTokenIssuer()).hasValue(accessTokenIssuer);
                 assertThat(config.getAuthUrl()).isEqualTo(authUrl);
                 assertThat(config.getTokenUrl()).isEqualTo(tokenUrl);
                 assertThat(config.getJwksUrl()).isEqualTo(jwksUrl);
-                assertThat(config.getUserinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
+                assertThat(config.getUserinfoUrl()).hasValue(userinfoUrl);
             }
         }
     }

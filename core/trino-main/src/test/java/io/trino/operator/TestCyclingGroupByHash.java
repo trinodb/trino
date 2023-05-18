@@ -19,7 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCyclingGroupByHash
 {
@@ -30,12 +30,12 @@ public class TestCyclingGroupByHash
         Page page = createPage(1);
         GroupByIdBlock groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIdBlock, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 1);
+        assertThat(groupByIdBlock.getGroupCount()).isEqualTo(1);
 
         page = createPage(2);
         groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIdBlock, 0L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 1);
+        assertThat(groupByIdBlock.getGroupCount()).isEqualTo(1);
     }
 
     @Test
@@ -45,12 +45,12 @@ public class TestCyclingGroupByHash
         Page page = createPage(3);
         GroupByIdBlock groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIdBlock, 0L, 1L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        assertThat(groupByIdBlock.getGroupCount()).isEqualTo(2);
 
         page = createPage(2);
         groupByIdBlock = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIdBlock, 1L, 0L);
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        assertThat(groupByIdBlock.getGroupCount()).isEqualTo(2);
     }
 
     @Test
@@ -62,14 +62,14 @@ public class TestCyclingGroupByHash
         assertGrouping(groupByIdBlock, 0L, 1L);
 
         // Only 2 groups generated out of max 3
-        assertEquals(groupByIdBlock.getGroupCount(), 2);
+        assertThat(groupByIdBlock.getGroupCount()).isEqualTo(2);
     }
 
     private static void assertGrouping(GroupByIdBlock groupByIdBlock, long... groupIds)
     {
-        assertEquals(groupByIdBlock.getPositionCount(), groupIds.length);
+        assertThat(groupByIdBlock.getPositionCount()).isEqualTo(groupIds.length);
         for (int i = 0; i < groupByIdBlock.getPositionCount(); i++) {
-            assertEquals(groupByIdBlock.getGroupId(i), groupIds[i]);
+            assertThat(groupByIdBlock.getGroupId(i)).isEqualTo(groupIds[i]);
         }
     }
 

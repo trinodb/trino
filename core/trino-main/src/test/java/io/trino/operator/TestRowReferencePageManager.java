@@ -23,10 +23,8 @@ import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestRowReferencePageManager
 {
@@ -36,12 +34,12 @@ public class TestRowReferencePageManager
         RowReferencePageManager pageManager = new RowReferencePageManager();
         Page page = createBigIntSingleBlockPage(0, 0);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertFalse(cursor.advance());
+            assertThat(cursor.advance()).isFalse();
             assertThatThrownBy(cursor::allocateRowId)
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessage("Not yet advanced");
         }
-        assertEquals(pageManager.getPageBytes(), 0);
+        assertThat(pageManager.getPageBytes()).isEqualTo(0);
     }
 
     @Test
@@ -60,35 +58,35 @@ public class TestRowReferencePageManager
         long id3;
         Page page = createBigIntSingleBlockPage(0, 4);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             id0 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id0), 0L);
+            assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
-            assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(strategy, id0) > 0);
+            assertThat(cursor.advance()).isTrue();
+            assertThat(cursor.compareTo(strategy, id0)).isPositive();
             id1 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id1), 1L);
+            assertThat(extractValue(pageManager, id1)).isEqualTo(1L);
 
-            assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(strategy, id0) > 0);
-            assertTrue(cursor.compareTo(strategy, id1) > 0);
+            assertThat(cursor.advance()).isTrue();
+            assertThat(cursor.compareTo(strategy, id0)).isPositive();
+            assertThat(cursor.compareTo(strategy, id1)).isPositive();
             // Skip this row by not allocating an ID
 
-            assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(strategy, id0) > 0);
-            assertTrue(cursor.compareTo(strategy, id1) > 0);
+            assertThat(cursor.advance()).isTrue();
+            assertThat(cursor.compareTo(strategy, id0)).isPositive();
+            assertThat(cursor.compareTo(strategy, id1)).isPositive();
             id3 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id3), 3L);
+            assertThat(extractValue(pageManager, id3)).isEqualTo(3L);
 
             // Page size accounting happens after closing the cursor
-            assertEquals(pageManager.getPageBytes(), 0);
+            assertThat(pageManager.getPageBytes()).isEqualTo(0);
         }
-        assertTrue(pageManager.getPageBytes() > 0);
+        assertThat(pageManager.getPageBytes()).isPositive();
 
         // Should still be able to extract values for allocated IDs outside of cursor scope
-        assertEquals(extractValue(pageManager, id0), 0L);
-        assertEquals(extractValue(pageManager, id1), 1L);
-        assertEquals(extractValue(pageManager, id3), 3L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
+        assertThat(extractValue(pageManager, id1)).isEqualTo(1L);
+        assertThat(extractValue(pageManager, id3)).isEqualTo(3L);
     }
 
     @Test
@@ -105,39 +103,39 @@ public class TestRowReferencePageManager
         long id0;
         Page page = createBigIntSingleBlockPage(0, 1);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             id0 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id0), 0L);
+            assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
-            assertFalse(cursor.advance());
+            assertThat(cursor.advance()).isFalse();
 
             // Page size accounting happens after closing the cursor
-            assertEquals(pageManager.getPageBytes(), 0);
+            assertThat(pageManager.getPageBytes()).isEqualTo(0);
         }
         long pageBytes1 = pageManager.getPageBytes();
-        assertTrue(pageBytes1 > 0);
+        assertThat(pageBytes1).isPositive();
 
         // Should still be able to extract values for allocated IDs outside of cursor scope
-        assertEquals(extractValue(pageManager, id0), 0L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
         long id1;
         page = createBigIntSingleBlockPage(1, 2);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(strategy, id0) > 0);
+            assertThat(cursor.advance()).isTrue();
+            assertThat(cursor.compareTo(strategy, id0)).isPositive();
             id1 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id1), 1L);
-            assertFalse(cursor.advance());
+            assertThat(extractValue(pageManager, id1)).isEqualTo(1L);
+            assertThat(cursor.advance()).isFalse();
 
             // Page size accounting happens after closing the cursor
-            assertEquals(pageManager.getPageBytes(), pageBytes1);
+            assertThat(pageManager.getPageBytes()).isEqualTo(pageBytes1);
         }
         // Another page added, so should be larger
-        assertTrue(pageManager.getPageBytes() > pageBytes1);
+        assertThat(pageManager.getPageBytes()).isGreaterThan(pageBytes1);
 
         // Should still be able to extract values for allocated IDs outside of cursor scopes
-        assertEquals(extractValue(pageManager, id0), 0L);
-        assertEquals(extractValue(pageManager, id1), 1L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
+        assertThat(extractValue(pageManager, id1)).isEqualTo(1L);
     }
 
     @Test
@@ -148,33 +146,33 @@ public class TestRowReferencePageManager
         long id0;
         Page page = createBigIntSingleBlockPage(0, 100);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             id0 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id0), 0L);
+            assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
             // No compaction candidates until after the cursor is closed
-            assertEquals(pageManager.getCompactionCandidateCount(), 0);
+            assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
             // Ignore the remaining positions, which means they should remain unreferenced
         }
 
         // Should still be able to extract values for allocated IDs outside of cursor scope
-        assertEquals(extractValue(pageManager, id0), 0L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
         // Page should have some size before compaction
         long pageBytesBeforeCompaction = pageManager.getPageBytes();
-        assertTrue(pageBytesBeforeCompaction > 0);
+        assertThat(pageBytesBeforeCompaction).isPositive();
 
         // With a 1% fill, this page will certainly require compaction
-        assertEquals(pageManager.getCompactionCandidateCount(), 1);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(1);
         pageManager.compactIfNeeded();
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Page size should shrink after compaction
-        assertTrue(pageManager.getPageBytes() < pageBytesBeforeCompaction);
+        assertThat(pageManager.getPageBytes()).isLessThan(pageBytesBeforeCompaction);
 
         // Should still be able to extract same value after compaction
-        assertEquals(extractValue(pageManager, id0), 0L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
     }
 
     @Test
@@ -186,9 +184,9 @@ public class TestRowReferencePageManager
         List<Long> rowIdsToDereference = new ArrayList<>();
         Page page = createBigIntSingleBlockPage(0, 100);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             id0 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id0), 0L);
+            assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
             // Collect the remaining rowIds
             while (cursor.advance()) {
@@ -197,7 +195,7 @@ public class TestRowReferencePageManager
         }
 
         // No compaction candidates since all rows should be referenced
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Dereference 99% of row IDs
         for (long rowId : rowIdsToDereference) {
@@ -206,18 +204,18 @@ public class TestRowReferencePageManager
 
         // Page should have some size before compaction
         long pageBytesBeforeCompaction = pageManager.getPageBytes();
-        assertTrue(pageBytesBeforeCompaction > 0);
+        assertThat(pageBytesBeforeCompaction).isPositive();
 
         // With a 1% fill, this page will certainly require compaction
-        assertEquals(pageManager.getCompactionCandidateCount(), 1);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(1);
         pageManager.compactIfNeeded();
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Page size should shrink after compaction
-        assertTrue(pageManager.getPageBytes() < pageBytesBeforeCompaction);
+        assertThat(pageManager.getPageBytes()).isLessThan(pageBytesBeforeCompaction);
 
         // Should still be able to extract same value after compaction
-        assertEquals(extractValue(pageManager, id0), 0L);
+        assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
     }
 
     @Test
@@ -231,10 +229,10 @@ public class TestRowReferencePageManager
         }
 
         // No compaction candidates since page is no longer needed
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Should not have any page bytes since page was skipped
-        assertEquals(pageManager.getPageBytes(), 0);
+        assertThat(pageManager.getPageBytes()).isEqualTo(0);
     }
 
     @Test
@@ -256,10 +254,10 @@ public class TestRowReferencePageManager
         }
 
         // No compaction candidates since page is no longer needed
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Should not have any page bytes since page was fully dereferenced
-        assertEquals(pageManager.getPageBytes(), 0);
+        assertThat(pageManager.getPageBytes()).isEqualTo(0);
     }
 
     @Test
@@ -275,10 +273,10 @@ public class TestRowReferencePageManager
         }
 
         // No compaction candidates since page is no longer needed
-        assertEquals(pageManager.getCompactionCandidateCount(), 0);
+        assertThat(pageManager.getCompactionCandidateCount()).isEqualTo(0);
 
         // Should not have any page bytes since page was fully dereferenced
-        assertEquals(pageManager.getPageBytes(), 0);
+        assertThat(pageManager.getPageBytes()).isEqualTo(0);
     }
 
     @Test
@@ -288,21 +286,21 @@ public class TestRowReferencePageManager
 
         Page page = createBigIntSingleBlockPage(0, 3);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             long id0 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id0), 0L);
+            assertThat(extractValue(pageManager, id0)).isEqualTo(0L);
 
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             long id1 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id1), 1L);
+            assertThat(extractValue(pageManager, id1)).isEqualTo(1L);
 
             pageManager.dereference(id0);
 
             // Since id0 was dereferenced, the system can recycle that id for reuse
-            assertTrue(cursor.advance());
+            assertThat(cursor.advance()).isTrue();
             long id2 = cursor.allocateRowId();
-            assertEquals(extractValue(pageManager, id2), 2L);
-            assertEquals(id0, id2);
+            assertThat(extractValue(pageManager, id2)).isEqualTo(2L);
+            assertThat(id0).isEqualTo(id2);
         }
     }
 

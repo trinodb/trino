@@ -35,7 +35,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -55,8 +54,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 import static org.testng.collections.Lists.newArrayList;
 
 public class TestQueryResultRows
@@ -71,9 +68,9 @@ public class TestQueryResultRows
         QueryResultRows rows = QueryResultRows.empty(getSession());
 
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isEmpty();
-        assertThat(getAllValues(rows)).hasSize(0);
+        assertThat(getAllValues(rows)).isEmpty();
         assertThat(rows.getColumns()).isEmpty();
-        assertThat(rows.iterator().hasNext()).isFalse();
+        assertThat(rows).isEmpty();
     }
 
     @Test
@@ -152,7 +149,7 @@ public class TestQueryResultRows
 
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(rows.getTotalRowsCount()).isEqualTo(10);
-        assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
+        assertThat(rows.getColumns()).hasValue(columns);
         assertThat(rows.getUpdateCount()).isEmpty();
 
         assertThat(getAllValues(rows)).containsExactly(
@@ -191,10 +188,10 @@ public class TestQueryResultRows
                 .addPages(pages)
                 .build();
 
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(5);
-        assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
-        assertTrue(rows.getUpdateCount().isEmpty());
+        assertThat(rows.getColumns()).hasValue(columns);
+        assertThat(rows.getUpdateCount()).isEmpty();
 
         assertThat(getAllValues(rows))
                 .containsExactly(ImmutableList.of(0, 0));
@@ -249,7 +246,7 @@ public class TestQueryResultRows
                 .addPages(pages)
                 .build();
 
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(3);
 
         assertThat(getAllValues(rows))
@@ -277,7 +274,7 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -303,7 +300,7 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -331,7 +328,7 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -363,7 +360,7 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty()).withFailMessage("rows are empty").isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         List<List<Object>> allValues = getAllValues(rows);

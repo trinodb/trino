@@ -19,21 +19,19 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestUpdateablePriorityQueue
 {
     @Test
     public void testFifoQueue()
     {
-        assertEquals(populateAndExtract(new FifoQueue<>()), ImmutableList.of(1, 2, 3));
+        assertThat(populateAndExtract(new FifoQueue<>())).containsExactly(1, 2, 3);
     }
 
     @Test
     public void testIndexedPriorityQueue()
     {
-        assertEquals(populateAndExtract(new IndexedPriorityQueue<>()), ImmutableList.of(3, 2, 1));
+        assertThat(populateAndExtract(new IndexedPriorityQueue<>())).containsExactly(3, 2, 1);
     }
 
     @Test
@@ -72,7 +70,7 @@ public class TestUpdateablePriorityQueue
     @Test
     public void testStochasticPriorityQueue()
     {
-        assertTrue(populateAndExtract(new StochasticPriorityQueue<>()).size() == 3);
+        assertThat(populateAndExtract(new StochasticPriorityQueue<>())).hasSize(3);
     }
 
     private static List<Integer> populateAndExtract(UpdateablePriorityQueue<Integer> queue)

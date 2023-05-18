@@ -45,7 +45,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSimplifyExpressions
 {
@@ -258,9 +258,7 @@ public class TestSimplifyExpressions
     private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected)
     {
         Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
-        assertEquals(
-                simplify(expression),
-                expectedExpression);
+        assertThat(simplify(expression)).isEqualTo(expectedExpression);
     }
 
     private static Expression simplify(@Language("SQL") String expression)
@@ -343,9 +341,7 @@ public class TestSimplifyExpressions
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
         Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
-        assertEquals(
-                normalize(rewritten),
-                normalize(expectedExpression));
+        assertThat(normalize(rewritten)).isEqualTo(normalize(expectedExpression));
     }
 
     private static Map<Symbol, Type> numericAndBooleanSymbolTypeMapFor(Expression expression)

@@ -30,7 +30,7 @@ public final class TestBlockAssertions
     {
         Iterable<Integer> list = generateListWithNulls(10, 0.2F, () -> 1);
 
-        assertThat(stream(list).filter(Objects::isNull).count()).isEqualTo(2);
+        assertThat(stream(list).filter(Objects::isNull)).hasSize(2);
     }
 
     @Test

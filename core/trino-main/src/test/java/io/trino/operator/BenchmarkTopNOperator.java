@@ -53,7 +53,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -189,7 +189,7 @@ public class BenchmarkTopNOperator
         context.setup();
 
         List<Page> outputPages = topN(context);
-        assertEquals(123, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertThat(123).isEqualTo(outputPages.stream().mapToInt(Page::getPositionCount).sum());
 
         context.cleanup();
     }

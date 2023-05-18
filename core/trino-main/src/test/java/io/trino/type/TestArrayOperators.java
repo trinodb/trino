@@ -79,7 +79,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestArrayOperators
@@ -126,7 +125,7 @@ public class TestArrayOperators
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
         writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
-        assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
+        assertThat(actualSliceOutput.slice()).isEqualTo(expectedSliceOutput.slice());
     }
 
     @Test

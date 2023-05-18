@@ -45,7 +45,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResetSessionTask
 {
@@ -132,6 +132,6 @@ public class TestResetSessionTask
                 WarningCollector.NOOP));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
-        assertEquals(sessionProperties, ImmutableSet.of(CATALOG_NAME + ".baz"));
+        assertThat(sessionProperties).containsExactly(CATALOG_NAME + ".baz");
     }
 }

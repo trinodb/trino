@@ -37,7 +37,7 @@ import static io.trino.block.ColumnarTestUtils.createTestRleExpectedValues;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarRow
 {
@@ -110,14 +110,14 @@ public class TestColumnarRow
     private static <T> void assertColumnarRow(Block block, T[] expectedValues)
     {
         ColumnarRow columnarRow = toColumnarRow(block);
-        assertEquals(columnarRow.getPositionCount(), expectedValues.length);
+        assertThat(columnarRow.getPositionCount()).isEqualTo(expectedValues.length);
 
         for (int fieldId = 0; fieldId < FIELD_COUNT; fieldId++) {
             Block fieldBlock = columnarRow.getField(fieldId);
             int elementsPosition = 0;
             for (int position = 0; position < expectedValues.length; position++) {
                 T expectedRow = expectedValues[position];
-                assertEquals(columnarRow.isNull(position), expectedRow == null);
+                assertThat(columnarRow.isNull(position)).isEqualTo(expectedRow == null);
                 if (expectedRow == null) {
                     continue;
                 }

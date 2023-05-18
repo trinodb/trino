@@ -14,7 +14,6 @@
 package io.trino.execution.executor;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.testing.TestingTicker;
@@ -45,9 +44,7 @@ import static java.lang.Double.isNaN;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTaskExecutor
 {
@@ -76,26 +73,26 @@ public class TestTaskExecutor
             ListenableFuture<Void> future1 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1)));
             TestingJob driver2 = new TestingJob(ticker, new Phaser(), beginPhase, verificationComplete, 10, 0);
             ListenableFuture<Void> future2 = getOnlyElement(taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver2)));
-            assertEquals(driver1.getCompletedPhases(), 0);
-            assertEquals(driver2.getCompletedPhases(), 0);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(0);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(0);
 
             // verify worker have arrived but haven't processed yet
             beginPhase.arriveAndAwaitAdvance();
-            assertEquals(driver1.getCompletedPhases(), 0);
-            assertEquals(driver2.getCompletedPhases(), 0);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(0);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(0);
             ticker.increment(60, SECONDS);
-            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
+            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true)).isEmpty();
+            assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(0);
             ticker.increment(600, SECONDS);
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 2);
-            assertEquals(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true), ImmutableSet.of(taskId));
+            assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(2);
+            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true)).containsExactly(taskId);
 
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();
-            assertEquals(driver1.getCompletedPhases(), 1);
-            assertEquals(driver2.getCompletedPhases(), 1);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(1);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(1);
 
             verificationComplete.arriveAndAwaitAdvance();
 
@@ -105,9 +102,9 @@ public class TestTaskExecutor
 
             // advance one phase and verify
             beginPhase.arriveAndAwaitAdvance();
-            assertEquals(driver1.getCompletedPhases(), 2);
-            assertEquals(driver2.getCompletedPhases(), 2);
-            assertEquals(driver3.getCompletedPhases(), 0);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(2);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(2);
+            assertThat(driver3.getCompletedPhases()).isEqualTo(0);
             verificationComplete.arriveAndAwaitAdvance();
 
             // advance to the end of the first two task and verify
@@ -115,11 +112,11 @@ public class TestTaskExecutor
             for (int i = 0; i < 7; i++) {
                 verificationComplete.arriveAndAwaitAdvance();
                 beginPhase.arriveAndAwaitAdvance();
-                assertEquals(beginPhase.getPhase(), verificationComplete.getPhase() + 1);
+                assertThat(beginPhase.getPhase()).isEqualTo(verificationComplete.getPhase() + 1);
             }
-            assertEquals(driver1.getCompletedPhases(), 10);
-            assertEquals(driver2.getCompletedPhases(), 10);
-            assertEquals(driver3.getCompletedPhases(), 8);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(10);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(10);
+            assertThat(driver3.getCompletedPhases()).isEqualTo(8);
             future1.get(1, SECONDS);
             future2.get(1, SECONDS);
             verificationComplete.arriveAndAwaitAdvance();
@@ -128,24 +125,24 @@ public class TestTaskExecutor
             beginPhase.arriveAndAwaitAdvance();
             verificationComplete.arriveAndAwaitAdvance();
             beginPhase.arriveAndAwaitAdvance();
-            assertEquals(driver1.getCompletedPhases(), 10);
-            assertEquals(driver2.getCompletedPhases(), 10);
-            assertEquals(driver3.getCompletedPhases(), 10);
+            assertThat(driver1.getCompletedPhases()).isEqualTo(10);
+            assertThat(driver2.getCompletedPhases()).isEqualTo(10);
+            assertThat(driver3.getCompletedPhases()).isEqualTo(10);
             future3.get(1, SECONDS);
             verificationComplete.arriveAndAwaitAdvance();
 
-            assertEquals(driver1.getFirstPhase(), 0);
-            assertEquals(driver2.getFirstPhase(), 0);
-            assertEquals(driver3.getFirstPhase(), 2);
+            assertThat(driver1.getFirstPhase()).isEqualTo(0);
+            assertThat(driver2.getFirstPhase()).isEqualTo(0);
+            assertThat(driver3.getFirstPhase()).isEqualTo(2);
 
-            assertEquals(driver1.getLastPhase(), 10);
-            assertEquals(driver2.getLastPhase(), 10);
-            assertEquals(driver3.getLastPhase(), 12);
+            assertThat(driver1.getLastPhase()).isEqualTo(10);
+            assertThat(driver2.getLastPhase()).isEqualTo(10);
+            assertThat(driver3.getLastPhase()).isEqualTo(12);
 
             // no splits remaining
             ticker.increment(610, SECONDS);
-            assertTrue(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true).isEmpty());
-            assertEquals(taskExecutor.getRunAwaySplitCount(), 0);
+            assertThat(taskExecutor.getStuckSplitTaskIds(splitProcessingDurationThreshold, runningSplitInfo -> true)).isEmpty();
+            assertThat(taskExecutor.getRunAwaySplitCount()).isEqualTo(0);
         }
         finally {
             taskExecutor.stop();
@@ -176,8 +173,8 @@ public class TestTaskExecutor
                 endQuantaPhaser.arriveAndAwaitAdvance();
             }
 
-            assertTrue(shortQuantaDriver.getCompletedPhases() >= 7 && shortQuantaDriver.getCompletedPhases() <= 8);
-            assertTrue(longQuantaDriver.getCompletedPhases() >= 3 && longQuantaDriver.getCompletedPhases() <= 4);
+            assertThat(shortQuantaDriver.getCompletedPhases() >= 7 && shortQuantaDriver.getCompletedPhases() <= 8).isTrue();
+            assertThat(longQuantaDriver.getCompletedPhases() >= 3 && longQuantaDriver.getCompletedPhases() <= 4).isTrue();
 
             endQuantaPhaser.arriveAndDeregister();
         }
@@ -214,7 +211,7 @@ public class TestTaskExecutor
                     globalPhaser.arriveAndAwaitAdvance();
                 }
 
-                assertEquals(testTaskHandle.getPriority().getLevel(), i + 1);
+                assertThat(testTaskHandle.getPriority().getLevel()).isEqualTo(i + 1);
             }
 
             globalPhaser.arriveAndDeregister();
@@ -324,11 +321,11 @@ public class TestTaskExecutor
 
             // force enqueue a split
             taskExecutor.enqueueSplits(taskHandle, true, ImmutableList.of(driver1));
-            assertEquals(taskHandle.getRunningLeafSplits(), 0);
+            assertThat(taskHandle.getRunningLeafSplits()).isEqualTo(0);
 
             // normal enqueue a split
             taskExecutor.enqueueSplits(taskHandle, false, ImmutableList.of(driver2));
-            assertEquals(taskHandle.getRunningLeafSplits(), 1);
+            assertThat(taskHandle.getRunningLeafSplits()).isEqualTo(1);
 
             // let the split continue to run
             beginPhase.arriveAndDeregister();
@@ -349,13 +346,13 @@ public class TestTaskExecutor
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long levelAdvanceTime = SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]);
             handle0.addScheduledNanos(levelAdvanceTime);
-            assertEquals(handle0.getPriority().getLevel(), i + 1);
+            assertThat(handle0.getPriority().getLevel()).isEqualTo(i + 1);
 
             handle1.addScheduledNanos(levelAdvanceTime);
-            assertEquals(handle1.getPriority().getLevel(), i + 1);
+            assertThat(handle1.getPriority().getLevel()).isEqualTo(i + 1);
 
-            assertEquals(splitQueue.getLevelScheduledTime(i), 2 * Math.min(levelAdvanceTime, LEVEL_CONTRIBUTION_CAP));
-            assertEquals(splitQueue.getLevelScheduledTime(i + 1), 0);
+            assertThat(splitQueue.getLevelScheduledTime(i)).isEqualTo(2 * Math.min(levelAdvanceTime, LEVEL_CONTRIBUTION_CAP));
+            assertThat(splitQueue.getLevelScheduledTime(i + 1)).isEqualTo(0);
         }
     }
 
@@ -371,7 +368,7 @@ public class TestTaskExecutor
 
         for (int i = 0; i < (LEVEL_THRESHOLD_SECONDS.length - 1); i++) {
             long thisLevelTime = Math.min(SECONDS.toNanos(LEVEL_THRESHOLD_SECONDS[i + 1] - LEVEL_THRESHOLD_SECONDS[i]), cappedNanos);
-            assertEquals(splitQueue.getLevelScheduledTime(i), thisLevelTime);
+            assertThat(splitQueue.getLevelScheduledTime(i)).isEqualTo(thisLevelTime);
             cappedNanos -= thisLevelTime;
         }
     }
@@ -516,27 +513,27 @@ public class TestTaskExecutor
 
         ticker.increment(0, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1, driver2));
-        assertTrue(isNaN(taskExecutor.getLeafSplitsSize().getAllTime().getMax()));
+        assertThat(isNaN(taskExecutor.getLeafSplitsSize().getAllTime().getMax())).isTrue();
 
         ticker.increment(1, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, false, ImmutableList.of(driver1));
-        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
+        assertThat(taskExecutor.getLeafSplitsSize().getAllTime().getMax()).isEqualTo(2.0);
 
         ticker.increment(1, TimeUnit.SECONDS);
         taskExecutor.enqueueSplits(testTaskHandle, true, ImmutableList.of(driver1));
-        assertEquals(taskExecutor.getLeafSplitsSize().getAllTime().getMax(), 2.0);
+        assertThat(taskExecutor.getLeafSplitsSize().getAllTime().getMax()).isEqualTo(2.0);
     }
 
     private void assertSplitStates(int endIndex, TestingJob[] splits)
     {
         // assert that splits up to and including endIndex are all started
         for (int i = 0; i <= endIndex; i++) {
-            assertTrue(splits[i].isStarted());
+            assertThat(splits[i].isStarted()).isTrue();
         }
 
         // assert that splits starting from endIndex haven't started yet
         for (int i = endIndex + 1; i < splits.length; i++) {
-            assertFalse(splits[i].isStarted());
+            assertThat(splits[i].isStarted()).isFalse();
         }
     }
 

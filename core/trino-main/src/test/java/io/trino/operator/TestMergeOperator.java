@@ -59,10 +59,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestMergeOperator
@@ -122,12 +119,12 @@ public class TestMergeOperator
         List<Type> types = ImmutableList.of(BIGINT, BIGINT);
 
         MergeOperator operator = createMergeOperator(types, ImmutableList.of(1), ImmutableList.of(0, 1), ImmutableList.of(ASC_NULLS_FIRST, ASC_NULLS_FIRST));
-        assertFalse(operator.isFinished());
-        assertFalse(operator.isBlocked().isDone());
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.isBlocked().isDone()).isFalse();
 
         operator.addSplit(createRemoteSplit(TASK_1_ID));
-        assertFalse(operator.isFinished());
-        assertFalse(operator.isBlocked().isDone());
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.isBlocked().isDone()).isFalse();
 
         operator.noMoreSplits();
 
@@ -139,13 +136,13 @@ public class TestMergeOperator
                 .row(4, 4)
                 .build();
 
-        assertNull(operator.getOutput());
-        assertFalse(operator.isFinished());
+        assertThat(operator.getOutput()).isNull();
+        assertThat(operator.isFinished()).isFalse();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_1_ID).addPage(input.get(0), false);
         assertOperatorIsUnblocked(operator);
 
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_1_ID).addPage(input.get(1), true);
         assertOperatorIsUnblocked(operator);
@@ -184,13 +181,13 @@ public class TestMergeOperator
                 .build();
 
         // blocked on first data source
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_1_ID).addPages(task1Pages, true);
         assertOperatorIsUnblocked(operator);
 
         // blocked on second data source
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_2_ID).addPages(task2Pages, true);
         assertOperatorIsUnblocked(operator);
@@ -273,20 +270,20 @@ public class TestMergeOperator
                 .build();
 
         // blocked on first data source
-        assertNull(operator.getOutput());
-        assertFalse(operator.isFinished());
+        assertThat(operator.getOutput()).isNull();
+        assertThat(operator.isFinished()).isFalse();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_1_ID).addPage(source1Pages.get(0), false);
         assertOperatorIsUnblocked(operator);
 
         // blocked on second data source
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         assertOperatorIsBlocked(operator);
         taskBuffers.getUnchecked(TASK_2_ID).addPage(source2Pages.get(0), false);
         assertOperatorIsUnblocked(operator);
 
         // blocked on third data source
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         assertOperatorIsBlocked(operator);
 
         taskBuffers.getUnchecked(TASK_3_ID).addPage(source3Pages.get(0), false);
@@ -375,7 +372,7 @@ public class TestMergeOperator
         assertOperatorIsUnblocked(operator);
 
         while (!operator.isFinished() && System.nanoTime() - endTime < 0) {
-            assertFalse(operator.needsInput());
+            assertThat(operator.needsInput()).isFalse();
             Page outputPage = operator.getOutput();
             if (outputPage != null) {
                 outputPages.add(outputPage);
@@ -386,13 +383,13 @@ public class TestMergeOperator
         }
 
         // verify state
-        assertFalse(operator.needsInput(), "Operator still wants input");
-        assertTrue(operator.isFinished(), "Expected operator to be finished");
+        assertThat(operator.needsInput()).withFailMessage("Operator still wants input").isFalse();
+        assertThat(operator.isFinished()).withFailMessage("Expected operator to be finished").isTrue();
 
         operator.close();
         operator.getOperatorContext().destroy();
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(0);
 
         return outputPages;
     }

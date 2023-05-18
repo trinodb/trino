@@ -78,10 +78,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestScanFilterAndProjectOperator
@@ -183,7 +179,7 @@ public class TestScanFilterAndProjectOperator
         operator.noMoreSplits();
 
         List<Page> actual = toPages(operator);
-        assertEquals(actual.size(), 1);
+        assertThat(actual).hasSize(1);
 
         List<Page> expected = rowPagesBuilder(BIGINT)
                 .row(10L)
@@ -320,15 +316,15 @@ public class TestScanFilterAndProjectOperator
             driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
             Page page = operator.getOutput();
             if (i == totalColumns) {
-                assertNotNull(page);
-                assertEquals(page.getPositionCount(), totalRows);
-                assertEquals(page.getChannelCount(), totalColumns);
+                assertThat(page).isNotNull();
+                assertThat(page.getPositionCount()).isEqualTo(totalRows);
+                assertThat(page.getChannelCount()).isEqualTo(totalColumns);
                 for (int j = 0; j < totalColumns; j++) {
-                    assertEquals(toValues(BIGINT, page.getBlock(j)), toValues(BIGINT, input.getBlock(0)));
+                    assertThat(toValues(BIGINT, page.getBlock(j))).containsExactlyElementsOf(toValues(BIGINT, input.getBlock(0)));
                 }
             }
             else {
-                assertNull(page);
+                assertThat(page).isNull();
             }
             driverContext.getYieldSignal().reset();
         }
@@ -380,7 +376,7 @@ public class TestScanFilterAndProjectOperator
         // start driver; get null value due to yield for the first 15 times
         for (int i = 0; i < length; i++) {
             driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
-            assertNull(operator.getOutput());
+            assertThat(operator.getOutput()).isNull();
             driverContext.getYieldSignal().reset();
         }
 
@@ -388,8 +384,8 @@ public class TestScanFilterAndProjectOperator
         driverContext.getYieldSignal().setWithDelay(SECONDS.toNanos(1000), driverContext.getYieldExecutor());
         Page output = operator.getOutput();
         driverContext.getYieldSignal().reset();
-        assertNotNull(output);
-        assertEquals(toValues(BIGINT, output.getBlock(0)), toValues(BIGINT, input.getBlock(0)));
+        assertThat(output).isNotNull();
+        assertThat(toValues(BIGINT, output.getBlock(0))).containsExactlyElementsOf(toValues(BIGINT, input.getBlock(0)));
     }
 
     private static List<Page> toPages(Operator operator)
@@ -402,7 +398,7 @@ public class TestScanFilterAndProjectOperator
             Page outputPage = operator.getOutput();
             if (outputPage == null) {
                 // break infinite loop due to null pages
-                assertTrue(nullPages < 1_000_000, "Too many null pages; infinite loop?");
+                assertThat(nullPages < 1_000_000).withFailMessage("Too many null pages; infinite loop?").isTrue();
                 nullPages++;
             }
             else {

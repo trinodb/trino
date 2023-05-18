@@ -51,7 +51,6 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestQuerySessionSupplier
 {
@@ -82,23 +81,23 @@ public class TestQuerySessionSupplier
         QuerySessionSupplier sessionSupplier = createSessionSupplier(new SqlEnvironmentConfig());
         Session session = sessionSupplier.createSession(new QueryId("test_query_id"), Span.getInvalid(), context);
 
-        assertEquals(session.getQueryId(), new QueryId("test_query_id"));
-        assertEquals(session.getUser(), "testUser");
-        assertEquals(session.getSource().get(), "testSource");
-        assertEquals(session.getCatalog().get(), "testCatalog");
-        assertEquals(session.getSchema().get(), "testSchema");
-        assertEquals(session.getPath().getRawPath().get(), "testPath");
-        assertEquals(session.getLocale(), Locale.TAIWAN);
-        assertEquals(session.getTimeZoneKey(), getTimeZoneKey("Asia/Taipei"));
-        assertEquals(session.getRemoteUserAddress().get(), "testRemote");
-        assertEquals(session.getClientInfo().get(), "client-info");
-        assertEquals(session.getClientTags(), ImmutableSet.of("tag1", "tag2", "tag3"));
-        assertEquals(session.getSystemProperties(), ImmutableMap.<String, String>builder()
+        assertThat(session.getQueryId()).isEqualTo(new QueryId("test_query_id"));
+        assertThat(session.getUser()).isEqualTo("testUser");
+        assertThat(session.getSource().get()).isEqualTo("testSource");
+        assertThat(session.getCatalog().get()).isEqualTo("testCatalog");
+        assertThat(session.getSchema().get()).isEqualTo("testSchema");
+        assertThat(session.getPath().getRawPath().get()).isEqualTo("testPath");
+        assertThat(session.getLocale()).isEqualTo(Locale.TAIWAN);
+        assertThat(session.getTimeZoneKey()).isEqualTo(getTimeZoneKey("Asia/Taipei"));
+        assertThat(session.getRemoteUserAddress().get()).isEqualTo("testRemote");
+        assertThat(session.getClientInfo().get()).isEqualTo("client-info");
+        assertThat(session.getClientTags()).containsOnly("tag1", "tag2", "tag3");
+        assertThat(session.getSystemProperties()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                 .put(QUERY_MAX_MEMORY, "1GB")
                 .put(JOIN_DISTRIBUTION_TYPE, "partitioned")
                 .put(MAX_HASH_PARTITION_COUNT, "43")
                 .buildOrThrow());
-        assertEquals(session.getPreparedStatements(), ImmutableMap.<String, String>builder()
+        assertThat(session.getPreparedStatements()).containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                 .put("query1", "select * from foo")
                 .put("query2", "select * from bar")
                 .buildOrThrow());
@@ -109,14 +108,14 @@ public class TestQuerySessionSupplier
     {
         MultivaluedMap<String, String> headers1 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
-        assertEquals(context1.getClientTags(), ImmutableSet.of());
+        assertThat(context1.getClientTags()).isEmpty();
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()
                 .put(TRINO_HEADERS.requestUser(), "testUser")
                 .put(TRINO_HEADERS.requestClientTags(), "")
                 .build());
         SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
-        assertEquals(context2.getClientTags(), ImmutableSet.of());
+        assertThat(context2.getClientTags()).isEmpty();
     }
 
     @Test
@@ -127,11 +126,11 @@ public class TestQuerySessionSupplier
                 .put(TRINO_HEADERS.requestClientCapabilities(), "foo, bar")
                 .build());
         SessionContext context1 = SESSION_CONTEXT_FACTORY.createSessionContext(headers1, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
-        assertEquals(context1.getClientCapabilities(), ImmutableSet.of("foo", "bar"));
+        assertThat(context1.getClientCapabilities()).containsOnly("foo", "bar");
 
         MultivaluedMap<String, String> headers2 = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"));
         SessionContext context2 = SESSION_CONTEXT_FACTORY.createSessionContext(headers2, Optional.empty(), Optional.of("remoteAddress"), Optional.empty());
-        assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
+        assertThat(context2.getClientCapabilities()).isEmpty();
     }
 
     @Test
@@ -171,8 +170,8 @@ public class TestQuerySessionSupplier
                 + "\"same,deal\".\"with,commas\","
                 + "aterrible.\"thing!@#$%^&*()\""));
 
-        assertEquals(path.getParsedPath(), expected);
-        assertEquals(path.toString(), Joiner.on(", ").join(expected));
+        assertThat(path.getParsedPath()).containsExactlyElementsOf(expected);
+        assertThat(path).hasToString(Joiner.on(", ").join(expected));
     }
 
     @Test
@@ -190,7 +189,7 @@ public class TestQuerySessionSupplier
                 ImmutableListMultimap.of(TRINO_HEADERS.requestUser(), "testUser"),
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog"));
-        assertThat(session.getCatalog()).contains("default-catalog");
+        assertThat(session.getCatalog()).hasValue("default-catalog");
         assertThat(session.getSchema()).isEmpty();
 
         // no session with default catalog and schema
@@ -199,8 +198,8 @@ public class TestQuerySessionSupplier
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));
-        assertThat(session.getCatalog()).contains("default-catalog");
-        assertThat(session.getSchema()).contains("default-schema");
+        assertThat(session.getCatalog()).hasValue("default-catalog");
+        assertThat(session.getSchema()).hasValue("default-schema");
 
         // only default schema
         assertThatThrownBy(() -> createSessionSupplier(new SqlEnvironmentConfig().setDefaultSchema("schema")))
@@ -217,8 +216,8 @@ public class TestQuerySessionSupplier
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));
-        assertThat(session.getCatalog()).contains("catalog");
-        assertThat(session.getSchema()).contains("schema");
+        assertThat(session.getCatalog()).hasValue("catalog");
+        assertThat(session.getSchema()).hasValue("schema");
 
         // default schema not used when session catalog is set
         session = createSession(
@@ -229,7 +228,7 @@ public class TestQuerySessionSupplier
                 new SqlEnvironmentConfig()
                         .setDefaultCatalog("default-catalog")
                         .setDefaultSchema("default-schema"));
-        assertThat(session.getCatalog()).contains("catalog");
+        assertThat(session.getCatalog()).hasValue("catalog");
         assertThat(session.getSchema()).isEmpty();
     }
 

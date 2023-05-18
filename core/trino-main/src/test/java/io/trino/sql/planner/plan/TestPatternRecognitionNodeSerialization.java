@@ -64,7 +64,7 @@ import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SkipTo.Position.LAST;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPatternRecognitionNodeSerialization
 {
@@ -225,20 +225,20 @@ public class TestPatternRecognitionNodeSerialization
 
         PatternRecognitionNode roundtripNode = codec.fromJson(codec.toJson(node));
 
-        assertEquals(roundtripNode.getMeasures(), node.getMeasures());
-        assertEquals(roundtripNode.getRowsPerMatch(), node.getRowsPerMatch());
-        assertEquals(roundtripNode.getSkipToLabel(), node.getSkipToLabel());
-        assertEquals(roundtripNode.getSkipToPosition(), node.getSkipToPosition());
-        assertEquals(roundtripNode.isInitial(), node.isInitial());
-        assertEquals(roundtripNode.getPattern(), node.getPattern());
-        assertEquals(roundtripNode.getSubsets(), node.getSubsets());
-        assertEquals(roundtripNode.getVariableDefinitions(), node.getVariableDefinitions());
+        assertThat(roundtripNode.getMeasures()).containsExactlyInAnyOrderEntriesOf(node.getMeasures());
+        assertThat(roundtripNode.getRowsPerMatch()).isEqualTo(node.getRowsPerMatch());
+        assertThat(roundtripNode.getSkipToLabel()).isEqualTo(node.getSkipToLabel());
+        assertThat(roundtripNode.getSkipToPosition()).isEqualTo(node.getSkipToPosition());
+        assertThat(roundtripNode.isInitial()).isEqualTo(node.isInitial());
+        assertThat(roundtripNode.getPattern()).isEqualTo(node.getPattern());
+        assertThat(roundtripNode.getSubsets()).containsExactlyInAnyOrderEntriesOf(node.getSubsets());
+        assertThat(roundtripNode.getVariableDefinitions()).containsExactlyInAnyOrderEntriesOf(node.getVariableDefinitions());
     }
 
     public static <T> void assertJsonRoundTrip(JsonCodec<T> codec, T object)
     {
         String json = codec.toJson(object);
         T copy = codec.fromJson(json);
-        assertEquals(copy, object);
+        assertThat(copy).isEqualTo(object);
     }
 }

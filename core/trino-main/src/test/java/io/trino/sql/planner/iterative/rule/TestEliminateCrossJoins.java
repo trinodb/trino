@@ -56,9 +56,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestEliminateCrossJoins
@@ -109,8 +107,8 @@ public class TestEliminateCrossJoins
     @Test
     public void testIsOriginalOrder()
     {
-        assertTrue(isOriginalOrder(ImmutableList.of(0, 1, 2, 3, 4)));
-        assertFalse(isOriginalOrder(ImmutableList.of(0, 2, 1, 3, 4)));
+        assertThat(isOriginalOrder(ImmutableList.of(0, 1, 2, 3, 4))).isTrue();
+        assertThat(isOriginalOrder(ImmutableList.of(0, 2, 1, 3, 4))).isFalse();
     }
 
     @Test
@@ -129,9 +127,7 @@ public class TestEliminateCrossJoins
 
         JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1));
+        assertThat(getJoinOrder(joinGraph)).containsExactly(0, 2, 1);
     }
 
     @Test
@@ -161,9 +157,7 @@ public class TestEliminateCrossJoins
 
         JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1, 3, 5, 4));
+        assertThat(getJoinOrder(joinGraph)).containsExactlyElementsOf(ImmutableList.of(0, 2, 1, 3, 5, 4));
     }
 
     @Test
@@ -183,9 +177,7 @@ public class TestEliminateCrossJoins
 
         JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 2, 1));
+        assertThat(getJoinOrder(joinGraph)).containsExactly(0, 2, 1);
     }
 
     @Test
@@ -204,9 +196,7 @@ public class TestEliminateCrossJoins
 
         JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 1, 2));
+        assertThat(getJoinOrder(joinGraph)).containsExactly(0, 1, 2);
     }
 
     @Test
@@ -224,9 +214,7 @@ public class TestEliminateCrossJoins
 
         JoinGraph joinGraph = JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty());
 
-        assertEquals(
-                getJoinOrder(joinGraph),
-                ImmutableList.of(0, 1, 2));
+        assertThat(getJoinOrder(joinGraph)).containsExactly(0, 1, 2);
     }
 
     @Test
@@ -311,7 +299,7 @@ public class TestEliminateCrossJoins
                         "a2", "c",
                         "b", "c");
 
-        assertEquals(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size(), 2);
+        assertThat(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size()).isEqualTo(2);
     }
 
     private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)

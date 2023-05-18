@@ -35,10 +35,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestTypedSet
 {
@@ -72,10 +70,10 @@ public class TestTypedSet
             typedSet.add(blockBuilder, i);
         }
 
-        assertEquals(typedSet.size(), elementCount);
+        assertThat(typedSet.size()).isEqualTo(elementCount);
 
         for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
-            assertEquals(typedSet.positionOf(blockBuilder, j), j);
+            assertThat(typedSet.positionOf(blockBuilder, j)).isEqualTo(j);
         }
     }
 
@@ -99,17 +97,17 @@ public class TestTypedSet
 
         // The internal elementBlock and hashtable of the typedSet should contain
         // all distinct non-null elements plus one null
-        assertEquals(typedSet.size(), elementCount - elementCount / 10 + 1);
+        assertThat(typedSet.size()).isEqualTo(elementCount - elementCount / 10 + 1);
 
         int nullCount = 0;
         for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
             // The null is only added to typedSet once, so the internal elementBlock subscript is shifted by nullCountMinusOne
             if (!blockBuilder.isNull(j)) {
-                assertEquals(typedSet.positionOf(blockBuilder, j), j - nullCount + 1);
+                assertThat(typedSet.positionOf(blockBuilder, j)).isEqualTo(j - nullCount + 1);
             }
             else {
                 // The first null added to typedSet is at position 0
-                assertEquals(typedSet.positionOf(blockBuilder, j), 0);
+                assertThat(typedSet.positionOf(blockBuilder, j)).isEqualTo(0);
                 nullCount++;
             }
         }
@@ -135,11 +133,11 @@ public class TestTypedSet
             typedSet.add(externalBlockBuilder, i);
         }
 
-        assertEquals(typedSet.size(), emptyBlockBuilder.getPositionCount());
-        assertEquals(typedSet.size(), elementCount - elementCount / 10 + 1);
+        assertThat(typedSet.size()).isEqualTo(emptyBlockBuilder.getPositionCount());
+        assertThat(typedSet.size()).isEqualTo(elementCount - elementCount / 10 + 1);
 
         for (int j = 0; j < typedSet.size(); j++) {
-            assertEquals(typedSet.positionOf(emptyBlockBuilder, j), j);
+            assertThat(typedSet.positionOf(emptyBlockBuilder, j)).isEqualTo(j);
         }
     }
 
@@ -173,12 +171,12 @@ public class TestTypedSet
             typedSet.add(externalBlockBuilder, i);
         }
 
-        assertEquals(typedSet.size(), secondBlockBuilder.getPositionCount() - elementCount);
-        assertEquals(typedSet.size(), elementCount - elementCount / 10 + 1);
+        assertThat(typedSet.size()).isEqualTo(secondBlockBuilder.getPositionCount() - elementCount);
+        assertThat(typedSet.size()).isEqualTo(elementCount - elementCount / 10 + 1);
 
         for (int i = 0; i < typedSet.size(); i++) {
             int expectedPositionInSecondBlockBuilder = i + elementCount;
-            assertEquals(typedSet.positionOf(secondBlockBuilder, expectedPositionInSecondBlockBuilder), expectedPositionInSecondBlockBuilder);
+            assertThat(typedSet.positionOf(secondBlockBuilder, expectedPositionInSecondBlockBuilder)).isEqualTo(expectedPositionInSecondBlockBuilder);
         }
     }
 
@@ -249,14 +247,14 @@ public class TestTypedSet
         VARCHAR.writeSlice(values, utf8Slice("bad"));
         values.appendNull();
 
-        assertEquals(set.positionOf(values, 4), -1);
-        assertEquals(set.positionOf(values, 2), 0);
-        assertEquals(set.positionOf(values, 1), 2);
-        assertEquals(set.positionOf(values, 0), 1);
-        assertFalse(set.contains(values, 3));
+        assertThat(set.positionOf(values, 4)).isEqualTo(-1);
+        assertThat(set.positionOf(values, 2)).isEqualTo(0);
+        assertThat(set.positionOf(values, 1)).isEqualTo(2);
+        assertThat(set.positionOf(values, 0)).isEqualTo(1);
+        assertThat(set.contains(values, 3)).isFalse();
 
         set.add(values, 4);
-        assertTrue(set.contains(values, 4));
+        assertThat(set.contains(values, 4)).isTrue();
     }
 
     private static void testBigint(Block longBlock, int expectedSetSize)
@@ -295,14 +293,14 @@ public class TestTypedSet
         Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             long number = BIGINT.getLong(longBlock, blockPosition);
-            assertEquals(typedSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(typedSet.size(), set.size());
+            assertThat(typedSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(typedSet.size()).isEqualTo(set.size());
 
             set.add(number);
             typedSet.add(longBlock, blockPosition);
 
-            assertEquals(typedSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(typedSet.size(), set.size());
+            assertThat(typedSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(typedSet.size()).isEqualTo(set.size());
         }
     }
 }

@@ -25,7 +25,7 @@ import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSingleRowBlockWriter
 {
@@ -43,24 +43,24 @@ public class TestSingleRowBlockWriter
     {
         SingleRowBlockWriter singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
         // Test whether new singleRowBlockWriter has size equal to 0
-        assertEquals(0, singleRowBlockWriter.getSizeInBytes());
+        assertThat(0).isEqualTo(singleRowBlockWriter.getSizeInBytes());
 
         singleRowBlockWriter.writeLong(10).closeEntry();
-        assertEquals(9, singleRowBlockWriter.getSizeInBytes());
+        assertThat(9).isEqualTo(singleRowBlockWriter.getSizeInBytes());
 
         singleRowBlockWriter.writeByte(10).closeEntry();
-        assertEquals(11, singleRowBlockWriter.getSizeInBytes());
+        assertThat(11).isEqualTo(singleRowBlockWriter.getSizeInBytes());
         rowBlockBuilder.closeEntry();
 
         // Test whether previous entry does not mix to the next entry (for size). Does reset works on size?
         singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-        assertEquals(0, singleRowBlockWriter.getSizeInBytes());
+        assertThat(0).isEqualTo(singleRowBlockWriter.getSizeInBytes());
 
         singleRowBlockWriter.writeLong(10).closeEntry();
-        assertEquals(9, singleRowBlockWriter.getSizeInBytes());
+        assertThat(9).isEqualTo(singleRowBlockWriter.getSizeInBytes());
 
         singleRowBlockWriter.writeByte(10).closeEntry();
-        assertEquals(11, singleRowBlockWriter.getSizeInBytes());
+        assertThat(11).isEqualTo(singleRowBlockWriter.getSizeInBytes());
         rowBlockBuilder.closeEntry();
     }
 }

@@ -50,7 +50,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSetRoleTask
 {
@@ -141,7 +141,7 @@ public class TestSetRoleTask
     {
         QueryStateMachine stateMachine = executeSetRole(statement);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getSetRoles(), expected);
+        assertThat(queryInfo.getSetRoles()).containsExactlyInAnyOrderEntriesOf(expected);
     }
 
     private QueryStateMachine executeSetRole(String statement)

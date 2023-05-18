@@ -14,7 +14,6 @@
 
 package io.trino.sql.planner.iterative;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -30,7 +29,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRuleIndex
 {
@@ -55,15 +54,9 @@ public class TestRuleIndex
         FilterNode filterNode = planBuilder.filter(BooleanLiteral.TRUE_LITERAL, planBuilder.values());
         ValuesNode valuesNode = planBuilder.values();
 
-        assertEquals(
-                ruleIndex.getCandidates(projectNode).collect(toSet()),
-                ImmutableSet.of(projectRule1, projectRule2, anyRule));
-        assertEquals(
-                ruleIndex.getCandidates(filterNode).collect(toSet()),
-                ImmutableSet.of(filterRule, anyRule));
-        assertEquals(
-                ruleIndex.getCandidates(valuesNode).collect(toSet()),
-                ImmutableSet.of(anyRule));
+        assertThat(ruleIndex.getCandidates(projectNode).collect(toSet())).containsOnly(projectRule1, projectRule2, anyRule);
+        assertThat(ruleIndex.getCandidates(filterNode).collect(toSet())).containsOnly(filterRule, anyRule);
+        assertThat(ruleIndex.getCandidates(valuesNode).collect(toSet())).containsExactly(anyRule);
     }
 
     @Test
@@ -79,15 +72,9 @@ public class TestRuleIndex
                 .register(ab)
                 .build();
 
-        assertEquals(
-                ruleIndex.getCandidates(new A() {}).collect(toSet()),
-                ImmutableSet.of(a));
-        assertEquals(
-                ruleIndex.getCandidates(new B() {}).collect(toSet()),
-                ImmutableSet.of(b));
-        assertEquals(
-                ruleIndex.getCandidates(new AB()).collect(toSet()),
-                ImmutableSet.of(ab, a, b));
+        assertThat(ruleIndex.getCandidates(new A() {}).collect(toSet())).containsExactly(a);
+        assertThat(ruleIndex.getCandidates(new B() {}).collect(toSet())).containsExactly(b);
+        assertThat(ruleIndex.getCandidates(new AB()).collect(toSet())).containsOnly(ab, a, b);
     }
 
     private static class NoOpRule<T>

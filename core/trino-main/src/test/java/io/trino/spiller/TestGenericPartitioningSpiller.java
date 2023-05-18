@@ -50,8 +50,8 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestGenericPartitioningSpiller
 {
@@ -118,19 +118,19 @@ public class TestGenericPartitioningSpiller
             IntPredicate spillPartitionMask = ImmutableSet.of(1, 2)::contains;
             PartitioningSpillResult result = spiller.partitionAndSpill(firstSpill.get(0), spillPartitionMask);
             result.getSpillingFuture().get();
-            assertEquals(result.getRetained().getPositionCount(), 0);
+            assertThat(result.getRetained().getPositionCount()).isEqualTo(0);
 
             result = spiller.partitionAndSpill(firstSpill.get(1), spillPartitionMask);
             result.getSpillingFuture().get();
-            assertEquals(result.getRetained().getPositionCount(), 10);
+            assertThat(result.getRetained().getPositionCount()).isEqualTo(10);
 
             result = spiller.partitionAndSpill(secondSpill.get(0), spillPartitionMask);
             result.getSpillingFuture().get();
-            assertEquals(result.getRetained().getPositionCount(), 0);
+            assertThat(result.getRetained().getPositionCount()).isEqualTo(0);
 
             result = spiller.partitionAndSpill(secondSpill.get(1), spillPartitionMask);
             result.getSpillingFuture().get();
-            assertEquals(result.getRetained().getPositionCount(), 10);
+            assertThat(result.getRetained().getPositionCount()).isEqualTo(10);
 
             builder = RowPagesBuilder.rowPagesBuilder(TYPES);
             builder.addSequencePage(10, SECOND_PARTITION_START, 5, 10, 15);
@@ -161,7 +161,7 @@ public class TestGenericPartitioningSpiller
                 mockMemoryContext(scheduledExecutor))) {
             Page page = SequencePageBuilder.createSequencePage(TYPES, 10, FIRST_PARTITION_START, 5, 10, 15);
             PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
-            assertEquals(spillResult.getRetained().getPositionCount(), 0);
+            assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
             getFutureValue(spillResult.getSpillingFuture());
 
             // We get the iterator but we do not exhaust it, so that close happens during reading
@@ -189,12 +189,12 @@ public class TestGenericPartitioningSpiller
             for (int i = 0; i < 50_000; i++) {
                 Page page = SequencePageBuilder.createSequencePage(types, partitionCount, 0);
                 PartitioningSpillResult spillResult = spiller.partitionAndSpill(page, partition -> true);
-                assertEquals(spillResult.getRetained().getPositionCount(), 0);
+                assertThat(spillResult.getRetained().getPositionCount()).isEqualTo(0);
                 getFutureValue(spillResult.getSpillingFuture());
                 getFutureValue(spiller.flush());
             }
         }
-        assertEquals(memoryContext.getBytes(), 0, "Reserved bytes should be zeroed after spiller is closed");
+        assertThat(memoryContext.getBytes()).withFailMessage("Reserved bytes should be zeroed after spiller is closed").isEqualTo(0);
     }
 
     private void assertSpilledPages(
@@ -206,7 +206,7 @@ public class TestGenericPartitioningSpiller
             List<Page> actualSpill = ImmutableList.copyOf(spiller.getSpilledPages(partition));
             List<Page> expectedSpill = expectedPartitions.get(partition);
 
-            assertEquals(actualSpill.size(), expectedSpill.size());
+            assertThat(actualSpill).hasSameSizeAs(expectedSpill);
             for (int j = 0; j < actualSpill.size(); j++) {
                 assertPageEquals(types, actualSpill.get(j), expectedSpill.get(j));
             }

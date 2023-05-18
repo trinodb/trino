@@ -36,9 +36,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowBlock
         extends AbstractTestBlock
@@ -60,11 +58,11 @@ public class TestRowBlock
         List<Object>[] expectedValues = alternatingNullValues(generateTestRows(fieldTypes, 100));
         BlockBuilder blockBuilder = createBlockBuilderWithValues(fieldTypes, expectedValues);
         Block block = blockBuilder.build();
-        assertEquals(block.getPositionCount(), expectedValues.length);
+        assertThat(block.getPositionCount()).isEqualTo(expectedValues.length);
         for (int i = 0; i < block.getPositionCount(); i++) {
             int expectedSize = getExpectedEstimatedDataSize(expectedValues[i]);
-            assertEquals(blockBuilder.getEstimatedDataSizeForStats(i), expectedSize);
-            assertEquals(block.getEstimatedDataSizeForStats(i), expectedSize);
+            assertThat(blockBuilder.getEstimatedDataSizeForStats(i)).isEqualTo(expectedSize);
+            assertThat(block.getEstimatedDataSizeForStats(i)).isEqualTo(expectedSize);
         }
     }
 
@@ -78,17 +76,17 @@ public class TestRowBlock
         Arrays.fill(rowIsNull, false);
 
         // Blocks may discard the null mask during creation if no values are null
-        assertFalse(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        assertThat(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull()).isFalse();
         // Last position is null must retain the nulls mask
         rowIsNull[rowIsNull.length - 1] = true;
-        assertTrue(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull());
+        assertThat(fromFieldBlocks(5, Optional.of(rowIsNull), new Block[]{fieldBlock}).mayHaveNull()).isTrue();
         // Empty blocks have no nulls and can also discard their null mask
-        assertFalse(fromFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{emptyBlock}).mayHaveNull());
+        assertThat(fromFieldBlocks(0, Optional.of(new boolean[0]), new Block[]{emptyBlock}).mayHaveNull()).isFalse();
 
         // Normal blocks should have null masks preserved
         List<Type> fieldTypes = ImmutableList.of(VARCHAR, BIGINT);
         Block hasNullsBlock = createBlockBuilderWithValues(fieldTypes, alternatingNullValues(generateTestRows(fieldTypes, 100))).build();
-        assertTrue(hasNullsBlock.mayHaveNull());
+        assertThat(hasNullsBlock.mayHaveNull()).isTrue();
     }
 
     private int getExpectedEstimatedDataSize(List<Object> row)
@@ -180,21 +178,21 @@ public class TestRowBlock
         // null rows are handled by assertPositionValue
         requireNonNull(row, "row is null");
 
-        assertFalse(rowBlock.isNull(position));
+        assertThat(rowBlock.isNull(position)).isFalse();
         SingleRowBlock singleRowBlock = (SingleRowBlock) rowBlock.getObject(position, Block.class);
-        assertEquals(singleRowBlock.getPositionCount(), row.size());
+        assertThat(singleRowBlock.getPositionCount()).isEqualTo(row.size());
 
         for (int i = 0; i < row.size(); i++) {
             Object fieldValue = row.get(i);
             if (fieldValue == null) {
-                assertTrue(singleRowBlock.isNull(i));
+                assertThat(singleRowBlock.isNull(i)).isTrue();
             }
             else {
                 if (fieldValue instanceof Long) {
-                    assertEquals(BIGINT.getLong(singleRowBlock, i), ((Long) fieldValue).longValue());
+                    assertThat(BIGINT.getLong(singleRowBlock, i)).isEqualTo(((Long) fieldValue).longValue());
                 }
                 else if (fieldValue instanceof String) {
-                    assertEquals(VARCHAR.getSlice(singleRowBlock, i), utf8Slice((String) fieldValue));
+                    assertThat(VARCHAR.getSlice(singleRowBlock, i)).isEqualTo(utf8Slice((String) fieldValue));
                 }
                 else {
                     throw new IllegalArgumentException();

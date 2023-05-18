@@ -20,9 +20,8 @@ import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestExpressionVerifier
 {
@@ -40,11 +39,11 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
-        assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
+        assertThat(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)"))).isTrue();
         assertThatThrownBy(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("missing expression for alias Z");
-        assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+        assertThat(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)"))).isFalse();
     }
 
     @Test
@@ -55,9 +54,9 @@ public class TestExpressionVerifier
                 .build();
 
         ExpressionVerifier verifier = new ExpressionVerifier(aliases);
-        assertTrue(verifier.process(expression("VARCHAR '2'"), expression("VARCHAR '2'")));
-        assertFalse(verifier.process(expression("VARCHAR '2'"), expression("CAST('2' AS bigint)")));
-        assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
+        assertThat(verifier.process(expression("VARCHAR '2'"), expression("VARCHAR '2'"))).isTrue();
+        assertThat(verifier.process(expression("VARCHAR '2'"), expression("CAST('2' AS bigint)"))).isFalse();
+        assertThat(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)"))).isTrue();
     }
 
     @Test
@@ -70,14 +69,14 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertTrue(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertThat(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2"))).isTrue();
         // Different value
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertThat(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2"))).isFalse();
+        assertThat(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2"))).isFalse();
         // Different min or max
-        assertFalse(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
+        assertThat(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2"))).isFalse();
+        assertThat(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'"))).isFalse();
+        assertThat(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7"))).isFalse();
     }
 
     @Test
@@ -90,39 +89,39 @@ public class TestExpressionVerifier
 
         ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
-        assertTrue(verifier.process(expression("x > y"), expression("a > b")));
-        assertTrue(verifier.process(expression("x > y"), expression("b < a")));
-        assertTrue(verifier.process(expression("y < x"), expression("a > b")));
-        assertTrue(verifier.process(expression("y < x"), expression("b < a")));
+        assertThat(verifier.process(expression("x > y"), expression("a > b"))).isTrue();
+        assertThat(verifier.process(expression("x > y"), expression("b < a"))).isTrue();
+        assertThat(verifier.process(expression("y < x"), expression("a > b"))).isTrue();
+        assertThat(verifier.process(expression("y < x"), expression("b < a"))).isTrue();
 
-        assertFalse(verifier.process(expression("x < y"), expression("a > b")));
-        assertFalse(verifier.process(expression("x < y"), expression("b < a")));
-        assertFalse(verifier.process(expression("y > x"), expression("a > b")));
-        assertFalse(verifier.process(expression("y > x"), expression("b < a")));
+        assertThat(verifier.process(expression("x < y"), expression("a > b"))).isFalse();
+        assertThat(verifier.process(expression("x < y"), expression("b < a"))).isFalse();
+        assertThat(verifier.process(expression("y > x"), expression("a > b"))).isFalse();
+        assertThat(verifier.process(expression("y > x"), expression("b < a"))).isFalse();
 
-        assertTrue(verifier.process(expression("x >= y"), expression("a >= b")));
-        assertTrue(verifier.process(expression("x >= y"), expression("b <= a")));
-        assertTrue(verifier.process(expression("y <= x"), expression("a >= b")));
-        assertTrue(verifier.process(expression("y <= x"), expression("b <= a")));
+        assertThat(verifier.process(expression("x >= y"), expression("a >= b"))).isTrue();
+        assertThat(verifier.process(expression("x >= y"), expression("b <= a"))).isTrue();
+        assertThat(verifier.process(expression("y <= x"), expression("a >= b"))).isTrue();
+        assertThat(verifier.process(expression("y <= x"), expression("b <= a"))).isTrue();
 
-        assertFalse(verifier.process(expression("x <= y"), expression("a >= b")));
-        assertFalse(verifier.process(expression("x <= y"), expression("b <= a")));
-        assertFalse(verifier.process(expression("y >= x"), expression("a >= b")));
-        assertFalse(verifier.process(expression("y >= x"), expression("b <= a")));
+        assertThat(verifier.process(expression("x <= y"), expression("a >= b"))).isFalse();
+        assertThat(verifier.process(expression("x <= y"), expression("b <= a"))).isFalse();
+        assertThat(verifier.process(expression("y >= x"), expression("a >= b"))).isFalse();
+        assertThat(verifier.process(expression("y >= x"), expression("b <= a"))).isFalse();
 
-        assertTrue(verifier.process(expression("x = y"), expression("a = b")));
-        assertTrue(verifier.process(expression("x = y"), expression("b = a")));
-        assertTrue(verifier.process(expression("y = x"), expression("a = b")));
-        assertTrue(verifier.process(expression("y = x"), expression("b = a")));
-        assertTrue(verifier.process(expression("x <> y"), expression("a <> b")));
-        assertTrue(verifier.process(expression("x <> y"), expression("b <> a")));
-        assertTrue(verifier.process(expression("y <> x"), expression("a <> b")));
-        assertTrue(verifier.process(expression("y <> x"), expression("b <> a")));
+        assertThat(verifier.process(expression("x = y"), expression("a = b"))).isTrue();
+        assertThat(verifier.process(expression("x = y"), expression("b = a"))).isTrue();
+        assertThat(verifier.process(expression("y = x"), expression("a = b"))).isTrue();
+        assertThat(verifier.process(expression("y = x"), expression("b = a"))).isTrue();
+        assertThat(verifier.process(expression("x <> y"), expression("a <> b"))).isTrue();
+        assertThat(verifier.process(expression("x <> y"), expression("b <> a"))).isTrue();
+        assertThat(verifier.process(expression("y <> x"), expression("a <> b"))).isTrue();
+        assertThat(verifier.process(expression("y <> x"), expression("b <> a"))).isTrue();
 
-        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("a IS DISTINCT FROM b")));
-        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("b IS DISTINCT FROM a")));
-        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("a IS DISTINCT FROM b")));
-        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("b IS DISTINCT FROM a")));
+        assertThat(verifier.process(expression("x IS DISTINCT FROM y"), expression("a IS DISTINCT FROM b"))).isTrue();
+        assertThat(verifier.process(expression("x IS DISTINCT FROM y"), expression("b IS DISTINCT FROM a"))).isTrue();
+        assertThat(verifier.process(expression("y IS DISTINCT FROM x"), expression("a IS DISTINCT FROM b"))).isTrue();
+        assertThat(verifier.process(expression("y IS DISTINCT FROM x"), expression("b IS DISTINCT FROM a"))).isTrue();
     }
 
     private Expression expression(String sql)

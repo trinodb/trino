@@ -77,7 +77,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithJwt
                 .parseClaimsJws(cookieValue);
         Claims claims = jwt.getBody();
         assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
-        assertThat(claims.get("client_id")).isEqualTo(TRINO_CLIENT_ID);
+        assertThat(claims).containsEntry("client_id", TRINO_CLIENT_ID);
         assertThat(claims.getIssuer()).isEqualTo("https://localhost:4444/");
     }
 }

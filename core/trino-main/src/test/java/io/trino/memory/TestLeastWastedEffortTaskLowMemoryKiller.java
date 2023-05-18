@@ -41,7 +41,7 @@ import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLeastWastedEffortTaskLowMemoryKiller
 {
@@ -55,11 +55,9 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                 "q_1",
                 ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
+                        toNodeMemoryInfoList(memoryPool, queries))).isEmpty();
     }
 
     @Test
@@ -70,11 +68,9 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 6L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
                 .buildOrThrow();
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
+                        toNodeMemoryInfoList(memoryPool, queries))).isEmpty();
     }
 
     @Test
@@ -99,11 +95,9 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         "n3", ImmutableMap.of(6, 2L)))
                 .buildOrThrow();
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.empty());
+                        toNodeMemoryInfoList(memoryPool, queries, tasks))).isEmpty();
     }
 
     @Test
@@ -162,14 +156,12 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                             8, buildTaskInfo(taskId("q_2", 8), TaskState.RUNNING, scheduledTime, blockedTime, false)));
         }
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_1", "q_2"), taskInfos),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.of(KillTarget.selectedTasks(
+                        toNodeMemoryInfoList(memoryPool, queries, tasks))).hasValue(KillTarget.selectedTasks(
                         ImmutableSet.of(
                                 taskId("q_1", 1),
-                                taskId("q_2", 6)))));
+                                taskId("q_2", 6))));
     }
 
     @Test
@@ -207,14 +199,12 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
         // q2_2; n1; walltime 200s; memory 6; ratio 0.03
         // q2_3; n2; walltime 60s;  memory 2; ratio 0.033 (pick for n2)
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_1", "q_2"), taskInfos),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.of(KillTarget.selectedTasks(
+                        toNodeMemoryInfoList(memoryPool, queries, tasks))).hasValue(KillTarget.selectedTasks(
                         ImmutableSet.of(
                                 taskId("q_1", 1),
-                                taskId("q_2", 3)))));
+                                taskId("q_2", 3))));
     }
 
     @Test
@@ -246,14 +236,12 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         2, buildTaskInfo(taskId("q_2", 2), TaskState.RUNNING, new Duration(100, SECONDS), new Duration(100, SECONDS), false),
                         3, buildTaskInfo(taskId("q_2", 3), TaskState.RUNNING, new Duration(30, SECONDS), new Duration(30, SECONDS), false)));
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_1", "q_2"), taskInfos),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.of(KillTarget.selectedTasks(
+                        toNodeMemoryInfoList(memoryPool, queries, tasks))).contains(KillTarget.selectedTasks(
                         ImmutableSet.of(
                                 taskId("q_2", 1), // if q_2_1 was not speculative then "q_1_1 would be picked
-                                taskId("q_2", 3)))));
+                                taskId("q_2", 3))));
     }
 
     private static TaskInfo buildTaskInfo(TaskId taskId, TaskState state, Duration scheduledTime, Duration blockedTime, boolean speculative)

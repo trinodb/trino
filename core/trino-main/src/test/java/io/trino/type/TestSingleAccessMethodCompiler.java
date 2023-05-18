@@ -21,7 +21,7 @@ import java.util.function.LongUnaryOperator;
 
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSingleAccessMethodCompiler
 {
@@ -33,7 +33,7 @@ public class TestSingleAccessMethodCompiler
                 "AddOne",
                 LongUnaryOperator.class,
                 lookup().findStatic(TestSingleAccessMethodCompiler.class, "increment", MethodType.methodType(long.class, long.class)));
-        assertEquals(addOne.applyAsLong(1), 2L);
+        assertThat(addOne.applyAsLong(1)).isEqualTo(2L);
     }
 
     private static long increment(long x)
@@ -50,7 +50,7 @@ public class TestSingleAccessMethodCompiler
                 "Print",
                 LongFunction.class,
                 lookup().findStatic(TestSingleAccessMethodCompiler.class, "incrementAndPrint", MethodType.methodType(String.class, long.class)));
-        assertEquals(print.apply(1), "2");
+        assertThat(print.apply(1)).isEqualTo("2");
     }
 
     private static String incrementAndPrint(long x)

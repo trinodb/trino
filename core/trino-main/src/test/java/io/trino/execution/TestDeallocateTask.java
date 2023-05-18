@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.execution.warnings.WarningCollector;
@@ -46,7 +45,7 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeallocateTask
 {
@@ -67,7 +66,7 @@ public class TestDeallocateTask
                 .addPreparedStatement("my_query", "SELECT bar, baz FROM foo")
                 .build();
         Set<String> statements = executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", session);
-        assertEquals(statements, ImmutableSet.of("my_query"));
+        assertThat(statements).containsExactly("my_query");
     }
 
     @Test

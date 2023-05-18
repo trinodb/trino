@@ -84,7 +84,7 @@ public class TestPhasedExecutionSchedule
 
         // single dependency between build and probe stages
         Graph<PlanFragmentId> dependencies = schedule.getFragmentDependency();
-        assertThat(dependencies.edges()).containsExactlyInAnyOrder(EndpointPair.ordered(buildFragment.getId(), probeFragment.getId()));
+        assertThat(dependencies.edges()).containsExactly(EndpointPair.ordered(buildFragment.getId(), probeFragment.getId()));
 
         // build and join stage should start immediately
         assertThat(getSchedulingFragments(schedule)).containsExactly(buildFragment.getId(), joinFragment.getId());
@@ -122,7 +122,7 @@ public class TestPhasedExecutionSchedule
 
         // single dependency between build and join stages
         Graph<PlanFragmentId> dependencies = schedule.getFragmentDependency();
-        assertThat(dependencies.edges()).containsExactlyInAnyOrder(EndpointPair.ordered(buildFragment.getId(), joinSourceFragment.getId()));
+        assertThat(dependencies.edges()).containsExactly(EndpointPair.ordered(buildFragment.getId(), joinSourceFragment.getId()));
 
         // build stage should start immediately
         assertThat(getSchedulingFragments(schedule)).containsExactly(buildFragment.getId());

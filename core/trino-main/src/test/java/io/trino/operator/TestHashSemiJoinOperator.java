@@ -50,7 +50,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestHashSemiJoinOperator
@@ -247,7 +247,7 @@ public class TestHashSemiJoinOperator
 
         assertGreaterThanOrEqual(result.getYieldCount(), 4);
         assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 19);
-        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 0);
+        assertThat(result.getOutput().stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(0);
     }
 
     @Test(dataProvider = "hashEnabledValues")

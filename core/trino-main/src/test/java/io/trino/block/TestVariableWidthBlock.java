@@ -30,8 +30,7 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Arrays.copyOfRange;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVariableWidthBlock
         extends AbstractTestBlock
@@ -51,8 +50,8 @@ public class TestVariableWidthBlock
         Block block = createBlockBuilderWithValues(expectedValues).build();
         Block actual = block.copyRegion(10, 10);
         Block expected = createBlockBuilderWithValues(copyOfRange(expectedValues, 10, 20)).build();
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
-        assertEquals(actual.getSizeInBytes(), expected.getSizeInBytes());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
+        assertThat(actual.getSizeInBytes()).isEqualTo(expected.getSizeInBytes());
     }
 
     @Test
@@ -73,16 +72,16 @@ public class TestVariableWidthBlock
         BlockBuilder emptyBlockBuilder = new VariableWidthBlockBuilder(null, 0, 0);
 
         BlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, expectedValues.length, 32 * expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isGreaterThan(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isGreaterThan(emptyBlockBuilder.getRetainedSizeInBytes());
 
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
@@ -104,11 +103,11 @@ public class TestVariableWidthBlock
         long quarter4size = splitQuarter.get(3).getSizeInBytes();
         double expectedQuarterSizeMin = sizeInBytes * 0.2;
         double expectedQuarterSizeMax = sizeInBytes * 0.3;
-        assertTrue(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax, format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter2size > expectedQuarterSizeMin && quarter2size < expectedQuarterSizeMax, format("quarter2size is %s, should be between %s and %s", quarter2size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter3size > expectedQuarterSizeMin && quarter3size < expectedQuarterSizeMax, format("quarter3size is %s, should be between %s and %s", quarter3size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertTrue(quarter4size > expectedQuarterSizeMin && quarter4size < expectedQuarterSizeMax, format("quarter4size is %s, should be between %s and %s", quarter4size, expectedQuarterSizeMin, expectedQuarterSizeMax));
-        assertEquals(quarter1size + quarter2size + quarter3size + quarter4size, sizeInBytes);
+        assertThat(quarter1size > expectedQuarterSizeMin && quarter1size < expectedQuarterSizeMax).withFailMessage(format("quarter1size is %s, should be between %s and %s", quarter1size, expectedQuarterSizeMin, expectedQuarterSizeMax)).isTrue();
+        assertThat(quarter2size > expectedQuarterSizeMin && quarter2size < expectedQuarterSizeMax).withFailMessage(format("quarter2size is %s, should be between %s and %s", quarter2size, expectedQuarterSizeMin, expectedQuarterSizeMax)).isTrue();
+        assertThat(quarter3size > expectedQuarterSizeMin && quarter3size < expectedQuarterSizeMax).withFailMessage(format("quarter3size is %s, should be between %s and %s", quarter3size, expectedQuarterSizeMin, expectedQuarterSizeMax)).isTrue();
+        assertThat(quarter4size > expectedQuarterSizeMin && quarter4size < expectedQuarterSizeMax).withFailMessage(format("quarter4size is %s, should be between %s and %s", quarter4size, expectedQuarterSizeMin, expectedQuarterSizeMax)).isTrue();
+        assertThat(quarter1size + quarter2size + quarter3size + quarter4size).isEqualTo(sizeInBytes);
     }
 
     @Test

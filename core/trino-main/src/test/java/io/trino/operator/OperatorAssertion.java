@@ -48,8 +48,7 @@ import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public final class OperatorAssertion
 {
@@ -84,7 +83,7 @@ public final class OperatorAssertion
     public static List<Page> toPagesPartial(Operator operator, Iterator<Page> input, boolean revokeMemory)
     {
         // verify initial state
-        assertEquals(operator.isFinished(), false);
+        assertThat(operator.isFinished()).isFalse();
 
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
         for (int loopsSinceLastPage = 0; loopsSinceLastPage < 1_000; loopsSinceLastPage++) {
@@ -131,9 +130,9 @@ public final class OperatorAssertion
             handleMemoryRevoking(operator);
         }
 
-        assertEquals(operator.isFinished(), true, "Operator did not finish");
-        assertEquals(operator.needsInput(), false, "Operator still wants input");
-        assertEquals(operator.isBlocked().isDone(), true, "Operator is blocked");
+        assertThat(operator.isFinished()).withFailMessage("Operator did not finish").isTrue();
+        assertThat(operator.needsInput()).withFailMessage("Operator still wants input").isFalse();
+        assertThat(operator.isBlocked().isDone()).withFailMessage("Operator is blocked").isTrue();
 
         return outputPages.build();
     }
@@ -212,7 +211,7 @@ public final class OperatorAssertion
     public static void assertOperatorEquals(OperatorFactory operatorFactory, List<Type> types, DriverContext driverContext, List<Page> input, List<Page> expected)
     {
         List<Page> actual = toPages(operatorFactory, driverContext, input);
-        assertEquals(actual.size(), expected.size());
+        assertThat(actual).hasSameSizeAs(expected);
         for (int i = 0; i < actual.size(); i++) {
             assertPageEquals(types, actual.get(i), expected.get(i));
         }

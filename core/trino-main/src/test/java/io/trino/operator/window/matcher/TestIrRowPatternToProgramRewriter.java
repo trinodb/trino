@@ -35,7 +35,7 @@ import static io.trino.sql.planner.rowpattern.Patterns.questionMarkQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.rangeQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.starQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.start;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIrRowPatternToProgramRewriter
 {
@@ -288,6 +288,6 @@ public class TestIrRowPatternToProgramRewriter
     {
         Program program = IrRowPatternToProgramRewriter.rewrite(pattern, LABEL_MAPPING);
 
-        assertEquals(program.getInstructions(), expected);
+        assertThat(program.getInstructions()).containsExactlyElementsOf(expected);
     }
 }

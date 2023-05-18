@@ -46,8 +46,8 @@ import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
 import static java.nio.file.Files.setPosixFilePermissions;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpillerFactory
@@ -87,8 +87,8 @@ public class TestFileSingleStreamSpillerFactory
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
 
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
@@ -97,12 +97,12 @@ public class TestFileSingleStreamSpillerFactory
             getUnchecked(singleStreamSpiller.spill(page));
             spillers.add(singleStreamSpiller);
         }
-        assertEquals(listFiles(spillPath1.toPath()).size(), 5);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 5);
+        assertThat(listFiles(spillPath1.toPath())).hasSize(5);
+        assertThat(listFiles(spillPath2.toPath())).hasSize(5);
 
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
     }
 
     @Test
@@ -113,8 +113,8 @@ public class TestFileSingleStreamSpillerFactory
         List<Path> spillPaths = ImmutableList.of(spillPath1.toPath(), spillPath2.toPath());
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
 
         // Set first spiller path to read-only after initialization to emulate a disk failing during runtime
         setPosixFilePermissions(spillPath1.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ));
@@ -129,12 +129,12 @@ public class TestFileSingleStreamSpillerFactory
         }
 
         // bad disk should receive no spills, with the good disk taking the remainder
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), numberOfSpills);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).hasSize(numberOfSpills);
 
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
     }
 
     private Page buildPage()
@@ -183,14 +183,14 @@ public class TestFileSingleStreamSpillerFactory
         java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", SPILL_FILE_SUFFIX);
         java.nio.file.Files.createTempFile(spillPath2.toPath(), "blah", "blah");
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 3);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 3);
+        assertThat(listFiles(spillPath1.toPath())).hasSize(3);
+        assertThat(listFiles(spillPath2.toPath())).hasSize(3);
 
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
         spillerFactory.cleanupOldSpillFiles();
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 1);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 2);
+        assertThat(listFiles(spillPath1.toPath())).hasSize(1);
+        assertThat(listFiles(spillPath2.toPath())).hasSize(2);
     }
 
     @Test
@@ -202,8 +202,8 @@ public class TestFileSingleStreamSpillerFactory
 
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
 
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
@@ -221,13 +221,13 @@ public class TestFileSingleStreamSpillerFactory
                 .hasMessageContaining("Failed to spill pages");
         spillers.add(singleStreamSpiller2);
 
-        assertEquals(spillerFactory.getSpillPathCacheSize(), 0, "cache still contains entries");
+        assertThat(spillerFactory.getSpillPathCacheSize()).withFailMessage("cache still contains entries").isEqualTo(0);
 
         // restore permissions to allow cleanup
         setPosixFilePermissions(spillPath2.toPath(), ImmutableSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
     }
 
     @Test
@@ -239,8 +239,8 @@ public class TestFileSingleStreamSpillerFactory
 
         FileSingleStreamSpillerFactory spillerFactory = spillerFactoryFactory(spillPaths);
 
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
 
         Page page = buildPage();
         List<SingleStreamSpiller> spillers = new ArrayList<>();
@@ -253,11 +253,11 @@ public class TestFileSingleStreamSpillerFactory
         getUnchecked(singleStreamSpiller2.spill(page));
         spillers.add(singleStreamSpiller2);
 
-        assertEquals(spillerFactory.getSpillPathCacheSize(), 2, "cache contains no entries");
+        assertThat(spillerFactory.getSpillPathCacheSize()).withFailMessage("cache contains no entries").isEqualTo(2);
 
         spillers.forEach(SingleStreamSpiller::close);
-        assertEquals(listFiles(spillPath1.toPath()).size(), 0);
-        assertEquals(listFiles(spillPath2.toPath()).size(), 0);
+        assertThat(listFiles(spillPath1.toPath())).isEmpty();
+        assertThat(listFiles(spillPath2.toPath())).isEmpty();
     }
 
     private FileSingleStreamSpillerFactory spillerFactoryFactory(List<Path> paths)

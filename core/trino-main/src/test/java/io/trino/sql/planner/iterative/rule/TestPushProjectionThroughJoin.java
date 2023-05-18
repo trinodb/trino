@@ -51,7 +51,6 @@ import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.PLUS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestPushProjectionThroughJoin
 {
@@ -91,7 +90,7 @@ public class TestPushProjectionThroughJoin
         Session session = testSessionBuilder().build();
         Optional<PlanNode> rewritten = pushProjectionThroughJoin(PLANNER_CONTEXT, planNode, noLookup(), idAllocator, session, createTestingTypeAnalyzer(
                 PLANNER_CONTEXT), p.getTypes());
-        assertTrue(rewritten.isPresent());
+        assertThat(rewritten).isPresent();
         assertPlan(
                 session,
                 dummyMetadata(),

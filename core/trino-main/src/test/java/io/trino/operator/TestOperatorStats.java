@@ -28,8 +28,7 @@ import java.util.Optional;
 
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOperatorStats
 {
@@ -145,50 +144,50 @@ public class TestOperatorStats
 
     public static void assertExpectedOperatorStats(OperatorStats actual)
     {
-        assertEquals(actual.getStageId(), 0);
-        assertEquals(actual.getOperatorId(), 41);
-        assertEquals(actual.getOperatorType(), "test");
+        assertThat(actual.getStageId()).isEqualTo(0);
+        assertThat(actual.getOperatorId()).isEqualTo(41);
+        assertThat(actual.getOperatorType()).isEqualTo("test");
 
-        assertEquals(actual.getTotalDrivers(), 1);
-        assertEquals(actual.getAddInputCalls(), 2);
-        assertEquals(actual.getAddInputWall(), new Duration(3, NANOSECONDS));
-        assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
-        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(51));
-        assertEquals(actual.getPhysicalInputPositions(), 511);
-        assertEquals(actual.getPhysicalInputReadTime(), new Duration(5, NANOSECONDS));
-        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(52));
-        assertEquals(actual.getInternalNetworkInputPositions(), 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(5));
-        assertEquals(actual.getInputDataSize(), DataSize.ofBytes(6));
-        assertEquals(actual.getInputPositions(), 7);
-        assertEquals(actual.getSumSquaredInputPositions(), 8.0);
+        assertThat(actual.getTotalDrivers()).isEqualTo(1);
+        assertThat(actual.getAddInputCalls()).isEqualTo(2);
+        assertThat(actual.getAddInputWall()).isEqualTo(new Duration(3, NANOSECONDS));
+        assertThat(actual.getAddInputCpu()).isEqualTo(new Duration(4, NANOSECONDS));
+        assertThat(actual.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(51));
+        assertThat(actual.getPhysicalInputPositions()).isEqualTo(511);
+        assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(5, NANOSECONDS));
+        assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(52));
+        assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(522);
+        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(5));
+        assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(6));
+        assertThat(actual.getInputPositions()).isEqualTo(7);
+        assertThat(actual.getSumSquaredInputPositions()).isEqualTo(8.0);
 
-        assertEquals(actual.getGetOutputCalls(), 9);
-        assertEquals(actual.getGetOutputWall(), new Duration(10, NANOSECONDS));
-        assertEquals(actual.getGetOutputCpu(), new Duration(11, NANOSECONDS));
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(12));
-        assertEquals(actual.getOutputPositions(), 13);
+        assertThat(actual.getGetOutputCalls()).isEqualTo(9);
+        assertThat(actual.getGetOutputWall()).isEqualTo(new Duration(10, NANOSECONDS));
+        assertThat(actual.getGetOutputCpu()).isEqualTo(new Duration(11, NANOSECONDS));
+        assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(12));
+        assertThat(actual.getOutputPositions()).isEqualTo(13);
 
-        assertEquals(actual.getDynamicFilterSplitsProcessed(), 533);
-        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(42)));
-        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(43)));
+        assertThat(actual.getDynamicFilterSplitsProcessed()).isEqualTo(533);
+        assertThat(actual.getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("metrics", new LongCount(42)));
+        assertThat(actual.getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("connectorMetrics", new LongCount(43)));
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(14));
+        assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(14));
 
-        assertEquals(actual.getBlockedWall(), new Duration(15, NANOSECONDS));
+        assertThat(actual.getBlockedWall()).isEqualTo(new Duration(15, NANOSECONDS));
 
-        assertEquals(actual.getFinishCalls(), 16);
-        assertEquals(actual.getFinishWall(), new Duration(17, NANOSECONDS));
-        assertEquals(actual.getFinishCpu(), new Duration(18, NANOSECONDS));
+        assertThat(actual.getFinishCalls()).isEqualTo(16);
+        assertThat(actual.getFinishWall()).isEqualTo(new Duration(17, NANOSECONDS));
+        assertThat(actual.getFinishCpu()).isEqualTo(new Duration(18, NANOSECONDS));
 
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(19));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(20));
-        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
-        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
-        assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(26));
-        assertEquals(actual.getInfo().getClass(), SplitOperatorInfo.class);
-        assertEquals(((SplitOperatorInfo) actual.getInfo()).getSplitInfo(), NON_MERGEABLE_INFO.getSplitInfo());
+        assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(19));
+        assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(20));
+        assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
+        assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
+        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(26));
+        assertThat(actual.getInfo().getClass()).isEqualTo(SplitOperatorInfo.class);
+        assertThat(((SplitOperatorInfo) actual.getInfo()).getSplitInfo()).isEqualTo(NON_MERGEABLE_INFO.getSplitInfo());
     }
 
     @Test
@@ -196,48 +195,48 @@ public class TestOperatorStats
     {
         OperatorStats actual = EXPECTED.add(ImmutableList.of(EXPECTED, EXPECTED));
 
-        assertEquals(actual.getStageId(), 0);
-        assertEquals(actual.getOperatorId(), 41);
-        assertEquals(actual.getOperatorType(), "test");
+        assertThat(actual.getStageId()).isEqualTo(0);
+        assertThat(actual.getOperatorId()).isEqualTo(41);
+        assertThat(actual.getOperatorType()).isEqualTo("test");
 
-        assertEquals(actual.getTotalDrivers(), 3 * 1);
-        assertEquals(actual.getAddInputCalls(), 3 * 2);
-        assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
-        assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
-        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(3 * 51));
-        assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
-        assertEquals(actual.getPhysicalInputReadTime(), new Duration(3 * 5, NANOSECONDS));
-        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
-        assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
-        assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
-        assertEquals(actual.getInputPositions(), 3 * 7);
-        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
+        assertThat(actual.getTotalDrivers()).isEqualTo(3 * 1);
+        assertThat(actual.getAddInputCalls()).isEqualTo(3 * 2);
+        assertThat(actual.getAddInputWall()).isEqualTo(new Duration(3 * 3, NANOSECONDS));
+        assertThat(actual.getAddInputCpu()).isEqualTo(new Duration(3 * 4, NANOSECONDS));
+        assertThat(actual.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 51));
+        assertThat(actual.getPhysicalInputPositions()).isEqualTo(3 * 511);
+        assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
+        assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
+        assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
+        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
+        assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
+        assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
+        assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);
 
-        assertEquals(actual.getGetOutputCalls(), 3 * 9);
-        assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
-        assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(3 * 12));
-        assertEquals(actual.getOutputPositions(), 3 * 13);
+        assertThat(actual.getGetOutputCalls()).isEqualTo(3 * 9);
+        assertThat(actual.getGetOutputWall()).isEqualTo(new Duration(3 * 10, NANOSECONDS));
+        assertThat(actual.getGetOutputCpu()).isEqualTo(new Duration(3 * 11, NANOSECONDS));
+        assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(3 * 12));
+        assertThat(actual.getOutputPositions()).isEqualTo(3 * 13);
 
-        assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
-        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(3 * 42)));
-        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
+        assertThat(actual.getDynamicFilterSplitsProcessed()).isEqualTo(3 * 533);
+        assertThat(actual.getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("metrics", new LongCount(3 * 42)));
+        assertThat(actual.getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
+        assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(3 * 14));
 
-        assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
+        assertThat(actual.getBlockedWall()).isEqualTo(new Duration(3 * 15, NANOSECONDS));
 
-        assertEquals(actual.getFinishCalls(), 3 * 16);
-        assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
-        assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
-        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
-        assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));
-        assertNull(actual.getInfo());
+        assertThat(actual.getFinishCalls()).isEqualTo(3 * 16);
+        assertThat(actual.getFinishWall()).isEqualTo(new Duration(3 * 17, NANOSECONDS));
+        assertThat(actual.getFinishCpu()).isEqualTo(new Duration(3 * 18, NANOSECONDS));
+        assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 19));
+        assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 20));
+        assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
+        assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
+        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(3 * 26));
+        assertThat(actual.getInfo()).isNull();
     }
 
     @Test
@@ -245,48 +244,48 @@ public class TestOperatorStats
     {
         OperatorStats actual = MERGEABLE.add(ImmutableList.of(MERGEABLE, MERGEABLE));
 
-        assertEquals(actual.getStageId(), 0);
-        assertEquals(actual.getOperatorId(), 41);
-        assertEquals(actual.getOperatorType(), "test");
+        assertThat(actual.getStageId()).isEqualTo(0);
+        assertThat(actual.getOperatorId()).isEqualTo(41);
+        assertThat(actual.getOperatorType()).isEqualTo("test");
 
-        assertEquals(actual.getTotalDrivers(), 3 * 1);
-        assertEquals(actual.getAddInputCalls(), 3 * 2);
-        assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
-        assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
-        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(3 * 51));
-        assertEquals(actual.getPhysicalInputPositions(), 3 * 511);
-        assertEquals(actual.getPhysicalInputReadTime(), new Duration(3 * 5, NANOSECONDS));
-        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(3 * 52));
-        assertEquals(actual.getInternalNetworkInputPositions(), 3 * 522);
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(3 * 5));
-        assertEquals(actual.getInputDataSize(), DataSize.ofBytes(3 * 6));
-        assertEquals(actual.getInputPositions(), 3 * 7);
-        assertEquals(actual.getSumSquaredInputPositions(), 3 * 8.0);
+        assertThat(actual.getTotalDrivers()).isEqualTo(3 * 1);
+        assertThat(actual.getAddInputCalls()).isEqualTo(3 * 2);
+        assertThat(actual.getAddInputWall()).isEqualTo(new Duration(3 * 3, NANOSECONDS));
+        assertThat(actual.getAddInputCpu()).isEqualTo(new Duration(3 * 4, NANOSECONDS));
+        assertThat(actual.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 51));
+        assertThat(actual.getPhysicalInputPositions()).isEqualTo(3 * 511);
+        assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(3 * 5, NANOSECONDS));
+        assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 52));
+        assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(3 * 522);
+        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 5));
+        assertThat(actual.getInputDataSize()).isEqualTo(DataSize.ofBytes(3 * 6));
+        assertThat(actual.getInputPositions()).isEqualTo(3 * 7);
+        assertThat(actual.getSumSquaredInputPositions()).isEqualTo(3 * 8.0);
 
-        assertEquals(actual.getGetOutputCalls(), 3 * 9);
-        assertEquals(actual.getGetOutputWall(), new Duration(3 * 10, NANOSECONDS));
-        assertEquals(actual.getGetOutputCpu(), new Duration(3 * 11, NANOSECONDS));
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(3 * 12));
-        assertEquals(actual.getOutputPositions(), 3 * 13);
+        assertThat(actual.getGetOutputCalls()).isEqualTo(3 * 9);
+        assertThat(actual.getGetOutputWall()).isEqualTo(new Duration(3 * 10, NANOSECONDS));
+        assertThat(actual.getGetOutputCpu()).isEqualTo(new Duration(3 * 11, NANOSECONDS));
+        assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(3 * 12));
+        assertThat(actual.getOutputPositions()).isEqualTo(3 * 13);
 
-        assertEquals(actual.getDynamicFilterSplitsProcessed(), 3 * 533);
-        assertEquals(actual.getMetrics().getMetrics(), ImmutableMap.of("metrics", new LongCount(3 * 42)));
-        assertEquals(actual.getConnectorMetrics().getMetrics(), ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
+        assertThat(actual.getDynamicFilterSplitsProcessed()).isEqualTo(3 * 533);
+        assertThat(actual.getMetrics().getMetrics()).isEqualTo(ImmutableMap.of("metrics", new LongCount(3 * 42)));
+        assertThat(actual.getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of("connectorMetrics", new LongCount(3 * 43)));
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(3 * 14));
+        assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(3 * 14));
 
-        assertEquals(actual.getBlockedWall(), new Duration(3 * 15, NANOSECONDS));
+        assertThat(actual.getBlockedWall()).isEqualTo(new Duration(3 * 15, NANOSECONDS));
 
-        assertEquals(actual.getFinishCalls(), 3 * 16);
-        assertEquals(actual.getFinishWall(), new Duration(3 * 17, NANOSECONDS));
-        assertEquals(actual.getFinishCpu(), new Duration(3 * 18, NANOSECONDS));
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(3 * 19));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(3 * 20));
-        assertEquals(actual.getPeakUserMemoryReservation(), DataSize.ofBytes(22));
-        assertEquals(actual.getPeakRevocableMemoryReservation(), DataSize.ofBytes(24));
-        assertEquals(actual.getPeakTotalMemoryReservation(), DataSize.ofBytes(25));
-        assertEquals(actual.getSpilledDataSize(), DataSize.ofBytes(3 * 26));
-        assertEquals(actual.getInfo().getClass(), PartitionedOutputInfo.class);
-        assertEquals(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded(), 3 * MERGEABLE_INFO.getPagesAdded());
+        assertThat(actual.getFinishCalls()).isEqualTo(3 * 16);
+        assertThat(actual.getFinishWall()).isEqualTo(new Duration(3 * 17, NANOSECONDS));
+        assertThat(actual.getFinishCpu()).isEqualTo(new Duration(3 * 18, NANOSECONDS));
+        assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 19));
+        assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(3 * 20));
+        assertThat(actual.getPeakUserMemoryReservation()).isEqualTo(DataSize.ofBytes(22));
+        assertThat(actual.getPeakRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(24));
+        assertThat(actual.getPeakTotalMemoryReservation()).isEqualTo(DataSize.ofBytes(25));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(3 * 26));
+        assertThat(actual.getInfo().getClass()).isEqualTo(PartitionedOutputInfo.class);
+        assertThat(((PartitionedOutputInfo) actual.getInfo()).getPagesAdded()).isEqualTo(3 * MERGEABLE_INFO.getPagesAdded());
     }
 }

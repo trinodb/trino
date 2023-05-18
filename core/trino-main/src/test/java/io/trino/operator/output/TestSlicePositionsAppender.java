@@ -29,7 +29,7 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.output.SlicePositionsAppender.duplicateBytes;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.internal.junit.ArrayAsserts.assertArrayEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSlicePositionsAppender
 {
@@ -70,8 +70,9 @@ public class TestSlicePositionsAppender
     {
         Slice slice = Slices.wrappedBuffer();
         byte[] target = new byte[] {-1};
+
         duplicateBytes(slice, target, 0, 100);
-        assertArrayEquals(new byte[] {-1}, target);
+        assertThat(new byte[] {-1}).isEqualTo(target);
     }
 
     @Test
@@ -80,8 +81,9 @@ public class TestSlicePositionsAppender
         Slice slice = Slices.wrappedBuffer(new byte[] {2});
         byte[] target = new byte[5];
         Arrays.fill(target, (byte) -1);
+
         duplicateBytes(slice, target, 3, 2);
-        assertArrayEquals(new byte[] {-1, -1, -1, 2, 2}, target);
+        assertThat(new byte[] {-1, -1, -1, 2, 2}).isEqualTo(target);
     }
 
     @Test
@@ -90,8 +92,9 @@ public class TestSlicePositionsAppender
         Slice slice = Slices.wrappedBuffer(new byte[] {1, 2});
         byte[] target = new byte[8];
         Arrays.fill(target, (byte) -1);
+
         duplicateBytes(slice, target, 1, 3);
-        assertArrayEquals(new byte[] {-1, 1, 2, 1, 2, 1, 2, -1}, target);
+        assertThat(new byte[] {-1, 1, 2, 1, 2, 1, 2, -1}).isEqualTo(target);
     }
 
     @Test
@@ -102,8 +105,7 @@ public class TestSlicePositionsAppender
         Arrays.fill(target, (byte) -1);
 
         duplicateBytes(slice, target, 1, 1);
-
-        assertArrayEquals(new byte[] {-1, 1, 2, -1, -1, -1, -1, -1}, target);
+        assertThat(new byte[] {-1, 1, 2, -1, -1, -1, -1, -1}).isEqualTo(target);
     }
 
     @Test
@@ -114,8 +116,7 @@ public class TestSlicePositionsAppender
         Arrays.fill(target, (byte) -1);
 
         duplicateBytes(slice, target, 1, 5);
-
-        assertArrayEquals(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}, target);
+        assertThat(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}).isEqualTo(target);
     }
 
     @Test
@@ -126,8 +127,7 @@ public class TestSlicePositionsAppender
         Arrays.fill(target, (byte) -1);
 
         duplicateBytes(slice, target, 1, 6);
-
-        assertArrayEquals(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}, target);
+        assertThat(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}).isEqualTo(target);
     }
 
     @Test
@@ -138,7 +138,6 @@ public class TestSlicePositionsAppender
         Arrays.fill(target, (byte) -1);
 
         duplicateBytes(slice, target, 1, 4);
-
-        assertArrayEquals(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}, target);
+        assertThat(new byte[] {-1, 5, 3, 1, 5, 3, 1, 5, 3, 1, 5, 3, 1, -1}).isEqualTo(target);
     }
 }

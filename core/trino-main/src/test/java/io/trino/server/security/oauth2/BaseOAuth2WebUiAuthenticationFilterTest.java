@@ -60,7 +60,6 @@ import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseOAuth2WebUiAuthenticationFilterTest
 {
@@ -259,14 +258,14 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
                         .get()
                         .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.request().url().toString(), uiUri.toString());
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.request().url()).hasToString(uiUri.toString());
         }
         Optional<HttpCookie> oauth2Cookie = cookieStore.get(uiUri)
                 .stream()
                 .filter(cookie -> cookie.getName().equals(OAUTH2_COOKIE))
                 .findFirst();
-        assertThat(oauth2Cookie).isNotEmpty();
+        assertThat(oauth2Cookie).isPresent();
         assertTrinoCookie(oauth2Cookie.get());
         assertUICallWithCookie(oauth2Cookie.get().getValue());
     }
@@ -378,10 +377,10 @@ public abstract class BaseOAuth2WebUiAuthenticationFilterTest
         assertThat(location.getHost()).isEqualTo("localhost");
         assertThat(location.getPort()).isEqualTo(hydraIdP.getAuthPort());
         assertThat(location.getPath()).isEqualTo("/oauth2/auth");
-        assertThat(url.queryParameterValues("response_type")).isEqualTo(ImmutableList.of("code"));
-        assertThat(url.queryParameterValues("scope")).isEqualTo(ImmutableList.of("openid"));
-        assertThat(url.queryParameterValues("redirect_uri")).isEqualTo(ImmutableList.of(serverUri + "/oauth2/callback"));
-        assertThat(url.queryParameterValues("client_id")).isEqualTo(ImmutableList.of(TRINO_CLIENT_ID));
+        assertThat(url.queryParameterValues("response_type")).containsExactly("code");
+        assertThat(url.queryParameterValues("scope")).containsExactly("openid");
+        assertThat(url.queryParameterValues("redirect_uri")).containsExactly(serverUri + "/oauth2/callback");
+        assertThat(url.queryParameterValues("client_id")).containsExactly(TRINO_CLIENT_ID);
         assertThat(url.queryParameterValues("state")).isNotNull();
     }
 }

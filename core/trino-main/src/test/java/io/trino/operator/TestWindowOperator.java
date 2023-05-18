@@ -70,8 +70,7 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
@@ -160,9 +159,9 @@ public class TestWindowOperator
         assertGreaterThan(pages.size(), 1, "Expected more than one output page");
 
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyElementsOf(expected.getMaterializedRows());
 
-        assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
+        assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0)).withFailMessage(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount())).isTrue();
     }
 
     @Test(dataProvider = "spillEnabled")
@@ -797,7 +796,7 @@ public class TestWindowOperator
     private static void assertFindEndPosition(String values, int expected)
     {
         char[] array = values.toCharArray();
-        assertEquals(findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
+        assertThat(findEndPosition(0, array.length, (first, second) -> array[first] == array[second])).isEqualTo(expected);
     }
 
     private WindowOperatorFactory createFactoryUnbounded(

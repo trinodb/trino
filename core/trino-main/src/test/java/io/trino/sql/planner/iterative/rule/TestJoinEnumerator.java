@@ -47,8 +47,7 @@ import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinEnumerator
 {
@@ -70,8 +69,7 @@ public class TestJoinEnumerator
     @Test
     public void testGeneratePartitions()
     {
-        assertEquals(generatePartitions(4),
-                ImmutableSet.of(
+        assertThat(generatePartitions(4)).hasSameElementsAs(ImmutableSet.of(
                         ImmutableSet.of(0),
                         ImmutableSet.of(0, 1),
                         ImmutableSet.of(0, 2),
@@ -80,11 +78,7 @@ public class TestJoinEnumerator
                         ImmutableSet.of(0, 1, 3),
                         ImmutableSet.of(0, 2, 3)));
 
-        assertEquals(generatePartitions(3),
-                ImmutableSet.of(
-                        ImmutableSet.of(0),
-                        ImmutableSet.of(0, 1),
-                        ImmutableSet.of(0, 2)));
+        assertThat(generatePartitions(3)).containsOnly(ImmutableSet.of(0), ImmutableSet.of(0, 1), ImmutableSet.of(0, 2));
     }
 
     @Test
@@ -105,8 +99,8 @@ public class TestJoinEnumerator
                 multiJoinNode.getFilter(),
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
-        assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), PlanCostEstimate.infinite());
+        assertThat(actual.getPlanNode()).isEmpty();
+        assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
     }
 
     private Rule.Context createContext()

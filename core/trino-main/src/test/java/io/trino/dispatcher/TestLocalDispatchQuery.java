@@ -79,7 +79,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalDispatchQuery
 {
@@ -154,7 +154,7 @@ public class TestLocalDispatchQuery
         });
         localDispatchQuery.startWaitingForResources();
         countDownLatch.await();
-        assertTrue(localDispatchQuery.getDispatchInfo().getCoordinatorLocation().isPresent());
+        assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation()).isPresent();
     }
 
     private static class NoConnectorServicesProvider

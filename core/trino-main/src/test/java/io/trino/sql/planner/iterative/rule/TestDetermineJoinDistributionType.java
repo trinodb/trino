@@ -64,7 +64,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static java.lang.Double.NaN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestDetermineJoinDistributionType
@@ -903,13 +903,11 @@ public class TestDetermineJoinDistributionType
         Symbol sourceSymbol2 = planBuilder.symbol("soruce2");
 
         // missing source stats
-        assertEquals(
-                getSourceTablesSizeInBytes(
+        assertThat(getSourceTablesSizeInBytes(
                         planBuilder.values(symbol),
                         noLookup(),
                         node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -918,8 +916,7 @@ public class TestDetermineJoinDistributionType
         PlanNodeStatsEstimate sourceStatsEstimate2 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(20)
                 .build();
-        assertEquals(
-                getSourceTablesSizeInBytes(
+        assertThat(getSourceTablesSizeInBytes(
                         planBuilder.union(
                                 ImmutableListMultimap.<Symbol, Symbol>builder()
                                         .put(symbol, sourceSymbol1)
@@ -942,32 +939,27 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes()),
-                270.0);
+                        planBuilder.getTypes())).isEqualTo(270.0);
 
         // join node
-        assertEquals(
-                getSourceTablesSizeInBytes(
+        assertThat(getSourceTablesSizeInBytes(
                         planBuilder.join(
                                 INNER,
                                 planBuilder.values(sourceSymbol1),
                                 planBuilder.values(sourceSymbol2)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
 
         // unnest node
-        assertEquals(
-                getSourceTablesSizeInBytes(
+        assertThat(getSourceTablesSizeInBytes(
                         planBuilder.unnest(
                                 ImmutableList.of(),
                                 ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
                                 planBuilder.values(sourceSymbol1)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
     }
 
     @Test
@@ -979,13 +971,11 @@ public class TestDetermineJoinDistributionType
         Symbol sourceSymbol2 = planBuilder.symbol("source2");
 
         // missing source stats
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.values(symbol),
                         noLookup(),
                         node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -1004,8 +994,7 @@ public class TestDetermineJoinDistributionType
         double unionInputRowCount = filterStatsEstimate.getOutputRowCount() + limitStatsEstimate.getOutputRowCount();
         double sourceSizeInBytes = sourceRowCount + sourceRowCount * BIGINT.getFixedSize();
         // un-estimated union with non-expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.union(
                                 ImmutableListMultimap.<Symbol, Symbol>builder()
                                         .put(symbol, sourceSymbol1)
@@ -1035,24 +1024,20 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes()),
-                (unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
+                        planBuilder.getTypes())).isEqualTo((unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
 
         // join node with known estimate
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.join(
                                 INNER,
                                 planBuilder.values(sourceSymbol1),
                                 planBuilder.values(sourceSymbol2)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
+                        planBuilder.getTypes())).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
 
         // un-estimated join with non-expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.join(
                                 INNER,
                                 planBuilder.tableScan(
@@ -1070,12 +1055,10 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
 
         // un-estimated union with estimated expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.union(
                                 ImmutableListMultimap.<Symbol, Symbol>builder()
                                         .put(symbol, sourceSymbol1)
@@ -1098,12 +1081,10 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes()),
-                sourceSizeInBytes);
+                        planBuilder.getTypes())).isEqualTo(sourceSizeInBytes);
 
         // un-estimated union with un-estimated expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
+        assertThat(getFirstKnownOutputSizeInBytes(
                         planBuilder.union(
                                 ImmutableListMultimap.<Symbol, Symbol>builder()
                                         .put(symbol, sourceSymbol1)
@@ -1123,8 +1104,7 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes()),
-                NaN);
+                        planBuilder.getTypes())).isEqualTo(NaN);
     }
 
     private RuleAssert assertDetermineJoinDistributionType()

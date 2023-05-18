@@ -16,7 +16,7 @@ package io.trino.operator;
 import io.trino.operator.aggregation.ParametricAggregationImplementation;
 import io.trino.operator.scalar.ParametricScalar;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 abstract class TestAnnotationEngine
 {
@@ -27,15 +27,15 @@ abstract class TestAnnotationEngine
 
     void assertImplementationCount(ParametricImplementationsGroup<?> implementations, int exact, int specialized, int generic)
     {
-        assertEquals(implementations.getExactImplementations().size(), exact);
-        assertEquals(implementations.getSpecializedImplementations().size(), specialized);
-        assertEquals(implementations.getGenericImplementations().size(), generic);
+        assertThat(implementations.getExactImplementations()).hasSize(exact);
+        assertThat(implementations.getSpecializedImplementations()).hasSize(specialized);
+        assertThat(implementations.getGenericImplementations()).hasSize(generic);
     }
 
     void assertDependencyCount(ParametricAggregationImplementation implementation, int input, int combine, int output)
     {
-        assertEquals(implementation.getInputDependencies().size(), input);
-        assertEquals(implementation.getCombineDependencies().size(), combine);
-        assertEquals(implementation.getOutputDependencies().size(), output);
+        assertThat(implementation.getInputDependencies()).hasSize(input);
+        assertThat(implementation.getCombineDependencies()).hasSize(combine);
+        assertThat(implementation.getOutputDependencies()).hasSize(output);
     }
 }

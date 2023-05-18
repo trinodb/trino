@@ -27,7 +27,7 @@ import java.util.stream.IntStream;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypedHistogram
 {
@@ -56,7 +56,7 @@ public class TestTypedHistogram
         typedHistogram.serialize(out);
         Block outputBlock = mapType.getObject(out, 0);
         for (int i = 0; i < outputBlock.getPositionCount(); i += 2) {
-            assertEquals(BIGINT.getLong(outputBlock, i + 1), BIGINT.getLong(outputBlock, i));
+            assertThat(BIGINT.getLong(outputBlock, i + 1)).isEqualTo(BIGINT.getLong(outputBlock, i));
         }
     }
 }

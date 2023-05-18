@@ -34,7 +34,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
 import static java.lang.Long.reverseBytes;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestUuidType
         extends AbstractTestType
@@ -70,7 +69,7 @@ public class TestUuidType
     @Test
     public void testDisplayName()
     {
-        assertEquals(UUID.getDisplayName(), "uuid");
+        assertThat(UUID.getDisplayName()).isEqualTo("uuid");
     }
 
     @Test
@@ -100,14 +99,12 @@ public class TestUuidType
         MethodHandle compareByValue = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
         long comparisonByValue = (long) compareByValue.invoke(lowerSlice, higherSlice);
         assertThat(comparisonByValue)
-                .as("value comparison operator result")
-                .isLessThan(0);
+                .as("value comparison operator result").isNegative();
 
         MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         long comparisonFromBlock = (long) compareFromBlock.invoke(nativeValueToBlock(UUID, lowerSlice), 0, nativeValueToBlock(UUID, higherSlice), 0);
         assertThat(comparisonFromBlock)
-                .as("block-position comparison operator result")
-                .isLessThan(0);
+                .as("block-position comparison operator result").isNegative();
 
         // UUID ordering should be consistent with lexicographical order of unsigned bytes the UUID is comprised of
         assertThat(lowerSlice)

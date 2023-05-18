@@ -117,12 +117,8 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -314,12 +310,12 @@ public class TestHashJoinOperator
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
         Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertTrue(operator.needsInput());
+        assertThat(operator.needsInput()).isTrue();
         operator.addInput(probeInput.get(0));
         operator.finish();
 
         Page output = operator.getOutput();
-        assertFalse(output.getBlock(1) instanceof LazyBlock);
+        assertThat(output.getBlock(1)).isNotInstanceOf(LazyBlock.class);
     }
 
     @Test
@@ -367,7 +363,7 @@ public class TestHashJoinOperator
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
         Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertTrue(operator.needsInput());
+        assertThat(operator.needsInput()).isTrue();
         operator.addInput(probeInput.get(0));
         operator.finish();
 
@@ -375,8 +371,8 @@ public class TestHashJoinOperator
         for (int i = 0; i < entries; i++) {
             driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
             filterFunctionCalls.set(0);
-            assertNull(operator.getOutput());
-            assertEquals(filterFunctionCalls.get(), 1, "Expected join to stop processing (yield) after calling filter function once");
+            assertThat(operator.getOutput()).isNull();
+            assertThat(filterFunctionCalls.get()).withFailMessage("Expected join to stop processing (yield) after calling filter function once").isEqualTo(1);
             driverContext.getYieldSignal().reset();
         }
         // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
@@ -386,11 +382,11 @@ public class TestHashJoinOperator
         for (int i = 0; output == null && i < 5; i++) {
             output = operator.getOutput();
         }
-        assertNotNull(output);
+        assertThat(output).isNotNull();
         driverContext.getYieldSignal().reset();
 
         // make sure we have all 4 entries
-        assertEquals(output.getPositionCount(), entries);
+        assertThat(output.getPositionCount()).isEqualTo(entries);
     }
 
     private enum WhenSpill
@@ -544,7 +540,7 @@ public class TestHashJoinOperator
                 }
             }
             getFutureValue(lookupSourceProvider).close();
-            assertEquals(revoked, whenSpill.stream().map(WhenSpill.DURING_BUILD::equals).collect(toImmutableList()), "Some operators not spilled before LookupSource built");
+            assertThat(revoked).withFailMessage("Some operators not spilled before LookupSource built").containsExactlyElementsOf(whenSpill.stream().map(WhenSpill.DURING_BUILD::equals).collect(toImmutableList()));
 
             for (int i = 0; i < buildOperatorCount; i++) {
                 if (whenSpill.get(i) == WhenSpill.AFTER_BUILD) {
@@ -690,7 +686,7 @@ public class TestHashJoinOperator
         hashBuilderOperator.isBlocked().get();
 
         lookupSourceFactory.destroy();
-        assertTrue(hashBuilderOperator.isFinished());
+        assertThat(hashBuilderOperator.isFinished()).isTrue();
     }
 
     @Test(dataProvider = "hashJoinTestValues")
@@ -1257,7 +1253,7 @@ public class TestHashJoinOperator
         List<Page> pages = probePages.row("test").build();
         operator.addInput(pages.get(0));
         Page outputPage = operator.getOutput();
-        assertNull(outputPage);
+        assertThat(outputPage).isNull();
     }
 
     @Test(dataProvider = "hashJoinTestValues")
@@ -1296,7 +1292,7 @@ public class TestHashJoinOperator
         List<Page> pages = probePages.row("test").build();
         operator.addInput(pages.get(0));
         Page outputPage = operator.getOutput();
-        assertNull(outputPage);
+        assertThat(outputPage).isNull();
     }
 
     @Test(dataProvider = "hashJoinTestValues")
@@ -1447,13 +1443,13 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
-            assertFalse(joinOperator.needsInput());
+            assertThat(joinOperator.needsInput()).isFalse();
             joinOperator.finish();
-            assertNull(joinOperator.getOutput());
+            assertThat(joinOperator.getOutput()).isNull();
 
             // lookup join operator got blocked waiting for build side
-            assertFalse(joinOperator.isBlocked().isDone());
-            assertFalse(joinOperator.isFinished());
+            assertThat(joinOperator.isBlocked().isDone()).isFalse();
+            assertThat(joinOperator.isFinished()).isFalse();
         }
 
         // join that doesn't wait for build side to be collected
@@ -1462,14 +1458,14 @@ public class TestHashJoinOperator
         driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
-            assertTrue(joinOperator.needsInput());
+            assertThat(joinOperator.needsInput()).isTrue();
             joinOperator.finish();
-            assertNull(joinOperator.getOutput());
+            assertThat(joinOperator.getOutput()).isNull();
 
             // lookup join operator will yield once before finishing
-            assertNull(joinOperator.getOutput());
-            assertTrue(joinOperator.isBlocked().isDone());
-            assertTrue(joinOperator.isFinished());
+            assertThat(joinOperator.getOutput()).isNull();
+            assertThat(joinOperator.isBlocked().isDone()).isTrue();
+            assertThat(joinOperator.isFinished()).isTrue();
         }
     }
 
@@ -1486,12 +1482,12 @@ public class TestHashJoinOperator
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
-            assertFalse(joinOperator.needsInput());
-            assertNull(joinOperator.getOutput());
+            assertThat(joinOperator.needsInput()).isFalse();
+            assertThat(joinOperator.getOutput()).isNull();
 
             // lookup join operator got blocked waiting for build side
-            assertFalse(joinOperator.isBlocked().isDone());
-            assertFalse(joinOperator.isFinished());
+            assertThat(joinOperator.isBlocked().isDone()).isFalse();
+            assertThat(joinOperator.isFinished()).isFalse();
         }
 
         // join that doesn't wait for build side to be collected
@@ -1500,18 +1496,18 @@ public class TestHashJoinOperator
         driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
-            assertTrue(joinOperator.needsInput());
-            assertNull(joinOperator.getOutput());
+            assertThat(joinOperator.needsInput()).isTrue();
+            assertThat(joinOperator.getOutput()).isNull();
 
             // join needs input page
-            assertTrue(joinOperator.isBlocked().isDone());
-            assertFalse(joinOperator.isFinished());
+            assertThat(joinOperator.isBlocked().isDone()).isTrue();
+            assertThat(joinOperator.isFinished()).isFalse();
             joinOperator.addInput(probePage);
-            assertNull(joinOperator.getOutput());
+            assertThat(joinOperator.getOutput()).isNull();
 
             // lookup join operator got blocked waiting for build side
-            assertFalse(joinOperator.isBlocked().isDone());
-            assertFalse(joinOperator.isFinished());
+            assertThat(joinOperator.isBlocked().isDone()).isFalse();
+            assertThat(joinOperator.isFinished()).isFalse();
         }
     }
 
@@ -1558,7 +1554,7 @@ public class TestHashJoinOperator
                             1,
                             () -> {
                                 // when loaded this block should be the latest one
-                                assertEquals(probePageNumber, totalProbePages.get());
+                                assertThat(probePageNumber).isEqualTo(totalProbePages.get());
                                 return probePage.getBlock(2);
                             })));
         });
@@ -1583,7 +1579,7 @@ public class TestHashJoinOperator
 
             Page page = outputPages.getResult();
             totalOutputPages++;
-            assertFalse(page.getBlock(1).isLoaded());
+            assertThat(page.getBlock(1).isLoaded()).isFalse();
             page.getBlock(2).getLoadedBlock();
 
             // yield to enforce more complex execution
@@ -1591,8 +1587,8 @@ public class TestHashJoinOperator
         }
 
         // make sure that multiple pages were produced for some probe pages
-        assertTrue(totalOutputPages > totalProbePages.get());
-        assertTrue(outputPages.isFinished());
+        assertThat(totalOutputPages).isGreaterThan(totalProbePages.get());
+        assertThat(outputPages.isFinished()).isTrue();
     }
 
     private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean waitForBuild)

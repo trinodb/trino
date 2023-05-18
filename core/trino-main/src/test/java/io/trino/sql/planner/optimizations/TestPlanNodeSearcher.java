@@ -31,7 +31,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPlanNodeSearcher
 {
@@ -60,7 +60,7 @@ public class TestPlanNodeSearcher
                 .map(PlanNode::getId)
                 .collect(toImmutableList());
 
-        assertEquals(rootToBottomIds, findAllResult);
+        assertThat(rootToBottomIds).containsExactlyElementsOf(findAllResult);
     }
 
     @Test
@@ -84,7 +84,7 @@ public class TestPlanNodeSearcher
                 .map(PlanNode::getId)
                 .collect(toImmutableList());
 
-        assertEquals(idsInPreOrder.build(), findAllResult);
+        assertThat(idsInPreOrder.build()).containsExactlyElementsOf(findAllResult);
     }
 
     /**

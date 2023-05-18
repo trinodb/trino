@@ -25,9 +25,7 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class ColumnarTestUtils
 {
@@ -43,7 +41,7 @@ public final class ColumnarTestUtils
 
     private static <T> void assertBlockPositions(Block block, T[] expectedValues)
     {
-        assertEquals(block.getPositionCount(), expectedValues.length);
+        assertThat(block.getPositionCount()).isEqualTo(expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
             assertBlockPosition(block, position, expectedValues[position]);
         }
@@ -58,17 +56,17 @@ public final class ColumnarTestUtils
     private static <T> void assertPositionValue(Block block, int position, T expectedValue)
     {
         if (expectedValue == null) {
-            assertTrue(block.isNull(position));
+            assertThat(block.isNull(position)).isTrue();
             return;
         }
-        assertFalse(block.isNull(position));
+        assertThat(block.isNull(position)).isFalse();
 
         if (expectedValue instanceof Slice expected) {
             int length = block.getSliceLength(position);
-            assertEquals(length, expected.length());
+            assertThat(length).isEqualTo(expected.length());
 
             Slice actual = block.getSlice(position, 0, length);
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
         else if (expectedValue instanceof Slice[] expected) {
             // array or row
@@ -91,7 +89,7 @@ public final class ColumnarTestUtils
         Slice[] flattened = new Slice[mapEntries.length * 2];
         for (int i = 0; i < mapEntries.length; i++) {
             Slice[] mapEntry = mapEntries[i];
-            assertEquals(mapEntry.length, 2);
+            assertThat(mapEntry.length).isEqualTo(2);
             flattened[i * 2] = mapEntry[0];
             flattened[i * 2 + 1] = mapEntry[1];
         }

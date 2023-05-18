@@ -34,7 +34,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestIntervalDayTime
@@ -57,14 +56,14 @@ public class TestIntervalDayTime
     @Test
     public void testObject()
     {
-        assertEquals(new SqlIntervalDayTime(12, 10, 45, 32, 123), new SqlIntervalDayTime(1_075_532_123));
-        assertEquals(new SqlIntervalDayTime(-12, -10, -45, -32, -123), new SqlIntervalDayTime(-1_075_532_123));
+        assertThat(new SqlIntervalDayTime(12, 10, 45, 32, 123)).isEqualTo(new SqlIntervalDayTime(1_075_532_123));
+        assertThat(new SqlIntervalDayTime(-12, -10, -45, -32, -123)).isEqualTo(new SqlIntervalDayTime(-1_075_532_123));
 
-        assertEquals(new SqlIntervalDayTime(30, 0, 0, 0, 0), new SqlIntervalDayTime(DAYS.toMillis(30)));
-        assertEquals(new SqlIntervalDayTime(-30, 0, 0, 0, 0), new SqlIntervalDayTime(-DAYS.toMillis(30)));
+        assertThat(new SqlIntervalDayTime(30, 0, 0, 0, 0)).isEqualTo(new SqlIntervalDayTime(DAYS.toMillis(30)));
+        assertThat(new SqlIntervalDayTime(-30, 0, 0, 0, 0)).isEqualTo(new SqlIntervalDayTime(-DAYS.toMillis(30)));
 
-        assertEquals(new SqlIntervalDayTime(90, 0, 0, 0, 0), new SqlIntervalDayTime(DAYS.toMillis(90)));
-        assertEquals(new SqlIntervalDayTime(-90, 0, 0, 0, 0), new SqlIntervalDayTime(-DAYS.toMillis(90)));
+        assertThat(new SqlIntervalDayTime(90, 0, 0, 0, 0)).isEqualTo(new SqlIntervalDayTime(DAYS.toMillis(90)));
+        assertThat(new SqlIntervalDayTime(-90, 0, 0, 0, 0)).isEqualTo(new SqlIntervalDayTime(-DAYS.toMillis(90)));
     }
 
     @Test

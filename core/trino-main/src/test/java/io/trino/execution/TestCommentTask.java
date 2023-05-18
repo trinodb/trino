@@ -50,8 +50,7 @@ public class TestCommentTask
                 .isEmpty();
 
         getFutureValue(setComment(TABLE, asQualifiedName(tableName), Optional.of("new comment")));
-        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
-                .isEqualTo(Optional.of("new comment"));
+        assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment()).hasValue("new comment");
     }
 
     @Test
@@ -84,7 +83,7 @@ public class TestCommentTask
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(VIEW, asQualifiedName(viewName), Optional.of("new comment")));
-        assertThat(metadata.getView(testSession, viewName).get().getComment()).isEqualTo(Optional.of("new comment"));
+        assertThat(metadata.getView(testSession, viewName).get().getComment()).hasValue("new comment");
     }
 
     @Test
@@ -119,8 +118,7 @@ public class TestCommentTask
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).get();
         ConnectorTableMetadata connectorTableMetadata = metadata.getTableMetadata(testSession, tableHandle).getMetadata();
-        assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment()))
-                .isEqualTo(Optional.of("new test column comment"));
+        assertThat(Optional.ofNullable(connectorTableMetadata.getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())).hasValue("new test column comment");
     }
 
     @Test
@@ -133,8 +131,7 @@ public class TestCommentTask
         assertThat(metadata.isView(testSession, viewName)).isTrue();
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
-        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment())
-                .isEqualTo(Optional.of("new test column comment"));
+        assertThat(metadata.getView(testSession, viewName).get().getColumns().stream().filter(column -> "test".equals(column.getName())).collect(onlyElement()).getComment()).hasValue("new test column comment");
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(COLUMN, missingColumnName, Optional.of("comment for missing column"))))
                 .hasErrorCode(COLUMN_NOT_FOUND)

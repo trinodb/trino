@@ -46,7 +46,7 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestDistinctLimitOperator
@@ -170,6 +170,6 @@ public class TestDistinctLimitOperator
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 450_000);
         assertGreaterThanOrEqual(result.getYieldCount(), 5);
         assertGreaterThanOrEqual(result.getMaxReservedBytes(), 20L << 20);
-        assertEquals(result.getOutput().stream().mapToInt(Page::getPositionCount).sum(), 6_000 * 600);
+        assertThat(result.getOutput().stream().mapToInt(Page::getPositionCount).sum()).isEqualTo(6_000 * 600);
     }
 }

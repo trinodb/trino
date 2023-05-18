@@ -49,10 +49,6 @@ import static io.trino.testing.TestingSplit.createLocalSplit;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestWorkProcessorPipelineSourceOperator
 {
@@ -125,81 +121,81 @@ public class TestWorkProcessorPipelineSourceOperator
 
         // make sure WorkProcessorOperator memory is accounted for
         sourceOperatorFactory.sourceOperator.memoryTrackingContext.localUserMemoryContext().setBytes(123);
-        assertEquals(driverContext.getMemoryUsage(), 123);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(123);
 
-        assertNull(pipelineOperator.getOutput());
-        assertFalse(pipelineOperator.isBlocked().isDone());
+        assertThat(pipelineOperator.getOutput()).isNull();
+        assertThat(pipelineOperator.isBlocked().isDone()).isFalse();
         // blocking on splits should not account for blocked time for any WorkProcessorOperator
         pipelineOperatorContext.getNestedOperatorStats().forEach(
-                operatorStats -> assertEquals(operatorStats.getBlockedWall().toMillis(), 0));
+                operatorStats -> assertThat(operatorStats.getBlockedWall().toMillis()).isEqualTo(0));
 
         pipelineOperator.addSplit(split);
-        assertTrue(pipelineOperator.isBlocked().isDone());
+        assertThat(pipelineOperator.isBlocked().isDone()).isTrue();
 
-        assertNull(pipelineOperator.getOutput());
-        assertFalse(pipelineOperator.isBlocked().isDone());
+        assertThat(pipelineOperator.getOutput()).isNull();
+        assertThat(pipelineOperator.isBlocked().isDone()).isFalse();
 
         Thread.sleep(100);
         firstBlockedFuture.set(null);
-        assertTrue(pipelineOperator.isBlocked().isDone());
+        assertThat(pipelineOperator.isBlocked().isDone()).isTrue();
 
         // blocking of first WorkProcessorOperator should be accounted for in stats
         List<OperatorStats> operatorStats = pipelineOperatorContext.getNestedOperatorStats();
-        assertEquals(operatorStats.get(0).getBlockedWall().toMillis(), 0);
-        assertTrue(operatorStats.get(1).getBlockedWall().toMillis() > 0);
-        assertEquals(operatorStats.get(2).getBlockedWall().toMillis(), 0);
+        assertThat(operatorStats.get(0).getBlockedWall().toMillis()).isEqualTo(0);
+        assertThat(operatorStats.get(1).getBlockedWall().toMillis()).isPositive();
+        assertThat(operatorStats.get(2).getBlockedWall().toMillis()).isEqualTo(0);
 
-        assertEquals(getTestingOperatorInfo(operatorStats.get(1)).count, 2);
-        assertEquals(getTestingOperatorInfo(operatorStats.get(2)).count, 2);
+        assertThat(getTestingOperatorInfo(operatorStats.get(1)).count).isEqualTo(2);
+        assertThat(getTestingOperatorInfo(operatorStats.get(2)).count).isEqualTo(2);
 
-        assertEquals(pipelineOperator.getOutput().getPositionCount(), page5.getPositionCount());
+        assertThat(pipelineOperator.getOutput().getPositionCount()).isEqualTo(page5.getPositionCount());
 
         // sourceOperator should yield
         driverContext.getYieldSignal().forceYieldForTesting();
-        assertNull(pipelineOperator.getOutput());
+        assertThat(pipelineOperator.getOutput()).isNull();
         driverContext.getYieldSignal().resetYieldForTesting();
 
         // firstOperatorPages should finish. This should cause sourceOperator and firstOperatorPages to close.
         // secondOperatorPages should block
-        assertNull(pipelineOperator.getOutput());
-        assertFalse(pipelineOperator.isBlocked().isDone());
-        assertTrue(sourceOperatorFactory.sourceOperator.closed);
-        assertTrue(firstOperatorFactory.operator.closed);
-        assertFalse(secondOperatorFactory.operator.closed);
+        assertThat(pipelineOperator.getOutput()).isNull();
+        assertThat(pipelineOperator.isBlocked().isDone()).isFalse();
+        assertThat(sourceOperatorFactory.sourceOperator.closed).isTrue();
+        assertThat(firstOperatorFactory.operator.closed).isTrue();
+        assertThat(secondOperatorFactory.operator.closed).isFalse();
 
         // first operator should return final operator info
-        assertEquals(getTestingOperatorInfo(operatorStats.get(1)).count, 3);
-        assertEquals(getTestingOperatorInfo(operatorStats.get(2)).count, 2);
+        assertThat(getTestingOperatorInfo(operatorStats.get(1)).count).isEqualTo(3);
+        assertThat(getTestingOperatorInfo(operatorStats.get(2)).count).isEqualTo(2);
         operatorStats = pipelineOperatorContext.getNestedOperatorStats();
-        assertEquals(getTestingOperatorInfo(operatorStats.get(1)).count, 3);
-        assertEquals(getTestingOperatorInfo(operatorStats.get(2)).count, 3);
+        assertThat(getTestingOperatorInfo(operatorStats.get(1)).count).isEqualTo(3);
+        assertThat(getTestingOperatorInfo(operatorStats.get(2)).count).isEqualTo(3);
 
         // cause early operator finish
         pipelineOperator.finish();
 
         // operator is still blocked on secondBlockedFuture
-        assertFalse(pipelineOperator.isFinished());
-        assertTrue(secondOperatorFactory.operator.closed);
+        assertThat(pipelineOperator.isFinished()).isFalse();
+        assertThat(secondOperatorFactory.operator.closed).isTrue();
 
         secondBlockedFuture.set(null);
-        assertTrue(pipelineOperator.isBlocked().isDone());
-        assertNull(pipelineOperator.getOutput());
-        assertTrue(pipelineOperator.isFinished());
+        assertThat(pipelineOperator.isBlocked().isDone()).isTrue();
+        assertThat(pipelineOperator.getOutput()).isNull();
+        assertThat(pipelineOperator.isFinished()).isTrue();
 
         // assert operator stats are correct
         operatorStats = pipelineOperatorContext.getNestedOperatorStats();
-        assertEquals(operatorStats.get(0).getOutputPositions(), 3);
-        assertEquals(operatorStats.get(1).getInputPositions(), 3);
-        assertEquals(operatorStats.get(0).getOutputDataSize().toBytes(), 27);
-        assertEquals(operatorStats.get(1).getInputDataSize().toBytes(), 27);
+        assertThat(operatorStats.get(0).getOutputPositions()).isEqualTo(3);
+        assertThat(operatorStats.get(1).getInputPositions()).isEqualTo(3);
+        assertThat(operatorStats.get(0).getOutputDataSize().toBytes()).isEqualTo(27);
+        assertThat(operatorStats.get(1).getInputDataSize().toBytes()).isEqualTo(27);
 
-        assertEquals(operatorStats.get(1).getOutputPositions(), 7);
-        assertEquals(operatorStats.get(2).getInputPositions(), 7);
-        assertEquals(operatorStats.get(1).getOutputDataSize().toBytes(), 63);
-        assertEquals(operatorStats.get(2).getInputDataSize().toBytes(), 63);
+        assertThat(operatorStats.get(1).getOutputPositions()).isEqualTo(7);
+        assertThat(operatorStats.get(2).getInputPositions()).isEqualTo(7);
+        assertThat(operatorStats.get(1).getOutputDataSize().toBytes()).isEqualTo(63);
+        assertThat(operatorStats.get(2).getInputDataSize().toBytes()).isEqualTo(63);
 
-        assertEquals(operatorStats.get(2).getOutputPositions(), 5);
-        assertEquals(operatorStats.get(2).getOutputDataSize().toBytes(), 45);
+        assertThat(operatorStats.get(2).getOutputPositions()).isEqualTo(5);
+        assertThat(operatorStats.get(2).getOutputDataSize().toBytes()).isEqualTo(45);
 
         assertThat(operatorStats.get(1).getMetrics().getMetrics())
                 .hasSize(5)
@@ -212,33 +208,33 @@ public class TestWorkProcessorPipelineSourceOperator
                 .hasSize(6)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
-        assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
+        assertThat(sourceOperatorStats.getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
                 "testSourceConnectorClosed", new LongCount(1)));
 
-        assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
+        assertThat(sourceOperatorStats.getDynamicFilterSplitsProcessed()).isEqualTo(42L);
 
-        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), DataSize.ofBytes(1));
-        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), 2);
+        assertThat(sourceOperatorStats.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(1));
+        assertThat(sourceOperatorStats.getPhysicalInputPositions()).isEqualTo(2);
 
-        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), DataSize.ofBytes(3));
-        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), 4);
+        assertThat(sourceOperatorStats.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(3));
+        assertThat(sourceOperatorStats.getInternalNetworkInputPositions()).isEqualTo(4);
 
-        assertEquals(sourceOperatorStats.getInputDataSize(), DataSize.ofBytes(5));
-        assertEquals(sourceOperatorStats.getInputPositions(), 6);
+        assertThat(sourceOperatorStats.getInputDataSize()).isEqualTo(DataSize.ofBytes(5));
+        assertThat(sourceOperatorStats.getInputPositions()).isEqualTo(6);
 
-        assertEquals(sourceOperatorStats.getAddInputWall(), new Duration(0, NANOSECONDS));
+        assertThat(sourceOperatorStats.getAddInputWall()).isEqualTo(new Duration(0, NANOSECONDS));
 
         // pipeline input stats should match source WorkProcessorOperator stats
         PipelineStats pipelineStats = pipelineOperator.getOperatorContext().getDriverContext().getPipelineContext().getPipelineStats();
-        assertEquals(sourceOperatorStats.getPhysicalInputDataSize(), pipelineStats.getPhysicalInputDataSize());
-        assertEquals(sourceOperatorStats.getPhysicalInputPositions(), pipelineStats.getPhysicalInputPositions());
+        assertThat(sourceOperatorStats.getPhysicalInputDataSize()).isEqualTo(pipelineStats.getPhysicalInputDataSize());
+        assertThat(sourceOperatorStats.getPhysicalInputPositions()).isEqualTo(pipelineStats.getPhysicalInputPositions());
 
-        assertEquals(sourceOperatorStats.getInternalNetworkInputDataSize(), pipelineStats.getInternalNetworkInputDataSize());
-        assertEquals(sourceOperatorStats.getInternalNetworkInputPositions(), pipelineStats.getInternalNetworkInputPositions());
+        assertThat(sourceOperatorStats.getInternalNetworkInputDataSize()).isEqualTo(pipelineStats.getInternalNetworkInputDataSize());
+        assertThat(sourceOperatorStats.getInternalNetworkInputPositions()).isEqualTo(pipelineStats.getInternalNetworkInputPositions());
 
-        assertEquals(sourceOperatorStats.getInputDataSize(), pipelineStats.getProcessedInputDataSize());
-        assertEquals(sourceOperatorStats.getInputPositions(), pipelineStats.getProcessedInputPositions());
+        assertThat(sourceOperatorStats.getInputDataSize()).isEqualTo(pipelineStats.getProcessedInputDataSize());
+        assertThat(sourceOperatorStats.getInputPositions()).isEqualTo(pipelineStats.getProcessedInputPositions());
 
         assertThat(sourceOperatorStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit())
                 .isEqualTo(pipelineStats.getPhysicalInputReadTime().convertToMostSuccinctTimeUnit());
@@ -249,7 +245,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 .hasSize(6)
                 .containsEntry("testSourceMetric", new LongCount(1))
                 .containsEntry("testSourceClosed", new LongCount(1));
-        assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
+        assertThat(operatorSummaries.get(0).getConnectorMetrics().getMetrics()).isEqualTo(ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
                 "testSourceConnectorClosed", new LongCount(1)));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
@@ -281,7 +277,7 @@ public class TestWorkProcessorPipelineSourceOperator
         SourceOperator pipelineOperator = pipelineOperatorFactory.createOperator(driverContext);
         pipelineOperator.addSplit(createSplit());
 
-        assertTrue(pipelineOperator.getOutput().getPositionCount() > 100);
+        assertThat(pipelineOperator.getOutput().getPositionCount()).isGreaterThan(100);
     }
 
     private TestOperatorInfo getTestingOperatorInfo(OperatorStats operatorStats)
@@ -344,7 +340,7 @@ public class TestWorkProcessorPipelineSourceOperator
         @Override
         public WorkProcessorSourceOperator create(Session session, MemoryTrackingContext memoryTrackingContext, DriverYieldSignal yieldSignal, WorkProcessor<Split> splits)
         {
-            assertNull(sourceOperator, "source operator already created");
+            assertThat(sourceOperator).withFailMessage("source operator already created").isNull();
             sourceOperator = new TestWorkProcessorSourceOperator(
                     splits
                             .transform(transformation)
@@ -492,7 +488,7 @@ public class TestWorkProcessorPipelineSourceOperator
         @Override
         public WorkProcessorOperator create(ProcessorContext processorContext, WorkProcessor<Page> sourcePages)
         {
-            assertNull(operator, "source operator already created");
+            assertThat(operator).withFailMessage("source operator already created").isNull();
             operator = new TestWorkProcessorOperator(sourcePages.transform(transformation));
             return operator;
         }

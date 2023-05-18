@@ -57,11 +57,7 @@ import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 @Test(singleThreaded = true)
 public class TestQueryResource
@@ -131,27 +127,27 @@ public class TestQueryResource
         runToCompletion("SELECT x FROM y");
 
         List<BasicQueryInfo> infos = getQueryInfos("/v1/query");
-        assertEquals(infos.size(), 3);
+        assertThat(infos).hasSize(3);
         assertStateCounts(infos, 2, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=finished");
-        assertEquals(infos.size(), 2);
+        assertThat(infos).hasSize(2);
         assertStateCounts(infos, 2, 0, 0);
 
         infos = getQueryInfos("/v1/query?state=failed");
-        assertEquals(infos.size(), 1);
+        assertThat(infos).hasSize(1);
         assertStateCounts(infos, 0, 1, 0);
 
         infos = getQueryInfos("/v1/query?state=running");
-        assertEquals(infos.size(), 0);
+        assertThat(infos).isEmpty();
         assertStateCounts(infos, 0, 0, 0);
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
-            assertTrue(getQueryInfos("/v1/query").isEmpty());
-            assertTrue(getQueryInfos("/v1/query?state=finished").isEmpty());
-            assertTrue(getQueryInfos("/v1/query?state=failed").isEmpty());
-            assertTrue(getQueryInfos("/v1/query?state=running").isEmpty());
+            assertThat(getQueryInfos("/v1/query")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=finished")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=failed")).isEmpty();
+            assertThat(getQueryInfos("/v1/query?state=running")).isEmpty();
         }
         finally {
             server.getAccessControl().reset();
@@ -163,9 +159,9 @@ public class TestQueryResource
     {
         String queryId = runToCompletion("SELECT");
         QueryInfo info = getQueryInfo(queryId);
-        assertFalse(info.isScheduled());
-        assertNotNull(info.getFailureInfo());
-        assertEquals(info.getFailureInfo().getErrorCode(), SYNTAX_ERROR.toErrorCode());
+        assertThat(info.isScheduled()).isFalse();
+        assertThat(info.getFailureInfo()).isNotNull();
+        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(SYNTAX_ERROR.toErrorCode());
 
         server.getAccessControl().deny(privilege("query", VIEW_QUERY));
         try {
@@ -183,9 +179,9 @@ public class TestQueryResource
     {
         String queryId = runToCompletion("SELECT cast(rand() AS integer) / 0");
         QueryInfo info = getQueryInfo(queryId);
-        assertTrue(info.isScheduled());
-        assertNotNull(info.getFailureInfo());
-        assertEquals(info.getFailureInfo().getErrorCode(), DIVISION_BY_ZERO.toErrorCode());
+        assertThat(info.isScheduled()).isTrue();
+        assertThat(info.getFailureInfo()).isNotNull();
+        assertThat(info.getFailureInfo().getErrorCode()).isEqualTo(DIVISION_BY_ZERO.toErrorCode());
     }
 
     @Test
@@ -195,17 +191,17 @@ public class TestQueryResource
 
         server.getAccessControl().deny(privilege("query", KILL_QUERY));
         try {
-            assertEquals(cancelQueryInfo(queryId), 403);
+            assertThat(cancelQueryInfo(queryId)).isEqualTo(403);
         }
         finally {
             server.getAccessControl().reset();
         }
 
-        assertEquals(cancelQueryInfo(queryId), 204);
-        assertEquals(cancelQueryInfo(queryId), 204);
+        assertThat(cancelQueryInfo(queryId)).isEqualTo(204);
+        assertThat(cancelQueryInfo(queryId)).isEqualTo(204);
         BasicQueryInfo queryInfo = server.getDispatchManager().getQueryInfo(new QueryId(queryId));
-        assertEquals(queryInfo.getState(), FAILED);
-        assertEquals(queryInfo.getErrorCode(), USER_CANCELED.toErrorCode());
+        assertThat(queryInfo.getState()).isEqualTo(FAILED);
+        assertThat(queryInfo.getErrorCode()).isEqualTo(USER_CANCELED.toErrorCode());
     }
 
     @Test
@@ -226,21 +222,21 @@ public class TestQueryResource
 
         server.getAccessControl().deny(privilege("query", KILL_QUERY));
         try {
-            assertEquals(killQueryInfo(queryId, killType), 403);
+            assertThat(killQueryInfo(queryId, killType)).isEqualTo(403);
         }
         finally {
             server.getAccessControl().reset();
         }
 
-        assertEquals(killQueryInfo(queryId, killType), 202);
-        assertEquals(killQueryInfo(queryId, killType), 409);
+        assertThat(killQueryInfo(queryId, killType)).isEqualTo(202);
+        assertThat(killQueryInfo(queryId, killType)).isEqualTo(409);
         BasicQueryInfo queryInfo = server.getDispatchManager().getQueryInfo(new QueryId(queryId));
-        assertEquals(queryInfo.getState(), FAILED);
+        assertThat(queryInfo.getState()).isEqualTo(FAILED);
         if (killType.equals("killed")) {
-            assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_KILLED.toErrorCode());
+            assertThat(queryInfo.getErrorCode()).isEqualTo(ADMINISTRATIVELY_KILLED.toErrorCode());
         }
         else {
-            assertEquals(queryInfo.getErrorCode(), ADMINISTRATIVELY_PREEMPTED.toErrorCode());
+            assertThat(queryInfo.getErrorCode()).isEqualTo(ADMINISTRATIVELY_PREEMPTED.toErrorCode());
         }
     }
 
@@ -308,12 +304,12 @@ public class TestQueryResource
                     running++;
                     break;
                 default:
-                    fail("Unexpected query state " + info.getState());
+                    fail("", "Unexpected query state " + info.getState());
             }
         }
-        assertEquals(failed, expectedFailed);
-        assertEquals(finished, expectedFinished);
-        assertEquals(running, expectedRunning);
+        assertThat(failed).isEqualTo(expectedFailed);
+        assertThat(finished).isEqualTo(expectedFinished);
+        assertThat(running).isEqualTo(expectedRunning);
     }
 
     private QueryInfo getQueryInfo(String queryId)

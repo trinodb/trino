@@ -141,8 +141,7 @@ public class TestTDigestFunctions
         List<Long> qDigestValuesAtPercentiles = (ArrayList<Long>) qDigestResult.getMaterializedRows().get(0).getField(0);
 
         for (int i = 0; i < tDigestValuesAtPercentiles.size(); i++) {
-            assertThat(qDigestValuesAtPercentiles.get(i).equals(round(tDigestValuesAtPercentiles.get(i))))
-                    .isTrue();
+            assertThat(qDigestValuesAtPercentiles.get(i)).isEqualTo(round(tDigestValuesAtPercentiles.get(i)));
         }
     }
 

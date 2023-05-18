@@ -53,7 +53,7 @@ public class TestJweTokenSerializer
 
         assertThat(deserializedTokenPair.getAccessToken()).isEqualTo("access_token");
         assertThat(deserializedTokenPair.getExpiration()).isEqualTo(expiration);
-        assertThat(deserializedTokenPair.getRefreshToken()).isEqualTo(Optional.of("refresh_token"));
+        assertThat(deserializedTokenPair.getRefreshToken()).hasValue("refresh_token");
     }
 
     @Test
@@ -71,7 +71,7 @@ public class TestJweTokenSerializer
 
         assertThat(deserializedTokenPair.getAccessToken()).isEqualTo("access_token");
         assertThat(deserializedTokenPair.getExpiration()).isEqualTo(expiration);
-        assertThat(deserializedTokenPair.getRefreshToken()).isEqualTo(Optional.of("refresh_token"));
+        assertThat(deserializedTokenPair.getRefreshToken()).hasValue("refresh_token");
     }
 
     @Test

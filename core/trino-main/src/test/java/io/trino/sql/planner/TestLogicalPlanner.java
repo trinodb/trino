@@ -164,8 +164,7 @@ import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLogicalPlanner
         extends BasePlanTest
@@ -201,7 +200,7 @@ public class TestLogicalPlanner
                                             .collect(toOptional())
                                             .orElseThrow(() -> new AssertionError("No domain for 'type'"));
 
-                                    assertEquals(domain, Domain.multipleValues(
+                                    assertThat(domain).isEqualTo(Domain.multipleValues(
                                             createVarcharType(25),
                                             ImmutableList.of("LARGE PLATED BRASS", "LARGE PLATED COPPER", "LARGE PLATED NICKEL", "LARGE PLATED STEEL", "LARGE PLATED TIN").stream()
                                                     .map(Slices::utf8Slice)
@@ -594,62 +593,50 @@ public class TestLogicalPlanner
     public void testSameScalarSubqueryIsAppliedOnlyOnce()
     {
         // three subqueries with two duplicates (coerced to two different types), only two scalar joins should be in plan
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT * " +
                                 "FROM orders " +
                                 "WHERE CAST(orderkey AS INTEGER) = (SELECT 1 FROM orders LIMIT 1) " +
                                 "AND custkey = (SELECT 2 FROM orders LIMIT 1) " +
                                 "AND CAST(custkey as REAL) != (SELECT 1 FROM orders LIMIT 1)"),
-                        TableScanNode.class::isInstance),
-                3);
+                        TableScanNode.class::isInstance)).isEqualTo(3);
         // same query used for left, right and complex join condition
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT * " +
                                 "FROM orders o1 " +
                                 "JOIN orders o2 ON " +
                                 "  o1.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
                                 "  AND o2.orderkey = (SELECT 1 FROM orders LIMIT 1) " +
                                 "  AND o1.orderkey + o2.orderkey > (SELECT 1 FROM orders LIMIT 1)"),
-                        TableScanNode.class::isInstance),
-                3);
+                        TableScanNode.class::isInstance)).isEqualTo(3);
     }
 
     @Test
     public void testSameInSubqueryIsAppliedOnlyOnce()
     {
         // same IN query used for left, right and complex condition
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey NOT IN (SELECT 1) AND (o1.orderkey NOT IN (SELECT 1) OR o1.orderkey NOT IN (SELECT 1))"),
-                        SemiJoinNode.class::isInstance),
-                1);
+                        SemiJoinNode.class::isInstance)).isEqualTo(1);
 
         // one subquery used for "1 IN (SELECT 1)", one subquery used for "2 IN (SELECT 1)"
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT 1 NOT IN (SELECT 1), 2 NOT IN (SELECT 1) WHERE 1 NOT IN (SELECT 1)"),
-                        SemiJoinNode.class::isInstance),
-                2);
+                        SemiJoinNode.class::isInstance)).isEqualTo(2);
     }
 
     @Test
     public void testSameQualifiedSubqueryIsAppliedOnlyOnce()
     {
         // same ALL query used for left, right and complex condition
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT * FROM orders o1 JOIN orders o2 ON o1.orderkey <= ALL(SELECT 1) AND (o1.orderkey <= ALL(SELECT 1) OR o1.orderkey <= ALL(SELECT 1))"),
-                        AggregationNode.class::isInstance),
-                1);
+                        AggregationNode.class::isInstance)).isEqualTo(1);
 
         // one subquery used for "1 <= ALL(SELECT 1)", one subquery used for "2 <= ALL(SELECT 1)"
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan("SELECT 1 <= ALL(SELECT 1), 2 <= ALL(SELECT 1) WHERE 1 <= ALL(SELECT 1)"),
-                        AggregationNode.class::isInstance),
-                2);
+                        AggregationNode.class::isInstance)).isEqualTo(2);
     }
 
     @Test
@@ -665,8 +652,7 @@ public class TestLogicalPlanner
     @Test
     public void testReferenceToSameFieldAppliedOnlyOnce()
     {
-        assertEquals(
-                countOfMatchingNodes(
+        assertThat(countOfMatchingNodes(
                         plan(
                                 "SELECT " +
                                         "(SELECT 1 FROM orders WHERE orderkey = x) + " +
@@ -675,8 +661,7 @@ public class TestLogicalPlanner
                                         "(SELECT 1 FROM orders WHERE orderkey = t.X) + " +
                                         "(SELECT 1 FROM orders WHERE orderkey = T.X)" +
                                         "FROM (VALUES 1, 2) t(x)"),
-                        JoinNode.class::isInstance),
-                1);
+                        JoinNode.class::isInstance)).isEqualTo(1);
     }
 
     private static int countOfMatchingNodes(Plan plan, Predicate<PlanNode> predicate)
@@ -734,11 +719,9 @@ public class TestLogicalPlanner
     @SafeVarargs
     private void assertPlanDoesNotContain(String sql, Class<? extends PlanNode>... classes)
     {
-        assertFalse(
-                searchFrom(plan(sql, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(sql, OPTIMIZED).getRoot())
                         .whereIsInstanceOfAny(classes)
-                        .matches(),
-                "Unexpected node for query: " + sql);
+                        .matches()).withFailMessage("Unexpected node for query: " + sql).isFalse();
     }
 
     @Test
@@ -1284,19 +1267,15 @@ public class TestLogicalPlanner
                                                         node(TableScanNode.class))))));
 
         // validates that there exists only one remote exchange
-        Consumer<Plan> validateSingleRemoteExchange = plan -> assertEquals(
-                countOfMatchingNodes(
-                        plan,
-                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
-                1);
+        Consumer<Plan> validateSingleRemoteExchange = plan -> assertThat(countOfMatchingNodes(
+                plan,
+                node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE)).isEqualTo(1);
 
-        Consumer<Plan> validateSingleStreamingAggregation = plan -> assertEquals(
-                countOfMatchingNodes(
-                        plan,
-                        node -> node instanceof AggregationNode
-                                && ((AggregationNode) node).getGroupingKeys().contains(new Symbol("unique"))
-                                && ((AggregationNode) node).isStreamable()),
-                1);
+        Consumer<Plan> validateSingleStreamingAggregation = plan -> assertThat(countOfMatchingNodes(
+                plan,
+                node -> node instanceof AggregationNode
+                        && ((AggregationNode) node).getGroupingKeys().contains(new Symbol("unique"))
+                        && ((AggregationNode) node).isStreamable())).isEqualTo(1);
 
         // region is unpartitioned, AssignUniqueId should provide satisfying partitioning for count(*) after LEFT JOIN
         assertPlanWithSession(
@@ -1345,11 +1324,8 @@ public class TestLogicalPlanner
                                                 exchange(REMOTE, REPARTITION,
                                                         tableScan("region", ImmutableMap.of("RIGHT_REGIONKEY", "regionkey"))))))),
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
-                        assertEquals(
-                                countOfMatchingNodes(
-                                        plan,
-                                        node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE),
-                                2));
+                        assertThat(countOfMatchingNodes(plan, node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE))
+                                .isEqualTo(2));
 
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
@@ -1698,11 +1674,9 @@ public class TestLogicalPlanner
     public void testRedundantLimitNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                         .where(LimitNode.class::isInstance)
-                        .matches(),
-                format("Unexpected limit node for query: '%s'", query));
+                        .matches()).withFailMessage(format("Unexpected limit node for query: '%s'", query)).isFalse();
 
         assertPlan(
                 "SELECT orderkey, count(*) FROM orders GROUP BY orderkey LIMIT 10",
@@ -1721,11 +1695,9 @@ public class TestLogicalPlanner
     public void testRemoveSingleRowSort()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                         .whereIsInstanceOfAny(SortNode.class)
-                        .matches(),
-                format("Unexpected sort node for query: '%s'", query));
+                        .matches()).withFailMessage(format("Unexpected sort node for query: '%s'", query)).isFalse();
 
         assertPlan(
                 "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1",
@@ -1739,11 +1711,9 @@ public class TestLogicalPlanner
     public void testRedundantTopNNodeRemoval()
     {
         String query = "SELECT count(*) FROM orders ORDER BY 1 LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                         .whereIsInstanceOfAny(TopNNode.class, SortNode.class)
-                        .matches(),
-                format("Unexpected TopN node for query: '%s'", query));
+                        .matches()).withFailMessage(format("Unexpected TopN node for query: '%s'", query)).isFalse();
 
         assertPlan(
                 "SELECT orderkey, count(*) FROM orders GROUP BY orderkey ORDER BY 1 LIMIT 10",
@@ -1770,11 +1740,9 @@ public class TestLogicalPlanner
     public void testRedundantDistinctLimitNodeRemoval()
     {
         String query = "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders) LIMIT 10";
-        assertFalse(
-                searchFrom(plan(query, OPTIMIZED).getRoot())
+        assertThat(searchFrom(plan(query, OPTIMIZED).getRoot())
                         .whereIsInstanceOfAny(DistinctLimitNode.class)
-                        .matches(),
-                format("Unexpected DistinctLimit node for query: '%s'", query));
+                        .matches()).withFailMessage(format("Unexpected DistinctLimit node for query: '%s'", query)).isFalse();
 
         assertPlan(
                 "SELECT distinct(c) FROM (SELECT count(*) as c FROM orders GROUP BY orderkey) LIMIT 10",

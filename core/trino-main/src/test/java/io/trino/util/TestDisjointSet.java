@@ -24,10 +24,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDisjointSet
 {
@@ -38,9 +35,9 @@ public class TestDisjointSet
 
         // assert that every node is considered its own group
         for (int i = 0; i < 100; i++) {
-            assertEquals(disjoint.find(i).intValue(), i);
+            assertThat(disjoint.find(i).intValue()).isEqualTo(i);
         }
-        assertEquals(disjoint.getEquivalentClasses().size(), 100);
+        assertThat(disjoint.getEquivalentClasses()).hasSize(100);
     }
 
     @Test
@@ -50,24 +47,24 @@ public class TestDisjointSet
 
         // insert pair (i, i+1); assert all inserts are considered new
         for (int i = 0; i < 100; i++) {
-            assertTrue(disjoint.findAndUnion(i, i + 1));
+            assertThat(disjoint.findAndUnion(i, i + 1)).isTrue();
             if (i != 0) {
-                assertEquals(disjoint.find(i - 1), disjoint.find(i));
+                assertThat(disjoint.find(i - 1)).isEqualTo(disjoint.find(i));
             }
             if (i != 99) {
-                assertNotEquals(disjoint.find(i + 1), disjoint.find(i + 2));
+                assertThat(disjoint.find(i + 1)).isNotEqualTo(disjoint.find(i + 2));
             }
         }
         // assert every pair (i, j) is in the same set
         for (int i = 0; i <= 100; i++) {
             for (int j = 0; j <= 100; j++) {
-                assertEquals(disjoint.find(i), disjoint.find(j));
-                assertFalse(disjoint.findAndUnion(i, j));
+                assertThat(disjoint.find(i)).isEqualTo(disjoint.find(j));
+                assertThat(disjoint.findAndUnion(i, j)).isFalse();
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertEquals(equivalentClasses.size(), 1);
-        assertEquals(Iterables.getOnlyElement(equivalentClasses).size(), 101);
+        assertThat(equivalentClasses).hasSize(1);
+        assertThat(Iterables.getOnlyElement(equivalentClasses)).hasSize(101);
     }
 
     @Test
@@ -77,24 +74,24 @@ public class TestDisjointSet
 
         // insert pair (i, i+1); assert all inserts are considered new
         for (int i = 100; i > 0; i--) {
-            assertTrue(disjoint.findAndUnion(i, i - 1));
+            assertThat(disjoint.findAndUnion(i, i - 1)).isTrue();
             if (i != 100) {
-                assertEquals(disjoint.find(i + 1), disjoint.find(i));
+                assertThat(disjoint.find(i + 1)).isEqualTo(disjoint.find(i));
             }
             if (i != 1) {
-                assertNotEquals(disjoint.find(i - 1), disjoint.find(i - 2));
+                assertThat(disjoint.find(i - 1)).isNotEqualTo(disjoint.find(i - 2));
             }
         }
         // assert every pair (i, j) is in the same set
         for (int i = 0; i <= 100; i++) {
             for (int j = 0; j <= 100; j++) {
-                assertEquals(disjoint.find(i), disjoint.find(j));
-                assertFalse(disjoint.findAndUnion(i, j));
+                assertThat(disjoint.find(i)).isEqualTo(disjoint.find(j));
+                assertThat(disjoint.findAndUnion(i, j)).isFalse();
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertEquals(equivalentClasses.size(), 1);
-        assertEquals(Iterables.getOnlyElement(equivalentClasses).size(), 101);
+        assertThat(equivalentClasses).hasSize(1);
+        assertThat(Iterables.getOnlyElement(equivalentClasses)).hasSize(101);
     }
 
     @Test
@@ -106,23 +103,23 @@ public class TestDisjointSet
         List<Integer> inputs = IntStream.range(0, 96).boxed().collect(Collectors.toList());
         Collections.shuffle(inputs);
         for (int i : inputs) {
-            assertTrue(disjoint.findAndUnion(i, i + 4));
+            assertThat(disjoint.findAndUnion(i, i + 4)).isTrue();
         }
         // assert every pair (i, j) is in the same set
         for (int i = 0; i < 100; i++) {
             for (int j = 0; j < 100; j++) {
                 if ((i - j) % 4 == 0) {
-                    assertEquals(disjoint.find(i), disjoint.find(j));
-                    assertFalse(disjoint.findAndUnion(i, j));
+                    assertThat(disjoint.find(i)).isEqualTo(disjoint.find(j));
+                    assertThat(disjoint.findAndUnion(i, j)).isFalse();
                 }
                 else {
-                    assertNotEquals(disjoint.find(i), disjoint.find(j));
+                    assertThat(disjoint.find(i)).isNotEqualTo(disjoint.find(j));
                 }
             }
         }
         Collection<Set<Integer>> equivalentClasses = disjoint.getEquivalentClasses();
-        assertEquals(equivalentClasses.size(), 4);
-        equivalentClasses.forEach(equivalentClass -> assertEquals(equivalentClass.size(), 25));
+        assertThat(equivalentClasses).hasSize(4);
+        equivalentClasses.forEach(equivalentClass -> assertThat(equivalentClass).hasSize(25));
     }
 
     @Test
@@ -145,7 +142,7 @@ public class TestDisjointSet
             if (newEquivalence) {
                 groupCount--;
             }
-            assertEquals(disjoint.getEquivalentClasses().size(), groupCount);
+            assertThat(disjoint.getEquivalentClasses()).hasSize(groupCount);
         }
     }
 }

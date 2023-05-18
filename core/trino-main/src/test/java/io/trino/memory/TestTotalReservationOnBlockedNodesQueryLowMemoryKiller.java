@@ -20,11 +20,10 @@ import io.trino.spi.QueryId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.memory.LowMemoryKillerTestingUtils.toNodeMemoryInfoList;
 import static io.trino.memory.LowMemoryKillerTestingUtils.toRunningQueryInfoList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
 {
@@ -38,11 +37,9 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 "q_1",
                 ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 0L, "n4", 0L, "n5", 0L));
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
+                        toNodeMemoryInfoList(memoryPool, queries))).isEmpty();
     }
 
     @Test
@@ -53,11 +50,9 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .put("q_1", ImmutableMap.of("n1", 0L, "n2", 6L, "n3", 0L, "n4", 0L, "n5", 0L))
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
                 .buildOrThrow();
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.empty());
+                        toNodeMemoryInfoList(memoryPool, queries))).isEmpty();
     }
 
     @Test
@@ -71,11 +66,9 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
                 .put("q_2", ImmutableMap.of("n1", 3L, "n2", 5L, "n3", 2L, "n4", 4L, "n5", 0L))
                 .put("q_3", ImmutableMap.of("n1", 0L, "n2", 0L, "n3", 9L, "n4", 0L, "n5", 0L))
                 .buildOrThrow();
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries),
-                        toNodeMemoryInfoList(memoryPool, queries)),
-                Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
+                        toNodeMemoryInfoList(memoryPool, queries))).hasValue(KillTarget.wholeQuery(new QueryId("q_1")));
     }
 
     @Test
@@ -99,10 +92,8 @@ public class TestTotalReservationOnBlockedNodesQueryLowMemoryKiller
 
         // we expect "q_1" to be killed even though "q_2" is the biggest query here. We won't kill whole query if it has task retries enabled.
 
-        assertEquals(
-                lowMemoryKiller.chooseTargetToKill(
+        assertThat(lowMemoryKiller.chooseTargetToKill(
                         toRunningQueryInfoList(queries, ImmutableSet.of("q_2")),
-                        toNodeMemoryInfoList(memoryPool, queries, tasks)),
-                Optional.of(KillTarget.wholeQuery(new QueryId("q_1"))));
+                        toNodeMemoryInfoList(memoryPool, queries, tasks))).hasValue(KillTarget.wholeQuery(new QueryId("q_1")));
     }
 }

@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatisticAggregationsDescriptor
 {
@@ -41,7 +41,7 @@ public class TestStatisticAggregationsDescriptor
 
     private static void assertSerializationRoundTrip(JsonCodec<StatisticAggregationsDescriptor<Symbol>> codec, StatisticAggregationsDescriptor<Symbol> descriptor)
     {
-        assertEquals(codec.fromJson(codec.toJson(descriptor)), descriptor);
+        assertThat(codec.fromJson(codec.toJson(descriptor))).isEqualTo(descriptor);
     }
 
     private static StatisticAggregationsDescriptor<Symbol> createTestDescriptor()

@@ -39,7 +39,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMinMaxByNAggregation
 {
@@ -590,7 +590,7 @@ public class TestMinMaxByNAggregation
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }
         catch (TrinoException e) {
-            assertEquals(e.getMessage(), "third argument of max_by must be less than or equal to 10000; found 10001");
+            assertThat(e.getMessage()).isEqualTo("third argument of max_by must be less than or equal to 10000; found 10001");
         }
     }
 }

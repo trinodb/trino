@@ -59,7 +59,7 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestScaledWriterScheduler
 {
@@ -76,7 +76,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 12345L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).isEmpty();
     }
 
     @Test
@@ -87,7 +87,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 12345L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
     }
 
     @Test
@@ -98,7 +98,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 123456L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestScaledWriterScheduler
         TaskStatus taskStatus3 = buildTaskStatus(false, 1234567L);
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
     }
 
     @Test
@@ -121,7 +121,7 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will happen
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
     }
 
     @Test
@@ -134,7 +134,7 @@ public class TestScaledWriterScheduler
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because for one of the task there are two local writers which makes the
         // minWrittenBytes for scaling up to (2 * writerMinSizeBytes) that is greater than physicalWrittenBytes.
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).isEmpty();
     }
 
     @Test
@@ -146,7 +146,7 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because one of the existing writer task isn't initialized yet with maxWriterCount.
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).isEmpty();
     }
 
     @Test
@@ -157,7 +157,7 @@ public class TestScaledWriterScheduler
         ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 2);
 
         scaledWriterScheduler.schedule();
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
     }
 
     @Test
@@ -168,7 +168,7 @@ public class TestScaledWriterScheduler
         ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 1);
 
         scaledWriterScheduler.schedule();
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).isEmpty();
     }
 
     private ScaledWriterScheduler buildScaleWriterSchedulerWithInitialTasks(TaskStatus taskStatus1, TaskStatus taskStatus2, TaskStatus taskStatus3)
@@ -176,13 +176,13 @@ public class TestScaledWriterScheduler
         AtomicReference<List<TaskStatus>> taskStatusProvider = new AtomicReference<>(ImmutableList.of());
         ScaledWriterScheduler scaledWriterScheduler = buildScaledWriterScheduler(taskStatusProvider, 100);
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1));
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1, taskStatus2));
 
-        assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scaledWriterScheduler.schedule().getNewTasks()).hasSize(1);
         taskStatusProvider.set(ImmutableList.of(taskStatus1, taskStatus2, taskStatus3));
 
         return scaledWriterScheduler;

@@ -46,7 +46,7 @@ import java.util.UUID;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowNode
 {
@@ -130,13 +130,13 @@ public class TestWindowNode
 
         WindowNode actualNode = objectMapper.readValue(json, WindowNode.class);
 
-        assertEquals(actualNode.getId(), windowNode.getId());
-        assertEquals(actualNode.getSpecification(), windowNode.getSpecification());
-        assertEquals(actualNode.getWindowFunctions(), windowNode.getWindowFunctions());
-        assertEquals(actualNode.getFrames(), windowNode.getFrames());
-        assertEquals(actualNode.getHashSymbol(), windowNode.getHashSymbol());
-        assertEquals(actualNode.getPrePartitionedInputs(), windowNode.getPrePartitionedInputs());
-        assertEquals(actualNode.getPreSortedOrderPrefix(), windowNode.getPreSortedOrderPrefix());
+        assertThat(actualNode.getId()).isEqualTo(windowNode.getId());
+        assertThat(actualNode.getSpecification()).isEqualTo(windowNode.getSpecification());
+        assertThat(actualNode.getWindowFunctions()).containsExactlyInAnyOrderEntriesOf(windowNode.getWindowFunctions());
+        assertThat(actualNode.getFrames()).containsExactlyElementsOf(windowNode.getFrames());
+        assertThat(actualNode.getHashSymbol()).isEqualTo(windowNode.getHashSymbol());
+        assertThat(actualNode.getPrePartitionedInputs()).hasSameElementsAs(windowNode.getPrePartitionedInputs());
+        assertThat(actualNode.getPreSortedOrderPrefix()).isEqualTo(windowNode.getPreSortedOrderPrefix());
     }
 
     private static PlanNodeId newId()

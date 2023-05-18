@@ -55,12 +55,9 @@ import static io.trino.type.JsonType.JSON;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestSignatureBinder
 {
@@ -1140,7 +1137,7 @@ public class TestSignatureBinder
     {
         try {
             SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables);
-            fail(reason);
+            fail("", reason);
         }
         catch (RuntimeException e) {
             // Expected
@@ -1149,9 +1146,7 @@ public class TestSignatureBinder
 
     private static void assertSignature(String typeSignature, TypeVariables typeVariables, String expectedTypeSignature)
     {
-        assertEquals(
-                SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables).toString(),
-                expectedTypeSignature);
+        assertThat(SignatureBinder.applyBoundVariables(parseTypeSignature(typeSignature, ImmutableSet.of("p", "s")), typeVariables)).hasToString(expectedTypeSignature);
     }
 
     private static Signature.Builder functionSignature()
@@ -1214,27 +1209,27 @@ public class TestSignatureBinder
 
         public BindSignatureAssertion succeeds()
         {
-            assertTrue(bindVariables().isPresent());
+            assertThat(bindVariables()).isPresent();
             return this;
         }
 
         public BindSignatureAssertion fails()
         {
-            assertFalse(bindVariables().isPresent());
+            assertThat(bindVariables()).isEmpty();
             return this;
         }
 
         public BindSignatureAssertion produces(TypeVariables expected)
         {
             Optional<TypeVariables> actual = bindVariables();
-            assertTrue(actual.isPresent());
-            assertEquals(actual.get(), expected);
+            assertThat(actual).isPresent();
+            assertThat(actual.get()).isEqualTo(expected);
             return this;
         }
 
         private Optional<TypeVariables> bindVariables()
         {
-            assertNotNull(argumentTypes);
+            assertThat(argumentTypes).isNotNull();
             SignatureBinder signatureBinder = new SignatureBinder(TEST_SESSION, PLANNER_CONTEXT.getMetadata(), PLANNER_CONTEXT.getTypeManager(), function, allowCoercion);
             if (returnType == null) {
                 return signatureBinder.bindVariables(argumentTypes);

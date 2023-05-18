@@ -36,7 +36,7 @@ import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnwrapYearInComparison
         extends BasePlanTest
@@ -281,39 +281,19 @@ public class TestUnwrapYearInComparison
     @Test
     public void testCalculateRangeEndInclusive()
     {
-        assertEquals(calculateRangeEndInclusive(1960, DATE), LocalDate.of(1960, 12, 31).toEpochDay());
-        assertEquals(calculateRangeEndInclusive(2024, DATE), LocalDate.of(2024, 12, 31).toEpochDay());
+        assertThat(calculateRangeEndInclusive(1960, DATE)).isEqualTo(LocalDate.of(1960, 12, 31).toEpochDay());
+        assertThat(calculateRangeEndInclusive(2024, DATE)).isEqualTo(LocalDate.of(2024, 12, 31).toEpochDay());
 
-        assertEquals(
-                calculateRangeEndInclusive(1960, TIMESTAMP_SECONDS),
-                toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59)));
-        assertEquals(
-                calculateRangeEndInclusive(1960, TIMESTAMP_MILLIS),
-                toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_000_000)));
-        assertEquals(
-                calculateRangeEndInclusive(1960, TIMESTAMP_MICROS),
-                toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)));
-        assertEquals(
-                calculateRangeEndInclusive(1960, TIMESTAMP_NANOS),
-                new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
-        assertEquals(
-                calculateRangeEndInclusive(1960, TIMESTAMP_PICOS),
-                new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
-        assertEquals(
-                calculateRangeEndInclusive(2024, TIMESTAMP_SECONDS),
-                toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59)));
-        assertEquals(
-                calculateRangeEndInclusive(2024, TIMESTAMP_MILLIS),
-                toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_000_000)));
-        assertEquals(
-                calculateRangeEndInclusive(2024, TIMESTAMP_MICROS),
-                toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)));
-        assertEquals(
-                calculateRangeEndInclusive(2024, TIMESTAMP_NANOS),
-                new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
-        assertEquals(
-                calculateRangeEndInclusive(2024, TIMESTAMP_PICOS),
-                new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
+        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_SECONDS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59)));
+        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_MILLIS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_000_000)));
+        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_MICROS)).isEqualTo(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)));
+        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_NANOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
+        assertThat(calculateRangeEndInclusive(1960, TIMESTAMP_PICOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(1960, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
+        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_SECONDS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59)));
+        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_MILLIS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_000_000)));
+        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_MICROS)).isEqualTo(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)));
+        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_NANOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_000));
+        assertThat(calculateRangeEndInclusive(2024, TIMESTAMP_PICOS)).isEqualTo(new LongTimestamp(toEpochMicros(LocalDateTime.of(2024, 12, 31, 23, 59, 59, 999_999_000)), 999_999));
     }
 
     private static long toEpochMicros(LocalDateTime localDateTime)

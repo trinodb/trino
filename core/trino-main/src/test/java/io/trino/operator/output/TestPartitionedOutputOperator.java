@@ -30,7 +30,7 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestPartitionedOutputOperator
@@ -72,7 +72,7 @@ public class TestPartitionedOutputOperator
         partitionedOutputOperator.finish();
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
-        assertEquals(operatorContext.getOutputDataSize().getTotalCount(), page.getSizeInBytes());
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), page.getPositionCount());
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
     }
 }

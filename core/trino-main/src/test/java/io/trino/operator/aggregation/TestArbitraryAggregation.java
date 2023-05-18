@@ -39,7 +39,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArbitraryAggregation
 {
@@ -50,7 +50,7 @@ public class TestArbitraryAggregation
     {
         Collection<Type> standardTypes = new TypeRegistry(new TypeOperators(), new FeaturesConfig()).getTypes();
         for (Type valueType : standardTypes) {
-            assertNotNull(FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("arbitrary"), fromTypes(valueType)));
+            assertThat(FUNCTION_RESOLUTION.getAggregateFunction(QualifiedName.of("arbitrary"), fromTypes(valueType))).isNotNull();
         }
     }
 

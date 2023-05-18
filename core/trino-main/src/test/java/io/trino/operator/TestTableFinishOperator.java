@@ -58,10 +58,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestTableFinishOperator
 {
@@ -123,34 +119,34 @@ public class TestTableFinishOperator
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 6).build().get(0));
         operator.addInput(rowPagesBuilder(inputTypes).row(null, null, 7).build().get(0));
 
-        assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isGreaterThan(0);
+        assertThat(driverContext.getMemoryUsage()).as("memoryUsage").isPositive();
 
-        assertTrue(operator.isBlocked().isDone(), "isBlocked should be done");
-        assertTrue(operator.needsInput(), "needsInput should be true");
+        assertThat(operator.isBlocked().isDone()).withFailMessage("isBlocked should be done").isTrue();
+        assertThat(operator.needsInput()).withFailMessage("needsInput should be true").isTrue();
 
         operator.finish();
-        assertFalse(operator.isFinished(), "isFinished should be false");
+        assertThat(operator.isFinished()).withFailMessage("isFinished should be false").isFalse();
 
-        assertNull(operator.getOutput());
+        assertThat(operator.getOutput()).isNull();
         List<Type> outputTypes = ImmutableList.of(BIGINT);
         assertPageEquals(outputTypes, operator.getOutput(), rowPagesBuilder(outputTypes).row(9).build().get(0));
 
-        assertTrue(operator.isBlocked().isDone(), "isBlocked should be done");
-        assertFalse(operator.needsInput(), "needsInput should be false");
-        assertTrue(operator.isFinished(), "isFinished should be true");
+        assertThat(operator.isBlocked().isDone()).withFailMessage("isBlocked should be done").isTrue();
+        assertThat(operator.needsInput()).withFailMessage("needsInput should be false").isFalse();
+        assertThat(operator.isFinished()).withFailMessage("isFinished should be true").isTrue();
 
         operator.close();
 
-        assertEquals(tableFinisher.getFragments(), ImmutableList.of(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2})));
-        assertEquals(tableFinisher.getComputedStatistics().size(), 1);
-        assertEquals(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().size(), 1);
+        assertThat(tableFinisher.getFragments()).containsExactly(Slices.wrappedBuffer(new byte[] {1}), Slices.wrappedBuffer(new byte[] {2}));
+        assertThat(tableFinisher.getComputedStatistics()).hasSize(1);
+        assertThat(getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics()).hasSize(1);
         Block expectedStatisticsBlock = new LongArrayBlockBuilder(null, 1)
                 .writeLong(7)
                 .closeEntry()
                 .build();
         assertBlockEquals(BIGINT, getOnlyElement(tableFinisher.getComputedStatistics()).getColumnStatistics().get(statisticMetadata), expectedStatisticsBlock);
 
-        assertEquals(driverContext.getMemoryUsage(), 0, "memoryUsage");
+        assertThat(driverContext.getMemoryUsage()).withFailMessage("memoryUsage").isEqualTo(0);
     }
 
     private static class TestTableFinisher

@@ -21,7 +21,7 @@ import java.util.function.BinaryOperator;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toMap;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 public final class MoreMaps
 {

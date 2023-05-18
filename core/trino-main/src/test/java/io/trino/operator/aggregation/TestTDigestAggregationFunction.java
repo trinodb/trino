@@ -38,7 +38,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Math.abs;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTDigestAggregationFunction
 {
@@ -141,7 +141,7 @@ public class TestTDigestAggregationFunction
 
     private Object getExpectedValue(List<Double> weights, double... values)
     {
-        assertEquals(weights.size(), values.length, "mismatched weights and values");
+        assertThat(weights.size()).withFailMessage("mismatched weights and values").isEqualTo(values.length);
         if (values.length == 0) {
             return null;
         }

@@ -118,9 +118,8 @@ public class TestDropColumnTask
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new Field(Optional.of("a"), BIGINT), new Field(Optional.of("a"), BIGINT)), false);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
-        assertThat(metadata.getTableMetadata(testSession, table).getColumns())
-                .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
-                        new Field(Optional.of("a"), BIGINT), new Field(Optional.of("a"), BIGINT)))));
+        assertThat(metadata.getTableMetadata(testSession, table).getColumns()).containsExactly(new ColumnMetadata("col", RowType.rowType(
+                        new Field(Optional.of("a"), BIGINT), new Field(Optional.of("a"), BIGINT))));
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropColumn(asQualifiedName(tableName), QualifiedName.of("col", "a"), false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)

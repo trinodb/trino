@@ -37,9 +37,7 @@ import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupedTopNRankBuilder
 {
@@ -74,7 +72,7 @@ public class TestGroupedTopNRankBuilder
                 5,
                 false,
                 new NoChannelGroupByHash());
-        assertFalse(groupedTopNBuilder.buildResult().hasNext());
+        assertThat(groupedTopNBuilder.buildResult().hasNext()).isFalse();
     }
 
     @Test(dataProvider = "produceRanking")
@@ -93,32 +91,32 @@ public class TestGroupedTopNRankBuilder
                 new NoChannelGroupByHash());
 
         // Expected effect: [0.2 x 1 => rank=1, 0.3 x 2 => rank=2]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.3)
                         .row(0.3)
                         .row(0.2)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Page should be dropped, because single value 0.4 is too large to be considered
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.4)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Next page should cause 0.3 values to be evicted (first page will be compacted)
         // Expected effect: [0.1 x 2 => rank 1, 0.2 x 3 => rank 3]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0.1)
                         .row(0.2)
                         .row(0.3)
                         .row(0.2)
                         .row(0.1)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -154,27 +152,27 @@ public class TestGroupedTopNRankBuilder
         // Expected effect:
         // Group 0 [0.2 x 1 => rank=1, 0.3 x 3 => rank=2]
         // Group 1 [0.2 x 1 => rank=1]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.3)
                         .row(0L, 0.3)
                         .row(0L, 0.3)
                         .row(0L, 0.2)
                         .row(1L, 0.2)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Page should be dropped, because all values too large to be considered
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.4)
                         .row(1L, 0.4)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         // Next page should cause evict 0.3 from group 0, which should cause the first page to be compacted
         // Expected effect:
         // Group 0 [0.1 x 1 => rank=1, 0.2 x 2 => rank=2]
         // Group 1 [0.2 x 2 => rank=1, 0.3 x 2 => rank=3]
-        assertTrue(groupedTopNBuilder.processPage(
+        assertThat(groupedTopNBuilder.processPage(
                 rowPageBuilder(types)
                         .row(0L, 0.1)
                         .row(1L, 0.2)
@@ -184,10 +182,10 @@ public class TestGroupedTopNRankBuilder
                         .row(1L, 0.4)
                         .row(1L, 0.3)
                         .row(1L, 0.3)
-                        .build()).process());
+                        .build()).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         List<Type> outputTypes = ImmutableList.of(BIGINT, DOUBLE, BIGINT);
         Page expected = rowPageBuilder(outputTypes)
@@ -233,12 +231,12 @@ public class TestGroupedTopNRankBuilder
                 groupByHash);
 
         Work<?> work = groupedTopNBuilder.processPage(input);
-        assertFalse(work.process());
-        assertFalse(work.process());
+        assertThat(work.process()).isFalse();
+        assertThat(work.process()).isFalse();
         unblock.set(true);
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)

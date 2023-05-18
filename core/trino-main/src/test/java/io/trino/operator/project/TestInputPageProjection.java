@@ -22,8 +22,7 @@ import org.testng.annotations.Test;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInputPageProjection
 {
@@ -33,12 +32,12 @@ public class TestInputPageProjection
         InputPageProjection projection = new InputPageProjection(0, BIGINT);
         Block block = createLongSequenceBlock(0, 100);
         Block result = projection.project(SESSION, new DriverYieldSignal(), new Page(block), SelectedPositions.positionsRange(0, 100)).getResult();
-        assertFalse(result instanceof LazyBlock);
+        assertThat(result).isNotInstanceOf(LazyBlock.class);
 
         block = lazyWrapper(block);
         result = projection.project(SESSION, new DriverYieldSignal(), new Page(block), SelectedPositions.positionsRange(0, 100)).getResult();
-        assertTrue(result instanceof LazyBlock);
-        assertFalse(result.isLoaded());
+        assertThat(result).isInstanceOf(LazyBlock.class);
+        assertThat(result.isLoaded()).isFalse();
     }
 
     private static LazyBlock lazyWrapper(Block block)

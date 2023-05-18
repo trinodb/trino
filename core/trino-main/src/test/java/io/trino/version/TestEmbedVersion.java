@@ -21,8 +21,8 @@ import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestEmbedVersion
 {
@@ -45,7 +45,7 @@ public class TestEmbedVersion
     {
         AtomicInteger counter = new AtomicInteger();
         embedVersion.embedVersion((Runnable) counter::incrementAndGet).run();
-        assertEquals(counter.get(), 1);
+        assertThat(counter.get()).isEqualTo(1);
 
         assertThatThrownBy(() ->
                 embedVersion.embedVersion((Runnable) () -> {
@@ -64,8 +64,8 @@ public class TestEmbedVersion
         String value = embedVersion.embedVersion(() -> {
             return "abc" + counter.incrementAndGet();
         }).call();
-        assertEquals(value, "abc1");
-        assertEquals(counter.get(), 1);
+        assertThat(value).isEqualTo("abc1");
+        assertThat(counter.get()).isEqualTo(1);
 
         assertThatThrownBy(() ->
                 embedVersion.embedVersion((Callable<String>) () -> {

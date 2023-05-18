@@ -48,8 +48,6 @@ import static java.util.Collections.shuffle;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestArbitraryDistributionSplitAssigner
 {
@@ -73,7 +71,7 @@ public class TestArbitraryDistributionSplitAssigner
         SplitAssigner splitAssigner = createSplitAssigner(ImmutableSet.of(PARTITIONED_1), ImmutableSet.of(), 100, false);
         SplitAssignerTester tester = new SplitAssignerTester();
         tester.update(splitAssigner.assign(PARTITIONED_1, ImmutableListMultimap.of(), true));
-        assertTrue(tester.isNoMoreSplits(0, PARTITIONED_1));
+        assertThat(tester.isNoMoreSplits(0, PARTITIONED_1)).isTrue();
         tester.update(splitAssigner.finish());
         List<TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow();
         assertThat(taskDescriptors).hasSize(1);
@@ -83,7 +81,7 @@ public class TestArbitraryDistributionSplitAssigner
         splitAssigner = createSplitAssigner(ImmutableSet.of(), ImmutableSet.of(REPLICATED_1), 100, false);
         tester = new SplitAssignerTester();
         tester.update(splitAssigner.assign(REPLICATED_1, ImmutableListMultimap.of(), true));
-        assertTrue(tester.isNoMoreSplits(0, REPLICATED_1));
+        assertThat(tester.isNoMoreSplits(0, REPLICATED_1)).isTrue();
         tester.update(splitAssigner.finish());
         taskDescriptors = tester.getTaskDescriptors().orElseThrow();
         assertThat(taskDescriptors).hasSize(1);
@@ -96,8 +94,8 @@ public class TestArbitraryDistributionSplitAssigner
         assertFalse(tester.isNoMoreSplits(0, PARTITIONED_1));
         assertFalse(tester.isNoMoreSplits(0, REPLICATED_1));
         tester.update(splitAssigner.assign(PARTITIONED_1, ImmutableListMultimap.of(), true));
-        assertTrue(tester.isNoMoreSplits(0, PARTITIONED_1));
-        assertTrue(tester.isNoMoreSplits(0, REPLICATED_1));
+        assertThat(tester.isNoMoreSplits(0, PARTITIONED_1)).isTrue();
+        assertThat(tester.isNoMoreSplits(0, REPLICATED_1)).isTrue();
         tester.update(splitAssigner.finish());
         taskDescriptors = tester.getTaskDescriptors().orElseThrow();
         assertThat(taskDescriptors).hasSize(1);
@@ -109,8 +107,8 @@ public class TestArbitraryDistributionSplitAssigner
         assertFalse(tester.isNoMoreSplits(0, PARTITIONED_1));
         assertFalse(tester.isNoMoreSplits(0, REPLICATED_1));
         tester.update(splitAssigner.assign(REPLICATED_1, ImmutableListMultimap.of(), true));
-        assertTrue(tester.isNoMoreSplits(0, PARTITIONED_1));
-        assertTrue(tester.isNoMoreSplits(0, REPLICATED_1));
+        assertThat(tester.isNoMoreSplits(0, PARTITIONED_1)).isTrue();
+        assertThat(tester.isNoMoreSplits(0, REPLICATED_1)).isTrue();
         tester.update(splitAssigner.finish());
         taskDescriptors = tester.getTaskDescriptors().orElseThrow();
         assertThat(taskDescriptors).hasSize(1);
@@ -126,10 +124,10 @@ public class TestArbitraryDistributionSplitAssigner
         assertFalse(tester.isNoMoreSplits(0, PARTITIONED_2));
         assertFalse(tester.isNoMoreSplits(0, REPLICATED_2));
         tester.update(splitAssigner.assign(REPLICATED_2, ImmutableListMultimap.of(), true));
-        assertTrue(tester.isNoMoreSplits(0, PARTITIONED_1));
-        assertTrue(tester.isNoMoreSplits(0, REPLICATED_1));
-        assertTrue(tester.isNoMoreSplits(0, PARTITIONED_2));
-        assertTrue(tester.isNoMoreSplits(0, REPLICATED_2));
+        assertThat(tester.isNoMoreSplits(0, PARTITIONED_1)).isTrue();
+        assertThat(tester.isNoMoreSplits(0, REPLICATED_1)).isTrue();
+        assertThat(tester.isNoMoreSplits(0, PARTITIONED_2)).isTrue();
+        assertThat(tester.isNoMoreSplits(0, REPLICATED_2)).isTrue();
 
         tester.update(splitAssigner.finish());
         taskDescriptors = tester.getTaskDescriptors().orElseThrow();
@@ -630,7 +628,7 @@ public class TestArbitraryDistributionSplitAssigner
                         .collect(toImmutableSet());
                 for (int partitionId = 0; partitionId < nextPartitionId.get(); partitionId++) {
                     if (!openAssignments.contains(partitionId)) {
-                        assertTrue(tester.isSealed(partitionId));
+                        assertThat(tester.isSealed(partitionId)).isTrue();
                     }
                 }
             }
@@ -689,7 +687,7 @@ public class TestArbitraryDistributionSplitAssigner
             int expectedPartitionId,
             ListMultimap<PlanNodeId, Split> expectedSplits)
     {
-        assertEquals(taskDescriptor.getPartitionId(), expectedPartitionId);
+        assertThat(taskDescriptor.getPartitionId()).isEqualTo(expectedPartitionId);
         assertSplitsEqual(taskDescriptor.getSplits(), expectedSplits);
         Set<HostAddress> hostRequirement = null;
         for (Split split : taskDescriptor.getSplits().values()) {
@@ -702,7 +700,7 @@ public class TestArbitraryDistributionSplitAssigner
                 }
             }
         }
-        assertEquals(taskDescriptor.getNodeRequirements().getCatalogHandle(), Optional.of(TEST_CATALOG_HANDLE));
+        assertThat(taskDescriptor.getNodeRequirements().getCatalogHandle()).hasValue(TEST_CATALOG_HANDLE);
         assertThat(taskDescriptor.getNodeRequirements().getAddresses()).containsAnyElementsOf(hostRequirement == null ? ImmutableSet.of() : hostRequirement);
     }
 
@@ -710,7 +708,7 @@ public class TestArbitraryDistributionSplitAssigner
     {
         SetMultimap<PlanNodeId, Integer> actualSplitIds = ImmutableSetMultimap.copyOf(Multimaps.transformValues(actual, TestingConnectorSplit::getSplitId));
         SetMultimap<PlanNodeId, Integer> expectedSplitIds = ImmutableSetMultimap.copyOf(Multimaps.transformValues(expected, TestingConnectorSplit::getSplitId));
-        assertEquals(actualSplitIds, expectedSplitIds);
+        assertThat(actualSplitIds).isEqualTo(expectedSplitIds);
     }
 
     private static ArbitraryDistributionSplitAssigner createSplitAssigner(

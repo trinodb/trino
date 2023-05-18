@@ -36,7 +36,6 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_TASK_DESCRIPTOR_STORAGE_CA
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestTaskDescriptorStorage
 {
@@ -67,23 +66,17 @@ public class TestTaskDescriptorStorage
                 .isLessThanOrEqualTo(toBytes(15, KILOBYTE));
 
         assertThat(manager.get(QUERY_1_STAGE_1, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog1");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog1");
         assertThat(manager.get(QUERY_1_STAGE_1, 1))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog2");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog2");
         assertThat(manager.get(QUERY_1_STAGE_2, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog3");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog3");
         assertThat(manager.get(QUERY_2_STAGE_1, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog4");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog4");
         assertThat(manager.get(QUERY_2_STAGE_2, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog5");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog5");
         assertThat(manager.get(QUERY_2_STAGE_2, 1))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog6");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog6");
 
         manager.remove(QUERY_1_STAGE_1, 0);
         manager.remove(QUERY_2_STAGE_2, 1);
@@ -122,7 +115,7 @@ public class TestTaskDescriptorStorage
         manager.destroy(QUERY_2);
         assertThat(manager.get(QUERY_1_STAGE_1, 0)).isEmpty();
         assertThat(manager.get(QUERY_2_STAGE_1, 0)).isEmpty();
-        assertEquals(manager.getReservedBytes(), 0);
+        assertThat(manager.getReservedBytes()).isEqualTo(0);
     }
 
     @Test
@@ -163,17 +156,15 @@ public class TestTaskDescriptorStorage
 
         // QUERY_2 is still active
         assertThat(manager.get(QUERY_2_STAGE_1, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog4");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog4");
         assertThat(manager.get(QUERY_2_STAGE_2, 0))
-                .flatMap(TestTaskDescriptorStorage::getCatalogName)
-                .contains("catalog5");
+                .flatMap(TestTaskDescriptorStorage::getCatalogName).hasValue("catalog5");
 
         // add more descriptors for QUERY_2 to push the buffer above capacity
         manager.put(QUERY_2_STAGE_2, createTaskDescriptor(1, DataSize.of(3, KILOBYTE), "catalog6"));
 
         // assert that the memory has been released
-        assertEquals(manager.getReservedBytes(), 0);
+        assertThat(manager.getReservedBytes()).isEqualTo(0);
 
         // check that the any future operations for QUERY_2 will fail
         assertThatThrownBy(() -> manager.put(QUERY_2_STAGE_2, createTaskDescriptor(3, DataSize.of(1, KILOBYTE))))

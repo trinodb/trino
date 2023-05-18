@@ -39,8 +39,7 @@ import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumnarMap
 {
@@ -115,21 +114,21 @@ public class TestColumnarMap
     private static void assertColumnarMap(Block block, Slice[][][] expectedValues)
     {
         ColumnarMap columnarMap = toColumnarMap(block);
-        assertEquals(columnarMap.getPositionCount(), expectedValues.length);
+        assertThat(columnarMap.getPositionCount()).isEqualTo(expectedValues.length);
 
         Block keysBlock = columnarMap.getKeysBlock();
         Block valuesBlock = columnarMap.getValuesBlock();
         int elementsPosition = 0;
         for (int position = 0; position < expectedValues.length; position++) {
             Slice[][] expectedMap = expectedValues[position];
-            assertEquals(columnarMap.isNull(position), expectedMap == null);
+            assertThat(columnarMap.isNull(position)).isEqualTo(expectedMap == null);
             if (expectedMap == null) {
-                assertEquals(columnarMap.getEntryCount(position), 0);
+                assertThat(columnarMap.getEntryCount(position)).isEqualTo(0);
                 continue;
             }
 
-            assertEquals(columnarMap.getEntryCount(position), expectedMap.length);
-            assertEquals(columnarMap.getOffset(position), elementsPosition);
+            assertThat(columnarMap.getEntryCount(position)).isEqualTo(expectedMap.length);
+            assertThat(columnarMap.getOffset(position)).isEqualTo(elementsPosition);
 
             for (int i = 0; i < columnarMap.getEntryCount(position); i++) {
                 Slice[] expectedEntry = expectedMap[i];
@@ -157,7 +156,7 @@ public class TestColumnarMap
                 VARCHAR.createBlockBuilder(null, expectedMap.length);
                 for (Slice[] entry : expectedMap) {
                     Slice key = entry[0];
-                    assertNotNull(key);
+                    assertThat(key).isNotNull();
                     VARCHAR.writeSlice(entryBuilder, key);
 
                     Slice value = entry[1];

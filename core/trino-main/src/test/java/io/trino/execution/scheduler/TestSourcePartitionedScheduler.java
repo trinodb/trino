@@ -108,9 +108,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSourcePartitionedScheduler
 {
@@ -160,7 +158,7 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = scheduler.schedule();
 
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
+        assertThat(scheduleResult.getNewTasks()).hasSize(1);
         assertEffectivelyFinished(scheduleResult, scheduler);
 
         stage.abort();
@@ -176,13 +174,13 @@ public class TestSourcePartitionedScheduler
         ConnectorSplitSource splitSource = createFixedSplitSource(2, TestingSplit::createRemoteSplit);
         StageScheduler scheduler = getSourcePartitionedScheduler(splitSource, stage, nodeManager, nodeTaskMap, 1, STAGE);
 
-        assertEquals(scheduler.schedule().getNewTasks().size(), 1);
+        assertThat(scheduler.schedule().getNewTasks()).hasSize(1);
 
         // ensure that next batch size fetched by scheduler will be empty and last
         splitSource.getNextBatch(1);
 
         ScheduleResult scheduleResult = scheduler.schedule();
-        assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
 
         assertEffectivelyFinished(scheduleResult, scheduler);
 
@@ -206,22 +204,22 @@ public class TestSourcePartitionedScheduler
                 assertEffectivelyFinished(scheduleResult, scheduler);
             }
             else {
-                assertFalse(scheduleResult.isFinished());
+                assertThat(scheduleResult.isFinished()).isFalse();
             }
 
             // never blocks
-            assertTrue(scheduleResult.getBlocked().isDone());
+            assertThat(scheduleResult.getBlocked().isDone()).isTrue();
 
             // first three splits create new tasks
-            assertEquals(scheduleResult.getNewTasks().size(), i < 3 ? 1 : 0);
-            assertEquals(stage.getAllTasks().size(), i < 3 ? i + 1 : 3);
+            assertThat(scheduleResult.getNewTasks()).hasSize(i < 3 ? 1 : 0);
+            assertThat(stage.getAllTasks()).hasSize(i < 3 ? i + 1 : 3);
 
             assertPartitionedSplitCount(stage, min(i + 1, 60));
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 20);
+            assertThat(splitsInfo.getCount()).isEqualTo(20);
         }
 
         stage.abort();
@@ -244,22 +242,22 @@ public class TestSourcePartitionedScheduler
                 assertEffectivelyFinished(scheduleResult, scheduler);
             }
             else {
-                assertFalse(scheduleResult.isFinished());
+                assertThat(scheduleResult.isFinished()).isFalse();
             }
 
             // never blocks
-            assertTrue(scheduleResult.getBlocked().isDone());
+            assertThat(scheduleResult.getBlocked().isDone()).isTrue();
 
             // first three splits create new tasks
-            assertEquals(scheduleResult.getNewTasks().size(), i == 0 ? 3 : 0);
-            assertEquals(stage.getAllTasks().size(), 3);
+            assertThat(scheduleResult.getNewTasks()).hasSize(i == 0 ? 3 : 0);
+            assertThat(stage.getAllTasks()).hasSize(3);
 
             assertPartitionedSplitCount(stage, min((i + 1) * 7, 60));
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 20);
+            assertThat(splitsInfo.getCount()).isEqualTo(20);
         }
 
         stage.abort();
@@ -278,21 +276,21 @@ public class TestSourcePartitionedScheduler
         for (int i = 0; i <= 60; i++) {
             ScheduleResult scheduleResult = scheduler.schedule();
 
-            assertFalse(scheduleResult.isFinished());
+            assertThat(scheduleResult.isFinished()).isFalse();
 
             // blocks at 20 per node
-            assertEquals(scheduleResult.getBlocked().isDone(), i != 60);
+            assertThat(scheduleResult.getBlocked().isDone()).isEqualTo(i != 60);
 
             // first three splits create new tasks
-            assertEquals(scheduleResult.getNewTasks().size(), i < 3 ? 1 : 0);
-            assertEquals(stage.getAllTasks().size(), i < 3 ? i + 1 : 3);
+            assertThat(scheduleResult.getNewTasks()).hasSize(i < 3 ? 1 : 0);
+            assertThat(stage.getAllTasks()).hasSize(i < 3 ? i + 1 : 3);
 
             assertPartitionedSplitCount(stage, min(i + 1, 60));
         }
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 20);
+            assertThat(splitsInfo.getCount()).isEqualTo(20);
         }
 
         // todo rewrite MockRemoteTask to fire a tate transition when splits are cleared, and then validate blocked future completes
@@ -309,15 +307,15 @@ public class TestSourcePartitionedScheduler
                 assertEffectivelyFinished(scheduleResult, scheduler);
             }
             else {
-                assertFalse(scheduleResult.isFinished());
+                assertThat(scheduleResult.isFinished()).isFalse();
             }
 
             // does not block again
-            assertTrue(scheduleResult.getBlocked().isDone());
+            assertThat(scheduleResult.getBlocked().isDone()).isTrue();
 
             // no additional tasks will be created
-            assertEquals(scheduleResult.getNewTasks().size(), 0);
-            assertEquals(stage.getAllTasks().size(), 3);
+            assertThat(scheduleResult.getNewTasks()).isEmpty();
+            assertThat(stage.getAllTasks()).hasSize(3);
 
             // we dropped 20 splits so start at 40 and count to 60
             assertPartitionedSplitCount(stage, min(i + 41, 60));
@@ -325,7 +323,7 @@ public class TestSourcePartitionedScheduler
 
         for (RemoteTask remoteTask : stage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 20);
+            assertThat(splitsInfo.getCount()).isEqualTo(20);
         }
 
         stage.abort();
@@ -343,13 +341,13 @@ public class TestSourcePartitionedScheduler
 
         // schedule with no splits - will block
         ScheduleResult scheduleResult = scheduler.schedule();
-        assertFalse(scheduleResult.isFinished());
-        assertFalse(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 0);
-        assertEquals(stage.getAllTasks().size(), 0);
+        assertThat(scheduleResult.isFinished()).isFalse();
+        assertThat(scheduleResult.getBlocked().isDone()).isFalse();
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
+        assertThat(stage.getAllTasks()).isEmpty();
 
         queuedSplitSource.addSplits(1);
-        assertTrue(scheduleResult.getBlocked().isDone());
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
     }
 
     @Test
@@ -393,12 +391,12 @@ public class TestSourcePartitionedScheduler
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
         assertEffectivelyFinished(scheduleResult, firstScheduler);
-        assertTrue(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(firstStage.getAllTasks().size(), 3);
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
+        assertThat(firstStage.getAllTasks()).hasSize(3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 5);
+            assertThat(splitsInfo.getCount()).isEqualTo(5);
         }
 
         // Add new node
@@ -412,11 +410,11 @@ public class TestSourcePartitionedScheduler
 
         scheduleResult = secondScheduler.schedule();
         assertEffectivelyFinished(scheduleResult, secondScheduler);
-        assertTrue(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
-        assertEquals(secondStage.getAllTasks().size(), 1);
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
+        assertThat(scheduleResult.getNewTasks()).hasSize(1);
+        assertThat(secondStage.getAllTasks()).hasSize(1);
         RemoteTask task = secondStage.getAllTasks().get(0);
-        assertEquals(task.getPartitionedSplitsInfo().getCount(), 5);
+        assertThat(task.getPartitionedSplitsInfo().getCount()).isEqualTo(5);
 
         firstStage.abort();
         secondStage.abort();
@@ -440,12 +438,12 @@ public class TestSourcePartitionedScheduler
         firstSplitSource.addSplits(15);
 
         ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertTrue(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(firstStage.getAllTasks().size(), 3);
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
+        assertThat(firstStage.getAllTasks()).hasSize(3);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 5);
+            assertThat(splitsInfo.getCount()).isEqualTo(5);
         }
 
         // Add new node
@@ -457,12 +455,12 @@ public class TestSourcePartitionedScheduler
         firstSplitSource.close();
         scheduleResult = firstScheduler.schedule();
         assertEffectivelyFinished(scheduleResult, firstScheduler);
-        assertTrue(scheduleResult.getBlocked().isDone());
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
-        assertEquals(firstStage.getAllTasks().size(), 4);
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
+        assertThat(scheduleResult.getNewTasks()).hasSize(1);
+        assertThat(firstStage.getAllTasks()).hasSize(4);
         for (RemoteTask remoteTask : firstStage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 5);
+            assertThat(splitsInfo.getCount()).isEqualTo(5);
         }
 
         // Add new node
@@ -476,10 +474,10 @@ public class TestSourcePartitionedScheduler
 
         scheduleResult = secondScheduler.schedule();
         assertEffectivelyFinished(scheduleResult, secondScheduler);
-        assertEquals(secondStage.getAllTasks().size(), 5);
+        assertThat(secondStage.getAllTasks()).hasSize(5);
         for (RemoteTask remoteTask : secondStage.getAllTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 1);
+            assertThat(splitsInfo.getCount()).isEqualTo(1);
         }
 
         firstStage.abort();
@@ -513,20 +511,20 @@ public class TestSourcePartitionedScheduler
 
         // the queues of 3 running nodes should be full
         ScheduleResult scheduleResult = scheduler.schedule();
-        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(scheduleResult.getSplitsScheduled(), 300);
+        assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
+        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(300);
         for (RemoteTask remoteTask : scheduleResult.getNewTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 100);
+            assertThat(splitsInfo.getCount()).isEqualTo(100);
         }
 
         // new node added - the pending splits should go to it since the child tasks are not blocked
         nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
-        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL); // split queue is full but still the source task creation isn't blocked
-        assertEquals(scheduleResult.getNewTasks().size(), 1);
-        assertEquals(scheduleResult.getSplitsScheduled(), 100);
+        assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL); // split queue is full but still the source task creation isn't blocked
+        assertThat(scheduleResult.getNewTasks()).hasSize(1);
+        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(100);
     }
 
     @Test
@@ -556,20 +554,20 @@ public class TestSourcePartitionedScheduler
 
         // the queues of 3 running nodes should be full
         ScheduleResult scheduleResult = scheduler.schedule();
-        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
-        assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(scheduleResult.getSplitsScheduled(), 300);
+        assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL);
+        assertThat(scheduleResult.getNewTasks()).hasSize(3);
+        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(300);
         for (RemoteTask remoteTask : scheduleResult.getNewTasks()) {
             PartitionedSplitsInfo splitsInfo = remoteTask.getPartitionedSplitsInfo();
-            assertEquals(splitsInfo.getCount(), 100);
+            assertThat(splitsInfo.getCount()).isEqualTo(100);
         }
 
         // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
         nodeManager.addNodes(new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
         scheduleResult = scheduler.schedule();
-        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
-        assertEquals(scheduleResult.getNewTasks().size(), 0);
-        assertEquals(scheduleResult.getSplitsScheduled(), 0);
+        assertThat(scheduleResult.getBlockedReason().get()).isEqualTo(SPLIT_QUEUES_FULL);
+        assertThat(scheduleResult.getNewTasks()).isEmpty();
+        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
     @Test
@@ -605,40 +603,40 @@ public class TestSourcePartitionedScheduler
                 symbolAllocator.getTypes());
 
         // make sure dynamic filtering collecting task was created immediately
-        assertEquals(stage.getState(), PLANNED);
+        assertThat(stage.getState()).isEqualTo(PLANNED);
         scheduler.start();
-        assertEquals(stage.getAllTasks().size(), 1);
-        assertEquals(stage.getState(), SCHEDULING);
+        assertThat(stage.getAllTasks()).hasSize(1);
+        assertThat(stage.getState()).isEqualTo(SCHEDULING);
 
         // make sure dynamic filter is initially blocked
-        assertFalse(dynamicFilter.isBlocked().isDone());
+        assertThat(dynamicFilter.isBlocked().isDone()).isFalse();
 
         // make sure dynamic filter is unblocked due to build side source tasks being blocked
         ScheduleResult scheduleResult = scheduler.schedule();
-        assertTrue(dynamicFilter.isBlocked().isDone());
+        assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
 
         // no new probe splits should be scheduled
-        assertEquals(scheduleResult.getSplitsScheduled(), 0);
+        assertThat(scheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
     private static void assertPartitionedSplitCount(StageExecution stage, int expectedPartitionedSplitCount)
     {
-        assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
+        assertThat(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum()).isEqualTo(expectedPartitionedSplitCount);
     }
 
     private static void assertEffectivelyFinished(ScheduleResult scheduleResult, StageScheduler scheduler)
     {
         if (scheduleResult.isFinished()) {
-            assertTrue(scheduleResult.getBlocked().isDone());
+            assertThat(scheduleResult.getBlocked().isDone()).isTrue();
             return;
         }
 
-        assertTrue(scheduleResult.getBlocked().isDone());
+        assertThat(scheduleResult.getBlocked().isDone()).isTrue();
         ScheduleResult nextScheduleResult = scheduler.schedule();
-        assertTrue(nextScheduleResult.isFinished());
-        assertTrue(nextScheduleResult.getBlocked().isDone());
-        assertEquals(nextScheduleResult.getNewTasks().size(), 0);
-        assertEquals(nextScheduleResult.getSplitsScheduled(), 0);
+        assertThat(nextScheduleResult.isFinished()).isTrue();
+        assertThat(nextScheduleResult.getBlocked().isDone()).isTrue();
+        assertThat(nextScheduleResult.getNewTasks()).isEmpty();
+        assertThat(nextScheduleResult.getSplitsScheduled()).isEqualTo(0);
     }
 
     private StageScheduler getSourcePartitionedScheduler(

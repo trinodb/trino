@@ -48,9 +48,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestHashBuilderOperator
 {
@@ -112,27 +109,27 @@ public class TestHashBuilderOperator
                 10_000,
                 new PagesIndex.TestingFactory(false),
                 defaultHashArraySizeSupplier())) {
-            assertEquals(operator.getState(), CONSUMING_INPUT);
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             ListenableFuture<Void> whenBuildFinishes = lookupSourceFactory.whenBuildFinishes();
             assertThat(whenBuildFinishes).isNotDone();
 
             for (int i = 0; i < 100; i++) {
                 assertThat(operator.isBlocked()).isDone();
-                assertTrue(operator.needsInput());
+                assertThat(operator.needsInput()).isTrue();
                 operator.addInput(somePage(types));
             }
 
-            assertFalse(operator.isFinished());
-            assertEquals(operator.getState(), CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
 
             anotherOperatorContext.getOperatorMemoryContext().localUserMemoryContext().setBytes(memoryPoolSizeInBytes);
 
             operator.finish();
 
             // not enough memory to create lookup source
-            assertEquals(operator.getState(), CONSUMING_INPUT);
-            assertFalse(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(CONSUMING_INPUT);
+            assertThat(operator.isFinished()).isFalse();
             assertThat(whenBuildFinishes).isNotDone();
             assertThat(operatorContext.isWaitingForMemory()).isNotDone();
 
@@ -140,20 +137,20 @@ public class TestHashBuilderOperator
 
             operator.finish();
 
-            assertEquals(operator.getState(), LOOKUP_SOURCE_BUILT);
-            assertFalse(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(LOOKUP_SOURCE_BUILT);
+            assertThat(operator.isFinished()).isFalse();
             assertThat(whenBuildFinishes).isDone();
             assertThat(operator.isBlocked()).isNotDone();
 
             lookupSourceFactory.destroy();
             assertThat(operator.isBlocked()).isDone();
 
-            assertEquals(operator.getState(), LOOKUP_SOURCE_BUILT);
+            assertThat(operator.getState()).isEqualTo(LOOKUP_SOURCE_BUILT);
 
             operator.finish();
 
-            assertEquals(operator.getState(), CLOSED);
-            assertTrue(operator.isFinished());
+            assertThat(operator.getState()).isEqualTo(CLOSED);
+            assertThat(operator.isFinished()).isTrue();
         }
         finally {
             operatorContext.destroy();

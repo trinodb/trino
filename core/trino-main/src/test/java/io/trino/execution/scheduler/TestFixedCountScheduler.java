@@ -36,8 +36,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFixedCountScheduler
 {
@@ -70,10 +69,10 @@ public class TestFixedCountScheduler
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
-        assertTrue(result.isFinished());
-        assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 1);
-        assertTrue(result.getNewTasks().iterator().next().getNodeId().equals("other 0"));
+        assertThat(result.isFinished()).isTrue();
+        assertThat(result.getBlocked().isDone()).isTrue();
+        assertThat(result.getNewTasks()).hasSize(1);
+        assertThat(result.getNewTasks().iterator().next().getNodeId()).isEqualTo("other 0");
     }
 
     @Test
@@ -87,10 +86,10 @@ public class TestFixedCountScheduler
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
-        assertTrue(result.isFinished());
-        assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 5);
-        assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
+        assertThat(result.isFinished()).isTrue();
+        assertThat(result.getBlocked().isDone()).isTrue();
+        assertThat(result.getNewTasks()).hasSize(5);
+        assertThat(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet())).hasSize(5);
     }
 
     private static List<InternalNode> generateRandomNodes(int count)

@@ -22,8 +22,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntArrayBlock
         extends AbstractTestBlock
@@ -51,16 +50,16 @@ public class TestIntArrayBlock
         BlockBuilder emptyBlockBuilder = new IntArrayBlockBuilder(null, 0);
 
         BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isGreaterThan(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isGreaterThan(emptyBlockBuilder.getRetainedSizeInBytes());
 
         blockBuilder = blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test

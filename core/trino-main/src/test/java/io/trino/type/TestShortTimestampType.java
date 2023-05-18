@@ -21,12 +21,9 @@ import io.trino.spi.type.Type.Range;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestShortTimestampType
         extends AbstractTestType
@@ -63,16 +60,16 @@ public class TestShortTimestampType
     public void testRange()
     {
         Range range = type.getRange().orElseThrow();
-        assertEquals(range.getMin(), Long.MIN_VALUE + 808);
-        assertEquals(range.getMax(), Long.MAX_VALUE - 807);
+        assertThat(range.getMin()).isEqualTo(Long.MIN_VALUE + 808);
+        assertThat(range.getMax()).isEqualTo(Long.MAX_VALUE - 807);
     }
 
     @Test(dataProvider = "testRangeEveryPrecisionDataProvider")
     public void testRangeEveryPrecision(int precision, long expectedMin, long expectedMax)
     {
         Range range = createTimestampType(precision).getRange().orElseThrow();
-        assertEquals(range.getMin(), expectedMin);
-        assertEquals(range.getMax(), expectedMax);
+        assertThat(range.getMin()).isEqualTo(expectedMin);
+        assertThat(range.getMax()).isEqualTo(expectedMax);
     }
 
     @DataProvider
@@ -95,18 +92,13 @@ public class TestShortTimestampType
         long minValue = Long.MIN_VALUE + 808;
         long maxValue = Long.MAX_VALUE - 807;
 
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + 1_000))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(minValue)).isEmpty();
+        assertThat(type.getPreviousValue(minValue + 1_000)).hasValue(minValue);
 
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEqualTo(Optional.of(1110_000L));
+        assertThat(type.getPreviousValue(getSampleValue())).hasValue(1110_000L);
 
-        assertThat(type.getPreviousValue(maxValue - 1_000))
-                .isEqualTo(Optional.of(maxValue - 2_000));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - 1_000));
+        assertThat(type.getPreviousValue(maxValue - 1_000)).hasValue(maxValue - 2_000);
+        assertThat(type.getPreviousValue(maxValue)).hasValue(maxValue - 1_000);
     }
 
     @Override
@@ -115,18 +107,13 @@ public class TestShortTimestampType
         long minValue = Long.MIN_VALUE + 808;
         long maxValue = Long.MAX_VALUE - 807;
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + 1_000));
-        assertThat(type.getNextValue(minValue + 1_000))
-                .isEqualTo(Optional.of(minValue + 2_000));
+        assertThat(type.getNextValue(minValue)).hasValue(minValue + 1_000);
+        assertThat(type.getNextValue(minValue + 1_000)).hasValue(minValue + 2_000);
 
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEqualTo(Optional.of(1112_000L));
+        assertThat(type.getNextValue(getSampleValue())).hasValue(1112_000L);
 
-        assertThat(type.getNextValue(maxValue - 1_000))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(maxValue - 1_000)).hasValue(maxValue);
+        assertThat(type.getNextValue(maxValue)).isEmpty();
     }
 
     @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
@@ -134,20 +121,14 @@ public class TestShortTimestampType
     {
         Type type = createTimestampType(precision);
 
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + step))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(minValue)).isEmpty();
+        assertThat(type.getPreviousValue(minValue + step)).hasValue(minValue);
 
-        assertThat(type.getPreviousValue(0L))
-                .isEqualTo(Optional.of(-step));
-        assertThat(type.getPreviousValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L - step));
+        assertThat(type.getPreviousValue(0L)).hasValue(-step);
+        assertThat(type.getPreviousValue(123_456_789_000_000L)).hasValue(123_456_789_000_000L - step);
 
-        assertThat(type.getPreviousValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue - 2 * step));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - step));
+        assertThat(type.getPreviousValue(maxValue - step)).hasValue(maxValue - 2 * step);
+        assertThat(type.getPreviousValue(maxValue)).hasValue(maxValue - step);
     }
 
     @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
@@ -155,20 +136,14 @@ public class TestShortTimestampType
     {
         Type type = createTimestampType(precision);
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + step));
-        assertThat(type.getNextValue(minValue + step))
-                .isEqualTo(Optional.of(minValue + 2 * step));
+        assertThat(type.getNextValue(minValue)).hasValue(minValue + step);
+        assertThat(type.getNextValue(minValue + step)).hasValue(minValue + 2 * step);
 
-        assertThat(type.getNextValue(0L))
-                .isEqualTo(Optional.of(step));
-        assertThat(type.getNextValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L + step));
+        assertThat(type.getNextValue(0L)).hasValue(step);
+        assertThat(type.getNextValue(123_456_789_000_000L)).hasValue(123_456_789_000_000L + step);
 
-        assertThat(type.getNextValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(maxValue - step)).hasValue(maxValue);
+        assertThat(type.getNextValue(maxValue)).isEmpty();
     }
 
     @DataProvider

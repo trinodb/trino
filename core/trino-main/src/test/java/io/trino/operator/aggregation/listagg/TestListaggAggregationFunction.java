@@ -35,10 +35,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestListaggAggregationFunction
 {
@@ -62,11 +60,11 @@ public class TestListaggAggregationFunction
                 true,
                 0);
 
-        assertFalse(state.isEmpty());
-        assertEquals(state.getSeparator(), separator);
-        assertFalse(state.isOverflowError());
-        assertEquals(state.getOverflowFiller(), overflowFiller);
-        assertTrue(state.showOverflowEntryCount());
+        assertThat(state.isEmpty()).isFalse();
+        assertThat(state.getSeparator()).isEqualTo(separator);
+        assertThat(state.isOverflowError()).isFalse();
+        assertThat(state.getOverflowFiller()).isEqualTo(overflowFiller);
+        assertThat(state.showOverflowEntryCount()).isTrue();
 
         BlockBuilder out = new VariableWidthBlockBuilder(null, 16, 128);
         state.forEach((block, position) -> {
@@ -75,7 +73,7 @@ public class TestListaggAggregationFunction
         });
         out.closeEntry();
         String result = (String) BlockAssertions.getOnlyValue(VARCHAR, out);
-        assertEquals(result, s);
+        assertThat(result).isEqualTo(s);
     }
 
     @Test
@@ -102,7 +100,7 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState(",", true, "...", false,
                 "value1");
-        assertEquals(getOutputStateOnlyValue(state, 1024), "value1");
+        assertThat(getOutputStateOnlyValue(state, 1024)).isEqualTo("value1");
     }
 
     @Test
@@ -122,7 +120,7 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState(",", true, "...", false,
                 "trino", "", "", "", "");
-        assertEquals(getOutputStateOnlyValue(state, 12), "trino,,,,");
+        assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("trino,,,,");
     }
 
     @Test
@@ -130,7 +128,7 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState("", true, "...", false,
                 "value1", "value2");
-        assertEquals(getOutputStateOnlyValue(state, 12), "value1value2");
+        assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("value1value2");
     }
 
     @Test
@@ -138,7 +136,7 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState("♥", true, "...", false,
                 "Trino", "SQL", "on", "everything");
-        assertEquals(getOutputStateOnlyValue(state, 29), "Trino♥SQL♥on♥everything");
+        assertThat(getOutputStateOnlyValue(state, 29)).isEqualTo("Trino♥SQL♥on♥everything");
     }
 
     @Test
@@ -147,7 +145,7 @@ public class TestListaggAggregationFunction
         SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", false,
                 "value1", "value2");
 
-        assertEquals(getOutputStateOnlyValue(state, 5), "...");
+        assertThat(getOutputStateOnlyValue(state, 5)).isEqualTo("...");
     }
 
     @Test
@@ -155,11 +153,11 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState("###", false, "...", false,
                 "value1", "value2", "value3");
-        assertEquals(getOutputStateOnlyValue(state, 18), "value1###value2###...");
-        assertEquals(getOutputStateOnlyValue(state, 19), "value1###value2###...");
-        assertEquals(getOutputStateOnlyValue(state, 20), "value1###value2###...");
-        assertEquals(getOutputStateOnlyValue(state, 21), "value1###value2###...");
-        assertEquals(getOutputStateOnlyValue(state, 22), "value1###value2###...");
+        assertThat(getOutputStateOnlyValue(state, 18)).isEqualTo("value1###value2###...");
+        assertThat(getOutputStateOnlyValue(state, 19)).isEqualTo("value1###value2###...");
+        assertThat(getOutputStateOnlyValue(state, 20)).isEqualTo("value1###value2###...");
+        assertThat(getOutputStateOnlyValue(state, 21)).isEqualTo("value1###value2###...");
+        assertThat(getOutputStateOnlyValue(state, 22)).isEqualTo("value1###value2###...");
     }
 
     @Test
@@ -167,11 +165,11 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", false,
                 "value1", "value2");
-        assertEquals(getOutputStateOnlyValue(state, 9), "value1,...");
-        assertEquals(getOutputStateOnlyValue(state, 10), "value1,...");
-        assertEquals(getOutputStateOnlyValue(state, 11), "value1,...");
-        assertEquals(getOutputStateOnlyValue(state, 12), "value1,...");
-        assertEquals(getOutputStateOnlyValue(state, 13), "value1,value2");
+        assertThat(getOutputStateOnlyValue(state, 9)).isEqualTo("value1,...");
+        assertThat(getOutputStateOnlyValue(state, 10)).isEqualTo("value1,...");
+        assertThat(getOutputStateOnlyValue(state, 11)).isEqualTo("value1,...");
+        assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("value1,...");
+        assertThat(getOutputStateOnlyValue(state, 13)).isEqualTo("value1,value2");
     }
 
     @Test
@@ -179,9 +177,9 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", true,
                 "string1", "string2");
-        assertEquals(getOutputStateOnlyValue(state, 12), "string1,...(1)");
-        assertEquals(getOutputStateOnlyValue(state, 13), "string1,...(1)");
-        assertEquals(getOutputStateOnlyValue(state, 14), "string1,...(1)");
+        assertThat(getOutputStateOnlyValue(state, 12)).isEqualTo("string1,...(1)");
+        assertThat(getOutputStateOnlyValue(state, 13)).isEqualTo("string1,...(1)");
+        assertThat(getOutputStateOnlyValue(state, 14)).isEqualTo("string1,...(1)");
     }
 
     @Test
@@ -189,15 +187,15 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState(",", false, "...", true,
                 "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "x", "y", "z");
-        assertEquals(getOutputStateOnlyValue(state, 13), "a,b,c,d,e,f,g,...(18)");
-        assertEquals(getOutputStateOnlyValue(state, 14), "a,b,c,d,e,f,g,...(18)");
-        assertEquals(getOutputStateOnlyValue(state, 15), "a,b,c,d,e,f,g,h,...(17)");
-        assertEquals(getOutputStateOnlyValue(state, 16), "a,b,c,d,e,f,g,h,...(17)");
-        assertEquals(getOutputStateOnlyValue(state, 17), "a,b,c,d,e,f,g,h,i,...(16)");
-        assertEquals(getOutputStateOnlyValue(state, 18), "a,b,c,d,e,f,g,h,i,...(16)");
-        assertEquals(getOutputStateOnlyValue(state, 19), "a,b,c,d,e,f,g,h,i,j,...(15)");
-        assertEquals(getOutputStateOnlyValue(state, 20), "a,b,c,d,e,f,g,h,i,j,...(15)");
-        assertEquals(getOutputStateOnlyValue(state, 21), "a,b,c,d,e,f,g,h,i,j,k,...(14)");
+        assertThat(getOutputStateOnlyValue(state, 13)).isEqualTo("a,b,c,d,e,f,g,...(18)");
+        assertThat(getOutputStateOnlyValue(state, 14)).isEqualTo("a,b,c,d,e,f,g,...(18)");
+        assertThat(getOutputStateOnlyValue(state, 15)).isEqualTo("a,b,c,d,e,f,g,h,...(17)");
+        assertThat(getOutputStateOnlyValue(state, 16)).isEqualTo("a,b,c,d,e,f,g,h,...(17)");
+        assertThat(getOutputStateOnlyValue(state, 17)).isEqualTo("a,b,c,d,e,f,g,h,i,...(16)");
+        assertThat(getOutputStateOnlyValue(state, 18)).isEqualTo("a,b,c,d,e,f,g,h,i,...(16)");
+        assertThat(getOutputStateOnlyValue(state, 19)).isEqualTo("a,b,c,d,e,f,g,h,i,j,...(15)");
+        assertThat(getOutputStateOnlyValue(state, 20)).isEqualTo("a,b,c,d,e,f,g,h,i,j,...(15)");
+        assertThat(getOutputStateOnlyValue(state, 21)).isEqualTo("a,b,c,d,e,f,g,h,i,j,k,...(14)");
     }
 
     @Test
@@ -206,14 +204,14 @@ public class TestListaggAggregationFunction
         SingleListaggAggregationState state = createListaggAggregationState("###", false, "...", true,
                 "a", "b", "c", "dd", "e", "f", "g", "h", "i", "j", "k", "l");
 
-        assertEquals(getOutputStateOnlyValue(state, 100), "a###b###c###dd###e###f###g###h###i###j###k###l");
-        assertEquals(getOutputStateOnlyValue(state, 15), "a###b###c###dd###...(8)");
-        assertEquals(getOutputStateOnlyValue(state, 16), "a###b###c###dd###...(8)");
-        assertEquals(getOutputStateOnlyValue(state, 17), "a###b###c###dd###...(8)");
-        assertEquals(getOutputStateOnlyValue(state, 18), "a###b###c###dd###e###...(7)");
-        assertEquals(getOutputStateOnlyValue(state, 19), "a###b###c###dd###e###...(7)");
-        assertEquals(getOutputStateOnlyValue(state, 20), "a###b###c###dd###e###...(7)");
-        assertEquals(getOutputStateOnlyValue(state, 21), "a###b###c###dd###e###...(7)");
+        assertThat(getOutputStateOnlyValue(state, 100)).isEqualTo("a###b###c###dd###e###f###g###h###i###j###k###l");
+        assertThat(getOutputStateOnlyValue(state, 15)).isEqualTo("a###b###c###dd###...(8)");
+        assertThat(getOutputStateOnlyValue(state, 16)).isEqualTo("a###b###c###dd###...(8)");
+        assertThat(getOutputStateOnlyValue(state, 17)).isEqualTo("a###b###c###dd###...(8)");
+        assertThat(getOutputStateOnlyValue(state, 18)).isEqualTo("a###b###c###dd###e###...(7)");
+        assertThat(getOutputStateOnlyValue(state, 19)).isEqualTo("a###b###c###dd###e###...(7)");
+        assertThat(getOutputStateOnlyValue(state, 20)).isEqualTo("a###b###c###dd###e###...(7)");
+        assertThat(getOutputStateOnlyValue(state, 21)).isEqualTo("a###b###c###dd###e###...(7)");
     }
 
     @Test

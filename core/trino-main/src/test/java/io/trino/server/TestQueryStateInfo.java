@@ -44,7 +44,7 @@ import static io.trino.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryStateInfo
 {
@@ -73,28 +73,28 @@ public class TestQueryStateInfo
                 Optional.of(rootAX.getId()),
                 Optional.of(ImmutableList.of(rootAX.getInfo(), rootA.getInfo(), root.getInfo())));
 
-        assertEquals(query.getQuery(), "SELECT 1");
-        assertEquals(query.getQueryId().toString(), "query_root_a_x");
-        assertEquals(query.getQueryState(), QUEUED);
-        assertEquals(query.getProgress(), Optional.empty());
+        assertThat(query.getQuery()).isEqualTo("SELECT 1");
+        assertThat(query.getQueryId()).hasToString("query_root_a_x");
+        assertThat(query.getQueryState()).isEqualTo(QUEUED);
+        assertThat(query.getProgress()).isEmpty();
 
         List<ResourceGroupInfo> chainInfo = query.getPathToRoot().get();
 
-        assertEquals(chainInfo.size(), 3);
+        assertThat(chainInfo).hasSize(3);
 
         ResourceGroupInfo rootAInfo = chainInfo.get(1);
         ResourceGroupInfo expectedRootAInfo = rootA.getInfo();
-        assertEquals(rootAInfo.getId(), expectedRootAInfo.getId());
-        assertEquals(rootAInfo.getState(), expectedRootAInfo.getState());
-        assertEquals(rootAInfo.getNumRunningQueries(), expectedRootAInfo.getNumRunningQueries());
-        assertEquals(rootAInfo.getNumQueuedQueries(), expectedRootAInfo.getNumQueuedQueries());
+        assertThat(rootAInfo.getId()).isEqualTo(expectedRootAInfo.getId());
+        assertThat(rootAInfo.getState()).isEqualTo(expectedRootAInfo.getState());
+        assertThat(rootAInfo.getNumRunningQueries()).isEqualTo(expectedRootAInfo.getNumRunningQueries());
+        assertThat(rootAInfo.getNumQueuedQueries()).isEqualTo(expectedRootAInfo.getNumQueuedQueries());
 
         ResourceGroupInfo actualRootInfo = chainInfo.get(2);
         ResourceGroupInfo expectedRootInfo = root.getInfo();
-        assertEquals(actualRootInfo.getId(), expectedRootInfo.getId());
-        assertEquals(actualRootInfo.getState(), expectedRootInfo.getState());
-        assertEquals(actualRootInfo.getNumRunningQueries(), expectedRootInfo.getNumRunningQueries());
-        assertEquals(actualRootInfo.getNumQueuedQueries(), expectedRootInfo.getNumQueuedQueries());
+        assertThat(actualRootInfo.getId()).isEqualTo(expectedRootInfo.getId());
+        assertThat(actualRootInfo.getState()).isEqualTo(expectedRootInfo.getState());
+        assertThat(actualRootInfo.getNumRunningQueries()).isEqualTo(expectedRootInfo.getNumRunningQueries());
+        assertThat(actualRootInfo.getNumQueuedQueries()).isEqualTo(expectedRootInfo.getNumQueuedQueries());
     }
 
     private QueryInfo createQueryInfo(String queryId, QueryState state, String query)

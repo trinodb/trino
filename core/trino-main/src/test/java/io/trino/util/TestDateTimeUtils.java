@@ -20,7 +20,6 @@ import java.time.DateTimeException;
 import static io.trino.util.DateTimeUtils.parseIfIso8601DateFormat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDateTimeUtils
 {
@@ -29,12 +28,12 @@ public class TestDateTimeUtils
     public void testParseIfIso8601DateFormat()
     {
         // valid dates
-        assertEquals(0, parseIfIso8601DateFormat("1970-01-01").getAsInt(), "1970-01-01");
-        assertEquals(31, parseIfIso8601DateFormat("1970-02-01").getAsInt(), "1970-02-01");
-        assertEquals(-31, parseIfIso8601DateFormat("1969-12-01").getAsInt(), "1969-12-01");
-        assertEquals(19051, parseIfIso8601DateFormat("2022-02-28").getAsInt(), "2022-02-28");
-        assertEquals(-719528, parseIfIso8601DateFormat("0000-01-01").getAsInt(), "0000-01-01");
-        assertEquals(2932896, parseIfIso8601DateFormat("9999-12-31").getAsInt(), "9999-12-31");
+        assertThat(0).withFailMessage("1970-01-01").isEqualTo(parseIfIso8601DateFormat("1970-01-01").getAsInt());
+        assertThat(31).withFailMessage("1970-02-01").isEqualTo(parseIfIso8601DateFormat("1970-02-01").getAsInt());
+        assertThat(-31).withFailMessage("1969-12-01").isEqualTo(parseIfIso8601DateFormat("1969-12-01").getAsInt());
+        assertThat(19051).withFailMessage("2022-02-28").isEqualTo(parseIfIso8601DateFormat("2022-02-28").getAsInt());
+        assertThat(-719528).withFailMessage("0000-01-01").isEqualTo(parseIfIso8601DateFormat("0000-01-01").getAsInt());
+        assertThat(2932896).withFailMessage("9999-12-31").isEqualTo(parseIfIso8601DateFormat("9999-12-31").getAsInt());
 
         // format invalid
         // invalid length

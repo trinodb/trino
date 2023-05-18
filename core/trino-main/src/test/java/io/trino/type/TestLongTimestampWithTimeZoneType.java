@@ -21,8 +21,6 @@ import io.trino.spi.type.Type;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -69,18 +67,13 @@ public class TestLongTimestampWithTimeZoneType
         LongTimestampWithTimeZone previousToMaxValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 998_000_000, UTC_KEY);
         LongTimestampWithTimeZone maxValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 999_000_000, UTC_KEY);
 
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(nextToMinValue))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(minValue)).isEmpty();
+        assertThat(type.getPreviousValue(nextToMinValue)).hasValue(minValue);
 
-        assertThat(type.getPreviousValue(getSampleValue()))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1110, 999_000_000, getTimeZoneKeyForOffset(0))));
+        assertThat(type.getPreviousValue(getSampleValue())).hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1110, 999_000_000, getTimeZoneKeyForOffset(0)));
 
-        assertThat(type.getPreviousValue(previousToMaxValue))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 997_000_000, UTC_KEY)));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(previousToMaxValue));
+        assertThat(type.getPreviousValue(previousToMaxValue)).hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 997_000_000, UTC_KEY));
+        assertThat(type.getPreviousValue(maxValue)).hasValue(previousToMaxValue);
     }
 
     @Override
@@ -91,18 +84,13 @@ public class TestLongTimestampWithTimeZoneType
         LongTimestampWithTimeZone previousToMaxValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 998_000_000, UTC_KEY);
         LongTimestampWithTimeZone maxValue = LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MAX_VALUE, 999_000_000, UTC_KEY);
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(nextToMinValue));
-        assertThat(type.getNextValue(nextToMinValue))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 2_000_000, UTC_KEY)));
+        assertThat(type.getNextValue(minValue)).hasValue(nextToMinValue);
+        assertThat(type.getNextValue(nextToMinValue)).hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(Long.MIN_VALUE, 2_000_000, UTC_KEY));
 
-        assertThat(type.getNextValue(getSampleValue()))
-                .isEqualTo(Optional.of(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 1_000_000, getTimeZoneKeyForOffset(0))));
+        assertThat(type.getNextValue(getSampleValue())).hasValue(LongTimestampWithTimeZone.fromEpochMillisAndFraction(1111, 1_000_000, getTimeZoneKeyForOffset(0)));
 
-        assertThat(type.getNextValue(previousToMaxValue))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(previousToMaxValue)).hasValue(maxValue);
+        assertThat(type.getNextValue(maxValue)).isEmpty();
     }
 
     @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
@@ -110,20 +98,14 @@ public class TestLongTimestampWithTimeZoneType
     {
         Type type = createTimestampType(precision);
 
-        assertThat(type.getPreviousValue(minValue))
-                .isEqualTo(Optional.empty());
-        assertThat(type.getPreviousValue(minValue + step))
-                .isEqualTo(Optional.of(minValue));
+        assertThat(type.getPreviousValue(minValue)).isEmpty();
+        assertThat(type.getPreviousValue(minValue + step)).hasValue(minValue);
 
-        assertThat(type.getPreviousValue(0L))
-                .isEqualTo(Optional.of(-step));
-        assertThat(type.getPreviousValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L - step));
+        assertThat(type.getPreviousValue(0L)).hasValue(-step);
+        assertThat(type.getPreviousValue(123_456_789_000_000L)).hasValue(123_456_789_000_000L - step);
 
-        assertThat(type.getPreviousValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue - 2 * step));
-        assertThat(type.getPreviousValue(maxValue))
-                .isEqualTo(Optional.of(maxValue - step));
+        assertThat(type.getPreviousValue(maxValue - step)).hasValue(maxValue - 2 * step);
+        assertThat(type.getPreviousValue(maxValue)).hasValue(maxValue - step);
     }
 
     @Test(dataProvider = "testPreviousNextValueEveryPrecisionDatProvider")
@@ -131,20 +113,14 @@ public class TestLongTimestampWithTimeZoneType
     {
         Type type = createTimestampType(precision);
 
-        assertThat(type.getNextValue(minValue))
-                .isEqualTo(Optional.of(minValue + step));
-        assertThat(type.getNextValue(minValue + step))
-                .isEqualTo(Optional.of(minValue + 2 * step));
+        assertThat(type.getNextValue(minValue)).hasValue(minValue + step);
+        assertThat(type.getNextValue(minValue + step)).hasValue(minValue + 2 * step);
 
-        assertThat(type.getNextValue(0L))
-                .isEqualTo(Optional.of(step));
-        assertThat(type.getNextValue(123_456_789_000_000L))
-                .isEqualTo(Optional.of(123_456_789_000_000L + step));
+        assertThat(type.getNextValue(0L)).hasValue(step);
+        assertThat(type.getNextValue(123_456_789_000_000L)).hasValue(123_456_789_000_000L + step);
 
-        assertThat(type.getNextValue(maxValue - step))
-                .isEqualTo(Optional.of(maxValue));
-        assertThat(type.getNextValue(maxValue))
-                .isEqualTo(Optional.empty());
+        assertThat(type.getNextValue(maxValue - step)).hasValue(maxValue);
+        assertThat(type.getNextValue(maxValue)).isEmpty();
     }
 
     @DataProvider

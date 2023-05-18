@@ -42,7 +42,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -237,7 +237,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestJoinStatsRule
                 RIGHT_STATS,
                 LEFT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -268,7 +268,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -285,7 +285,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test

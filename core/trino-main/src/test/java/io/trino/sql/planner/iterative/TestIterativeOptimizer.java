@@ -42,8 +42,7 @@ import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIterativeOptimizer
 {
@@ -95,12 +94,12 @@ public class TestIterativeOptimizer
             queryRunner.createPlan(sessionBuilder.build(), "SELECT 1", ImmutableList.of(optimizer), WarningCollector.NOOP, planOptimizersStatsCollector);
             Optional<QueryPlanOptimizerStatistics> queryRuleStats = planOptimizersStatsCollector.getTopRuleStats().stream().findFirst();
 
-            assertTrue(queryRuleStats.isPresent());
+            assertThat(queryRuleStats).isPresent();
             QueryPlanOptimizerStatistics queryRuleStat = queryRuleStats.get();
-            assertEquals(queryRuleStat.rule(), RemoveRedundantIdentityProjections.class.getCanonicalName());
-            assertEquals(queryRuleStat.invocations(), 4);
-            assertEquals(queryRuleStat.applied(), 3);
-            assertEquals(queryRuleStat.failures(), 0);
+            assertThat(queryRuleStat.rule()).isEqualTo(RemoveRedundantIdentityProjections.class.getCanonicalName());
+            assertThat(queryRuleStat.invocations()).isEqualTo(4);
+            assertThat(queryRuleStat.applied()).isEqualTo(3);
+            assertThat(queryRuleStat.failures()).isEqualTo(0);
         }
         finally {
             if (queryRunner != null) {

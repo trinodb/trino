@@ -28,7 +28,7 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.failuredetector.HeartbeatFailureDetector.Stats;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestNodeResource
 {
@@ -62,7 +62,7 @@ public class TestNodeResource
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
         // we only have one node and the list never contains the current node
-        assertTrue(nodes.isEmpty());
+        assertThat(nodes).isEmpty();
     }
 
     @Test
@@ -75,6 +75,6 @@ public class TestNodeResource
                         .build(),
                 createJsonResponseHandler(listJsonCodec(Stats.class)));
 
-        assertTrue(nodes.isEmpty());
+        assertThat(nodes).isEmpty();
     }
 }

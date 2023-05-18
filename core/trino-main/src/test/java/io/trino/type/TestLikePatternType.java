@@ -36,10 +36,10 @@ public class TestLikePatternType
 
         LikeMatcher pattern = (LikeMatcher) LIKE_PATTERN.getObject(block, 0);
         assertThat(pattern.getPattern()).isEqualTo("helloX_world");
-        assertThat(pattern.getEscape()).isEqualTo(Optional.of('X'));
+        assertThat(pattern.getEscape()).hasValue('X');
 
         pattern = (LikeMatcher) LIKE_PATTERN.getObject(block, 1);
         assertThat(pattern.getPattern()).isEqualTo("foo%_bar");
-        assertThat(pattern.getEscape()).isEqualTo(Optional.empty());
+        assertThat(pattern.getEscape()).isEmpty();
     }
 }

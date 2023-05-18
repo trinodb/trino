@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDoubleType
         extends AbstractTestType
@@ -67,13 +67,13 @@ public class TestDoubleType
         blockBuilder.writeLong(0x7ff8000000000000L);
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 1));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 2));
+        assertThat(hashCodeOperator.hashCode(blockBuilder, 0)).isEqualTo(hashCodeOperator.hashCode(blockBuilder, 3));
 
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 1));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 2));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 3));
+        assertThat(xxHash64Operator.xxHash64(blockBuilder, 0)).isEqualTo(xxHash64Operator.xxHash64(blockBuilder, 1));
+        assertThat(xxHash64Operator.xxHash64(blockBuilder, 0)).isEqualTo(xxHash64Operator.xxHash64(blockBuilder, 2));
+        assertThat(xxHash64Operator.xxHash64(blockBuilder, 0)).isEqualTo(xxHash64Operator.xxHash64(blockBuilder, 3));
     }
 }

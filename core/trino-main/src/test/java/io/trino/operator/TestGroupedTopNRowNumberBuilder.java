@@ -33,9 +33,7 @@ import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGroupedTopNRowNumberBuilder
 {
@@ -65,7 +63,7 @@ public class TestGroupedTopNRowNumberBuilder
                 5,
                 false,
                 new NoChannelGroupByHash());
-        assertFalse(groupedTopNBuilder.buildResult().hasNext());
+        assertThat(groupedTopNBuilder.buildResult().hasNext()).isFalse();
     }
 
     @Test(dataProvider = "produceRowNumbers")
@@ -102,19 +100,19 @@ public class TestGroupedTopNRowNumberBuilder
                 groupByHash);
 
         // add 4 rows for the first page and created three heaps with 1, 1, 2 rows respectively
-        assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(0)).process()).isTrue();
 
         // add 1 row for the second page and the three heaps become 2, 1, 2 rows respectively
-        assertTrue(groupedTopNBuilder.processPage(input.get(1)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(1)).process()).isTrue();
 
         // add 2 new rows for the third page (which will be compacted into two rows only) and we have four heaps with 2, 2, 2, 1 rows respectively
-        assertTrue(groupedTopNBuilder.processPage(input.get(2)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(2)).process()).isTrue();
 
         // the last page will be discarded
-        assertTrue(groupedTopNBuilder.processPage(input.get(3)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(1L, 0.3, 1)
@@ -167,19 +165,19 @@ public class TestGroupedTopNRowNumberBuilder
                 new NoChannelGroupByHash());
 
         // add 4 rows for the first page and created a single heap with 4 rows
-        assertTrue(groupedTopNBuilder.processPage(input.get(0)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(0)).process()).isTrue();
 
         // add 1 row for the second page and the heap is with 5 rows
-        assertTrue(groupedTopNBuilder.processPage(input.get(1)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(1)).process()).isTrue();
 
         // update 1 new row from the third page (which will be compacted into a single row only)
-        assertTrue(groupedTopNBuilder.processPage(input.get(2)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(2)).process()).isTrue();
 
         // the last page will be discarded
-        assertTrue(groupedTopNBuilder.processPage(input.get(3)).process());
+        assertThat(groupedTopNBuilder.processPage(input.get(3)).process()).isTrue();
 
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(BIGINT, DOUBLE, BIGINT)
                 .row(3L, 0.1, 1)
@@ -220,12 +218,12 @@ public class TestGroupedTopNRowNumberBuilder
                 groupByHash);
 
         Work<?> work = groupedTopNBuilder.processPage(input);
-        assertFalse(work.process());
-        assertFalse(work.process());
+        assertThat(work.process()).isFalse();
+        assertThat(work.process()).isFalse();
         unblock.set(true);
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         List<Page> output = ImmutableList.copyOf(groupedTopNBuilder.buildResult());
-        assertEquals(output.size(), 1);
+        assertThat(output).hasSize(1);
 
         Page expected = rowPagesBuilder(types)
                 .row(1L, 0.1)

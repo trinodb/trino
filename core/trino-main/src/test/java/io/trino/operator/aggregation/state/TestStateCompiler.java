@@ -53,9 +53,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStateCompiler
 {
@@ -77,12 +75,12 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
-        assertFalse(block.isNull(0));
-        assertEquals(BIGINT.getLong(block, 0), state.getValue());
+        assertThat(block.isNull(0)).isFalse();
+        assertThat(BIGINT.getLong(block, 0)).isEqualTo(state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getValue(), state.getValue());
+        assertThat(deserializedState.getValue()).isEqualTo(state.getValue());
 
-        assertTrue(block.isNull(1));
+        assertThat(block.isNull(1)).isTrue();
     }
 
     @Test
@@ -100,16 +98,16 @@ public class TestStateCompiler
 
         Block block = builder.build();
 
-        assertEquals(BIGINT.getLong(block, 0), state.getValue());
+        assertThat(BIGINT.getLong(block, 0)).isEqualTo(state.getValue());
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getValue(), state.getValue());
+        assertThat(deserializedState.getValue()).isEqualTo(state.getValue());
     }
 
     @Test
     public void testGetSerializedType()
     {
         AccumulatorStateSerializer<LongState> serializer = StateCompiler.generateStateSerializer(LongState.class);
-        assertEquals(serializer.getSerializedType(), BIGINT);
+        assertThat(serializer.getSerializedType()).isEqualTo(BIGINT);
     }
 
     @Test
@@ -127,7 +125,7 @@ public class TestStateCompiler
 
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.isBoolean(), state.isBoolean());
+        assertThat(deserializedState.isBoolean()).isEqualTo(state.isBoolean());
     }
 
     @Test
@@ -145,7 +143,7 @@ public class TestStateCompiler
 
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getByte(), state.getByte());
+        assertThat(deserializedState.getByte()).isEqualTo(state.getByte());
     }
 
     @Test
@@ -161,14 +159,14 @@ public class TestStateCompiler
         serializer.serialize(state, nullBlockBuilder);
         Block nullBlock = nullBlockBuilder.build();
         serializer.deserialize(nullBlock, 0, deserializedState);
-        assertEquals(deserializedState.getSlice(), state.getSlice());
+        assertThat(deserializedState.getSlice()).isEqualTo(state.getSlice());
 
         state.setSlice(utf8Slice("test"));
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1);
         serializer.serialize(state, builder);
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
-        assertEquals(deserializedState.getSlice(), state.getSlice());
+        assertThat(deserializedState.getSlice()).isEqualTo(state.getSlice());
     }
 
     @Test
@@ -189,9 +187,9 @@ public class TestStateCompiler
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
 
-        assertEquals(deserializedState.getCount(), singleState.getCount());
-        assertEquals(deserializedState.getMean(), singleState.getMean());
-        assertEquals(deserializedState.getM2(), singleState.getM2());
+        assertThat(deserializedState.getCount()).isEqualTo(singleState.getCount());
+        assertThat(deserializedState.getMean()).isEqualTo(singleState.getMean());
+        assertThat(deserializedState.getM2()).isEqualTo(singleState.getM2());
     }
 
     @Test
@@ -224,17 +222,17 @@ public class TestStateCompiler
         Block block = builder.build();
         serializer.deserialize(block, 0, deserializedState);
 
-        assertEquals(deserializedState.getBoolean(), singleState.getBoolean());
-        assertEquals(deserializedState.getLong(), singleState.getLong());
-        assertEquals(deserializedState.getDouble(), singleState.getDouble());
-        assertEquals(deserializedState.getByte(), singleState.getByte());
-        assertEquals(deserializedState.getInt(), singleState.getInt());
-        assertEquals(deserializedState.getSlice(), singleState.getSlice());
-        assertEquals(deserializedState.getAnotherSlice(), singleState.getAnotherSlice());
-        assertEquals(deserializedState.getYetAnotherSlice(), singleState.getYetAnotherSlice());
-        assertEquals(deserializedState.getBlock().getLong(0, 0), singleState.getBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getLong(0, 0), singleState.getAnotherBlock().getLong(0, 0));
-        assertEquals(deserializedState.getAnotherBlock().getSlice(1, 0, 9), singleState.getAnotherBlock().getSlice(1, 0, 9));
+        assertThat(deserializedState.getBoolean()).isEqualTo(singleState.getBoolean());
+        assertThat(deserializedState.getLong()).isEqualTo(singleState.getLong());
+        assertThat(deserializedState.getDouble()).isEqualTo(singleState.getDouble());
+        assertThat(deserializedState.getByte()).isEqualTo(singleState.getByte());
+        assertThat(deserializedState.getInt()).isEqualTo(singleState.getInt());
+        assertThat(deserializedState.getSlice()).isEqualTo(singleState.getSlice());
+        assertThat(deserializedState.getAnotherSlice()).isEqualTo(singleState.getAnotherSlice());
+        assertThat(deserializedState.getYetAnotherSlice()).isEqualTo(singleState.getYetAnotherSlice());
+        assertThat(deserializedState.getBlock().getLong(0, 0)).isEqualTo(singleState.getBlock().getLong(0, 0));
+        assertThat(deserializedState.getAnotherBlock().getLong(0, 0)).isEqualTo(singleState.getAnotherBlock().getLong(0, 0));
+        assertThat(deserializedState.getAnotherBlock().getSlice(1, 0, 9)).isEqualTo(singleState.getAnotherBlock().getSlice(1, 0, 9));
     }
 
     private static long getComplexStateRetainedSize(TestComplexState state)
@@ -295,7 +293,7 @@ public class TestStateCompiler
 
         TestComplexState groupedState = factory.createGroupedState();
         long initialRetainedSize = getComplexStateRetainedSize(groupedState);
-        assertEquals(groupedState.getEstimatedSize(), initialRetainedSize);
+        assertThat(groupedState.getEstimatedSize()).isEqualTo(initialRetainedSize);
         // BlockBigArray or SliceBigArray has an internal map that can grow in size when getting more blocks
         // need to handle the map overhead separately
         initialRetainedSize -= getReferenceCountMapOverhead(groupedState);
@@ -325,7 +323,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * (i + 1) + getReferenceCountMapOverhead(groupedState));
+            assertThat(groupedState.getEstimatedSize()).isEqualTo(initialRetainedSize + retainedSize * (i + 1) + getReferenceCountMapOverhead(groupedState));
         }
 
         for (int i = 0; i < 1000; i++) {
@@ -354,7 +352,7 @@ public class TestStateCompiler
             Block map = mapBlockBuilder.build();
             retainedSize += map.getRetainedSizeInBytes();
             groupedState.setAnotherBlock(map);
-            assertEquals(groupedState.getEstimatedSize(), initialRetainedSize + retainedSize * 1000 + getReferenceCountMapOverhead(groupedState));
+            assertThat(groupedState.getEstimatedSize()).isEqualTo(initialRetainedSize + retainedSize * 1000 + getReferenceCountMapOverhead(groupedState));
         }
     }
 

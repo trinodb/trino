@@ -30,7 +30,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSliceSerialization
 {
@@ -116,7 +116,7 @@ public class TestSliceSerialization
         Container expected = new Container(slice);
         String json = objectMapper.writeValueAsString(expected);
         Container actual = objectMapper.readValue(json, Container.class);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     public static class Container

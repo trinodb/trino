@@ -48,9 +48,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Double.doubleToLongBits;
 import static java.nio.file.Files.newInputStream;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestFileSingleStreamSpiller
@@ -116,24 +115,24 @@ public class TestFileSingleStreamSpiller
                 encryption);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
-        assertTrue(singleStreamSpiller instanceof FileSingleStreamSpiller);
+        assertThat(singleStreamSpiller).isInstanceOf(FileSingleStreamSpiller.class);
         FileSingleStreamSpiller spiller = (FileSingleStreamSpiller) singleStreamSpiller;
 
         Page page = buildPage();
 
         // The spillers will reserve memory in their constructors
-        assertEquals(memoryContext.getBytes(), 4096);
+        assertThat(memoryContext.getBytes()).isEqualTo(4096);
         spiller.spill(page).get();
         spiller.spill(Iterators.forArray(page, page, page)).get();
-        assertEquals(listFiles(spillPath.toPath()).size(), 1);
+        assertThat(listFiles(spillPath.toPath())).hasSize(1);
 
         // Assert the spill codec flags match the expected configuration
         try (InputStream is = newInputStream(listFiles(spillPath.toPath()).get(0))) {
             Iterator<Slice> serializedPages = PagesSerdeUtil.readSerializedPages(is);
-            assertTrue(serializedPages.hasNext(), "at least one page should be successfully read back");
+            assertThat(serializedPages.hasNext()).withFailMessage("at least one page should be successfully read back").isTrue();
             Slice serializedPage = serializedPages.next();
-            assertEquals(isSerializedPageCompressed(serializedPage), compression);
-            assertEquals(isSerializedPageEncrypted(serializedPage), encryption);
+            assertThat(isSerializedPageCompressed(serializedPage)).isEqualTo(compression);
+            assertThat(isSerializedPageEncrypted(serializedPage)).isEqualTo(encryption);
         }
 
         // The spillers release their memory reservations when they are closed, therefore at this point
@@ -141,13 +140,13 @@ public class TestFileSingleStreamSpiller
         // assertEquals(memoryContext.getBytes(), 0);
 
         Iterator<Page> spilledPagesIterator = spiller.getSpilledPages();
-        assertEquals(memoryContext.getBytes(), FileSingleStreamSpiller.BUFFER_SIZE);
+        assertThat(memoryContext.getBytes()).isEqualTo(FileSingleStreamSpiller.BUFFER_SIZE);
         ImmutableList<Page> spilledPages = ImmutableList.copyOf(spilledPagesIterator);
         // The spillers release their memory reservations when they are closed, therefore at this point
         // they will have non-zero memory reservation.
         // assertEquals(memoryContext.getBytes(), 0);
 
-        assertEquals(4, spilledPages.size());
+        assertThat(4).isEqualTo(spilledPages.size());
         for (int i = 0; i < 4; ++i) {
             PageAssertions.assertPageEquals(TYPES, page, spilledPages.get(i));
         }
@@ -158,8 +157,8 @@ public class TestFileSingleStreamSpiller
                 .hasMessage("Repeated reads are disallowed to prevent potential resource leaks");
 
         spiller.close();
-        assertEquals(listFiles(spillPath.toPath()).size(), 0);
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(listFiles(spillPath.toPath())).isEmpty();
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 
     private Page buildPage()

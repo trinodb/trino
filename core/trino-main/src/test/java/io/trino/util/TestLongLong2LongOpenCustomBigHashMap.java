@@ -19,9 +19,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongLong2LongOpenCustomBigHashMap
 {
@@ -53,10 +51,10 @@ public class TestLongLong2LongOpenCustomBigHashMap
         LongLong2LongOpenCustomBigHashMap map = new LongLong2LongOpenCustomBigHashMap(expected, DEFAULT_STRATEGY, nullKey1, nullKey2);
         map.defaultReturnValue(-1);
 
-        assertTrue(map.isEmpty());
-        assertEquals(map.size(), 0);
-        assertEquals(map.get(0, 0), -1);
-        assertEquals(map.get(1, -1), -1);
+        assertThat(map.isEmpty()).isTrue();
+        assertThat(map.size()).isEqualTo(0);
+        assertThat(map.get(0, 0)).isEqualTo(-1);
+        assertThat(map.get(1, -1)).isEqualTo(-1);
 
         List<Long> values = Arrays.asList(Long.MIN_VALUE, -10L, 0L, 10L, Long.MAX_VALUE);
 
@@ -65,9 +63,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.put(key1, key2, count - 1), -1);
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), count);
+                assertThat(map.put(key1, key2, count - 1)).isEqualTo(-1);
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(count);
             }
         }
 
@@ -76,9 +74,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.replace(key1, key2, count - 1, count));
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), values.size() * values.size());
+                assertThat(map.replace(key1, key2, count - 1, count)).isTrue();
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(values.size() * values.size());
             }
         }
 
@@ -87,9 +85,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.containsKey(key1, key2));
-                assertTrue(map.containsValue(count));
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.containsKey(key1, key2)).isTrue();
+                assertThat(map.containsValue(count)).isTrue();
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -98,7 +96,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.remove(key1, key2), count);
+                assertThat(map.remove(key1, key2)).isEqualTo(count);
             }
         }
     }
@@ -132,9 +130,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.put(key1, key2, count - 1), -1);
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), count);
+                assertThat(map.put(key1, key2, count - 1)).isEqualTo(-1);
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(count);
             }
         }
 
@@ -143,9 +141,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.replace(key1, key2, count - 1, count));
-                assertFalse(map.isEmpty());
-                assertEquals(map.size(), values.size() * values.size());
+                assertThat(map.replace(key1, key2, count - 1, count)).isTrue();
+                assertThat(map.isEmpty()).isFalse();
+                assertThat(map.size()).isEqualTo(values.size() * values.size());
             }
         }
 
@@ -154,9 +152,9 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertTrue(map.containsKey(key1, key2));
-                assertTrue(map.containsValue(count));
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.containsKey(key1, key2)).isTrue();
+                assertThat(map.containsValue(count)).isTrue();
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -165,7 +163,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 : values) {
             for (long key2 : values) {
                 count++;
-                assertEquals(map.remove(key1, key2), count);
+                assertThat(map.remove(key1, key2)).isEqualTo(count);
             }
         }
     }
@@ -183,7 +181,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 = 0; key1 < 1000; key1++) {
             for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
-                assertEquals(map.put(key1, key2, count), -1);
+                assertThat(map.put(key1, key2, count)).isEqualTo(-1);
             }
         }
 
@@ -191,7 +189,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         for (long key1 = 0; key1 < 1000; key1++) {
             for (long key2 = 0; key2 < 1000; key2++) {
                 count++;
-                assertEquals(map.get(key1, key2), count);
+                assertThat(map.get(key1, key2)).isEqualTo(count);
             }
         }
 
@@ -207,7 +205,7 @@ public class TestLongLong2LongOpenCustomBigHashMap
         count = 0;
         for (long key2 = 0; key2 < 1000; key2++) {
             count++;
-            assertEquals(map.get(0, key2), count);
+            assertThat(map.get(0, key2)).isEqualTo(count);
         }
     }
 }

@@ -50,9 +50,7 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestDiscoveryNodeManager
@@ -110,15 +108,15 @@ public class TestDiscoveryNodeManager
             AllNodes allNodes = manager.getAllNodes();
 
             Set<InternalNode> connectorNodes = manager.getActiveCatalogNodes(GlobalSystemConnector.CATALOG_HANDLE);
-            assertEquals(connectorNodes.size(), 4);
-            assertTrue(connectorNodes.stream().anyMatch(InternalNode::isCoordinator));
+            assertThat(connectorNodes).hasSize(4);
+            assertThat(connectorNodes.stream().anyMatch(InternalNode::isCoordinator)).isTrue();
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
             assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
-                    assertNotSame(actual, expected);
+                    assertThat(actual).isNotEqualTo(expected);
                 }
             }
 
@@ -129,7 +127,7 @@ public class TestDiscoveryNodeManager
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
-                    assertNotSame(actual, expected);
+                    assertThat(actual).isNotEqualTo(expected);
                 }
             }
 
@@ -156,7 +154,7 @@ public class TestDiscoveryNodeManager
                 internalCommunicationConfig,
                 new CatalogManagerConfig());
         try {
-            assertEquals(manager.getCurrentNode(), currentNode);
+            assertThat(manager.getCurrentNode()).isEqualTo(currentNode);
         }
         finally {
             manager.stop();
@@ -175,7 +173,7 @@ public class TestDiscoveryNodeManager
                 internalCommunicationConfig,
                 new CatalogManagerConfig());
         try {
-            assertEquals(manager.getCoordinators(), ImmutableSet.of(coordinator));
+            assertThat(manager.getCoordinators()).containsExactly(coordinator);
         }
         finally {
             manager.stop();
@@ -214,18 +212,18 @@ public class TestDiscoveryNodeManager
             BlockingQueue<AllNodes> notifications = new ArrayBlockingQueue<>(100);
             manager.addNodeChangeListener(notifications::add);
             AllNodes allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), activeNodes);
-            assertEquals(allNodes.getInactiveNodes(), inactiveNodes);
+            assertThat(allNodes.getActiveNodes()).hasSameElementsAs(activeNodes);
+            assertThat(allNodes.getInactiveNodes()).hasSameElementsAs(inactiveNodes);
 
             selector.announceNodes(ImmutableSet.of(currentNode), ImmutableSet.of(coordinator));
             allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), ImmutableSet.of(currentNode, coordinator));
-            assertEquals(allNodes.getActiveCoordinators(), ImmutableSet.of(coordinator));
+            assertThat(allNodes.getActiveNodes()).containsOnly(currentNode, coordinator);
+            assertThat(allNodes.getActiveCoordinators()).containsExactly(coordinator);
 
             selector.announceNodes(activeNodes, inactiveNodes);
             allNodes = notifications.take();
-            assertEquals(allNodes.getActiveNodes(), activeNodes);
-            assertEquals(allNodes.getInactiveNodes(), inactiveNodes);
+            assertThat(allNodes.getActiveNodes()).hasSameElementsAs(activeNodes);
+            assertThat(allNodes.getInactiveNodes()).hasSameElementsAs(inactiveNodes);
         }
         finally {
             manager.stop();

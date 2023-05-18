@@ -24,8 +24,7 @@ import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestValueStore
@@ -51,11 +50,11 @@ public class TestValueStore
     @Test
     public void testUniqueness()
     {
-        assertEquals(valueStore.addAndGetPosition(block, 0, hashCodeOperator.hashCode(block, 0)), 0);
-        assertEquals(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1)), 1);
-        assertEquals(valueStore.addAndGetPosition(block, 2, hashCodeOperator.hashCode(block, 2)), 2);
-        assertEquals(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1)), 1);
-        assertEquals(valueStore.addAndGetPosition(block, 3, hashCodeOperator.hashCode(block, 1)), 3);
+        assertThat(valueStore.addAndGetPosition(block, 0, hashCodeOperator.hashCode(block, 0))).isEqualTo(0);
+        assertThat(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1))).isEqualTo(1);
+        assertThat(valueStore.addAndGetPosition(block, 2, hashCodeOperator.hashCode(block, 2))).isEqualTo(2);
+        assertThat(valueStore.addAndGetPosition(block, 1, hashCodeOperator.hashCode(block, 1))).isEqualTo(1);
+        assertThat(valueStore.addAndGetPosition(block, 3, hashCodeOperator.hashCode(block, 1))).isEqualTo(3);
     }
 
     @Test
@@ -65,16 +64,16 @@ public class TestValueStore
         long hash1 = hashCodeOperator.hashCode(block, 1);
         long hash2 = hashCodeOperator.hashCode(block, 2);
 
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 0, hash0), 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 1, hash1), 1);
+        assertThat(valueStoreSmall.addAndGetPosition(block, 0, hash0)).isEqualTo(0);
+        assertThat(valueStoreSmall.addAndGetPosition(block, 1, hash1)).isEqualTo(1);
 
         // triggers rehash and hash1 will end up in position 3
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 2, hash2), 2);
+        assertThat(valueStoreSmall.addAndGetPosition(block, 2, hash2)).isEqualTo(2);
 
         // this is just to make sure we trigger rehash code positions should be the same
-        assertTrue(valueStoreSmall.getRehashCount() > 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 0, hash0), 0);
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 1, hash1), 1);
-        assertEquals(valueStoreSmall.addAndGetPosition(block, 2, hash2), 2);
+        assertThat(valueStoreSmall.getRehashCount()).isPositive();
+        assertThat(valueStoreSmall.addAndGetPosition(block, 0, hash0)).isEqualTo(0);
+        assertThat(valueStoreSmall.addAndGetPosition(block, 1, hash1)).isEqualTo(1);
+        assertThat(valueStoreSmall.addAndGetPosition(block, 2, hash2)).isEqualTo(2);
     }
 }

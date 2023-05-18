@@ -51,9 +51,8 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestOrderByOperator
@@ -123,9 +122,9 @@ public class TestOrderByOperator
         assertGreaterThan(pages.size(), 1, "Expected more than one output page");
 
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).containsExactlyElementsOf(expected.getMaterializedRows());
 
-        assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
+        assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0)).withFailMessage(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount())).isTrue();
     }
 
     @Test(dataProvider = "spillEnabled")
