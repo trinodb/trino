@@ -52,6 +52,13 @@ public class TestDeltaLakeConnectorSmokeTest
                 .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("hive.s3.path-style-access", "true")
                 .put("hive.s3.max-connections", "2")
+                .buildOrThrow();
+    }
+
+    @Override
+    protected Map<String, String> deltaStorageConfiguration()
+    {
+        return ImmutableMap.<String, String>builder()
                 .put("delta.enable-non-concurrent-writes", "true")
                 .buildOrThrow();
     }

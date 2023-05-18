@@ -131,6 +131,11 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
     protected abstract Map<String, String> storageConfiguration();
 
+    protected Map<String, String> deltaStorageConfiguration()
+    {
+        return Map.of();
+    }
+
     protected abstract void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
 
     protected abstract String getLocationForTable(String bucketName, String tableName);
@@ -181,6 +186,17 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 registerTableFromResources(table, resourcePath, queryRunner);
             });
 
+            queryRunner.installPlugin(new TestingHivePlugin());
+
+            queryRunner.createCatalog(
+                    "hive",
+                    "hive",
+                    ImmutableMap.<String, String>builder()
+                            .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                            .put("hive.allow-drop-table", "true")
+                            .putAll(storageConfiguration())
+                            .buildOrThrow());
+
             return queryRunner;
         }
         catch (Throwable e) {
@@ -204,6 +220,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("delta.register-table-procedure.enabled", "true")
                         .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
                         .putAll(storageConfiguration())
+                        .putAll(deltaStorageConfiguration())
                         .buildOrThrow(),
                 hiveMinioDataLake.getHiveHadoop(),
                 queryRunner -> {});
@@ -377,13 +394,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     {
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
 
-        queryRunner.installPlugin(new TestingHivePlugin());
-        queryRunner.createCatalog(
-                "hive",
-                "hive",
-                ImmutableMap.of(
-                        "hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint(),
-                        "hive.allow-drop-table", "true"));
         String hiveTableName = "foo_hive";
         queryRunner.execute(
                 format("CREATE TABLE hive.%s.%s (foo_id bigint, bar_id bigint, data varchar) WITH (format = 'PARQUET', external_location = '%s')",
