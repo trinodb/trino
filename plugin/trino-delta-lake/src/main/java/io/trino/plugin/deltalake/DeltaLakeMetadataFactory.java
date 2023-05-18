@@ -24,6 +24,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManag
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadata;
@@ -102,17 +103,19 @@ public class DeltaLakeMetadataFactory
 
     public DeltaLakeMetadata create(ConnectorIdentity identity)
     {
-        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(
-                hiveMetastoreFactory.createMetastore(Optional.of(identity)),
-                perTransactionMetastoreCacheMaximumSize);
-        AccessControlMetadata accessControlMetadata = accessControlMetadataFactory.create(cachingHiveMetastore);
-        HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(cachingHiveMetastore);
+        return create(createTransactionMetastore(identity));
+    }
+
+    public DeltaLakeMetadata create(HiveMetastore hiveMetastore)
+    {
+        AccessControlMetadata accessControlMetadata = accessControlMetadataFactory.create(hiveMetastore);
+        HiveMetastoreBackedDeltaLakeMetastore deltaLakeMetastore = new HiveMetastoreBackedDeltaLakeMetastore(hiveMetastore);
         FileBasedTableStatisticsProvider tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
                 transactionLogAccess,
                 statisticsAccess);
         TrinoViewHiveMetastore trinoViewHiveMetastore = new TrinoViewHiveMetastore(
-                cachingHiveMetastore,
+                hiveMetastore,
                 accessControlMetadata.isUsingSystemSecurity(),
                 trinoVersion,
                 "Trino Delta Lake connector");
@@ -137,5 +140,12 @@ public class DeltaLakeMetadataFactory
                 statisticsAccess,
                 useUniqueTableLocation,
                 allowManagedTableRename);
+    }
+
+    public CachingHiveMetastore createTransactionMetastore(ConnectorIdentity identity)
+    {
+        return createPerTransactionCache(
+                hiveMetastoreFactory.createMetastore(Optional.of(identity)),
+                perTransactionMetastoreCacheMaximumSize);
     }
 }
