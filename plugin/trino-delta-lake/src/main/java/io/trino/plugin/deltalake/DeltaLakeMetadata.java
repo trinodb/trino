@@ -2215,9 +2215,10 @@ public class DeltaLakeMetadata
 
     static String relativePath(String basePath, String path)
     {
-        checkArgument(path.startsWith(basePath + "/") && (path.length() >= (basePath.length() + 2)),
+        String basePathDirectory = basePath.endsWith("/") ? basePath : basePath + "/";
+        checkArgument(path.startsWith(basePathDirectory) && (path.length() > basePathDirectory.length()),
                 "path [%s] must be a subdirectory of basePath [%s]", path, basePath);
-        return toUriFormat(path.substring(basePath.length() + 1));
+        return toUriFormat(path.substring(basePathDirectory.length()));
     }
 
     public void rollback()
