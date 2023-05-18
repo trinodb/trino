@@ -82,7 +82,7 @@ Table properties
 Table property usage example::
 
     CREATE TABLE public.person (
-      id bigint NOT NULL,
+      id BIGINT NOT NULL,
       birthday DATE NOT NULL,
       name VARCHAR(26),
       age BIGINT,

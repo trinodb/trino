@@ -53,8 +53,8 @@ The above query always returns zero.
 Create a table with a constant number of rows (500 * 1000 * 2000)::
 
     CREATE TABLE example.test.nation (
-      nationkey bigint,
-      name varchar
+      nationkey BIGINT,
+      name VARCHAR
     )
     WITH (
       split_count = 500,
@@ -72,8 +72,8 @@ Length of variable length columns can be controlled using the ``field_length``
 table property (default value is equal to 16)::
 
     CREATE TABLE example.test.nation (
-      nationkey bigint,
-      name varchar
+      nationkey BIGINT,
+      name VARCHAR
     )
     WITH (
       split_count = 500,
@@ -88,7 +88,7 @@ Setting this property to ``5s`` leads to a 5 second
 delay before consuming or producing a new page::
 
     CREATE TABLE example.test.delay (
-      dummy bigint
+      dummy BIGINT
     )
     WITH (
       split_count = 1,

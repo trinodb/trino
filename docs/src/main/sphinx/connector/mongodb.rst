@@ -293,10 +293,10 @@ MongoDB collection has the special field ``_id``. The connector tries to follow 
 .. code-block:: sql
 
     CREATE TABLE IF NOT EXISTS orders (
-        orderkey bigint,
-        orderstatus varchar,
-        totalprice double,
-        orderdate date
+        orderkey BIGINT,
+        orderstatus VARCHAR,
+        totalprice DOUBLE,
+        orderdate DATE
     );
 
     INSERT INTO orders VALUES(1, 'bad', 50.0, current_date);
@@ -343,14 +343,14 @@ an embedded timestamp of its creation time. Trino provides a couple of functions
 
 .. function:: objectid_timestamp(ObjectId) -> timestamp
 
-    Extracts the timestamp with time zone from a given ObjectId::
+    Extracts the TIMESTAMP WITH TIME ZONE from a given ObjectId::
 
         SELECT objectid_timestamp(ObjectId('507f191e810c19729de860ea'));
         -- 2012-10-17 20:46:22.000 UTC
 
 .. function:: timestamp_objectid(timestamp) -> ObjectId
 
-    Creates an ObjectId from a timestamp with time zone::
+    Creates an ObjectId from a TIMESTAMP WITH TIME ZONE::
 
         SELECT timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
         -- 61 0e c8 28 00 00 00 00 00 00 00 00

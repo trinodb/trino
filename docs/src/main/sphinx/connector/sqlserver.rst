@@ -171,7 +171,7 @@ The connector maps SQL Server types to the corresponding Trino types following t
     -
   * - ``TINYINT``
     - ``SMALLINT``
-    - SQL Server ``TINYINT`` is actually ``unsigned tinyint``
+    - SQL Server ``TINYINT`` is actually ``unsigned TINYINT``
   * - ``SMALLINT``
     - ``SMALLINT``
     -

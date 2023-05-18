@@ -408,7 +408,7 @@ When Delta Lake tables exist in storage but not in the metastore, Trino can be
 used to register the tables::
 
   CREATE TABLE example.default.example_table (
-    dummy bigint
+    dummy BIGINT
   )
   WITH (
     location = '...'
@@ -433,7 +433,7 @@ If the specified location does not already contain a Delta table, the connector
 automatically writes the initial transaction log entries and registers the table
 in the metastore. As a result, any Databricks engine can write to the table::
 
-   CREATE TABLE example.default.new_table (id bigint, address varchar);
+   CREATE TABLE example.default.new_table (id BIGINT, address VARCHAR);
 
 The Delta Lake connector also supports creating tables using the :doc:`CREATE
 TABLE AS </sql/create-table-as>` syntax.
@@ -699,34 +699,34 @@ The output of the query has the following history columns:
     - Type
     - Description
   * - ``version``
-    - ``bigint``
+    - ``BIGINT``
     - The version of the table corresponding to the operation
   * - ``timestamp``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the table version became active
   * - ``user_id``
-    - ``varchar``
+    - ``VARCHAR``
     - The identifier for the user which performed the operation
   * - ``user_name``
-    - ``varchar``
+    - ``VARCHAR``
     - The username for the user which performed the operation
   * - ``operation``
-    - ``varchar``
+    - ``VARCHAR``
     - The name of the operation performed on the table
   * - ``operation_parameters``
-    - ``map(varchar, varchar)``
+    - ``map(VARCHAR, VARCHAR)``
     - Parameters of the operation
   * - ``cluster_id``
-    - ``varchar``
+    - ``VARCHAR``
     - The ID of the cluster which ran the operation
   * - ``read_version``
-    - ``bigint``
+    - ``BIGINT``
     - The version of the table which was read in order to perform the operation
   * - ``isolation_level``
-    - ``varchar``
+    - ``VARCHAR``
     - The level of isolation used to perform the operation
   * - ``is_blind_append``
-    - ``boolean``
+    - ``BOOLEAN``
     - Whether or not the operation appended data
 
 .. _delta-lake-special-columns:

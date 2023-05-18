@@ -216,13 +216,13 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``timestamp``
-    - ``varchar``
+    - ``VARCHAR``
     - Instant time is typically a timestamp when the actions performed
   * - ``action``
-    - ``varchar``
+    - ``VARCHAR``
     - `Type of action <https://hudi.apache.org/docs/concepts/#timeline>`_ performed on the table
   * - ``state``
-    - ``varchar``
+    - ``VARCHAR``
     - Current state of the instant
 
 File formats

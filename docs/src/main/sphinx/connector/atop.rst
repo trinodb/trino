@@ -91,34 +91,34 @@ The ``disks`` table offers disk utilization statistics recorded on the Trino nod
     - Type
     - Description
   * - ``host_ip``
-    - ``varchar``
+    - ``VARCHAR``
     - Trino worker IP
   * - ``start_time``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - Interval start time for the statistics
   * - ``end_time``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - Interval end time for the statistics
   * - ``device_name``
-    - ``varchar``
+    - ``VARCHAR``
     - Logical volume/hard disk name
   * - ``utilization_percent``
-    - ``double``
+    - ``DOUBLE``
     - The percentage of time the unit was busy handling requests
   * - ``io_time``
-    - ``interval day to second``
+    - ``INTERVAL DAY TO SECOND``
     - Time spent for I/O
   * - ``read_requests``
-    - ``bigint``
+    - ``BIGINT``
     - Number of reads issued
   * - ``sectors_read``
-    - ``bigint``
+    - ``BIGINT``
     - Number of sectors transferred for reads
   * - ``write_requests``
-    - ``bigint``
+    - ``BIGINT``
     - Number of writes issued
   * - ``sectors_written``
-    - ``bigint``
+    - ``BIGINT``
     - Number of sectors transferred for write
 
 The ``reboots`` table offers information about the system reboots performed on the Trino node.
@@ -131,10 +131,10 @@ The ``reboots`` table offers information about the system reboots performed on t
     - Type
     - Description
   * - ``host_ip``
-    - ``varchar``
+    - ``VARCHAR``
     - Trino worker IP
   * - ``power_on_time``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The boot/reboot timestamp
 
 

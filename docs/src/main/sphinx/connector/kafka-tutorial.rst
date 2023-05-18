@@ -173,7 +173,7 @@ built-in ones:
      {"rowNumber":9,"customerKey":9,"name":"Customer#000000009","address":"xKiAFTjUsCuxfeleNqefumTrjS","nationKey":8,"phone":"18-338-906-3675","accountBalance":8324.07,"marketSegment":"FURNITURE","comment":"r theodolites according to the requests wake thinly excuses: pending
     (5 rows)
 
-    trino:tpch> SELECT sum(cast(json_extract_scalar(_message, '$.accountBalance') AS double)) FROM customer LIMIT 10;
+    trino:tpch> SELECT sum(cast(json_extract_scalar(_message, '$.accountBalance') AS DOUBLE)) FROM customer LIMIT 10;
        _col0
     ------------
      6681865.59
@@ -256,7 +256,7 @@ Step 6: Map all the values from the topic message onto columns
 
 Update the ``etc/kafka/tpch.customer.json`` file to add fields for the
 message, and restart Trino. As the fields in the message are JSON, it uses
-the ``json`` data format. This is an example, where different data formats
+the ``JSON`` data format. This is an example, where different data formats
 are used for the key and the message.
 
 .. code-block:: json
@@ -554,7 +554,7 @@ There is now a live feed into Kafka, which can be queried using Trino.
 Epilogue: Time stamps
 ---------------------
 
-The tweets feed, that was set up in the last step, contains a time stamp in
+The tweets feed, that was set up in the last step, contains a timestamp in
 RFC 2822 format as ``created_at`` attribute in each tweet.
 
 .. code-block:: text
@@ -584,7 +584,7 @@ timestamp using the ``rfc2822`` converter:
     },
     ...
 
-This allows the raw data to be mapped onto a Trino timestamp column:
+This allows the raw data to be mapped onto a Trino TIMESTAMP column:
 
 .. code-block:: text
 

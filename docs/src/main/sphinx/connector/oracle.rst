@@ -562,7 +562,7 @@ Oracle:
     --             Create Table
     ----------------------------------------
     -- CREATE TABLE oracle.trino_test.nation (
-    --    name varchar
+    --    name VARCHAR
     -- )
     -- (1 row)
 
@@ -580,7 +580,7 @@ since ``name`` is a column of type ``VARCHAR(25)``, which maps to
     --             Create Table
     ----------------------------------------
     -- CREATE TABLE oracle.trino_test.nation (
-    --    name varchar(25)
+    --    name VARCHAR(25)
     -- )
     -- (1 row)
 
