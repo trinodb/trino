@@ -2369,6 +2369,23 @@ public abstract class AbstractTestJoinQueries
                 2);
     }
 
+    @Test
+    public void testBetweenPredicatePushdown()
+    {
+        // join build side, min between value pushed down
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN 'f' AND l.comment");
+        // join build side, max between value pushed down
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN l.comment AND 'f'");
+        // join probe side, min between value pushed down
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE l.comment BETWEEN 'f' AND p.name");
+        // join probe side, max between value pushed down
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE l.comment BETWEEN p.name AND 'f'");
+        // between with subquery
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN 'f'  AND (select max(name) from part)");
+        // neither side is pushed down
+        assertQuery("SELECT p.name, l.comment FROM lineitem l JOIN part p ON l.partkey = p.partkey WHERE p.name BETWEEN l.linestatus  AND l.comment");
+    }
+
     private void assertJoinOutputPositions(@Language("SQL") String sql, int expectedJoinOutputPositions)
     {
         MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
