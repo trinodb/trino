@@ -641,8 +641,8 @@ public class TestDeltaLakeChangeDataFeedCompatibility
                     .containsOnly(rows);
         }
         finally {
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + targetTableName);
-            onDelta().executeQuery("DROP TABLE IF EXISTS default." + sourceTableName);
+            dropDeltaTableWithRetry("default." + targetTableName);
+            dropDeltaTableWithRetry("default." + sourceTableName);
         }
     }
 
