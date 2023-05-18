@@ -112,8 +112,8 @@ Example
 
     CREATE TABLE example.default.users (
       user_id int WITH (primary_key = true),
-      first_name varchar,
-      last_name varchar
+      first_name VARCHAR,
+      last_name VARCHAR
     ) WITH (
       partition_by_hash_columns = ARRAY['user_id'],
       partition_by_hash_buckets = 2
@@ -348,10 +348,10 @@ for column encoding and compression.
 Simple Example::
 
     CREATE TABLE user_events (
-      user_id int WITH (primary_key = true),
-      event_name varchar WITH (primary_key = true),
-      message varchar,
-      details varchar WITH (nullable = true, encoding = 'plain')
+      user_id INTEGER WITH (primary_key = true),
+      event_name VARCHAR WITH (primary_key = true),
+      message VARCHAR,
+      details VARCHAR WITH (nullable = true, encoding = 'plain')
     ) WITH (
       partition_by_hash_columns = ARRAY['user_id'],
       partition_by_hash_buckets = 5,
@@ -426,9 +426,9 @@ Example:
 .. code-block:: sql
 
     CREATE TABLE example_table (
-      name varchar WITH (primary_key = true, encoding = 'dictionary', compression = 'snappy'),
-      index bigint WITH (nullable = true, encoding = 'runlength', compression = 'lz4'),
-      comment varchar WITH (nullable = true, encoding = 'plain', compression = 'default'),
+      name VARCHAR WITH (primary_key = true, encoding = 'dictionary', compression = 'snappy'),
+      index BIGINT WITH (nullable = true, encoding = 'runlength', compression = 'lz4'),
+      comment VARCHAR WITH (nullable = true, encoding = 'plain', compression = 'default'),
        ...
     ) WITH (...);
 
@@ -442,7 +442,7 @@ You can specify the same column properties as on creating a table.
 
 Example::
 
-    ALTER TABLE example_table ADD COLUMN extraInfo varchar WITH (nullable = true, encoding = 'plain')
+    ALTER TABLE example_table ADD COLUMN extraInfo VARCHAR WITH (nullable = true, encoding = 'plain')
 
 See also `Column Properties`_.
 
@@ -483,8 +483,8 @@ primary key.
 Example::
 
     CREATE TABLE example_table (
-      col1 varchar WITH (primary_key=true),
-      col2 varchar WITH (primary_key=true),
+      col1 VARCHAR WITH (primary_key=true),
+      col2 VARCHAR WITH (primary_key=true),
       ...
     ) WITH (
       partition_by_hash_columns = ARRAY['col1', 'col2'],
@@ -501,8 +501,8 @@ of table properties named ``partition_by_second_hash_columns`` and
 Example::
 
     CREATE TABLE example_table (
-      col1 varchar WITH (primary_key=true),
-      col2 varchar WITH (primary_key=true),
+      col1 VARCHAR WITH (primary_key=true),
+      col2 VARCHAR WITH (primary_key=true),
       ...
     ) WITH (
       partition_by_hash_columns = ARRAY['col1'],
@@ -532,9 +532,9 @@ details.
 Example::
 
     CREATE TABLE events (
-      rack varchar WITH (primary_key=true),
-      machine varchar WITH (primary_key=true),
-      event_time timestamp WITH (primary_key=true),
+      rack VARCHAR WITH (primary_key=true),
+      machine VARCHAR WITH (primary_key=true),
+      event_time TIMESTAMP WITH (primary_key=true),
       ...
     ) WITH (
       partition_by_hash_columns = ARRAY['rack'],
@@ -561,9 +561,9 @@ must be given in the table property ``partition_design`` separately.
 Example::
 
     CREATE TABLE events (
-      serialno varchar WITH (primary_key = true),
-      event_time timestamp WITH (primary_key = true),
-      message varchar
+      serialno VARCHAR WITH (primary_key = true),
+      event_time TIMESTAMP WITH (primary_key = true),
+      message VARCHAR
     ) WITH (
       partition_by_hash_columns = ARRAY['serialno'],
       partition_by_hash_buckets = 4,
@@ -609,7 +609,7 @@ partition.
   - ``<table>``: table names
 
   - ``<range_partition_as_json_string>``: lower and upper bound of the
-    range partition as json string in the form
+    range partition as JSON string in the form
     ``'{"lower": <value>, "upper": <value>}'``, or if the range partition
     has multiple columns:
     ``'{"lower": [<value_col1>,...], "upper": [<value_col1>,...]}'``. The
