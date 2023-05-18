@@ -58,8 +58,10 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -1038,7 +1040,52 @@ public class PredicatePushDown
 
                 // Drop predicate after join only if unable to push down to either side
                 if (leftRewrittenConjunct == null && rightRewrittenConjunct == null) {
-                    joinConjuncts.add(conjunct);
+                    // Try to push one side of BETWEEN that could not be pushed down entirely.
+                    // We do it only if BETWEEN value is a simple expression, which we assume is cheap to evaluate twice.
+                    if (conjunct instanceof BetweenPredicate between && isSimpleExpression(between.getValue())) {
+                        Expression lteMax = new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax());
+                        Expression gteMin = new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin());
+                        Expression leftRewrittenLteMax = allInference.rewrite(lteMax, leftScope);
+                        Expression leftRewrittenGteMin = allInference.rewrite(gteMin, leftScope);
+                        Expression rightRewrittenLteMax = allInference.rewrite(lteMax, rightScope);
+                        Expression rightRewrittenGteMin = allInference.rewrite(gteMin, rightScope);
+                        if (leftRewrittenLteMax != null) {
+                            leftPushDownConjuncts.add(leftRewrittenLteMax);
+                            if (rightRewrittenGteMin == null) {
+                                // lteMax was pushed down but gteMin not
+                                joinConjuncts.add(gteMin);
+                            }
+                        }
+                        else if (leftRewrittenGteMin != null) {
+                            leftPushDownConjuncts.add(leftRewrittenGteMin);
+                            if (rightRewrittenLteMax == null) {
+                                // gteMin was pushed down but lteMax not
+                                joinConjuncts.add(lteMax);
+                            }
+                        }
+                        if (rightRewrittenLteMax != null) {
+                            rightPushDownConjuncts.add(rightRewrittenLteMax);
+                            if (leftRewrittenGteMin == null) {
+                                // lteMax was pushed down but gteMin not
+                                joinConjuncts.add(gteMin);
+                            }
+                        }
+                        else if (rightRewrittenGteMin != null) {
+                            rightPushDownConjuncts.add(rightRewrittenGteMin);
+                            if (leftRewrittenLteMax == null) {
+                                // gteMin was pushed down but lteMax not
+                                joinConjuncts.add(lteMax);
+                            }
+                        }
+
+                        if (leftRewrittenLteMax == null && rightRewrittenGteMin == null && leftRewrittenGteMin == null && rightRewrittenLteMax == null) {
+                            // neither between side was pushed down to neither join side
+                            joinConjuncts.add(conjunct);
+                        }
+                    }
+                    else {
+                        joinConjuncts.add(conjunct);
+                    }
                 }
             });
 
@@ -1076,6 +1123,21 @@ public class PredicatePushDown
                     combineConjuncts(metadata, rightPushDownConjuncts.build()),
                     combineConjuncts(metadata, joinConjuncts.build()),
                     TRUE_LITERAL);
+        }
+
+        private boolean isSimpleExpression(Expression expression)
+        {
+            return isSimpleExpression(expression, true);
+        }
+
+        private boolean isSimpleExpression(Expression expression, boolean allowArithmeticBinaryExpression)
+        {
+            return expression instanceof SymbolReference ||
+                    isEffectivelyLiteral(plannerContext, session, expression) ||
+                    (expression instanceof Cast cast && isSimpleExpression(cast.getExpression(), allowArithmeticBinaryExpression)) ||
+                    (allowArithmeticBinaryExpression && expression instanceof ArithmeticBinaryExpression arithmeticExpression &&
+                            isSimpleExpression(arithmeticExpression.getLeft(), false) &&
+                            isSimpleExpression(arithmeticExpression.getRight(), false));
         }
 
         private static class InnerJoinPushDownResult
