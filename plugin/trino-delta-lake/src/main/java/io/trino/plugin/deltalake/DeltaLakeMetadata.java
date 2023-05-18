@@ -1409,7 +1409,7 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         if (handle.isRetriesEnabled()) {
-            cleanExtraOutputFiles(session, handle.getLocation(), dataFileInfos);
+            cleanExtraOutputFiles(session, Location.of(handle.getLocation()), dataFileInfos);
         }
 
         boolean writeCommitted = false;
@@ -1568,7 +1568,7 @@ public class DeltaLakeMetadata
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
         if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, handle.getLocation(), allFiles);
+            cleanExtraOutputFilesForUpdate(session, Location.of(handle.getLocation()), allFiles);
         }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
@@ -1779,7 +1779,7 @@ public class DeltaLakeMetadata
                 .collect(toImmutableList());
 
         if (optimizeHandle.isRetriesEnabled()) {
-            cleanExtraOutputFiles(session, executeHandle.getTableLocation(), dataFileInfos);
+            cleanExtraOutputFiles(session, Location.of(executeHandle.getTableLocation()), dataFileInfos);
         }
 
         boolean writeCommitted = false;
@@ -2727,40 +2727,36 @@ public class DeltaLakeMetadata
         return true;
     }
 
-    private void cleanExtraOutputFiles(ConnectorSession session, String baseLocation, List<DataFileInfo> validDataFiles)
+    private void cleanExtraOutputFiles(ConnectorSession session, Location baseLocation, List<DataFileInfo> validDataFiles)
     {
-        Set<String> writtenFilePaths = validDataFiles.stream()
-                .map(dataFileInfo -> baseLocation + "/" + dataFileInfo.getPath())
+        Set<Location> writtenFilePaths = validDataFiles.stream()
+                .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
                 .collect(toImmutableSet());
 
         cleanExtraOutputFiles(session, writtenFilePaths);
     }
 
-    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, String baseLocation, List<DataFileInfo> newFiles)
+    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, Location baseLocation, List<DataFileInfo> newFiles)
     {
-        Set<String> writtenFilePaths = newFiles.stream()
-                .map(dataFileInfo -> baseLocation + "/" + dataFileInfo.getPath())
+        Set<Location> writtenFilePaths = newFiles.stream()
+                .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
                 .collect(toImmutableSet());
 
         cleanExtraOutputFiles(session, writtenFilePaths);
     }
 
-    private void cleanExtraOutputFiles(ConnectorSession session, Set<String> validWrittenFilePaths)
+    private void cleanExtraOutputFiles(ConnectorSession session, Set<Location> validWrittenFilePaths)
     {
-        Set<String> fileLocations = validWrittenFilePaths.stream()
-                .map(path -> {
-                    int fileNameSeparatorPos = path.lastIndexOf("/");
-                    verify(fileNameSeparatorPos != -1 && fileNameSeparatorPos != 0, "invalid data file path: %s", path);
-                    return path.substring(0, fileNameSeparatorPos);
-                })
+        Set<Location> fileLocations = validWrittenFilePaths.stream()
+                .map(Location::parentDirectory)
                 .collect(toImmutableSet());
 
-        for (String location : fileLocations) {
-            cleanExtraOutputFiles(session, session.getQueryId(), Location.of(location), validWrittenFilePaths);
+        for (Location location : fileLocations) {
+            cleanExtraOutputFiles(session, session.getQueryId(), location, validWrittenFilePaths);
         }
     }
 
-    private void cleanExtraOutputFiles(ConnectorSession session, String queryId, Location location, Set<String> filesToKeep)
+    private void cleanExtraOutputFiles(ConnectorSession session, String queryId, Location location, Set<Location> filesToKeep)
     {
         Deque<Location> filesToDelete = new ArrayDeque<>();
         try {
@@ -2775,7 +2771,7 @@ public class DeltaLakeMetadata
             FileIterator iterator = fileSystem.listFiles(location);
             while (iterator.hasNext()) {
                 Location file = iterator.next().location();
-                if (isFileCreatedByQuery(file, queryId) && !filesToKeep.contains(file.toString())) {
+                if (isFileCreatedByQuery(file, queryId) && !filesToKeep.contains(file)) {
                     filesToDelete.add(file);
                 }
             }
