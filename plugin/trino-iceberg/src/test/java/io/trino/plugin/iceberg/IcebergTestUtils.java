@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcDataSource;
@@ -45,7 +44,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 
 public final class IcebergTestUtils
 {
@@ -61,11 +59,10 @@ public final class IcebergTestUtils
                 .build();
     }
 
-    public static boolean checkOrcFileSorting(TrinoFileSystemFactory fileSystemFactory, Location path, String sortColumnName)
+    public static boolean checkOrcFileSorting(TrinoFileSystem fileSystem, Location path, String sortColumnName)
     {
         return checkOrcFileSorting(() -> {
             try {
-                TrinoFileSystem fileSystem = fileSystemFactory.create(SESSION);
                 return new TrinoOrcDataSource(fileSystem.newInputFile(path), new OrcReaderOptions(), new FileFormatDataSourceStats());
             }
             catch (IOException e) {
