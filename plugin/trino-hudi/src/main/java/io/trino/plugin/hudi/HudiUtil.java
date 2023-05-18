@@ -23,7 +23,7 @@ import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hudi.model.HoodieFileFormat;
+import io.trino.plugin.hudi.model.HudiFileFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -48,20 +48,20 @@ public final class HudiUtil
 {
     private HudiUtil() {}
 
-    public static HoodieFileFormat getHudiFileFormat(String path)
+    public static HudiFileFormat getHudiFileFormat(String path)
     {
         String extension = getFileExtension(path);
-        if (extension.equals(HoodieFileFormat.PARQUET.getFileExtension())) {
-            return HoodieFileFormat.PARQUET;
+        if (extension.equals(HudiFileFormat.PARQUET.getFileExtension())) {
+            return HudiFileFormat.PARQUET;
         }
-        if (extension.equals(HoodieFileFormat.HOODIE_LOG.getFileExtension())) {
-            return HoodieFileFormat.HOODIE_LOG;
+        if (extension.equals(HudiFileFormat.HOODIE_LOG.getFileExtension())) {
+            return HudiFileFormat.HOODIE_LOG;
         }
-        if (extension.equals(HoodieFileFormat.ORC.getFileExtension())) {
-            return HoodieFileFormat.ORC;
+        if (extension.equals(HudiFileFormat.ORC.getFileExtension())) {
+            return HudiFileFormat.ORC;
         }
-        if (extension.equals(HoodieFileFormat.HFILE.getFileExtension())) {
-            return HoodieFileFormat.HFILE;
+        if (extension.equals(HudiFileFormat.HFILE.getFileExtension())) {
+            return HudiFileFormat.HFILE;
         }
         throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "Hoodie InputFormat not implemented for base file of type " + extension);
     }

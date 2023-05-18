@@ -22,7 +22,7 @@ package io.trino.plugin.hudi.model;
  * <li> MERGE_ON_READ - Speeds up upserts, by delaying merge until enough work piles up.
  * </ul>
  */
-public enum HoodieTableType
+public enum HudiTableType
 {
     COPY_ON_WRITE,
     MERGE_ON_READ
