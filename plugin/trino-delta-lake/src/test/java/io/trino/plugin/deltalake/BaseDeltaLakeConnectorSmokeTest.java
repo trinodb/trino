@@ -59,6 +59,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
@@ -157,36 +158,41 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
                         .put("delta.register-table-procedure.enabled", "true")
                         .buildOrThrow());
+        try {
+            queryRunner.execute(format("CREATE SCHEMA %s WITH (location = '%s')", SCHEMA, getLocationForTable(bucketName, SCHEMA)));
 
-        queryRunner.execute(format("CREATE SCHEMA %s WITH (location = '%s')", SCHEMA, getLocationForTable(bucketName, SCHEMA)));
+            REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute(format(
+                    "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s",
+                    table.getTableName(),
+                    getLocationForTable(bucketName, table.getTableName()))));
 
-        REQUIRED_TPCH_TABLES.forEach(table -> queryRunner.execute(format(
-                "CREATE TABLE %s WITH (location = '%s') AS SELECT * FROM tpch.tiny.%1$s",
-                table.getTableName(),
-                getLocationForTable(bucketName, table.getTableName()))));
+            /* Data (across 2 files) generated using:
+             * INSERT INTO foo VALUES
+             *   (1, 100, 'data1'),
+             *   (2, 200, 'data2')
+             *
+             * Data (across 2 files) generated using:
+             * INSERT INTO bar VALUES
+             *   (100, 'data100'),
+             *   (200, 'data200')
+             *
+             * INSERT INTO old_dates
+             * VALUES (DATE '0100-01-01', 1), (DATE '1582-10-15', 2), (DATE '1960-01-01', 3), (DATE '2020-01-01', 4)
+             *
+             * INSERT INTO test_timestamps VALUES
+             * (TIMESTAMP '0100-01-01 01:02:03', 1), (TIMESTAMP '1582-10-15 01:02:03', 2), (TIMESTAMP '1960-01-01 01:02:03', 3), (TIMESTAMP '2020-01-01 01:02:03', 4);
+             */
+            NON_TPCH_TABLES.forEach(table -> {
+                String resourcePath = "databricks/" + table;
+                registerTableFromResources(table, resourcePath, queryRunner);
+            });
 
-        /* Data (across 2 files) generated using:
-         * INSERT INTO foo VALUES
-         *   (1, 100, 'data1'),
-         *   (2, 200, 'data2')
-         *
-         * Data (across 2 files) generated using:
-         * INSERT INTO bar VALUES
-         *   (100, 'data100'),
-         *   (200, 'data200')
-         *
-         * INSERT INTO old_dates
-         * VALUES (DATE '0100-01-01', 1), (DATE '1582-10-15', 2), (DATE '1960-01-01', 3), (DATE '2020-01-01', 4)
-         *
-         * INSERT INTO test_timestamps VALUES
-         * (TIMESTAMP '0100-01-01 01:02:03', 1), (TIMESTAMP '1582-10-15 01:02:03', 2), (TIMESTAMP '1960-01-01 01:02:03', 3), (TIMESTAMP '2020-01-01 01:02:03', 4);
-         */
-        NON_TPCH_TABLES.forEach(table -> {
-            String resourcePath = "databricks/" + table;
-            registerTableFromResources(table, resourcePath, queryRunner);
-        });
-
-        return queryRunner;
+            return queryRunner;
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
