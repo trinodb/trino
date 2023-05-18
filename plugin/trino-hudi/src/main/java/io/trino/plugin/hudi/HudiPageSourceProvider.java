@@ -31,7 +31,7 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
-import io.trino.plugin.hudi.model.HoodieFileFormat;
+import io.trino.plugin.hudi.model.HudiFileFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -147,8 +147,8 @@ public class HudiPageSourceProvider
     {
         HudiSplit split = (HudiSplit) connectorSplit;
         String path = split.getPath();
-        HoodieFileFormat hudiFileFormat = getHudiFileFormat(path);
-        if (!HoodieFileFormat.PARQUET.equals(hudiFileFormat)) {
+        HudiFileFormat hudiFileFormat = getHudiFileFormat(path);
+        if (!HudiFileFormat.PARQUET.equals(hudiFileFormat)) {
             throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, format("File format %s not supported", hudiFileFormat));
         }
 
