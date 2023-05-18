@@ -201,15 +201,15 @@ need to execute a query::
 
     -- create table
     CREATE TABLE orders (
-         orderkey bigint,
-         custkey bigint,
-         orderstatus varchar(1),
-         totalprice double,
-         orderdate date,
-         orderpriority varchar(15),
-         clerk varchar(15),
-         shippriority integer,
-         comment varchar(79)
+         orderkey BIGINT,
+         custkey BIGINT,
+         orderstatus VARCHAR(1),
+         totalprice DOUBLE,
+         orderdate DATE,
+         orderpriority VARCHAR(15),
+         clerk VARCHAR(15),
+         shippriority INTEGER,
+         comment VARCHAR(79)
     ) WITH (
          external_location = 'abfs[s]://<file_system>@<account_name>.dfs.core.windows.net/<path>/<path>/',
          format = 'ORC' -- or 'PARQUET'

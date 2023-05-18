@@ -262,7 +262,7 @@ Hive connector documentation.
         Hive 3.1+, this must be set to UTC.
       - JVM default
     * - ``hive.timestamp-precision``
-      - Specifies the precision to use for Hive columns of type ``timestamp``.
+      - Specifies the precision to use for Hive columns of type ``TIMESTAMP``.
         Possible values are ``MILLISECONDS``, ``MICROSECONDS`` and ``NANOSECONDS``.
         Values with higher precision than configured are rounded.
       - ``MILLISECONDS``
@@ -470,7 +470,7 @@ properties:
      - Allow the metastore to assume that the values of partition columns can be
        converted to string values. This can lead to performance improvements in
        queries which apply filters on the partition columns. Partition keys with
-       a ``timestamp`` type do not get canonicalized.
+       a ``TIMESTAMP`` type do not get canonicalized.
      - ``false``
    * - ``hive.metastore.thrift.client.socks-proxy``
      - SOCKS proxy to use for the Thrift Hive metastore.
@@ -680,11 +680,11 @@ country, and bucketed by user into ``50`` buckets. Note that Hive
 requires the partition columns to be the last columns in the table::
 
     CREATE TABLE example.web.page_views (
-      view_time timestamp,
-      user_id bigint,
-      page_url varchar,
-      ds date,
-      country varchar
+      view_time TIMESTAMP,
+      user_id BIGINT,
+      page_url VARCHAR,
+      ds DATE,
+      country VARCHAR
     )
     WITH (
       format = 'ORC',
@@ -721,10 +721,10 @@ Create an external Hive table named ``request_logs`` that points at
 existing data in S3::
 
     CREATE TABLE example.web.request_logs (
-      request_time timestamp,
-      url varchar,
-      ip varchar,
-      user_agent varchar
+      request_time TIMESTAMP,
+      url VARCHAR,
+      ip VARCHAR,
+      user_agent VARCHAR
     )
     WITH (
       format = 'TEXTFILE',
@@ -885,13 +885,13 @@ table. This occurs when the column types of a table are changed after
 partitions already exist (that use the original column types). The Hive
 connector supports this by allowing the same conversions as Hive:
 
-* ``varchar`` to and from ``tinyint``, ``smallint``, ``integer`` and ``bigint``
-* ``real`` to ``double``
-* Widening conversions for integers, such as ``tinyint`` to ``smallint``
+* ``VARCHAR`` to and from ``TINYINT``, ``SMALLINT``, ``INTEGER`` and ``BIGINT``
+* ``REAL`` to ``DOUBLE``
+* Widening conversions for integers, such as ``TINYINT`` to ``SMALLINT``
 
 Any conversion failure results in null, which is the same behavior
 as Hive. For example, converting the string ``'foo'`` to a number,
-or converting the string ``'1234'`` to a ``tinyint`` (which has a
+or converting the string ``'1234'`` to a ``TINYINT`` (which has a
 maximum value of ``127``).
 
 .. _hive-avro-schema:
@@ -927,7 +927,7 @@ The table created in Trino using the ``avro_schema_url`` or
 Example::
 
    CREATE TABLE example.avro.avro_data (
-      id bigint
+      id BIGINT
     )
    WITH (
       format = 'AVRO',
@@ -1712,7 +1712,7 @@ Hive 3-related limitations
 
 * Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
   and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Trino does
-  not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
+  not correctly read ``TIMESTAMP`` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
   Trino returns different results than Hive.
 

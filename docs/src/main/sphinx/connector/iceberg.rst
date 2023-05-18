@@ -497,9 +497,9 @@ The Iceberg connector supports creating tables using the :doc:`CREATE TABLE
 <iceberg-table-properties>` supported by this connector::
 
     CREATE TABLE example_table (
-        c1 integer,
-        c2 date,
-        c3 double
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE
     )
     WITH (
         format = 'PARQUET',
@@ -840,9 +840,9 @@ The table definition below specifies format Parquet, partitioning by columns
 ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
-        c1 integer,
-        c2 date,
-        c3 double)
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE)
     WITH (
         format = 'PARQUET',
         partitioning = ARRAY['c1', 'c2'],
@@ -853,9 +853,9 @@ The table definition below specifies format ORC, bloom filter index by columns
 ``/var/example_tables/test_table``::
 
     CREATE TABLE test_table (
-        c1 integer,
-        c2 date,
-        c3 double)
+        c1 INTEGER,
+        c2 DATE,
+        c3 DOUBLE)
     WITH (
         format = 'ORC',
         location = '/var/example_tables/test_table',
@@ -920,16 +920,16 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``made_current_at``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the snapshot became active.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the snapshot.
   * - ``parent_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the parent snapshot.
   * - ``is_current_ancestor``
-    - ``boolean``
+    - ``BOOLEAN``
     - Whether or not this snapshot is an ancestor of the current snapshot.
 
 ``$snapshots`` table
@@ -961,16 +961,16 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``committed_at``
-    - ``timestamp(3) with time zone``
+    - ``TIMESTAMP(3) WITH TIME ZONE``
     - The time when the snapshot became active.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier for the snapshot.
   * - ``parent_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier for the parent snapshot.
   * - ``operation``
-    - ``varchar``
+    - ``VARCHAR``
     - The type of operation performed on the Iceberg table. The supported
       operation types in Iceberg are:
 
@@ -980,11 +980,11 @@ The output of the query has the following columns:
       * ``overwrite`` when new data is added to overwrite existing data.
       * ``delete`` when data is deleted from the table and no new data is added.
   * - ``manifest_list``
-    - ``varchar``
+    - ``VARCHAR``
     - The list of Avro manifest files containing the detailed information about
       the snapshot changes.
   * - ``summary``
-    - ``map(varchar, varchar)``
+    - ``map(VARCHAR, VARCHAR)``
     - A summary of the changes made from the previous snapshot to the current
       snapshot.
 
@@ -1015,42 +1015,42 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``path``
-    - ``varchar``
+    - ``VARCHAR``
     - The manifest file location.
   * - ``length``
-    - ``bigint``
+    - ``BIGINT``
     - The manifest file length.
   * - ``partition_spec_id``
-    - ``integer``
+    - ``INTEGER``
     - The identifier for the partition specification used to write the manifest
       file.
   * - ``added_snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The identifier of the snapshot during which this manifest entry has been
       added.
   * - ``added_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``ADDED`` in the manifest file.
   * - ``added_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``ADDED`` in the
       manifest file.
   * - ``existing_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``EXISTING`` in the manifest file.
   * - ``existing_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``EXISTING`` in the
       manifest file.
   * - ``deleted_data_files_count``
-    - ``integer``
+    - ``INTEGER``
     - The number of data files with status ``DELETED`` in the manifest file.
   * - ``deleted_rows_count``
-    - ``bigint``
+    - ``BIGINT``
     - The total number of rows in all data files with status ``DELETED`` in the
       manifest file.
   * - ``partitions``
-    - ``array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))``
+    - ``ARRAY(row(contains_null BOOLEAN, contains_nan BOOLEAN, lower_bound VARCHAR, upper_bound VARCHAR))``
     - Partition range metadata.
 
 ``$partitions`` table
@@ -1081,20 +1081,20 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``partition``
-    - ``row(...)``
+    - ``ROW(...)``
     - A row that contains the mapping of the partition column names to the
-      partition column values
+      partition column values.
   * - ``record_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of records in the partition.
   * - ``file_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of files mapped in the partition.
   * - ``total_size``
-    - ``bigint``
+    - ``BIGINT``
     - The size of all the files in the partition.
   * - ``data``
-    - ``row(... row (min ..., max ... , null_count bigint, nan_count bigint))``
+    - ``ROW(... ROW (min ..., max ... , null_count BIGINT, nan_count BIGINT))``
     - Partition range metadata.
 
 ``$files`` table
@@ -1124,7 +1124,7 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``content``
-    - ``integer``
+    - ``INTEGER``
     - Type of content stored in the file. The supported content types in Iceberg
       are:
 
@@ -1132,49 +1132,49 @@ The output of the query has the following columns:
       * ``POSITION_DELETES(1)``
       * ``EQUALITY_DELETES(2)``
   * - ``file_path``
-    - ``varchar``
+    - ``VARCHAR``
     - The data file location.
   * - ``file_format``
-    - ``varchar``
+    - ``VARCHAR``
     - The format of the data file.
   * - ``record_count``
-    - ``bigint``
+    - ``BIGINT``
     - The number of entries contained in the data file.
   * - ``file_size_in_bytes``
-    - ``bigint``
+    - ``BIGINT``
     - The data file size
   * - ``column_sizes``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding size in the
       file.
   * - ``value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of
       entries in the file.
   * - ``null_value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of
       ``NULL`` values in the file.
   * - ``nan_value_counts``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding count of non-
       numerical values in the file.
   * - ``lower_bounds``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding lower bound in
       the file.
   * - ``upper_bounds``
-    - ``map(integer, bigint)``
+    - ``map(INTEGER, BIGINT)``
     - Mapping between the Iceberg column ID and its corresponding upper bound in
       the file.
   * - ``key_metadata``
-    - ``varbinary``
+    - ``VARBINARY``
     - Metadata about the encryption key used to encrypt this file, if applicable.
   * - ``split_offsets``
-    - ``array(bigint)``
+    - ``array(BIGINT)``
     - List of recommended split locations.
   * - ``equality_ids``
-    - ``array(integer)``
+    - ``array(INTEGER)``
     - The set of field IDs used for equality comparison in equality delete files.
 
 ``$refs`` table
@@ -1205,22 +1205,22 @@ The output of the query has the following columns:
     - Type
     - Description
   * - ``name``
-    - ``varchar``
+    - ``VARCHAR``
     - Name of the reference.
   * - ``type``
-    - ``varchar``
+    - ``VARCHAR``
     - Type of the reference, either ``BRANCH`` or ``TAG``.
   * - ``snapshot_id``
-    - ``bigint``
+    - ``BIGINT``
     - The snapshot ID of the reference.
   * - ``max_reference_age_in_ms``
-    - ``bigint``
+    - ``BIGINT``
     - The maximum age of the reference before it could be expired.
   * - ``min_snapshots_to_keep``
-    - ``integer``
+    - ``INTEGER``
     - For branch only, the minimum number of snapshots to keep in a branch.
   * - ``max_snapshot_age_in_ms``
-    - ``bigint``
+    - ``BIGINT``
     - For branch only, the max snapshot age allowed in a branch. Older snapshots
       in the branch will be expired.
 
@@ -1255,7 +1255,7 @@ Retrieve all records that belong to a specific file using
 
     SELECT *
     FROM example.web.page_views
-    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS timestamp with time zone)
+    WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WIOTH TIMEZONE)
 
 DROP TABLE
 """"""""""

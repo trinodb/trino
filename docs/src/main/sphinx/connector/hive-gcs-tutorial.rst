@@ -65,15 +65,15 @@ following example:
 .. code-block:: sql
 
   CREATE TABLE storage_catalog.sales_data_in_gcs.orders (
-      orderkey bigint,
-      custkey bigint,
-      orderstatus varchar(1),
-      totalprice double,
-      orderdate date,
-      orderpriority varchar(15),
-      clerk varchar(15),
-      shippriority integer,
-      comment varchar(79)
+      orderkey BIGINT,
+      custkey BIGINT,
+      orderstatus VARCHAR(1),
+      totalprice DOUBLE,
+      orderdate DATE,
+      orderpriority VARCHAR(15),
+      clerk VARCHAR(15),
+      shippriority INTEGER,
+      comment VARCHAR(79)
   );
 
 This statement creates the folder ``gs://sales_data_in_gcs/orders`` in the root
