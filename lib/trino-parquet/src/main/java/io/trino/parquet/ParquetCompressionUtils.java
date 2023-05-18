@@ -23,6 +23,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import org.apache.parquet.format.CompressionCodec;
+import org.xerial.snappy.Snappy;
 
 import java.io.IOException;
 import java.util.zip.GZIPInputStream;
@@ -48,7 +49,7 @@ public final class ParquetCompressionUtils
 
     private ParquetCompressionUtils() {}
 
-    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize, boolean isNativeZstdDecompressorEnabled)
+    public static Slice decompress(ParquetDataSourceId dataSourceId, CompressionCodec codec, Slice input, int uncompressedSize, boolean isNativeZstdDecompressorEnabled, boolean isNativeSnappyDecompressorEnabled)
             throws IOException
     {
         requireNonNull(input, "input is null");
@@ -60,7 +61,9 @@ public final class ParquetCompressionUtils
         return switch (codec) {
             case UNCOMPRESSED -> input;
             case GZIP -> decompressGzip(input, uncompressedSize);
-            case SNAPPY -> decompressSnappy(input, uncompressedSize);
+            case SNAPPY -> isNativeSnappyDecompressorEnabled && !isLargeUncompressedPage(uncompressedSize)
+                    ? decompressJniSnappy(input, uncompressedSize)
+                    : decompressSnappy(input, uncompressedSize);
             case LZO -> decompressLZO(input, uncompressedSize);
             case LZ4 -> decompressLz4(input, uncompressedSize);
             case ZSTD -> isNativeZstdDecompressorEnabled && !isLargeUncompressedPage(uncompressedSize)
@@ -68,6 +71,22 @@ public final class ParquetCompressionUtils
                     : decompressZstd(input, uncompressedSize);
             case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
         };
+    }
+
+    private static Slice decompressJniSnappy(Slice input, int uncompressedSize)
+            throws IOException
+    {
+        if (uncompressedSize == 0) {
+            return EMPTY_SLICE;
+        }
+
+        verifyRange(input.byteArray(), input.byteArrayOffset(), input.length());
+        byte[] buffer = new byte[uncompressedSize];
+        int bytesRead = Snappy.uncompress(input.byteArray(), input.byteArrayOffset(), input.length(), buffer, 0);
+        if (bytesRead != uncompressedSize) {
+            throw new IllegalArgumentException(format("Invalid uncompressedSize for ZSTD input. Expected %s, actual: %s", uncompressedSize, bytesRead));
+        }
+        return wrappedBuffer(buffer, 0, bytesRead);
     }
 
     private static Slice decompressSnappy(Slice input, int uncompressedSize)
@@ -167,5 +186,13 @@ public final class ParquetCompressionUtils
     private static boolean isLargeUncompressedPage(int uncompressedSize)
     {
         return uncompressedSize > JNI_DECOMPRESSION_SIZE_LIMIT;
+    }
+
+    private static void verifyRange(byte[] data, int offset, int length)
+    {
+        requireNonNull(data, "data is null");
+        if (offset < 0 || length < 0 || offset + length > data.length) {
+            throw new IllegalArgumentException(format("Invalid offset or length (%s, %s) in array of length %s", offset, length, data.length));
+        }
     }
 }

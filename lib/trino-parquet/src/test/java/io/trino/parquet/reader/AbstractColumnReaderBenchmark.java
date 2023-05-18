@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -103,8 +104,9 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     public int read()
             throws IOException
     {
+        ParquetReaderOptions readerOptions = new ParquetReaderOptions();
         ColumnReader columnReader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
-        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, dataPages.iterator(), false, false, true);
+        PageReader pageReader = new PageReader(new ParquetDataSourceId("test"), UNCOMPRESSED, dataPages.iterator(), false, false, new Decompressor(readerOptions));
         columnReader.setPageReader(pageReader, Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {

@@ -25,6 +25,7 @@ import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.TestingColumnReader.ColumnReaderFormat;
 import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
@@ -67,6 +68,8 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public abstract class AbstractColumnReaderTest
 {
+    protected static final Decompressor DECOMPRESSOR = new Decompressor(new ParquetReaderOptions());
+
     protected abstract ColumnReader createColumnReader(PrimitiveField field);
 
     @Test(dataProvider = "dictionaryReadersWithPageVersions", dataProviderClass = TestingColumnReader.class)
@@ -699,7 +702,7 @@ public abstract class AbstractColumnReaderTest
                         })
                         .allMatch(encoding -> encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY),
                 hasNoNulls,
-                true);
+                DECOMPRESSOR);
     }
 
     private DataPage createDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, int valueCount)

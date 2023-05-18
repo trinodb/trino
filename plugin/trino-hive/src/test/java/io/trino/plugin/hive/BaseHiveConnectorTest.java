@@ -8024,6 +8024,29 @@ public abstract class BaseHiveConnectorTest
         return formats.build();
     }
 
+    @Test
+    public void testNativeSnappyCompression()
+    {
+        for (TestingHiveStorageFormat testingStorageFormat : getNativeSnappyTestingHiveStorageFormat()) {
+            testReadTableWithCompressionCodec(testingStorageFormat.getSession(), testingStorageFormat.getFormat(), HiveCompressionCodec.SNAPPY);
+        }
+    }
+
+    private List<TestingHiveStorageFormat> getNativeSnappyTestingHiveStorageFormat()
+    {
+        Session session = getSession();
+        String catalog = session.getCatalog().orElseThrow();
+        ImmutableList.Builder<TestingHiveStorageFormat> formats = ImmutableList.builder();
+        for (boolean enabled : ImmutableList.of(true, false)) {
+            formats.add(new TestingHiveStorageFormat(
+                    Session.builder(session)
+                            .setCatalogSessionProperty(catalog, "parquet_native_snappy_decompressor_enabled", Boolean.toString(enabled))
+                            .build(),
+                    HiveStorageFormat.PARQUET));
+        }
+        return formats.build();
+    }
+
     private void testReadTableWithCompressionCodec(Session session, HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec)
     {
         session = Session.builder(session)

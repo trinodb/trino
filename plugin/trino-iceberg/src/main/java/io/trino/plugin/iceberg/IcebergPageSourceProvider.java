@@ -47,6 +47,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.parquet.reader.Decompressor;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -171,6 +172,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFi
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNativeZstdDecompressorEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetNativeSnappyDecompressorEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetNativeZstdDecompressorEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
@@ -590,7 +592,8 @@ public class IcebergPageSourceProvider
                                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                                 .withBloomFilter(useParquetBloomFilter(session))
-                                .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session)),
+                                .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session))
+                                .withNativeSnappyDecompressorEnabled(isParquetNativeSnappyDecompressorEnabled(session)),
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
@@ -1032,6 +1035,7 @@ public class IcebergPageSourceProvider
             Optional<Long> endRowPosition = Optional.empty();
             ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
             List<BlockMetaData> blocks = new ArrayList<>();
+            Decompressor decompressor = new Decompressor(options);
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
                 Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
@@ -1047,7 +1051,7 @@ public class IcebergPageSourceProvider
                                 bloomFilterStore,
                                 UTC,
                                 ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
-                                options.isNativeZstdDecompressorEnabled())) {
+                                decompressor)) {
                     blocks.add(block);
                     blockStarts.add(nextStart);
                     if (startRowPosition.isEmpty()) {

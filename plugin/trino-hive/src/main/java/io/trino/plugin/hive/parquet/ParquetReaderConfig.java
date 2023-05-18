@@ -147,6 +147,19 @@ public class ParquetReaderConfig
         return options.isNativeZstdDecompressorEnabled();
     }
 
+    @Config("parquet.native-snappy-decompressor.enabled")
+    @ConfigDescription("Enable using native snappy library for faster decompression of parquet files")
+    public ParquetReaderConfig setNativeSnappyDecompressorEnabled(boolean nativeSnappyDecompressorEnabled)
+    {
+        options = options.withNativeSnappyDecompressorEnabled(nativeSnappyDecompressorEnabled);
+        return this;
+    }
+
+    public boolean isNativeSnappyDecompressorEnabled()
+    {
+        return options.isNativeSnappyDecompressorEnabled();
+    }
+
     @Config("parquet.small-file-threshold")
     @ConfigDescription("Size below which a parquet file will be read entirely")
     public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
