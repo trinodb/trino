@@ -29,8 +29,11 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -64,6 +67,7 @@ import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 
 public abstract class BaseTestHiveOnDataLake
         extends AbstractTestQueryFramework
@@ -1786,6 +1790,124 @@ public abstract class BaseTestHiveOnDataLake
         assertQuery("SELECT * FROM " + tableName, "VALUES ('a', 1), ('b',1)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "s3SelectFileFormats")
+    public void testS3SelectPushdown(String tableProperties)
+    {
+        Session usingAppendInserts = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+        List<String> values = ImmutableList.of(
+                "1, true, 11, 111, 1111, 11111, 'one', 1.1, DATE '2020-01-01'",
+                "2, true, 22, 222, 2222, 22222, 'two', 2.2, DATE '2020-02-02'",
+                "3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL",
+                "4, false, 44, 444, 4444, 44444, 'four', 4.4, DATE '2020-04-04'");
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(usingAppendInserts, sql),
+                "hive.%s.test_s3_select_pushdown".formatted(HIVE_TEST_SCHEMA),
+                "(id INT, bool_t BOOLEAN, tiny_t TINYINT, small_t SMALLINT, int_t INT, big_t BIGINT, string_t VARCHAR, decimal_t DECIMAL(10, 5), date_t DATE) " +
+                        "WITH (" + tableProperties + ")", values)) {
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = true", "VALUES 1, 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = false", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t = 22", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t != 22", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t > 22", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t >= 22", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t = 22 OR tiny_t = 44", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NULL OR tiny_t >= 22", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE tiny_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t = 222", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t != 222", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t > 222", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t >= 222", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t = 222 OR small_t = 444", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NULL OR small_t >= 222", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE small_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t = 2222", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t != 2222", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t > 2222", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t >= 2222", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t = 2222 OR int_t = 4444", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NULL OR int_t >= 2222", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE int_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t = 22222", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t != 22222", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t > 22222", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t >= 22222", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t = 22222 OR big_t = 44444", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NULL OR big_t >= 22222", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE big_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t = 'two'", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t != 'two'", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t < 'two'", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t <= 'two'", "VALUES 1, 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t = 'two' OR string_t = 'four'", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NULL OR string_t >= 'two'", "VALUES 2, 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t != 2.2", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t < 2.2", "VALUES 1");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t <= 2.2", "VALUES 1, 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2 OR decimal_t = 4.4", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL OR decimal_t >= 2.2", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NOT NULL", "VALUES 1, 2, 4");
+
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t = DATE '2020-02-02'", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t != DATE '2020-02-02'", "VALUES 1, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t > DATE '2020-02-02'", "VALUES 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t <= DATE '2020-02-02'", "VALUES 1, 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t = DATE '2020-02-02' OR date_t = DATE '2020-04-04'", "VALUES 2, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL OR date_t >= DATE '2020-02-02'", "VALUES 2, 3, 4");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NOT NULL", "VALUES 1, 2, 4");
+        }
+    }
+
+    private void assertS3SelectQuery(@Language("SQL") String query, @Language("SQL") String expectedValues)
+    {
+        Session withS3SelectPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
+                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
+                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
+                .build();
+
+        MaterializedResult expectedResult = computeActual(expectedValues);
+        assertQueryStats(
+                withS3SelectPushdown,
+                query,
+                statsWithPushdown -> {
+                    long inputPositionsWithPushdown = statsWithPushdown.getPhysicalInputPositions();
+                    assertQueryStats(
+                            getSession(),
+                            query,
+                            statsWithoutPushdown -> assertThat(statsWithoutPushdown.getPhysicalInputPositions()).isGreaterThan(inputPositionsWithPushdown),
+                            results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+                },
+                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+    }
+
+    @DataProvider
+    public static Object[][] s3SelectFileFormats()
+    {
+        return new Object[][] {
+                {"format = 'JSON'"},
+                {"format = 'TEXTFILE', textfile_field_separator=',', textfile_field_separator_escape='|', null_format='~'"}
+        };
     }
 
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
