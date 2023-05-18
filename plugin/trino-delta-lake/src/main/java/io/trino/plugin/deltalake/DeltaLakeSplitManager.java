@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesSplitSource;
@@ -185,7 +186,7 @@ public class DeltaLakeSplitManager
                         return Stream.empty();
                     }
 
-                    String splitPath = buildSplitPath(tableHandle.getLocation(), addAction);
+                    String splitPath = buildSplitPath(Location.of(tableHandle.getLocation()), addAction).toString();
                     if (!pathMatchesPredicate(pathDomain, splitPath)) {
                         return Stream.empty();
                     }
@@ -326,7 +327,7 @@ public class DeltaLakeSplitManager
         return splits.build();
     }
 
-    private static String buildSplitPath(String tableLocation, AddFileEntry addAction)
+    private static Location buildSplitPath(Location tableLocation, AddFileEntry addAction)
     {
         // paths are relative to the table location and are RFC 2396 URIs
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
@@ -335,13 +336,11 @@ public class DeltaLakeSplitManager
 
         // org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem encodes the path as URL when opening files
         // https://issues.apache.org/jira/browse/HADOOP-18580
-        if (tableLocation.startsWith("abfs://") || tableLocation.startsWith("abfss://")) {
+        Optional<String> scheme = tableLocation.scheme();
+        if (scheme.isPresent() && (scheme.get().equals("abfs") || scheme.get().equals("abfss"))) {
             // Replace '+' with '%2B' beforehand. Otherwise, the character becomes a space ' ' by URL decode.
             path = URLDecoder.decode(path.replace("+", "%2B"), UTF_8);
         }
-        if (tableLocation.endsWith("/")) {
-            return tableLocation + path;
-        }
-        return tableLocation + "/" + path;
+        return tableLocation.appendPath(path);
     }
 }
