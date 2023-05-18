@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
@@ -40,8 +39,6 @@ import static java.util.Objects.requireNonNull;
 public final class ChoicesSpecializedSqlScalarFunction
         implements SpecializedSqlScalarFunction
 {
-    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
-
     private final BoundSignature boundSignature;
     private final List<ScalarImplementationChoice> choices;
 
@@ -103,7 +100,7 @@ public final class ChoicesSpecializedSqlScalarFunction
         List<ScalarImplementationChoice> choices = new ArrayList<>();
         for (ScalarImplementationChoice choice : this.choices) {
             InvocationConvention callingConvention = choice.getInvocationConvention();
-            if (functionAdapter.canAdapt(callingConvention, invocationConvention)) {
+            if (ScalarFunctionAdapter.canAdapt(callingConvention, invocationConvention)) {
                 choices.add(choice);
             }
         }
@@ -113,7 +110,7 @@ public final class ChoicesSpecializedSqlScalarFunction
         }
 
         ScalarImplementationChoice bestChoice = Collections.max(choices, comparingInt(ScalarImplementationChoice::getScore));
-        MethodHandle methodHandle = functionAdapter.adapt(
+        MethodHandle methodHandle = ScalarFunctionAdapter.adapt(
                 bestChoice.getMethodHandle(),
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
