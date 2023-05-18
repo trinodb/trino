@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.slice.Slice;
@@ -43,11 +44,14 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -55,6 +59,9 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_READER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.DEFAULT_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -154,6 +161,14 @@ public class TestDeltaLakePageSink
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
+        String schemaString = serializeSchemaAsJson(
+                getColumnHandles().stream().map(DeltaLakeColumnHandle::getColumnName).collect(toImmutableList()),
+                getColumnHandles().stream()
+                        .map(column -> Map.entry(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType())))
+                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableMap.of());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -163,6 +178,7 @@ public class TestDeltaLakePageSink
                 true,
                 Optional.empty(),
                 Optional.of(false),
+                schemaString,
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(

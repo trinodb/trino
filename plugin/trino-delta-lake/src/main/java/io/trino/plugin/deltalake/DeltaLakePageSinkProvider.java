@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -44,7 +43,6 @@ import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_NAME;
@@ -54,7 +52,6 @@ import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSch
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -100,11 +97,7 @@ public class DeltaLakePageSinkProvider
     {
         DeltaLakeOutputTableHandle tableHandle = (DeltaLakeOutputTableHandle) outputTableHandle;
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(
-                serializeSchemaAsJson(
-                        tableHandle.getInputColumns(),
-                        ImmutableMap.of(),
-                        tableHandle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, ignored -> true)),
-                        tableHandle.getInputColumns().stream().collect(toImmutableMap(DeltaLakeColumnHandle::getColumnName, ignored -> ImmutableMap.of()))),
+                tableHandle.getSchemaString(),
                 typeManager,
                 NONE, // TODO support ID and NAME column mapping
                 tableHandle.getPartitionedBy());
