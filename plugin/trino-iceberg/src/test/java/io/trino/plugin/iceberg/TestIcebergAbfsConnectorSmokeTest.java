@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicHdfsConfiguration;
@@ -45,6 +45,7 @@ import java.util.Set;
 
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -63,7 +64,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     private final String bucketName;
 
     private HiveHadoop hiveHadoop;
-    private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoFileSystem fileSystem;
 
     @Parameters({
             "hive.hadoop2.azure-abfs-container",
@@ -104,7 +105,8 @@ public class TestIcebergAbfsConnectorSmokeTest
         ConfigurationInitializer azureConfigurationInitializer = new TrinoAzureConfigurationInitializer(azureConfig);
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(azureConfigurationInitializer));
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()), new TrinoHdfsFileSystemStats());
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication());
+        this.fileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
 
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
@@ -186,7 +188,7 @@ public class TestIcebergAbfsConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
-        return checkOrcFileSorting(fileSystemFactory, path, sortColumnName);
+        return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 
     private static String formatAbfsUrl(String container, String account, String bucketName)
