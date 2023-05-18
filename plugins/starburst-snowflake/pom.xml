@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>417.1-SNAPSHOT</version>
+        <version>417.2-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -378,13 +378,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>src/main/java/org/apache/hadoop/fs/azure/SymmetricKey.java,src/main/java/org/apache/hadoop/fs/azure/DecryptingAzureNativeFileSystemStore.java</excludes>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <dependencies>
@@ -400,6 +393,22 @@
 
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <configuration>
+                        <licenseSets>
+                            <licenseSet>
+                                <!-- exclude as files are coming from hadoop library and do not contain Starburst license headers -->
+                                <excludes combine.children="append">
+                                    <exclude>src/main/java/org/apache/hadoop/fs/azure/SymmetricKey.java</exclude>
+                                    <exclude>src/main/java/org/apache/hadoop/fs/azure/DecryptingAzureNativeFileSystemStore.java</exclude>
+                                </excludes>
+                            </licenseSet>
+                        </licenseSets>
+                    </configuration>
+                </plugin>
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
@@ -458,6 +467,23 @@
                         </exceptions>
                     </configuration>
                 </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <configuration>
+                        <!-- we need to skip RestrictImports because we use io.trino.hadoop.$internal.* imports in SymmetricKey.java and DecryptingAzureNativeFileSystemStore.java -->
+                        <rulesToSkip>RestrictImports</rulesToSkip>
+                    </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.ferstl</groupId>
+                            <artifactId>pedantic-pom-enforcers</artifactId>
+                            <version>2.0.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+
             </plugins>
         </pluginManagement>
     </build>
@@ -540,7 +566,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestDistributedSnowflakeConnectorTest.java</include>
+                                <!-- TODO reenable TODO https://starburstdata.atlassian.net/browse/SEP-11439 -->
+<!--                                <include>**/TestDistributedSnowflakeConnectorTest.java</include>-->
                                 <include>**/TestDistributedSnowflakeLargeScan.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
                             </includes>

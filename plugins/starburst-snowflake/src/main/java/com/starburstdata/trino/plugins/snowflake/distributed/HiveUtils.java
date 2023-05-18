@@ -76,8 +76,15 @@ public final class HiveUtils
             case AZURE:
                 // TransferAgent's stageLocation is in <container>/<path> format
                 String container = extractWasbContainer(transferAgent.getStageLocation());
+                String formattedLocation = format("wasbs://%s@%s.%s", container, transferAgent.getStageInfo().getStorageAccount(), transferAgent.getStageInfo().getEndPoint());
                 String path = extractWasbPath(transferAgent.getStageLocation());
-                return format("wasbs://%s@%s.%s/%s", container, transferAgent.getStageInfo().getStorageAccount(), transferAgent.getStageInfo().getEndPoint(), path);
+                if (!path.isEmpty()) {
+                    // Ensure we do not have trailing `/` present
+                    // Without this code computation if file is a direct child of table location in io.trino.plugin.hive.fs.DirectoryListingFilter.findNextElement is wrong.
+                    // The table location has trailing slash and location computed with fileLocation.getParent() does not.
+                    formattedLocation = formattedLocation + "/" + path;
+                }
+                return formattedLocation;
             default:
                 throw new IllegalStateException("Unsupported stage type " + transferAgent.getStageInfo().getStageType());
         }

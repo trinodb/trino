@@ -1715,8 +1715,6 @@ public class DecryptingAzureNativeFileSystemStore
      *          if set the list is flat, otherwise it is hierarchical.
      *
      * @return blobItems : iterable collection of blob items.
-     * @throws URISyntaxException
-     *
      */
     private Iterable<ListBlobItem> listRootBlobs(String aPrefix, boolean includeMetadata, boolean useFlatBlobListing)
             throws StorageException, URISyntaxException
@@ -1752,8 +1750,6 @@ public class DecryptingAzureNativeFileSystemStore
      * @param opContext
      *          - context of the current operation
      * @return blobItems : iterable collection of blob items.
-     * @throws URISyntaxException
-     *
      */
     private Iterable<ListBlobItem> listRootBlobs(String aPrefix, boolean useFlatBlobListing, EnumSet<BlobListingDetails> listingDetails, BlobRequestOptions options,
             OperationContext opContext)
@@ -1778,8 +1774,6 @@ public class DecryptingAzureNativeFileSystemStore
      *          : a key used to query Azure for the block blob.
      * @return blob : a reference to the Azure block blob corresponding to the
      *          key.
-     * @throws URISyntaxException
-     *
      */
     private CloudBlobWrapper getBlobReference(String aKey)
             throws StorageException, URISyntaxException
@@ -1924,7 +1918,8 @@ public class DecryptingAzureNativeFileSystemStore
     }
 
     @Override
-    public FileMetadata retrieveMetadata(String key) throws IOException
+    public FileMetadata retrieveMetadata(String key)
+            throws IOException
     {
         // Attempts to check status may occur before opening any streams so first,
         // check if a session exists, if not create a session with the Azure storage
