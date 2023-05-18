@@ -88,7 +88,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -607,7 +607,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .containsOnly(expectedDestinationTableRows);
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE %s.%s", destSchema, destTableName));
+            dropDeltaTableWithRetry(format("%s.%s", destSchema, destTableName));
             onTrino().executeQuery("DROP SCHEMA " + destSchema);
         }
     }
@@ -653,7 +653,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -743,7 +743,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment"));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
