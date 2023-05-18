@@ -61,6 +61,7 @@ import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.EXTENDED_STATISTICS_COLLECT_ON_WRITE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -128,8 +129,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     protected abstract HiveMinioDataLake createHiveMinioDataLake()
             throws Exception;
 
-    protected abstract QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception;
+    protected abstract Map<String, String> storageConfiguration();
 
     protected abstract void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner);
 
@@ -151,13 +151,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                         .build());
 
-        QueryRunner queryRunner = createDeltaLakeQueryRunner(
-                ImmutableMap.<String, String>builder()
-                        .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
-                        .put("delta.register-table-procedure.enabled", "true")
-                        .buildOrThrow());
+        QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {
             queryRunner.execute(format("CREATE SCHEMA %s WITH (location = '%s')", SCHEMA, getLocationForTable(bucketName, SCHEMA)));
 
@@ -193,6 +187,26 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private DistributedQueryRunner createDeltaLakeQueryRunner()
+            throws Exception
+    {
+        return createDockerizedDeltaLakeQueryRunner(
+                DELTA_CATALOG,
+                SCHEMA,
+                Map.of(),
+                Map.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("delta.metadata.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                        .put("delta.metadata.live-files.cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                        .put("hive.metastore-cache-ttl", TEST_METADATA_CACHE_TTL_SECONDS + "s")
+                        .put("delta.register-table-procedure.enabled", "true")
+                        .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
+                        .putAll(storageConfiguration())
+                        .buildOrThrow(),
+                hiveMinioDataLake.getHiveHadoop(),
+                queryRunner -> {});
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -1386,7 +1400,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
 
         MaterializedResult expectedDataAfterChange;
         String newLocation;
-        try (QueryRunner independentQueryRunner = createDeltaLakeQueryRunner(Map.of())) {
+        try (QueryRunner independentQueryRunner = createDeltaLakeQueryRunner()) {
             // Change table's location without main Delta Lake connector (main query runner) knowing about this
             newLocation = getLocationForTable(bucketName, "test_table_location_changed_new_" + randomNameSuffix());
 

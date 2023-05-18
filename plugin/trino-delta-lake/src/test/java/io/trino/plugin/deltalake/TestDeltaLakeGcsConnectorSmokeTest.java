@@ -28,7 +28,6 @@ import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.testng.annotations.AfterClass;
@@ -50,8 +49,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDockerizedDeltaLakeQueryRunner;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static java.lang.String.format;
@@ -139,28 +136,20 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     }
 
     @Override
-    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception
+    protected Map<String, String> storageConfiguration()
     {
-        DistributedQueryRunner runner = createDockerizedDeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .putAll(connectorProperties)
-                        .put("hive.gcs.json-key-file-path", gcpCredentialsFile.toAbsolutePath().toString())
-                        .put("delta.unique-table-location", "false")
-                        .buildOrThrow(),
-                hiveMinioDataLake.getHiveHadoop(),
-                queryRunner -> {});
-        this.fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(runner.getDefaultSession().toConnectorSession());
-        return runner;
+        return ImmutableMap.<String, String>builder()
+                .put("hive.gcs.json-key-file-path", gcpCredentialsFile.toAbsolutePath().toString())
+                // TODO why not unique table locations? (This is here since 52bf6680c1b25516f6e8e64f82ada089abc0c9d3.)
+                .put("delta.unique-table-location", "false")
+                .buildOrThrow();
     }
 
     @Override
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
+        this.fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(queryRunner.getDefaultSession().toConnectorSession());
+
         String targetDirectory = bucketUrl() + table;
 
         try {
