@@ -1460,7 +1460,7 @@ public class TestDeltaLakeConnectorTest
         getQueryRunner().execute(sessionWithShortRetentionUnlocked, "CALL delta.system.vacuum('test_schema', '" + tableName + "', '" + retention + "s')");
         allFilesFromCdfDirectory = getAllFilesFromCdfDirectory(tableName);
         assertThat(allFilesFromCdfDirectory).hasSizeBetween(1, 2);
-        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", ".*File does not exist.*");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 2))", "Error opening Hive split .*");
         assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "', 3))",
                 """
                         VALUES
