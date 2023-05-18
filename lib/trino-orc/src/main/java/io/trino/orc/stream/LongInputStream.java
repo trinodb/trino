@@ -32,6 +32,9 @@ public interface LongInputStream
     void next(short[] values, int items)
             throws IOException;
 
+    void next(byte[] values, int items)
+            throws IOException;
+
     default long sum(int items)
             throws IOException
     {
