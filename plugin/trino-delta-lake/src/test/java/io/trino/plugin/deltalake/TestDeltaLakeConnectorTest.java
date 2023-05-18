@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
@@ -1696,6 +1697,31 @@ public class TestDeltaLakeConnectorTest
                 "SELECT * FROM TABLE(system.table_changes('" + SCHEMA + "', '" + tableName + "', 0))",
                 "Cannot select from columns .*",
                 privilege(tableName, SELECT_COLUMN));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testTableWithTrailingSlashLocation(boolean partitioned)
+    {
+        String tableName = "test_table_with_trailing_slash_location_" + randomNameSuffix();
+        String location = format("s3://%s/%s/", BUCKET_NAME, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
+                "WITH (location = '" + location + "'" +
+                (partitioned ? ",partitioned_by = ARRAY['col_str']" : "") +
+                ") " +
+                "AS VALUES ('str1', 1), ('str2', 2)", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2)");
+
+        assertUpdate("UPDATE " + tableName + " SET col_str = 'other'", 2);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('other', 2)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('str3', 3)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('other', 2), ('str3', 3)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE col_int = 2", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('str3', 3)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
