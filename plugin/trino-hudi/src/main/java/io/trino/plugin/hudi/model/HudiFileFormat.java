@@ -15,7 +15,7 @@ package io.trino.plugin.hudi.model;
 
 import static java.util.Objects.requireNonNull;
 
-public enum HoodieFileFormat
+public enum HudiFileFormat
 {
     PARQUET(".parquet"),
     HOODIE_LOG(".log"),
@@ -24,7 +24,7 @@ public enum HoodieFileFormat
 
     private final String extension;
 
-    HoodieFileFormat(String extension)
+    HudiFileFormat(String extension)
     {
         this.extension = requireNonNull(extension, "extension is null");
     }
