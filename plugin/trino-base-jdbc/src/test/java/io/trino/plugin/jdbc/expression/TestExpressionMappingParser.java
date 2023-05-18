@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionMappingParser
 {
@@ -105,8 +105,8 @@ public class TestExpressionMappingParser
 
     private static void assertExpressionPattern(String expressionPattern, String canonical, ExpressionPattern expected)
     {
-        assertEquals(expressionPattern(expressionPattern), expected);
-        assertEquals(expected.toString(), canonical);
+        assertThat(expressionPattern(expressionPattern)).isEqualTo(expected);
+        assertThat(expected.toString()).isEqualTo(canonical);
     }
 
     private static ExpressionPattern expressionPattern(String expressionPattern)

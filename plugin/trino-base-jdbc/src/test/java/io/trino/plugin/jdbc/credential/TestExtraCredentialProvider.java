@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExtraCredentialProvider
 {
@@ -35,8 +35,8 @@ public class TestExtraCredentialProvider
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
         Optional<ConnectorIdentity> identity = Optional.of(ConnectorIdentity.forUser("user").withExtraCredentials(ImmutableMap.of("user", "overwritten_user")).build());
-        assertEquals(credentialProvider.getConnectionUser(identity).get(), "overwritten_user");
-        assertEquals(credentialProvider.getConnectionPassword(identity).get(), "default_password");
+        assertThat(credentialProvider.getConnectionUser(identity).get()).isEqualTo("overwritten_user");
+        assertThat(credentialProvider.getConnectionPassword(identity).get()).isEqualTo("default_password");
     }
 
     @Test
@@ -49,8 +49,8 @@ public class TestExtraCredentialProvider
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
         Optional<ConnectorIdentity> identity = Optional.of(ConnectorIdentity.forUser("user").withExtraCredentials(ImmutableMap.of("password", "overwritten_password")).build());
-        assertEquals(credentialProvider.getConnectionUser(identity).get(), "default_user");
-        assertEquals(credentialProvider.getConnectionPassword(identity).get(), "overwritten_password");
+        assertThat(credentialProvider.getConnectionUser(identity).get()).isEqualTo("default_user");
+        assertThat(credentialProvider.getConnectionPassword(identity).get()).isEqualTo("overwritten_password");
     }
 
     @Test
@@ -66,8 +66,8 @@ public class TestExtraCredentialProvider
         Optional<ConnectorIdentity> identity = Optional.of(ConnectorIdentity.forUser("user")
                 .withExtraCredentials(ImmutableMap.of("user", "overwritten_user", "password", "overwritten_password"))
                 .build());
-        assertEquals(credentialProvider.getConnectionUser(identity).get(), "overwritten_user");
-        assertEquals(credentialProvider.getConnectionPassword(identity).get(), "overwritten_password");
+        assertThat(credentialProvider.getConnectionUser(identity).get()).isEqualTo("overwritten_user");
+        assertThat(credentialProvider.getConnectionPassword(identity).get()).isEqualTo("overwritten_password");
     }
 
     @Test
@@ -81,14 +81,14 @@ public class TestExtraCredentialProvider
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
         Optional<ConnectorIdentity> identity = Optional.of(ConnectorIdentity.ofUser("user"));
-        assertEquals(credentialProvider.getConnectionUser(identity).get(), "default_user");
-        assertEquals(credentialProvider.getConnectionPassword(identity).get(), "default_password");
+        assertThat(credentialProvider.getConnectionUser(identity).get()).isEqualTo("default_user");
+        assertThat(credentialProvider.getConnectionPassword(identity).get()).isEqualTo("default_password");
 
         identity = Optional.of(ConnectorIdentity.forUser("user")
                 .withExtraCredentials(ImmutableMap.of("connection_user", "overwritten_user", "connection_password", "overwritten_password"))
                 .build());
-        assertEquals(credentialProvider.getConnectionUser(identity).get(), "default_user");
-        assertEquals(credentialProvider.getConnectionPassword(identity).get(), "default_password");
+        assertThat(credentialProvider.getConnectionUser(identity).get()).isEqualTo("default_user");
+        assertThat(credentialProvider.getConnectionPassword(identity).get()).isEqualTo("default_password");
     }
 
     private static CredentialProvider getCredentialProvider(Map<String, String> properties)
