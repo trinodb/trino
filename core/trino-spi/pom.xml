@@ -273,6 +273,32 @@
                                     <code>java.method.finalMethodAddedToNonFinalClass</code>
                                     <new>method int io.trino.spi.type.AbstractIntType::getInt(io.trino.spi.block.Block, int)</new>
                                 </item>
+
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>enum io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.function.ScalarFunctionAdapter::&lt;init&gt;(io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy)</old>
+                                    <new>method void io.trino.spi.function.ScalarFunctionAdapter::&lt;init&gt;()</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowStatic</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</old>
+                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.nowStatic</code>
+                                    <old>method boolean io.trino.spi.function.ScalarFunctionAdapter::canAdapt(io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</old>
+                                    <new>method boolean io.trino.spi.function.ScalarFunctionAdapter::canAdapt(io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
