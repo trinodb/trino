@@ -123,171 +123,171 @@ public class TestTypeCoercion
     @Test
     public void testTypeCompatibility()
     {
-        assertThat(UNKNOWN, UNKNOWN).hasCommonSuperType(UNKNOWN).canCoerceToEachOther();
-        assertThat(BIGINT, BIGINT).hasCommonSuperType(BIGINT).canCoerceToEachOther();
-        assertThat(UNKNOWN, BIGINT).hasCommonSuperType(BIGINT).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(UNKNOWN, UNKNOWN).hasCommonSuperType(UNKNOWN).canCoerceToEachOther();
+        assertTypeCompatibility(BIGINT, BIGINT).hasCommonSuperType(BIGINT).canCoerceToEachOther();
+        assertTypeCompatibility(UNKNOWN, BIGINT).hasCommonSuperType(BIGINT).canCoerceFirstToSecondOnly();
 
-        assertThat(BIGINT, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(BIGINT, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
 
         // date / timestamp
-        assertThat(DATE, createTimestampType(0)).hasCommonSuperType(createTimestampType(0));
-        assertThat(DATE, createTimestampType(2)).hasCommonSuperType(createTimestampType(2));
-        assertThat(DATE, TIMESTAMP_MILLIS).hasCommonSuperType(TIMESTAMP_MILLIS).canCoerceFirstToSecondOnly();
-        assertThat(DATE, createTimestampType(7)).hasCommonSuperType(createTimestampType(7));
+        assertTypeCompatibility(DATE, createTimestampType(0)).hasCommonSuperType(createTimestampType(0));
+        assertTypeCompatibility(DATE, createTimestampType(2)).hasCommonSuperType(createTimestampType(2));
+        assertTypeCompatibility(DATE, TIMESTAMP_MILLIS).hasCommonSuperType(TIMESTAMP_MILLIS).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(DATE, createTimestampType(7)).hasCommonSuperType(createTimestampType(7));
 
         // date / timestamp with time zone
-        assertThat(DATE, createTimestampWithTimeZoneType(0)).hasCommonSuperType(createTimestampWithTimeZoneType(0));
-        assertThat(DATE, createTimestampWithTimeZoneType(2)).hasCommonSuperType(createTimestampWithTimeZoneType(2));
-        assertThat(DATE, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
-        assertThat(DATE, createTimestampWithTimeZoneType(7)).hasCommonSuperType(createTimestampWithTimeZoneType(7));
+        assertTypeCompatibility(DATE, createTimestampWithTimeZoneType(0)).hasCommonSuperType(createTimestampWithTimeZoneType(0));
+        assertTypeCompatibility(DATE, createTimestampWithTimeZoneType(2)).hasCommonSuperType(createTimestampWithTimeZoneType(2));
+        assertTypeCompatibility(DATE, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(DATE, createTimestampWithTimeZoneType(7)).hasCommonSuperType(createTimestampWithTimeZoneType(7));
 
-        assertThat(TIME_MILLIS, TIME_TZ_MILLIS).hasCommonSuperType(TIME_TZ_MILLIS).canCoerceFirstToSecondOnly();
-        assertThat(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
-        assertThat(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
-        assertThat(VARCHAR, re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
-        assertThat(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(TIME_MILLIS, TIME_TZ_MILLIS).hasCommonSuperType(TIME_TZ_MILLIS).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS).hasCommonSuperType(TIMESTAMP_TZ_MILLIS).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(VARCHAR, JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(VARCHAR, re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(VARCHAR, JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
 
-        assertThat(REAL, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
-        assertThat(REAL, TINYINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
-        assertThat(REAL, SMALLINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
-        assertThat(REAL, INTEGER).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
-        assertThat(REAL, BIGINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(REAL, DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(REAL, TINYINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(REAL, SMALLINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(REAL, INTEGER).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(REAL, BIGINT).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
 
-        assertThat(TIMESTAMP_MILLIS, TIME_TZ_MILLIS).isIncompatible();
-        assertThat(VARBINARY, VARCHAR).isIncompatible();
+        assertTypeCompatibility(TIMESTAMP_MILLIS, TIME_TZ_MILLIS).isIncompatible();
+        assertTypeCompatibility(VARBINARY, VARCHAR).isIncompatible();
 
-        assertThat(UNKNOWN, new ArrayType(BIGINT)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceFirstToSecondOnly();
-        assertThat(new ArrayType(BIGINT), new ArrayType(DOUBLE)).hasCommonSuperType(new ArrayType(DOUBLE)).canCoerceFirstToSecondOnly();
-        assertThat(new ArrayType(BIGINT), new ArrayType(UNKNOWN)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceSecondToFirstOnly();
-        assertThat(mapType(BIGINT, DOUBLE), mapType(BIGINT, DOUBLE)).hasCommonSuperType(mapType(BIGINT, DOUBLE)).canCoerceToEachOther();
-        assertThat(mapType(BIGINT, DOUBLE), mapType(DOUBLE, DOUBLE)).hasCommonSuperType(mapType(DOUBLE, DOUBLE)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(UNKNOWN, new ArrayType(BIGINT)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(new ArrayType(BIGINT), new ArrayType(DOUBLE)).hasCommonSuperType(new ArrayType(DOUBLE)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(new ArrayType(BIGINT), new ArrayType(UNKNOWN)).hasCommonSuperType(new ArrayType(BIGINT)).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(mapType(BIGINT, DOUBLE), mapType(BIGINT, DOUBLE)).hasCommonSuperType(mapType(BIGINT, DOUBLE)).canCoerceToEachOther();
+        assertTypeCompatibility(mapType(BIGINT, DOUBLE), mapType(DOUBLE, DOUBLE)).hasCommonSuperType(mapType(DOUBLE, DOUBLE)).canCoerceFirstToSecondOnly();
 
         // time / time
-        assertThat(createTimeType(5), createTimeType(9)).hasCommonSuperType(createTimeType(9));
-        assertThat(createTimeType(9), createTimeType(5)).hasCommonSuperType(createTimeType(9));
+        assertTypeCompatibility(createTimeType(5), createTimeType(9)).hasCommonSuperType(createTimeType(9));
+        assertTypeCompatibility(createTimeType(9), createTimeType(5)).hasCommonSuperType(createTimeType(9));
 
         // time / time with time zone
-        assertThat(createTimeType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
-        assertThat(createTimeType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
-        assertThat(createTimeWithTimeZoneType(5), createTimeType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
-        assertThat(createTimeWithTimeZoneType(9), createTimeType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeWithTimeZoneType(5), createTimeType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeWithTimeZoneType(9), createTimeType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
 
         // time with time zone / time with time zone
-        assertThat(createTimeWithTimeZoneType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
-        assertThat(createTimeWithTimeZoneType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeWithTimeZoneType(5), createTimeWithTimeZoneType(9)).hasCommonSuperType(createTimeWithTimeZoneType(9));
+        assertTypeCompatibility(createTimeWithTimeZoneType(9), createTimeWithTimeZoneType(5)).hasCommonSuperType(createTimeWithTimeZoneType(9));
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)),
                 rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)))
                 .hasCommonSuperType(rowType(field("a", BIGINT), field("b", DOUBLE), field("c", VARCHAR)))
                 .canCoerceToEachOther();
 
-        assertThat(createDecimalType(22, 1), createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
-        assertThat(BIGINT, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
-        assertThat(BIGINT, createDecimalType(18, 0)).hasCommonSuperType(createDecimalType(19, 0)).cannotCoerceToEachOther();
-        assertThat(BIGINT, createDecimalType(19, 0)).hasCommonSuperType(createDecimalType(19, 0)).canCoerceFirstToSecondOnly();
-        assertThat(BIGINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
-        assertThat(REAL, createDecimalType(37, 1)).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
-        assertThat(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1))).hasCommonSuperType(new ArrayType(createDecimalType(23, 1))).canCoerceSecondToFirstOnly();
-        assertThat(new ArrayType(BIGINT), new ArrayType(createDecimalType(2, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).cannotCoerceToEachOther();
-        assertThat(new ArrayType(BIGINT), new ArrayType(createDecimalType(20, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(22, 1), createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(BIGINT, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(BIGINT, createDecimalType(18, 0)).hasCommonSuperType(createDecimalType(19, 0)).cannotCoerceToEachOther();
+        assertTypeCompatibility(BIGINT, createDecimalType(19, 0)).hasCommonSuperType(createDecimalType(19, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(BIGINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(REAL, createDecimalType(37, 1)).hasCommonSuperType(REAL).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(new ArrayType(createDecimalType(23, 1)), new ArrayType(createDecimalType(22, 1))).hasCommonSuperType(new ArrayType(createDecimalType(23, 1))).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(new ArrayType(BIGINT), new ArrayType(createDecimalType(2, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).cannotCoerceToEachOther();
+        assertTypeCompatibility(new ArrayType(BIGINT), new ArrayType(createDecimalType(20, 1))).hasCommonSuperType(new ArrayType(createDecimalType(20, 1))).canCoerceFirstToSecondOnly();
 
-        assertThat(createDecimalType(3, 2), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
-        assertThat(createDecimalType(22, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
-        assertThat(createDecimalType(37, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
-        assertThat(createDecimalType(37, 37), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(3, 2), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(22, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(37, 1), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(37, 37), DOUBLE).hasCommonSuperType(DOUBLE).canCoerceFirstToSecondOnly();
 
-        assertThat(createDecimalType(22, 1), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
-        assertThat(createDecimalType(3, 2), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
-        assertThat(createDecimalType(37, 37), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(22, 1), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(3, 2), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createDecimalType(37, 37), REAL).hasCommonSuperType(REAL).canCoerceFirstToSecondOnly();
 
-        assertThat(INTEGER, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
-        assertThat(INTEGER, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(10, 0)).cannotCoerceToEachOther();
-        assertThat(INTEGER, createDecimalType(10, 0)).hasCommonSuperType(createDecimalType(10, 0)).canCoerceFirstToSecondOnly();
-        assertThat(INTEGER, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(INTEGER, createDecimalType(23, 1)).hasCommonSuperType(createDecimalType(23, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(INTEGER, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(10, 0)).cannotCoerceToEachOther();
+        assertTypeCompatibility(INTEGER, createDecimalType(10, 0)).hasCommonSuperType(createDecimalType(10, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(INTEGER, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
 
-        assertThat(TINYINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(3, 0)).cannotCoerceToEachOther();
-        assertThat(TINYINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
-        assertThat(TINYINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(4, 1)).cannotCoerceToEachOther();
-        assertThat(TINYINT, createDecimalType(3, 0)).hasCommonSuperType(createDecimalType(3, 0)).canCoerceFirstToSecondOnly();
-        assertThat(TINYINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(TINYINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(3, 0)).cannotCoerceToEachOther();
+        assertTypeCompatibility(TINYINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(TINYINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(4, 1)).cannotCoerceToEachOther();
+        assertTypeCompatibility(TINYINT, createDecimalType(3, 0)).hasCommonSuperType(createDecimalType(3, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(TINYINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
 
-        assertThat(SMALLINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
-        assertThat(SMALLINT, createDecimalType(4, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
-        assertThat(SMALLINT, createDecimalType(5, 0)).hasCommonSuperType(createDecimalType(5, 0)).canCoerceFirstToSecondOnly();
-        assertThat(SMALLINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
-        assertThat(SMALLINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
-        assertThat(SMALLINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(6, 1)).cannotCoerceToEachOther();
+        assertTypeCompatibility(SMALLINT, createDecimalType(37, 1)).hasCommonSuperType(createDecimalType(37, 1)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(SMALLINT, createDecimalType(4, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
+        assertTypeCompatibility(SMALLINT, createDecimalType(5, 0)).hasCommonSuperType(createDecimalType(5, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(SMALLINT, createDecimalType(2, 0)).hasCommonSuperType(createDecimalType(5, 0)).cannotCoerceToEachOther();
+        assertTypeCompatibility(SMALLINT, createDecimalType(9, 0)).hasCommonSuperType(createDecimalType(9, 0)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(SMALLINT, createDecimalType(2, 1)).hasCommonSuperType(createDecimalType(6, 1)).cannotCoerceToEachOther();
 
-        assertThat(createCharType(42), createCharType(40)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
-        assertThat(createCharType(42), createCharType(44)).hasCommonSuperType(createCharType(44)).canCoerceFirstToSecondOnly();
-        assertThat(createVarcharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceToEachOther();
-        assertThat(createVarcharType(42), createVarcharType(44)).hasCommonSuperType(createVarcharType(44)).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(40), createVarcharType(42)).hasCommonSuperType(createCharType(42)).cannotCoerceToEachOther();
-        assertThat(createCharType(42), createVarcharType(42)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
-        assertThat(createCharType(44), createVarcharType(42)).hasCommonSuperType(createCharType(44)).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(createCharType(42), createCharType(40)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(createCharType(42), createCharType(44)).hasCommonSuperType(createCharType(44)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createVarcharType(42), createVarcharType(42)).hasCommonSuperType(createVarcharType(42)).canCoerceToEachOther();
+        assertTypeCompatibility(createVarcharType(42), createVarcharType(44)).hasCommonSuperType(createVarcharType(44)).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createCharType(40), createVarcharType(42)).hasCommonSuperType(createCharType(42)).cannotCoerceToEachOther();
+        assertTypeCompatibility(createCharType(42), createVarcharType(42)).hasCommonSuperType(createCharType(42)).canCoerceSecondToFirstOnly();
+        assertTypeCompatibility(createCharType(44), createVarcharType(42)).hasCommonSuperType(createCharType(44)).canCoerceSecondToFirstOnly();
 
-        assertThat(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
-        assertThat(createCharType(42), re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createCharType(42), JONI_REGEXP).hasCommonSuperType(JONI_REGEXP).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createCharType(42), JSON_PATH).hasCommonSuperType(JSON_PATH).canCoerceFirstToSecondOnly();
+        assertTypeCompatibility(createCharType(42), re2jType).hasCommonSuperType(re2jType).canCoerceFirstToSecondOnly();
 
-        assertThat(anonymousRow(createVarcharType(2)), anonymousRow(createVarcharType(5)))
+        assertTypeCompatibility(anonymousRow(createVarcharType(2)), anonymousRow(createVarcharType(5)))
                 .hasCommonSuperType(anonymousRow(createVarcharType(5)))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(rowType(field("a", INTEGER)), rowType(field("a", BIGINT)))
+        assertTypeCompatibility(rowType(field("a", INTEGER)), rowType(field("a", BIGINT)))
                 .hasCommonSuperType(rowType(field("a", BIGINT)))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(rowType(field("a", INTEGER)), rowType(field("b", BIGINT)))
+        assertTypeCompatibility(rowType(field("a", INTEGER)), rowType(field("b", BIGINT)))
                 .hasCommonSuperType(anonymousRow(BIGINT))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(anonymousRow(INTEGER), rowType(field("b", BIGINT)))
+        assertTypeCompatibility(anonymousRow(INTEGER), rowType(field("b", BIGINT)))
                 .hasCommonSuperType(anonymousRow(BIGINT))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", INTEGER)),
                 rowType(field("a", createVarcharType(2))))
                 .isIncompatible();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", INTEGER)),
                 rowType(field("a", INTEGER), field("b", createVarcharType(2))))
                 .isIncompatible();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", INTEGER), field("b", createVarcharType(2))),
                 rowType(field("a", BIGINT), field("b", createVarcharType(5))))
                 .hasCommonSuperType(rowType(field("a", BIGINT), field("b", createVarcharType(5))))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", INTEGER), field("b", createVarcharType(2))),
                 rowType(field(BIGINT), field("b", createVarcharType(5))))
                 .hasCommonSuperType(rowType(field(BIGINT), field("b", createVarcharType(5))))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", INTEGER), field("b", createVarcharType(5))),
                 rowType(field("c", BIGINT), field("d", createVarcharType(2))))
                 .hasCommonSuperType(anonymousRow(BIGINT, createVarcharType(5)))
                 .cannotCoerceToEachOther();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(2))))),
                 rowType(field(rowType(field("c", INTEGER), field(createVarcharType(5))))))
                 .hasCommonSuperType(rowType(field(rowType(field("c", INTEGER), field(createVarcharType(5))))))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(2))))),
                 rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))))
                 .hasCommonSuperType(rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))))
                 .canCoerceFirstToSecondOnly();
 
-        assertThat(
+        assertTypeCompatibility(
                 rowType(field("a", rowType(field("c", INTEGER), field("b", createVarcharType(5))))),
                 rowType(field("d", rowType(field("e", INTEGER), field("b", createVarcharType(5))))))
                 .hasCommonSuperType(rowType(field(rowType(field(INTEGER), field("b", createVarcharType(5))))))
@@ -360,7 +360,7 @@ public class TestTypeCoercion
         return builder.build();
     }
 
-    private CompatibilityAssertion assertThat(Type firstType, Type secondType)
+    private CompatibilityAssertion assertTypeCompatibility(Type firstType, Type secondType)
     {
         Optional<Type> commonSuperType1 = typeCoercion.getCommonSuperType(firstType, secondType);
         Optional<Type> commonSuperType2 = typeCoercion.getCommonSuperType(secondType, firstType);
