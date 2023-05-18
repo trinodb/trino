@@ -155,10 +155,10 @@ public class OraclePoolingConnectionFactory
     {
         try {
             log.debug("Closing Oracle UCP %s", dataSource.getConnectionPoolName());
-            poolManager.stopConnectionPool(dataSource.getConnectionPoolName());
+            poolManager.destroyConnectionPool(dataSource.getConnectionPoolName());
         }
         catch (UniversalConnectionPoolException e) {
-            log.error(e, "Failed to stop UCP pool %s", dataSource.getDataSourceName());
+            log.error(e, "Failed to destroy UCP pool %s", dataSource.getDataSourceName());
         }
     }
 
