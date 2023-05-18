@@ -47,54 +47,66 @@ public class OraclePoolingConnectionFactory
     private static final Logger log = Logger.get(OraclePoolingConnectionFactory.class);
 
     private final UniversalConnectionPoolManager poolManager;
-    private final PoolDataSource dataSource;
     private final Optional<CredentialProvider> credentialProvider;
+    private final CatalogName catalogName;
+    private final Properties connectionProperties;
+    private final OracleConfig oracleConfig;
+
+    private PoolDataSource dataSource;
 
     public OraclePoolingConnectionFactory(
             CatalogName catalogName,
             BaseJdbcConfig config,
-            Properties properties,
+            Properties connectionProperties,
             Optional<CredentialProvider> credentialProvider,
             OracleConfig oracleConfig)
     {
+        this.catalogName = catalogName;
+        this.connectionProperties = requireNonNull(connectionProperties, "connectionProperties is null");
         this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
-        String poolUuid = randomUuidValue();
-
+        this.oracleConfig = oracleConfig;
         try {
             poolManager = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
             poolManager.setJmxEnabled(true);
-            dataSource = PoolDataSourceFactory.getPoolDataSource();
-            // UCP does not reset autocommit state
-            dataSource.registerConnectionInitializationCallback(this::restoreAutoCommit);
-            // generate a unique pool and data source name so that we avoid clashes when tests instantiate a connector
-            // for the same catalog more than once (e.g. when running multiple nodes)
-            dataSource.setConnectionPoolName(catalogName + "_pool_" + poolUuid);
-            dataSource.setDataSourceName(catalogName + "_" + poolUuid);
-            dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
-            dataSource.setURL(config.getConnectionUrl());
-            dataSource.setConnectionProperties(properties);
-            dataSource.setMaxPoolSize(oracleConfig.getConnectionPoolMaxSize());
-            dataSource.setMinPoolSize(oracleConfig.getConnectionPoolMinSize());
-            dataSource.setInactiveConnectionTimeout(toIntExact(oracleConfig.getInactiveConnectionTimeout().roundTo(SECONDS)));
-            credentialProvider.flatMap(provider -> provider.getConnectionUser(Optional.empty()))
-                    .ifPresent(user -> attempt(() -> dataSource.setUser(user)));
-            credentialProvider.flatMap(provider -> provider.getConnectionPassword(Optional.empty()))
-                    .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
-            dataSource.setValidateConnectionOnBorrow(true);
-
-            if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
-                throw new TrinoException(CONFIGURATION_INVALID, "Require connection-user to discover cluster topology");
-            }
-            if (isPasswordAuthentication()) {
-                verifyPasswordIsPresent(dataSource);
-            }
-
-            log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
-            poolManager.createConnectionPool((UniversalConnectionPoolAdapter) dataSource);
+            createDatasource(config.getConnectionUrl());
         }
         catch (SQLException | UniversalConnectionPoolException e) {
             throw fail(e);
         }
+    }
+
+    protected void createDatasource(String connectionUrl)
+            throws UniversalConnectionPoolException, SQLException
+    {
+        String poolUuid = randomUuidValue();
+        dataSource = PoolDataSourceFactory.getPoolDataSource();
+        // UCP does not reset autocommit state
+        dataSource.registerConnectionInitializationCallback(this::restoreAutoCommit);
+        // generate a unique pool and data source name so that we avoid clashes when tests instantiate a connector
+        // for the same catalog more than once (e.g. when running multiple nodes)
+        dataSource.setConnectionPoolName(catalogName + "_pool_" + poolUuid);
+        dataSource.setDataSourceName(catalogName + "_" + poolUuid);
+        dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
+        dataSource.setURL(connectionUrl);
+        dataSource.setConnectionProperties(connectionProperties);
+        dataSource.setMaxPoolSize(oracleConfig.getConnectionPoolMaxSize());
+        dataSource.setMinPoolSize(oracleConfig.getConnectionPoolMinSize());
+        dataSource.setInactiveConnectionTimeout(toIntExact(oracleConfig.getInactiveConnectionTimeout().roundTo(SECONDS)));
+        credentialProvider.flatMap(provider -> provider.getConnectionUser(Optional.empty()))
+                .ifPresent(user -> attempt(() -> dataSource.setUser(user)));
+        credentialProvider.flatMap(provider -> provider.getConnectionPassword(Optional.empty()))
+                .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
+        dataSource.setValidateConnectionOnBorrow(true);
+
+        if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
+            throw new TrinoException(CONFIGURATION_INVALID, "Require connection-user to discover cluster topology");
+        }
+        if (isPasswordAuthentication()) {
+            verifyPasswordIsPresent(dataSource);
+        }
+
+        log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
+        poolManager.createConnectionPool((UniversalConnectionPoolAdapter) dataSource);
     }
 
     private static void verifyPasswordIsPresent(PoolDataSource dataSource)
