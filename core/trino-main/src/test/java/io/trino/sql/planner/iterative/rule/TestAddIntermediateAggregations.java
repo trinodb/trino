@@ -52,7 +52,7 @@ public class TestAddIntermediateAggregations
     {
         ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
 
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -103,7 +103,7 @@ public class TestAddIntermediateAggregations
         ExpectedValueProvider<FunctionCall> rawInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of());
         ExpectedValueProvider<FunctionCall> partialInputCount = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
 
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -152,7 +152,7 @@ public class TestAddIntermediateAggregations
     {
         ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
 
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -202,7 +202,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testSessionDisable()
     {
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "false")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -226,7 +226,7 @@ public class TestAddIntermediateAggregations
     {
         ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
 
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "1")
                 .on(p -> p.aggregation(af -> {
@@ -266,7 +266,7 @@ public class TestAddIntermediateAggregations
     @Test
     public void testWithGroups()
     {
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {
@@ -290,7 +290,7 @@ public class TestAddIntermediateAggregations
     {
         ExpectedValueProvider<FunctionCall> aggregationPattern = PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()));
 
-        tester().assertThat(new AddIntermediateAggregations())
+        tester().assertRule(new AddIntermediateAggregations())
                 .setSystemProperty(ENABLE_INTERMEDIATE_AGGREGATIONS, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "4")
                 .on(p -> p.aggregation(af -> {

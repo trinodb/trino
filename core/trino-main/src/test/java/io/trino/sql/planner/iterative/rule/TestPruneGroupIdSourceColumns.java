@@ -30,7 +30,7 @@ public class TestPruneGroupIdSourceColumns
     @Test
     public void testPruneInputColumn()
     {
-        tester().assertThat(new PruneGroupIdSourceColumns())
+        tester().assertRule(new PruneGroupIdSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -55,7 +55,7 @@ public class TestPruneGroupIdSourceColumns
     @Test
     public void allInputsReferenced()
     {
-        tester().assertThat(new PruneGroupIdSourceColumns())
+        tester().assertRule(new PruneGroupIdSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol k = p.symbol("k");

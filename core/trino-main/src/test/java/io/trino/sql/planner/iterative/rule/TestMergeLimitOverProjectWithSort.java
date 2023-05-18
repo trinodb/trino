@@ -36,7 +36,7 @@ public class TestMergeLimitOverProjectWithSort
     @Test
     public void testMergeLimitOverProjectWithSort()
     {
-        tester().assertThat(new MergeLimitOverProjectWithSort())
+        tester().assertRule(new MergeLimitOverProjectWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -60,7 +60,7 @@ public class TestMergeLimitOverProjectWithSort
     @Test
     public void doNotMergeLimitWithTies()
     {
-        tester().assertThat(new MergeLimitOverProjectWithSort())
+        tester().assertRule(new MergeLimitOverProjectWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -79,7 +79,7 @@ public class TestMergeLimitOverProjectWithSort
     @Test
     public void testLimitWithPreSortedInputs()
     {
-        tester().assertThat(new MergeLimitOverProjectWithSort())
+        tester().assertRule(new MergeLimitOverProjectWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

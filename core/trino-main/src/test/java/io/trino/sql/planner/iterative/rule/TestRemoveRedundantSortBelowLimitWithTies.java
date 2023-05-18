@@ -30,7 +30,7 @@ public class TestRemoveRedundantSortBelowLimitWithTies
     @Test
     public void testRemoveSort()
     {
-        tester().assertThat(new RemoveRedundantSortBelowLimitWithTies())
+        tester().assertRule(new RemoveRedundantSortBelowLimitWithTies())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -47,7 +47,7 @@ public class TestRemoveRedundantSortBelowLimitWithTies
                                 ImmutableList.of(sort("a", ASCENDING, FIRST), sort("b", ASCENDING, FIRST)),
                                 values("a", "b")));
 
-        tester().assertThat(new RemoveRedundantSortBelowLimitWithTies())
+        tester().assertRule(new RemoveRedundantSortBelowLimitWithTies())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

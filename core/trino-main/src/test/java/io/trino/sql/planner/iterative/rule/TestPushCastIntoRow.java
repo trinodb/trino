@@ -48,7 +48,7 @@ public class TestPushCastIntoRow
 
     private void test(String original, String unwrapped)
     {
-        tester().assertThat(new PushCastIntoRow().projectExpressionRewrite())
+        tester().assertRule(new PushCastIntoRow().projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("output"), expression(original))

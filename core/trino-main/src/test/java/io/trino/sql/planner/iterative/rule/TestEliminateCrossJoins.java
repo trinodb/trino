@@ -69,7 +69,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoin()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertRule(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -86,7 +86,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testRetainOutgoingGroupReferences()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertRule(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(INNER))
                 .matches(
@@ -100,7 +100,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testDoNotReorderOuterJoin()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertRule(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(crossJoinAndJoin(JoinNode.Type.LEFT))
                 .doesNotFire();
@@ -232,7 +232,7 @@ public class TestEliminateCrossJoins
     @Test
     public void testEliminateCrossJoinWithNonIdentityProjections()
     {
-        tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
+        tester().assertRule(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
                 .on(p -> {
                     Symbol a1 = p.symbol("a1");

@@ -33,7 +33,7 @@ public class TestPruneTableFunctionProcessorColumns
     @Test
     public void testDoNotPruneProperOutputs()
     {
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.tableFunctionProcessor(
@@ -47,7 +47,7 @@ public class TestPruneTableFunctionProcessorColumns
     @Test
     public void testPrunePassThroughOutputs()
     {
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -71,7 +71,7 @@ public class TestPruneTableFunctionProcessorColumns
                                         .passThroughSymbols(ImmutableList.of(ImmutableList.of())),
                                 values("a", "b"))));
 
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol proper = p.symbol("proper");
                     Symbol a = p.symbol("a");
@@ -102,7 +102,7 @@ public class TestPruneTableFunctionProcessorColumns
     @Test
     public void testReferencedPassThroughOutputs()
     {
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol x = p.symbol("x");
                     Symbol y = p.symbol("y");
@@ -134,7 +134,7 @@ public class TestPruneTableFunctionProcessorColumns
     @Test
     public void testAllPassThroughOutputsReferenced()
     {
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -153,7 +153,7 @@ public class TestPruneTableFunctionProcessorColumns
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol proper = p.symbol("proper");
                     Symbol a = p.symbol("a");
@@ -178,7 +178,7 @@ public class TestPruneTableFunctionProcessorColumns
     @Test
     public void testNoSource()
     {
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.tableFunctionProcessor(
@@ -192,7 +192,7 @@ public class TestPruneTableFunctionProcessorColumns
     public void testMultipleTableArguments()
     {
         // multiple pass-through specifications indicate that the table function has multiple table arguments
-        tester().assertThat(new PruneTableFunctionProcessorColumns())
+        tester().assertRule(new PruneTableFunctionProcessorColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

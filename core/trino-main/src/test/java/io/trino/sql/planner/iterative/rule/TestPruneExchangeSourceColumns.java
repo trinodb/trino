@@ -30,7 +30,7 @@ public class TestPruneExchangeSourceColumns
     @Test
     public void testPruneOneChild()
     {
-        tester().assertThat(new PruneExchangeSourceColumns())
+        tester().assertRule(new PruneExchangeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -54,7 +54,7 @@ public class TestPruneExchangeSourceColumns
     @Test
     public void testPruneAllChildren()
     {
-        tester().assertThat(new PruneExchangeSourceColumns())
+        tester().assertRule(new PruneExchangeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b1 = p.symbol("b_1");
@@ -81,7 +81,7 @@ public class TestPruneExchangeSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneExchangeSourceColumns())
+        tester().assertRule(new PruneExchangeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

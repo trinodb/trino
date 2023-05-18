@@ -29,7 +29,7 @@ public class TestPushLimitThroughUnion
     @Test
     public void testPushLimitThroughUnion()
     {
-        tester().assertThat(new PushLimitThroughUnion())
+        tester().assertRule(new PushLimitThroughUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -54,7 +54,7 @@ public class TestPushLimitThroughUnion
     @Test
     public void doesNotFire()
     {
-        tester().assertThat(new PushLimitThroughUnion())
+        tester().assertRule(new PushLimitThroughUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -75,7 +75,7 @@ public class TestPushLimitThroughUnion
     @Test
     public void testDoNotPushLimitWithTies()
     {
-        tester().assertThat(new PushLimitThroughUnion())
+        tester().assertRule(new PushLimitThroughUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

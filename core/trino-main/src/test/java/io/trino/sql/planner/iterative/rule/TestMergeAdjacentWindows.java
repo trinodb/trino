@@ -58,7 +58,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testPlanWithoutWindowNode()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -66,7 +66,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testPlanWithSingleWindowNode()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -78,7 +78,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testDistinctAdjacentWindowSpecifications()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -93,7 +93,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testIntermediateNonProjectNode()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(1))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(1))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -110,7 +110,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testDependentAdjacentWindowsIdenticalSpecifications()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -125,7 +125,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testDependentAdjacentWindowsDistinctSpecifications()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -140,7 +140,7 @@ public class TestMergeAdjacentWindows
     @Test
     public void testIdenticalAdjacentWindowSpecifications()
     {
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(0))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),
@@ -165,7 +165,7 @@ public class TestMergeAdjacentWindows
         String lagOutputAlias = "ALIAS_lagOutput";
         String avgOutputAlias = "ALIAS_avgOutput";
 
-        tester().assertThat(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(2))
+        tester().assertRule(new GatherAndMergeWindows.MergeAdjacentWindowsOverProjects(2))
                 .on(p ->
                         p.window(
                                 newWindowNodeSpecification(p, "a"),

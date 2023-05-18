@@ -62,7 +62,7 @@ public class TestRemoveEmptyMergeWriterRuleSet
 
     private void testRemoveEmptyMergeRewrite(Rule<TableFinishNode> rule, boolean planWithExchange)
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> {
                     Symbol mergeRow = p.symbol("merge_row");
                     Symbol rowId = p.symbol("row_id");

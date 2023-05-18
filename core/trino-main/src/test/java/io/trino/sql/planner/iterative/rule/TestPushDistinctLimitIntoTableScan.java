@@ -99,7 +99,7 @@ public class TestPushDistinctLimitIntoTableScan
     @Test
     public void testDoesNotFireIfNoTableScan()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -113,7 +113,7 @@ public class TestPushDistinctLimitIntoTableScan
             return Optional.empty();
         };
 
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> {
                     Symbol regionkey = p.symbol("regionkey");
                     return p.distinctLimit(10, List.of(regionkey),
@@ -152,7 +152,7 @@ public class TestPushDistinctLimitIntoTableScan
         };
 
         MockConnectorColumnHandle regionkeyHandle = new MockConnectorColumnHandle("regionkey", BIGINT);
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> {
                     Symbol regionkeySymbol = p.symbol("regionkey_symbol");
                     return p.distinctLimit(43, List.of(regionkeySymbol),

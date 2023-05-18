@@ -42,7 +42,7 @@ public class TestPruneTopNColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneTopNColumns())
+        tester().assertRule(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -58,7 +58,7 @@ public class TestPruneTopNColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneTopNColumns())
+        tester().assertRule(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, symbol -> symbol.getName().equals("a")))
                 .doesNotFire();
     }
@@ -66,7 +66,7 @@ public class TestPruneTopNColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTopNColumns())
+        tester().assertRule(new PruneTopNColumns())
                 .on(p -> buildProjectedTopN(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }

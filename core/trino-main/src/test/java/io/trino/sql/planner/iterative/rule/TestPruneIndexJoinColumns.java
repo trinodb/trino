@@ -36,7 +36,7 @@ public class TestPruneIndexJoinColumns
     @Test
     public void testPruneInputColumn()
     {
-        tester().assertThat(new PruneIndexJoinColumns())
+        tester().assertRule(new PruneIndexJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -64,7 +64,7 @@ public class TestPruneIndexJoinColumns
                                                 ImmutableMap.of("b", expression("b")),
                                                 values("b", "c")))));
 
-        tester().assertThat(new PruneIndexJoinColumns())
+        tester().assertRule(new PruneIndexJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -99,7 +99,7 @@ public class TestPruneIndexJoinColumns
     @Test
     public void testDoNotPruneEquiClauseSymbol()
     {
-        tester().assertThat(new PruneIndexJoinColumns())
+        tester().assertRule(new PruneIndexJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -119,7 +119,7 @@ public class TestPruneIndexJoinColumns
     @Test
     public void testDoNotPruneHashSymbol()
     {
-        tester().assertThat(new PruneIndexJoinColumns())
+        tester().assertRule(new PruneIndexJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -140,7 +140,7 @@ public class TestPruneIndexJoinColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneIndexJoinColumns())
+        tester().assertRule(new PruneIndexJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

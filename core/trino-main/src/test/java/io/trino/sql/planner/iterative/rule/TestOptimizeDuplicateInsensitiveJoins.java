@@ -49,7 +49,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testNoAggregation()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> p.join(
                         INNER,
                         p.values(p.symbol("a")),
@@ -60,7 +60,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testAggregation()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -79,7 +79,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testEmptyAggregation()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -101,7 +101,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testNestedJoins()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -134,7 +134,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testNondeterministicJoins()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -166,7 +166,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testNondeterministicFilter()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -184,7 +184,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testNondeterministicProjection()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");
@@ -207,7 +207,7 @@ public class TestOptimizeDuplicateInsensitiveJoins
     @Test
     public void testUnion()
     {
-        tester().assertThat(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
+        tester().assertRule(new OptimizeDuplicateInsensitiveJoins(tester().getMetadata()))
                 .on(p -> {
                     Symbol symbolA = p.symbol("a");
                     Symbol symbolB = p.symbol("b");

@@ -258,6 +258,6 @@ public class TestExtractSpatialLeftJoin
     private RuleAssert assertRuleApplication()
     {
         RuleTester tester = tester();
-        return tester().assertThat(new ExtractSpatialLeftJoin(tester.getPlannerContext(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getTypeAnalyzer()));
+        return tester().assertRule(new ExtractSpatialLeftJoin(tester.getPlannerContext(), tester.getSplitManager(), tester.getPageSourceManager(), tester.getTypeAnalyzer()));
     }
 }

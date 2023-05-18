@@ -39,7 +39,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testNoDistinct()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(input1)"), ImmutableList.of(BIGINT))
@@ -53,7 +53,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testMultipleDistincts()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
@@ -68,7 +68,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testMixedDistinctAndNonDistinct()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
@@ -83,7 +83,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testDistinctWithFilter()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
@@ -103,7 +103,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testSingleAggregation()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
@@ -128,7 +128,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testMultipleAggregations()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
@@ -155,7 +155,7 @@ public class TestSingleDistinctAggregationToGroupBy
     @Test
     public void testMultipleInputs()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("corr(DISTINCT x, y)"), ImmutableList.of(REAL, REAL))

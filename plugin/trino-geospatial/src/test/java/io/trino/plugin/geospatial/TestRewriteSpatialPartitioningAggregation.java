@@ -84,6 +84,6 @@ public class TestRewriteSpatialPartitioningAggregation
 
     private RuleAssert assertRuleApplication()
     {
-        return tester().assertThat(new RewriteSpatialPartitioningAggregation(tester().getPlannerContext()));
+        return tester().assertRule(new RewriteSpatialPartitioningAggregation(tester().getPlannerContext()));
     }
 }

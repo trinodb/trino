@@ -42,7 +42,7 @@ public class TestPruneLimitColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertRule(new PruneLimitColumns())
                 .on(p -> buildProjectedLimit(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -57,7 +57,7 @@ public class TestPruneLimitColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertRule(new PruneLimitColumns())
                 .on(p -> buildProjectedLimit(p, alwaysTrue()))
                 .doesNotFire();
     }
@@ -65,7 +65,7 @@ public class TestPruneLimitColumns
     @Test
     public void testDoNotPruneTiesResolvingSymbols()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertRule(new PruneLimitColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -87,7 +87,7 @@ public class TestPruneLimitColumns
     @Test
     public void testDoNotPrunePreSortedInputSymbols()
     {
-        tester().assertThat(new PruneLimitColumns())
+        tester().assertRule(new PruneLimitColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

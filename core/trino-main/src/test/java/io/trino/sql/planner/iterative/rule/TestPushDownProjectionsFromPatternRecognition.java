@@ -41,7 +41,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testNoAggregations()
     {
-        tester().assertThat(new PushDownProjectionsFromPatternRecognition())
+        tester().assertRule(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), "true")
@@ -52,7 +52,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testDoNotPushRuntimeEvaluatedArguments()
     {
-        tester().assertThat(new PushDownProjectionsFromPatternRecognition())
+        tester().assertRule(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
@@ -65,7 +65,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testDoNotPushSymbolReferences()
     {
-        tester().assertThat(new PushDownProjectionsFromPatternRecognition())
+        tester().assertRule(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
@@ -78,7 +78,7 @@ public class TestPushDownProjectionsFromPatternRecognition
     @Test
     public void testPreProjectArguments()
     {
-        tester().assertThat(new PushDownProjectionsFromPatternRecognition())
+        tester().assertRule(new PushDownProjectionsFromPatternRecognition())
                 .on(p -> p.patternRecognition(builder -> builder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(

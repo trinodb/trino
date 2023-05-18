@@ -60,7 +60,7 @@ public class TestMergePatternRecognitionNodes
     @Test
     public void testSpecificationsDoNotMatch()
     {
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), "true")
@@ -70,7 +70,7 @@ public class TestMergePatternRecognitionNodes
                                 .source(p.values(p.symbol("a")))))))
                 .doesNotFire();
 
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(new IrLabel("X"), "true")
@@ -84,7 +84,7 @@ public class TestMergePatternRecognitionNodes
 
         // aggregations in variable definitions do not match
         QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(
@@ -105,7 +105,7 @@ public class TestMergePatternRecognitionNodes
         ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
 
         // parent node's measure depends on child node's measure output
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("dependent"), "LAST(X.measure)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -120,7 +120,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // parent node's measure depends on child node's window function output
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("dependent"), "LAST(X.function)", BIGINT)
                         .rowsPerMatch(WINDOW)
@@ -137,7 +137,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // parent node's window function depends on child node's window function output
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("function").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
@@ -154,7 +154,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // parent node's window function depends on child node's measure output
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addWindowFunction(p.symbol("dependent"), new WindowNode.Function(lag, ImmutableList.of(p.symbol("measure").toSymbolReference()), DEFAULT_FRAME, false))
                         .rowsPerMatch(WINDOW)
@@ -175,7 +175,7 @@ public class TestMergePatternRecognitionNodes
     public void testParentDependsOnSourceCreatedOutputsWithProject()
     {
         // identity projection over created symbol
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("dependent"), "LAST(X.measure)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -192,7 +192,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // renaming projection over created symbol
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("dependent"), "LAST(X.renamed)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -209,7 +209,7 @@ public class TestMergePatternRecognitionNodes
                 .doesNotFire();
 
         // complex projection over created symbol
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("dependent"), "LAST(X.projected)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -231,7 +231,7 @@ public class TestMergePatternRecognitionNodes
     {
         ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
 
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .partitionBy(ImmutableList.of(p.symbol("c")))
                         .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("d")), ImmutableMap.of(p.symbol("d"), ASC_NULLS_LAST)))
@@ -279,7 +279,7 @@ public class TestMergePatternRecognitionNodes
     {
         // with the option ONE ROW PER MATCH, only partitioning symbols and measures are the output of PatternRecognitionNode
         // child_measure is not passed through the parent node, so a pruning projection is added on top of the merged node.
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .partitionBy(ImmutableList.of(p.symbol("c")))
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.b)", BIGINT)
@@ -313,7 +313,7 @@ public class TestMergePatternRecognitionNodes
     {
         // project is based on pass-through symbols only
         // it does not produce symbols necessary for parent node, so it is moved on top of merged node
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.a)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -352,7 +352,7 @@ public class TestMergePatternRecognitionNodes
 
         // project is based on symbols created by the child node
         // it does not produce symbols necessary for parent node, so it is moved on top of merged node
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.a)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -396,7 +396,7 @@ public class TestMergePatternRecognitionNodes
         // project is based on pass-through symbols only
         // it produces a symbol `expression_1` necessary for parent node, so it is partially moved to the source of merged node,
         // and the remaining assignments are moved on top of merged node
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.expression_1)", BIGINT)
                         .rowsPerMatch(ALL_SHOW_EMPTY)
@@ -451,7 +451,7 @@ public class TestMergePatternRecognitionNodes
         // it produces a symbol `expression_1` necessary for parent node, so it is partially moved to the source of merged node,
         // and the remaining assignments are moved on top of merged node.
         // with the option ONE ROW PER MATCH, only partitioning symbols and measures are the output of PatternRecognitionNode
-        tester().assertThat(new MergePatternRecognitionNodesWithProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .partitionBy(ImmutableList.of(p.symbol("a")))
                         .addMeasure(p.symbol("parent_measure"), "LAST(X.expression_1)", BIGINT)
@@ -502,7 +502,7 @@ public class TestMergePatternRecognitionNodes
     public void testMergeWithAggregation()
     {
         QualifiedName count = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("count"), fromTypes(BIGINT)).toQualifiedName();
-        tester().assertThat(new MergePatternRecognitionNodesWithoutProject())
+        tester().assertRule(new MergePatternRecognitionNodesWithoutProject())
                 .on(p -> p.patternRecognition(parentBuilder -> parentBuilder
                         .pattern(new IrLabel("X"))
                         .addVariableDefinition(

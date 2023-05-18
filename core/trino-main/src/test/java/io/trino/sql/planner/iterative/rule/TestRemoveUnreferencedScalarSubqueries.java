@@ -35,7 +35,7 @@ public class TestRemoveUnreferencedScalarSubqueries
     @Test
     public void testRemoveUnreferencedInput()
     {
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -45,7 +45,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                 })
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -57,7 +57,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                 })
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -69,7 +69,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                 })
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -85,7 +85,7 @@ public class TestRemoveUnreferencedScalarSubqueries
     @Test
     public void testDoNotRemoveInputOfLeftOrFullJoinWhenSubqueryPotentiallyEmpty()
     {
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -102,7 +102,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                 })
                 .doesNotFire();
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol b = p.symbol("b");
                     return p.correlatedJoin(
@@ -123,7 +123,7 @@ public class TestRemoveUnreferencedScalarSubqueries
     @Test
     public void testDoNotRemoveInputWhenCorrelationPresent()
     {
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -138,14 +138,14 @@ public class TestRemoveUnreferencedScalarSubqueries
     @Test
     public void testRemoveUnreferencedSubquery()
     {
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
@@ -154,7 +154,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
@@ -163,7 +163,7 @@ public class TestRemoveUnreferencedScalarSubqueries
                         p.values(emptyList(), ImmutableList.of(emptyList()))))
                 .matches(values("b"));
 
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(p.symbol("b", BigintType.BIGINT)),
@@ -176,7 +176,7 @@ public class TestRemoveUnreferencedScalarSubqueries
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveUnreferencedScalarSubqueries())
+        tester().assertRule(new RemoveUnreferencedScalarSubqueries())
                 .on(p -> p.correlatedJoin(
                         emptyList(),
                         p.values(),

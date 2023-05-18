@@ -35,7 +35,7 @@ public class TestPruneSpatialJoinColumns
     @Test
     public void notAllOutputsReferenced()
     {
-        tester().assertThat(new PruneSpatialJoinColumns())
+        tester().assertRule(new PruneSpatialJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -63,7 +63,7 @@ public class TestPruneSpatialJoinColumns
     @Test
     public void allOutputsReferenced()
     {
-        tester().assertThat(new PruneSpatialJoinColumns())
+        tester().assertRule(new PruneSpatialJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

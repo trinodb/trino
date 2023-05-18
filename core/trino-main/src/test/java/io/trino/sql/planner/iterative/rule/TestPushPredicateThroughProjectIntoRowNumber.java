@@ -37,7 +37,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testRowNumberSymbolPruned()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -57,7 +57,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testNoUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -77,7 +77,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testNonPositiveUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -97,7 +97,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateNotSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -125,7 +125,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateNotSatisfiedAndMaxRowCountNotUpdated()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -145,7 +145,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicateSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -167,7 +167,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                 values(ImmutableList.of("a")))
                                 .withAlias("row_number", new RowNumberSymbolMatcher())));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -193,7 +193,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
     @Test
     public void testPredicatePartiallySatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -217,7 +217,7 @@ public class TestPushPredicateThroughProjectIntoRowNumber
                                         values(ImmutableList.of("a")))
                                         .withAlias("row_number", new RowNumberSymbolMatcher()))));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushPredicateThroughProjectIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");

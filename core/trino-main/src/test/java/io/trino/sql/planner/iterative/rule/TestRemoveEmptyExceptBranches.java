@@ -38,7 +38,7 @@ public class TestRemoveEmptyExceptBranches
     @Test
     public void testDoNotEliminateNonEmptyBranches()
     {
-        tester().assertThat(new RemoveEmptyExceptBranches())
+        tester().assertRule(new RemoveEmptyExceptBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -59,7 +59,7 @@ public class TestRemoveEmptyExceptBranches
     @Test
     public void testRemoveEmptyBranches()
     {
-        tester().assertThat(new RemoveEmptyExceptBranches())
+        tester().assertRule(new RemoveEmptyExceptBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -89,7 +89,7 @@ public class TestRemoveEmptyExceptBranches
     @Test
     public void testReplaceRedundantExceptAll()
     {
-        tester().assertThat(new RemoveEmptyExceptBranches())
+        tester().assertRule(new RemoveEmptyExceptBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -114,7 +114,7 @@ public class TestRemoveEmptyExceptBranches
     @Test
     public void testReplaceRedundantExceptDistinct()
     {
-        tester().assertThat(new RemoveEmptyExceptBranches())
+        tester().assertRule(new RemoveEmptyExceptBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -144,7 +144,7 @@ public class TestRemoveEmptyExceptBranches
     @Test
     public void testRemoveExceptWhenSetEmpty()
     {
-        tester().assertThat(new RemoveEmptyExceptBranches())
+        tester().assertRule(new RemoveEmptyExceptBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");

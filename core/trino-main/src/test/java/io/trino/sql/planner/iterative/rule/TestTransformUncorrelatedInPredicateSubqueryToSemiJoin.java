@@ -32,7 +32,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     @Test
     public void testDoesNotFireOnNoCorrelation()
     {
-        tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+        tester().assertRule(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         Assignments.of(),
                         emptyList(),
@@ -44,7 +44,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     @Test
     public void testDoesNotFireOnNonInPredicateSubquery()
     {
-        tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+        tester().assertRule(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         Assignments.of(p.symbol("x"), new ExistsPredicate(new LongLiteral("1"))),
                         emptyList(),
@@ -56,7 +56,7 @@ public class TestTransformUncorrelatedInPredicateSubqueryToSemiJoin
     @Test
     public void testFiresForInPredicate()
     {
-        tester().assertThat(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
+        tester().assertRule(new TransformUncorrelatedInPredicateSubqueryToSemiJoin())
                 .on(p -> p.apply(
                         Assignments.of(
                                 p.symbol("x"),

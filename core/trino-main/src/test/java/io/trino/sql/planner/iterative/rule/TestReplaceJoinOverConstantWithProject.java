@@ -40,7 +40,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnJoinWithEmptySource()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -48,7 +48,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -60,7 +60,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnJoinWithCondition()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -69,7 +69,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 new EquiJoinClause(p.symbol("a"), p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -82,7 +82,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnValuesWithMultipleRows()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -94,7 +94,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnValuesWithNoOutputs()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -106,7 +106,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnValuesWithNonRowExpression()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -118,7 +118,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testDoesNotFireOnOuterJoinWhenSourcePossiblyEmpty()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -128,7 +128,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -138,7 +138,7 @@ public class TestReplaceJoinOverConstantWithProject
                                 p.values(1, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 FULL,
@@ -148,7 +148,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         p.values(10, p.symbol("b")))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 FULL,
@@ -162,7 +162,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testReplaceInnerJoinWithProject()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -176,7 +176,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         "c", PlanMatchPattern.expression("c")),
                                 values("c")));
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -194,7 +194,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testReplaceLeftJoinWithProject()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -208,7 +208,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         "c", PlanMatchPattern.expression("c")),
                                 values("c")));
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -226,7 +226,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testReplaceRightJoinWithProject()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -240,7 +240,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         "c", PlanMatchPattern.expression("c")),
                                 values("c")));
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -258,7 +258,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testReplaceFullJoinWithProject()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 FULL,
@@ -272,7 +272,7 @@ public class TestReplaceJoinOverConstantWithProject
                                         "c", PlanMatchPattern.expression("c")),
                                 values("c")));
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 FULL,
@@ -290,7 +290,7 @@ public class TestReplaceJoinOverConstantWithProject
     @Test
     public void testRemoveOutputDuplicates()
     {
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -316,7 +316,7 @@ public class TestReplaceJoinOverConstantWithProject
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,
@@ -328,7 +328,7 @@ public class TestReplaceJoinOverConstantWithProject
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("uuid"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
-        tester().assertThat(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
+        tester().assertRule(new ReplaceJoinOverConstantWithProject(tester().getMetadata()))
                 .on(p ->
                         p.join(
                                 INNER,

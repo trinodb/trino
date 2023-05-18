@@ -37,7 +37,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWithNonGroupedAggregation()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -55,7 +55,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWithMultipleAggregations()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -75,7 +75,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWithNoAggregations()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -91,7 +91,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWithNoMask()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol count = p.symbol("count");
@@ -108,7 +108,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWithNoCountAggregation()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -122,7 +122,7 @@ public class TestPushFilterThroughCountAggregation
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -140,7 +140,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testFilterPredicateFalse()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -159,7 +159,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWhenFilterPredicateTrue()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -177,7 +177,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testDoesNotFireWhenFilterPredicateSatisfiedByAllCountValues()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -195,7 +195,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testPushDownMaskAndRemoveFilter()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -218,7 +218,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testPushDownMaskAndSimplifyFilter()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -239,7 +239,7 @@ public class TestPushFilterThroughCountAggregation
                                                 "mask",
                                                 values("g", "mask")))));
 
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -264,7 +264,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testPushDownMaskAndRetainFilter()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithoutProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -289,7 +289,7 @@ public class TestPushFilterThroughCountAggregation
     @Test
     public void testWithProject()
     {
-        tester().assertThat(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -312,7 +312,7 @@ public class TestPushFilterThroughCountAggregation
                                                 "mask",
                                                 values("g", "mask")))));
 
-        tester().assertThat(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");
@@ -337,7 +337,7 @@ public class TestPushFilterThroughCountAggregation
                                                         "mask",
                                                         values("g", "mask"))))));
 
-        tester().assertThat(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
+        tester().assertRule(new PushFilterThroughCountAggregationWithProject(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol g = p.symbol("g");
                     Symbol mask = p.symbol("mask");

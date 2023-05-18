@@ -39,7 +39,7 @@ public class TestImplementIntersectAll
     @Test
     public void test()
     {
-        tester().assertThat(new ImplementIntersectAll(tester().getMetadata()))
+        tester().assertRule(new ImplementIntersectAll(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol a1 = p.symbol("a_1");

@@ -30,7 +30,7 @@ public class TestPushLimitThroughMarkDistinct
     @Test
     public void test()
     {
-        tester().assertThat(new PushLimitThroughMarkDistinct())
+        tester().assertRule(new PushLimitThroughMarkDistinct())
                 .on(p ->
                         p.limit(
                                 1,
@@ -45,7 +45,7 @@ public class TestPushLimitThroughMarkDistinct
     @Test
     public void testPushLimitWithTies()
     {
-        tester().assertThat(new PushLimitThroughMarkDistinct())
+        tester().assertRule(new PushLimitThroughMarkDistinct())
                 .on(p ->
                         p.limit(
                                 1,
@@ -61,7 +61,7 @@ public class TestPushLimitThroughMarkDistinct
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new PushLimitThroughMarkDistinct())
+        tester().assertRule(new PushLimitThroughMarkDistinct())
                 .on(p ->
                         p.markDistinct(
                                 p.symbol("foo"),
@@ -71,7 +71,7 @@ public class TestPushLimitThroughMarkDistinct
                                         p.values())))
                 .doesNotFire();
 
-        tester().assertThat(new PushLimitThroughMarkDistinct())
+        tester().assertRule(new PushLimitThroughMarkDistinct())
                 .on(p -> p.limit(
                         1,
                         false,
@@ -84,7 +84,7 @@ public class TestPushLimitThroughMarkDistinct
     @Test
     public void testPushdownLimitWithPreSortedInputs()
     {
-        tester().assertThat(new PushLimitThroughMarkDistinct())
+        tester().assertRule(new PushLimitThroughMarkDistinct())
                 .on(p -> p.limit(
                         2,
                         false,

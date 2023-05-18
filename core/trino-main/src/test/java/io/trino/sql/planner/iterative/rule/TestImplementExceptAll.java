@@ -39,7 +39,7 @@ public class TestImplementExceptAll
     @Test
     public void test()
     {
-        tester().assertThat(new ImplementExceptAll(tester().getMetadata()))
+        tester().assertRule(new ImplementExceptAll(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol a1 = p.symbol("a_1");

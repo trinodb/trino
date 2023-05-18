@@ -46,7 +46,7 @@ public class TestPushdownLimitIntoWindow
     private void assertLimitAboveWindow(String rankingFunctionName)
     {
         ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -75,7 +75,7 @@ public class TestPushdownLimitIntoWindow
     public void testConvertToTopNRowNumber()
     {
         ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -103,7 +103,7 @@ public class TestPushdownLimitIntoWindow
         // We can push Limit with pre-sorted inputs into WindowNode if ordering scheme is satisfied
         // We don't do it currently to avoid relying on LocalProperties outside of AddExchanges/AddLocalExchanges
         ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -132,7 +132,7 @@ public class TestPushdownLimitIntoWindow
     private void assertZeroLimit(String rankingFunctionName)
     {
         ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -159,7 +159,7 @@ public class TestPushdownLimitIntoWindow
     private void assertWindowNotOrdered(String rankingFunctionName)
     {
         ResolvedFunction ranking = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of(rankingFunctionName), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -178,7 +178,7 @@ public class TestPushdownLimitIntoWindow
     {
         ResolvedFunction rowNumberFunction = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
         ResolvedFunction rankFunction = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("rank"), fromTypes());
-        tester().assertThat(new PushdownLimitIntoWindow())
+        tester().assertRule(new PushdownLimitIntoWindow())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");

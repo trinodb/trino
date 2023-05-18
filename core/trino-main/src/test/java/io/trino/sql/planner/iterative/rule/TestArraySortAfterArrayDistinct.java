@@ -44,7 +44,7 @@ public class TestArraySortAfterArrayDistinct
 
     private void test(String original, String rewritten)
     {
-        tester().assertThat(new ArraySortAfterArrayDistinct(tester().getPlannerContext()).projectExpressionRewrite())
+        tester().assertRule(new ArraySortAfterArrayDistinct(tester().getPlannerContext()).projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("output"), expression(original))

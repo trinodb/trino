@@ -38,7 +38,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testDoNotPrunePartitioningSymbol()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -61,7 +61,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testDoNotPruneOrderingSymbol()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");
@@ -83,7 +83,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testDoNotPruneHashSymbol()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol hash = p.symbol("hash");
@@ -106,7 +106,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testSourceSymbolNotReferenced()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -143,7 +143,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testAllSymbolsReferenced()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -166,7 +166,7 @@ public class TestPruneTopNRankingColumns
     @Test
     public void testRankingSymbolNotReferenced()
     {
-        tester().assertThat(new PruneTopNRankingColumns())
+        tester().assertRule(new PruneTopNRankingColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol ranking = p.symbol("ranking");

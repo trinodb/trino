@@ -60,7 +60,7 @@ public class TestUnwrapRowSubscript
 
     private void test(@Language("SQL") String original, @Language("SQL") String unwrapped)
     {
-        tester().assertThat(new UnwrapRowSubscript().projectExpressionRewrite())
+        tester().assertRule(new UnwrapRowSubscript().projectExpressionRewrite())
                 .on(p -> p.project(
                         Assignments.builder()
                                 .put(p.symbol("output"), expression(original))

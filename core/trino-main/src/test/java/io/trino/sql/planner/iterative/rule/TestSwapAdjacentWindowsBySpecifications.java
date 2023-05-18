@@ -49,7 +49,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     @Test
     public void doesNotFireOnPlanWithoutWindowFunctions()
     {
-        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
+        tester().assertRule(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -57,7 +57,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     @Test
     public void doesNotFireOnPlanWithSingleWindowNode()
     {
-        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
+        tester().assertRule(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p -> p.window(new DataOrganizationSpecification(
                                 ImmutableList.of(p.symbol("a")),
                                 Optional.empty()),
@@ -76,7 +76,7 @@ public class TestSwapAdjacentWindowsBySpecifications
         ExpectedValueProvider<DataOrganizationSpecification> specificationA = specification(ImmutableList.of(columnAAlias), ImmutableList.of(), ImmutableMap.of());
         ExpectedValueProvider<DataOrganizationSpecification> specificationAB = specification(ImmutableList.of(columnAAlias, columnBAlias), ImmutableList.of(), ImmutableMap.of());
 
-        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
+        tester().assertRule(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a")),
@@ -102,7 +102,7 @@ public class TestSwapAdjacentWindowsBySpecifications
     @Test
     public void dependentWindowsAreNotReordered()
     {
-        tester().assertThat(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
+        tester().assertRule(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                 .on(p ->
                         p.window(new DataOrganizationSpecification(
                                         ImmutableList.of(p.symbol("a")),

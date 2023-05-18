@@ -49,7 +49,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationThroughLeftJoin()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -91,7 +91,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationThroughRightJoin()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 RIGHT,
@@ -133,7 +133,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushesAggregationWithMask()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -184,7 +184,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testPushCountAllAggregation()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -227,7 +227,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenMultipleGroupingSets()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -252,7 +252,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenNotDistinct()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
@@ -269,7 +269,7 @@ public class TestPushAggregationThroughOuterJoin
                 .doesNotFire();
 
         // https://github.com/prestodb/presto/issues/10592
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(
                                 p.join(
@@ -298,7 +298,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenGroupingOnInner()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(LEFT,
                                 p.values(ImmutableList.of(p.symbol("COL1")), ImmutableList.of(expressions("10"))),
@@ -317,7 +317,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenAggregationDoesNotHaveSymbols()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
@@ -337,7 +337,7 @@ public class TestPushAggregationThroughOuterJoin
     @Test
     public void testDoesNotFireWhenAggregationOnMultipleSymbolsDoesNotHaveSomeSymbols()
     {
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,
@@ -353,7 +353,7 @@ public class TestPushAggregationThroughOuterJoin
                         .singleGroupingSet(new Symbol("COL1"))))
                 .doesNotFire();
 
-        tester().assertThat(new PushAggregationThroughOuterJoin())
+        tester().assertRule(new PushAggregationThroughOuterJoin())
                 .on(p -> p.aggregation(ab -> ab
                         .source(p.join(
                                 LEFT,

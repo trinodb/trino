@@ -28,7 +28,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
+        tester().assertRule(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
                         Assignments.of(p.symbol("z"), expression("x IN (y)")),
                         ImmutableList.of(),
@@ -40,7 +40,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     @Test
     public void testEmptyAssignments()
     {
-        tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
+        tester().assertRule(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
                         Assignments.of(),
                         ImmutableList.of(),

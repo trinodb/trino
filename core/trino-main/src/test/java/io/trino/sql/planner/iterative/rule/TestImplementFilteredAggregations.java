@@ -41,7 +41,7 @@ public class TestImplementFilteredAggregations
     @Test
     public void testFilterToMask()
     {
-        tester().assertThat(new ImplementFilteredAggregations(tester().getMetadata()))
+        tester().assertRule(new ImplementFilteredAggregations(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol g = p.symbol("g");
@@ -72,7 +72,7 @@ public class TestImplementFilteredAggregations
     @Test
     public void testCombineMaskAndFilter()
     {
-        tester().assertThat(new ImplementFilteredAggregations(tester().getMetadata()))
+        tester().assertRule(new ImplementFilteredAggregations(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol g = p.symbol("g");
@@ -105,7 +105,7 @@ public class TestImplementFilteredAggregations
     @Test
     public void testWithFilterPushdown()
     {
-        tester().assertThat(new ImplementFilteredAggregations(tester().getMetadata()))
+        tester().assertRule(new ImplementFilteredAggregations(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol g = p.symbol("g");
@@ -136,7 +136,7 @@ public class TestImplementFilteredAggregations
     @Test
     public void testWithMultipleAggregations()
     {
-        tester().assertThat(new ImplementFilteredAggregations(tester().getMetadata()))
+        tester().assertRule(new ImplementFilteredAggregations(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol g = p.symbol("g");

@@ -49,7 +49,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushdownTopNNonIdentityProjection()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -71,7 +71,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushdownTopNNonIdentityProjectionWithExpression()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -95,7 +95,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughIdentityProjection()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.topN(1,
@@ -109,7 +109,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughProjectionOverFilterOverTableScan()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     return p.topN(
@@ -126,7 +126,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoNotPushdownTopNThroughProjectionOverTableScan()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -144,7 +144,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testDoesntPushDownTopNThroughExclusiveDereferences()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.topN(
@@ -162,7 +162,7 @@ public class TestPushTopNThroughProject
     @Test
     public void testPushTopNThroughOverlappingDereferences()
     {
-        tester().assertThat(new PushTopNThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushTopNThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     Symbol d = p.symbol("d");

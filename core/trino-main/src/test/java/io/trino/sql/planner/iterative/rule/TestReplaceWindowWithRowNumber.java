@@ -39,7 +39,7 @@ public class TestReplaceWindowWithRowNumber
     public void test()
     {
         ResolvedFunction rowNumberFunction = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
-        tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
+        tester().assertRule(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -54,7 +54,7 @@ public class TestReplaceWindowWithRowNumber
                                 .partitionBy(ImmutableList.of("a")),
                         values("a")));
 
-        tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
+        tester().assertRule(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -74,7 +74,7 @@ public class TestReplaceWindowWithRowNumber
     public void testDoNotFire()
     {
         ResolvedFunction rank = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("rank"), fromTypes());
-        tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
+        tester().assertRule(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rank1 = p.symbol("rank_1");
@@ -86,7 +86,7 @@ public class TestReplaceWindowWithRowNumber
                 .doesNotFire();
 
         ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("row_number"), fromTypes());
-        tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
+        tester().assertRule(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber1 = p.symbol("row_number_1");
@@ -98,7 +98,7 @@ public class TestReplaceWindowWithRowNumber
                 })
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceWindowWithRowNumber(tester().getMetadata()))
+        tester().assertRule(new ReplaceWindowWithRowNumber(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     OrderingScheme orderingScheme = new OrderingScheme(ImmutableList.of(a), ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));

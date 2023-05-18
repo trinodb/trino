@@ -32,7 +32,7 @@ public class TestPushdownFilterIntoRowNumber
     @Test
     public void testSourceRowNumber()
     {
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -50,7 +50,7 @@ public class TestPushdownFilterIntoRowNumber
                                         .partitionBy(ImmutableList.of("a")),
                                 values("a")));
 
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -68,7 +68,7 @@ public class TestPushdownFilterIntoRowNumber
                                         .partitionBy(ImmutableList.of("a")),
                                 values("a")));
 
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -89,7 +89,7 @@ public class TestPushdownFilterIntoRowNumber
                                         values("a"))
                                         .withAlias("row_number_1", new RowNumberSymbolMatcher())));
 
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -114,7 +114,7 @@ public class TestPushdownFilterIntoRowNumber
     @Test
     public void testNoOutputsThroughRowNumber()
     {
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(expression("row_number_1 < cast(-100 as bigint)"),
@@ -127,7 +127,7 @@ public class TestPushdownFilterIntoRowNumber
     @Test
     public void testDoNotFire()
     {
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(expression("not_row_number < cast(100 as bigint)"),
@@ -136,7 +136,7 @@ public class TestPushdownFilterIntoRowNumber
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
                     return p.filter(expression("row_number_1 > cast(100 as bigint)"),
@@ -145,7 +145,7 @@ public class TestPushdownFilterIntoRowNumber
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
+        tester().assertRule(new PushdownFilterIntoRowNumber(tester().getPlannerContext()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumberSymbol = p.symbol("row_number_1");

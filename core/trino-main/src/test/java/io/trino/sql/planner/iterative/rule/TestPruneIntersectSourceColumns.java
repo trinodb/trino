@@ -31,7 +31,7 @@ public class TestPruneIntersectSourceColumns
     @Test
     public void testPruneOneChild()
     {
-        tester().assertThat(new PruneIntersectSourceColumns())
+        tester().assertRule(new PruneIntersectSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -56,7 +56,7 @@ public class TestPruneIntersectSourceColumns
     @Test
     public void testPruneAllChildren()
     {
-        tester().assertThat(new PruneIntersectSourceColumns())
+        tester().assertRule(new PruneIntersectSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -87,7 +87,7 @@ public class TestPruneIntersectSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneIntersectSourceColumns())
+        tester().assertRule(new PruneIntersectSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");

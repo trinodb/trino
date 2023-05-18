@@ -40,7 +40,7 @@ public class TestPruneTableFunctionProcessorSourceColumns
     {
         // symbols 'a', 'b', 'c', 'd', 'hash', and 'marker' are used by the node.
         // symbol 'unreferenced' is pruned out. Also, the mapping for this symbol is removed from marker mappings
-        tester().assertThat(new PruneTableFunctionProcessorSourceColumns())
+        tester().assertRule(new PruneTableFunctionProcessorSourceColumns())
                 .on(p -> {
                     Symbol proper = p.symbol("proper");
                     Symbol a = p.symbol("a");
@@ -97,7 +97,7 @@ public class TestPruneTableFunctionProcessorSourceColumns
         // because the marker symbol 'marker' is no longer used, it is pruned out too.
         // note: currently a marker symbol cannot become unused because the function
         // must use at least one symbol from each source. it might change in the future.
-        tester().assertThat(new PruneTableFunctionProcessorSourceColumns())
+        tester().assertRule(new PruneTableFunctionProcessorSourceColumns())
                 .on(p -> {
                     Symbol unreferenced = p.symbol("unreferenced");
                     Symbol marker = p.symbol("marker");
@@ -120,7 +120,7 @@ public class TestPruneTableFunctionProcessorSourceColumns
     {
         // multiple pass-through specifications indicate that the table function has multiple table arguments
         // the third argument provides symbols 'e', 'f', and 'unreferenced'. those symbols are mapped to common marker symbol 'marker3'
-        tester().assertThat(new PruneTableFunctionProcessorSourceColumns())
+        tester().assertRule(new PruneTableFunctionProcessorSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -181,7 +181,7 @@ public class TestPruneTableFunctionProcessorSourceColumns
     @Test
     public void allSymbolsReferenced()
     {
-        tester().assertThat(new PruneTableFunctionProcessorSourceColumns())
+        tester().assertRule(new PruneTableFunctionProcessorSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol marker = p.symbol("marker");

@@ -48,7 +48,7 @@ public class TestMergeProjectWithValues
     @Test
     public void testDoesNotFireOnNonRowType()
     {
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -64,7 +64,7 @@ public class TestMergeProjectWithValues
     public void testProjectWithoutOutputSymbols()
     {
         // ValuesNode has two output symbols and two rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -76,7 +76,7 @@ public class TestMergeProjectWithValues
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -86,7 +86,7 @@ public class TestMergeProjectWithValues
                 .matches(values(2));
 
         // ValuesNode has two output symbols and no rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -96,7 +96,7 @@ public class TestMergeProjectWithValues
                 .matches(values());
 
         // ValuesNode has no output symbols and no rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -110,7 +110,7 @@ public class TestMergeProjectWithValues
     public void testValuesWithoutOutputSymbols()
     {
         // ValuesNode has two rows. Projected expressions are reproduced for every row of ValuesNode.
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("a"), new CharLiteral("x"), p.symbol("b"), new BooleanLiteral("true")),
@@ -124,7 +124,7 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(new CharLiteral("x"), new BooleanLiteral("true")))));
 
         // ValuesNode has no rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("a"), new CharLiteral("x"), p.symbol("b"), new BooleanLiteral("true")),
@@ -141,7 +141,7 @@ public class TestMergeProjectWithValues
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("rand"), expression("rand")),
                         p.valuesOfExpressions(
@@ -153,7 +153,7 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(ImmutableList.of(randomFunction))));
 
         // ValuesNode has multiple rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("output"), expression("value")),
                         p.valuesOfExpressions(
@@ -171,7 +171,7 @@ public class TestMergeProjectWithValues
                                         ImmutableList.of(new ArithmeticUnaryExpression(MINUS, randomFunction)))));
 
         // ValuesNode has multiple non-deterministic outputs
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(
                                 p.symbol("x"), expression("-a"),
@@ -198,7 +198,7 @@ public class TestMergeProjectWithValues
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(
                                 p.symbol("x"), expression("rand"),
@@ -208,7 +208,7 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
                 .doesNotFire();
 
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("x"), expression("rand + rand")),
                         p.valuesOfExpressions(
@@ -221,7 +221,7 @@ public class TestMergeProjectWithValues
     public void testCorrelation()
     {
         // correlation symbol in projection (note: the resulting plan is not yet supported in execution)
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("x"), expression("a + corr")),
                         p.valuesOfExpressions(
@@ -230,7 +230,7 @@ public class TestMergeProjectWithValues
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new ArithmeticBinaryExpression(ADD, new LongLiteral("1"), new SymbolReference("corr"))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("x"), expression("a")),
                         p.valuesOfExpressions(
@@ -239,7 +239,7 @@ public class TestMergeProjectWithValues
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new SymbolReference("corr")))));
 
         // correlation symbol is not present in the resulting expression
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("x"), expression("1")),
                         p.valuesOfExpressions(
@@ -253,7 +253,7 @@ public class TestMergeProjectWithValues
     {
         FunctionCall failFunction = failFunction(tester().getMetadata(), tester().getSession(), GENERIC_USER_ERROR, "message");
 
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> p.project(
                         Assignments.of(p.symbol("x"), failFunction),
                         p.valuesOfExpressions(
@@ -265,7 +265,7 @@ public class TestMergeProjectWithValues
     @Test
     public void testMergeProjectWithValues()
     {
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -295,7 +295,7 @@ public class TestMergeProjectWithValues
                                 ImmutableList.of(new CharLiteral("z"), new BooleanLiteral("true"), new IsNullPredicate(new CharLiteral("z")), new LongLiteral("1")))));
 
         // ValuesNode has no rows
-        tester().assertThat(new MergeProjectWithValues(tester().getMetadata()))
+        tester().assertRule(new MergeProjectWithValues(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

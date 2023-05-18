@@ -30,7 +30,7 @@ public class TestRemoveFullSample
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveFullSample())
+        tester().assertRule(new RemoveFullSample())
                 .on(p ->
                         p.sample(
                                 0.15,
@@ -42,7 +42,7 @@ public class TestRemoveFullSample
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveFullSample())
+        tester().assertRule(new RemoveFullSample())
                 .on(p ->
                         p.sample(
                                 1.0,

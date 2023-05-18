@@ -43,7 +43,7 @@ public class TestRuleTester
     public void testReportWrongMatch()
     {
         try (RuleTester tester = defaultRuleTester()) {
-            RuleAssert ruleAssert = tester.assertThat(
+            RuleAssert ruleAssert = tester.assertRule(
                     rule(
                             "testReportWrongMatch rule",
                             Pattern.typeOf(PlanNode.class),
@@ -66,7 +66,7 @@ public class TestRuleTester
     public void testReportNoFire()
     {
         try (RuleTester tester = defaultRuleTester()) {
-            RuleAssert ruleAssert = tester.assertThat(
+            RuleAssert ruleAssert = tester.assertRule(
                     rule(
                             "testReportNoFire rule",
                             Pattern.typeOf(PlanNode.class),
@@ -87,7 +87,7 @@ public class TestRuleTester
     public void testReportNoFireWithTableScan()
     {
         try (RuleTester tester = defaultRuleTester()) {
-            RuleAssert ruleAssert = tester.assertThat(
+            RuleAssert ruleAssert = tester.assertRule(
                     rule(
                             "testReportNoFireWithTableScan rule",
                             Pattern.typeOf(PlanNode.class),

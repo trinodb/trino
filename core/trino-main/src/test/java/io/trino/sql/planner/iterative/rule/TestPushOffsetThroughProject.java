@@ -31,7 +31,7 @@ public class TestPushOffsetThroughProject
     @Test
     public void testPushdownOffsetNonIdentityProjection()
     {
-        tester().assertThat(new PushOffsetThroughProject())
+        tester().assertRule(new PushOffsetThroughProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.offset(
@@ -49,7 +49,7 @@ public class TestPushOffsetThroughProject
     @Test
     public void testDoNotPushdownOffsetThroughIdentityProjection()
     {
-        tester().assertThat(new PushOffsetThroughProject())
+        tester().assertRule(new PushOffsetThroughProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.offset(

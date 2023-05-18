@@ -132,7 +132,7 @@ public class TestThriftProjectionPushdown
                 TupleDomain.all(),
                 Optional.of(ImmutableSet.of(columnHandle)));
 
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     Symbol orderStatusSymbol = p.symbol(columnName, VARCHAR);
                     return p.project(
@@ -168,7 +168,7 @@ public class TestThriftProjectionPushdown
                 TupleDomain.all(),
                 Optional.of(ImmutableSet.of(columnHandle)));
 
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     Symbol orderStatusSymbol = p.symbol(columnName, VARCHAR);
                     return p.project(
@@ -197,7 +197,7 @@ public class TestThriftProjectionPushdown
         ThriftColumnHandle nationKeyColumn = new ThriftColumnHandle("nationKey", VARCHAR, "", false);
         ThriftColumnHandle nameColumn = new ThriftColumnHandle("name", VARCHAR, "", false);
 
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> {
                     Symbol nationKey = p.symbol(nationKeyColumn.getColumnName(), VARCHAR);
                     Symbol name = p.symbol(nameColumn.getColumnName(), VARCHAR);

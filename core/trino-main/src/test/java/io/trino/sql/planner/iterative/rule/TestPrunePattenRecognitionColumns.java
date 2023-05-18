@@ -61,7 +61,7 @@ public class TestPrunePattenRecognitionColumns
         ResolvedFunction rank = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("rank"), ImmutableList.of());
 
         // MATCH_RECOGNIZE with options: AFTER MATCH SKIP PAST LAST ROW, ALL ROWS WITH UNMATCHED ROW
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
@@ -76,7 +76,7 @@ public class TestPrunePattenRecognitionColumns
                                 values("a", "b")));
 
         // pattern recognition in window
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
@@ -92,7 +92,7 @@ public class TestPrunePattenRecognitionColumns
                                 values("a", "b")));
 
         // unreferenced window functions and measures
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.patternRecognition(builder -> builder
@@ -116,7 +116,7 @@ public class TestPrunePattenRecognitionColumns
         ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
 
         // remove window function "lag" and input symbol "b" used only by that function
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
@@ -149,7 +149,7 @@ public class TestPrunePattenRecognitionColumns
         ResolvedFunction lag = createTestMetadataManager().resolveFunction(tester().getSession(), QualifiedName.of("lag"), fromTypes(BIGINT));
 
         // remove row pattern measure "measure" and input symbol "a" used only by that measure
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("lag")),
                         p.patternRecognition(builder -> builder
@@ -180,7 +180,7 @@ public class TestPrunePattenRecognitionColumns
     public void testDoNotPruneVariableDefinitionSources()
     {
         // input symbol "a" is used only by the variable definition
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
@@ -200,7 +200,7 @@ public class TestPrunePattenRecognitionColumns
 
         // inputs "a", "b" are used as aggregation arguments
         QualifiedName maxBy = tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("max_by"), fromTypes(BIGINT, BIGINT)).toQualifiedName();
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
@@ -227,7 +227,7 @@ public class TestPrunePattenRecognitionColumns
     public void testDoNotPruneReferencedInputs()
     {
         // input symbol "a" is not used by the pattern recognition node, but passed to output
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("a")),
                         p.patternRecognition(builder -> builder
@@ -251,7 +251,7 @@ public class TestPrunePattenRecognitionColumns
     public void testDoNotPrunePartitionBySymbols()
     {
         // input symbol "a" is used only by PARTITION BY
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
@@ -275,7 +275,7 @@ public class TestPrunePattenRecognitionColumns
     public void testDoNotPruneOrderBySymbols()
     {
         // input symbol "a" is used only by ORDER BY
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
@@ -301,7 +301,7 @@ public class TestPrunePattenRecognitionColumns
     public void testDoNotPruneCommonBaseFrameSymbols()
     {
         // input symbol "a" is used only by frame end value
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("measure")),
                         p.patternRecognition(builder -> builder
@@ -330,7 +330,7 @@ public class TestPrunePattenRecognitionColumns
     {
         // cannot prune input symbol "a", because it is used by the variable definition.
         // no symbols or pattern recognition inner structures are eligible for pruning
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.of(),
                         p.patternRecognition(builder -> builder
@@ -346,7 +346,7 @@ public class TestPrunePattenRecognitionColumns
     {
         // remove unreferenced measure "measure"
         // source inputs cannot be pruned because they are referenced on output
-        tester().assertThat(new PrunePattenRecognitionColumns())
+        tester().assertRule(new PrunePattenRecognitionColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("a"), p.symbol("b")),
                         p.patternRecognition(builder -> builder

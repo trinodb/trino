@@ -32,7 +32,7 @@ public class TestPruneTableExecuteSourceColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneTableExecuteSourceColumns())
+        tester().assertRule(new PruneTableExecuteSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -53,7 +53,7 @@ public class TestPruneTableExecuteSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneTableExecuteSourceColumns())
+        tester().assertRule(new PruneTableExecuteSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -68,7 +68,7 @@ public class TestPruneTableExecuteSourceColumns
     @Test
     public void testDoNotPrunePartitioningSchemeSymbols()
     {
-        tester().assertThat(new PruneTableExecuteSourceColumns())
+        tester().assertRule(new PruneTableExecuteSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol partition = p.symbol("partition");

@@ -34,7 +34,7 @@ public class TestPruneApplySourceColumns
     @Test
     public void testNotAllSubquerySymbolsReferenced()
     {
-        tester().assertThat(new PruneApplySourceColumns())
+        tester().assertRule(new PruneApplySourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol subquerySymbol1 = p.symbol("subquery_symbol_1");
@@ -59,7 +59,7 @@ public class TestPruneApplySourceColumns
     @Test
     public void testAllSubquerySymbolsReferenced()
     {
-        tester().assertThat(new PruneApplySourceColumns())
+        tester().assertRule(new PruneApplySourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol subquerySymbol1 = p.symbol("subquery_symbol_1");
@@ -80,7 +80,7 @@ public class TestPruneApplySourceColumns
     @Test
     public void testNoSubquerySymbolsReferenced()
     {
-        tester().assertThat(new PruneApplySourceColumns())
+        tester().assertRule(new PruneApplySourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol subquerySymbol = p.symbol("subquery_symbol");

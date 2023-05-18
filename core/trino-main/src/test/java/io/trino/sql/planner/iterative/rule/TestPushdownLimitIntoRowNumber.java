@@ -30,7 +30,7 @@ public class TestPushdownLimitIntoRowNumber
     @Test
     public void testLimitAboveRowNumber()
     {
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p ->
                         p.limit(
                                 3,
@@ -45,7 +45,7 @@ public class TestPushdownLimitIntoRowNumber
                                         .maxRowCountPerPartition(Optional.of(3)),
                                 values("a")));
 
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -63,7 +63,7 @@ public class TestPushdownLimitIntoRowNumber
                                                 .maxRowCountPerPartition(Optional.of(3)),
                                         values("a"))));
 
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -81,7 +81,7 @@ public class TestPushdownLimitIntoRowNumber
                                                 .maxRowCountPerPartition(Optional.of(3)),
                                         values("a"))));
 
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -101,7 +101,7 @@ public class TestPushdownLimitIntoRowNumber
     @Test
     public void testZeroLimit()
     {
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p ->
                         p.limit(
                                 0,
@@ -113,7 +113,7 @@ public class TestPushdownLimitIntoRowNumber
     @Test
     public void testTiesLimit()
     {
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p ->
                         p.limit(
                                 0,
@@ -129,7 +129,7 @@ public class TestPushdownLimitIntoRowNumber
     @Test
     public void testIdenticalLimit()
     {
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p ->
                         p.limit(
                                 5,
@@ -145,7 +145,7 @@ public class TestPushdownLimitIntoRowNumber
     @Test
     public void testLimitWithPreSortedInputs()
     {
-        tester().assertThat(new PushdownLimitIntoRowNumber())
+        tester().assertRule(new PushdownLimitIntoRowNumber())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(

@@ -29,7 +29,7 @@ public class TestRemoveRedundantWindow
     @Test
     public void testPruneWhenSourceEmpty()
     {
-        tester().assertThat(new RemoveRedundantWindow())
+        tester().assertRule(new RemoveRedundantWindow())
                 .on(p -> p.window(
                         new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                         ImmutableMap.of(),
@@ -41,7 +41,7 @@ public class TestRemoveRedundantWindow
     @Test
     public void testDoNotPruneWhenSourceNotEmpty()
     {
-        tester().assertThat(new RemoveRedundantWindow())
+        tester().assertRule(new RemoveRedundantWindow())
                 .on(p -> p.window(
                         new DataOrganizationSpecification(ImmutableList.of(), Optional.empty()),
                         ImmutableMap.of(),

@@ -60,7 +60,7 @@ public class TestPruneTableScanColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTableScanColumns(tester().getMetadata()))
+        tester().assertRule(new PruneTableScanColumns(tester().getMetadata()))
                 .on(p -> {
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
@@ -82,7 +82,7 @@ public class TestPruneTableScanColumns
     @Test
     public void testPruneEnforcedConstraint()
     {
-        tester().assertThat(new PruneTableScanColumns(tester().getMetadata()))
+        tester().assertRule(new PruneTableScanColumns(tester().getMetadata()))
                 .on(p -> {
                     Symbol orderdate = p.symbol("orderdate", DATE);
                     Symbol totalprice = p.symbol("totalprice", DOUBLE);
@@ -113,7 +113,7 @@ public class TestPruneTableScanColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneTableScanColumns(tester().getMetadata()))
+        tester().assertRule(new PruneTableScanColumns(tester().getMetadata()))
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("y"), expression("x")),
@@ -145,7 +145,7 @@ public class TestPruneTableScanColumns
                 .withApplyProjection(this::mockApplyProjection)
                 .build();
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            ruleTester.assertThat(new PruneTableScanColumns(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PruneTableScanColumns(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol symbolA = p.symbol("cola", DATE);
                         Symbol symbolB = p.symbol("colb", DOUBLE);

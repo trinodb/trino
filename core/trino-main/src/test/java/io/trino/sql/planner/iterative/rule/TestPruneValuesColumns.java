@@ -30,7 +30,7 @@ public class TestPruneValuesColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneValuesColumns())
+        tester().assertRule(new PruneValuesColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("y"), expression("x")),
@@ -52,7 +52,7 @@ public class TestPruneValuesColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneValuesColumns())
+        tester().assertRule(new PruneValuesColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("y"), expression("x")),
@@ -63,7 +63,7 @@ public class TestPruneValuesColumns
     @Test
     public void testPruneAllOutputs()
     {
-        tester().assertThat(new PruneValuesColumns())
+        tester().assertRule(new PruneValuesColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -77,7 +77,7 @@ public class TestPruneValuesColumns
     @Test
     public void testPruneAllOutputsWhenValuesExpressionIsNotRow()
     {
-        tester().assertThat(new PruneValuesColumns())
+        tester().assertRule(new PruneValuesColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(),
@@ -93,7 +93,7 @@ public class TestPruneValuesColumns
     @Test
     public void testDoNotPruneWhenValuesExpressionIsNotRow()
     {
-        tester().assertThat(new PruneValuesColumns())
+        tester().assertRule(new PruneValuesColumns())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), expression("x")),

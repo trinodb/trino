@@ -27,7 +27,7 @@ public class TestRemoveRedundantDistinctLimit
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveRedundantDistinctLimit())
+        tester().assertRule(new RemoveRedundantDistinctLimit())
                 .on(p ->
                         p.distinctLimit(
                                 10,
@@ -35,7 +35,7 @@ public class TestRemoveRedundantDistinctLimit
                                 p.values(1, p.symbol("c"))))
                 .matches(node(ValuesNode.class));
 
-        tester().assertThat(new RemoveRedundantDistinctLimit())
+        tester().assertRule(new RemoveRedundantDistinctLimit())
                 .on(p ->
                         p.distinctLimit(
                                 10,
@@ -45,7 +45,7 @@ public class TestRemoveRedundantDistinctLimit
                         node(AggregationNode.class,
                                 node(ValuesNode.class)));
 
-        tester().assertThat(new RemoveRedundantDistinctLimit())
+        tester().assertRule(new RemoveRedundantDistinctLimit())
                 .on(p ->
                         p.distinctLimit(
                                 0,
@@ -57,7 +57,7 @@ public class TestRemoveRedundantDistinctLimit
     @Test
     public void doesNotFire()
     {
-        tester().assertThat(new RemoveRedundantDistinctLimit())
+        tester().assertRule(new RemoveRedundantDistinctLimit())
                 .on(p ->
                         p.distinctLimit(
                                 10,

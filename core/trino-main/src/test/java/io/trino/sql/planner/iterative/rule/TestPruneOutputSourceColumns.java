@@ -30,7 +30,7 @@ public class TestPruneOutputSourceColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputSourceColumns())
+        tester().assertRule(new PruneOutputSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -50,7 +50,7 @@ public class TestPruneOutputSourceColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOutputSourceColumns())
+        tester().assertRule(new PruneOutputSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

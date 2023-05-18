@@ -32,7 +32,7 @@ public class TestMergeExcept
     @Test
     public void testFlattening()
     {
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -69,7 +69,7 @@ public class TestMergeExcept
     @Test
     public void testNotFlattening()
     {
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -97,19 +97,19 @@ public class TestMergeExcept
     @Test
     public void testQuantifiers()
     {
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> buildNestedExcept(p, true, true))
                 .matches(except(true, values("v_1"), values("v_2"), values("b")));
 
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> buildNestedExcept(p, true, false))
                 .matches(except(true, values("v_1"), values("v_2"), values("b")));
 
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> buildNestedExcept(p, false, true))
                 .doesNotFire();
 
-        tester().assertThat(new MergeExcept())
+        tester().assertRule(new MergeExcept())
                 .on(p -> buildNestedExcept(p, false, false))
                 .matches(except(false, values("v_1"), values("v_2"), values("b")));
     }

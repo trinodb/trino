@@ -34,7 +34,7 @@ public class TestRemoveRedundantLimit
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p ->
                         p.limit(
                                 10,
@@ -50,7 +50,7 @@ public class TestRemoveRedundantLimit
     @Test
     public void testRemoveLimitWithTies()
     {
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p -> {
                     Symbol c = p.symbol("c");
                     return p.limit(
@@ -64,7 +64,7 @@ public class TestRemoveRedundantLimit
     @Test
     public void testForZeroLimit()
     {
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p ->
                         p.limit(
                                 0,
@@ -82,7 +82,7 @@ public class TestRemoveRedundantLimit
     @Test
     public void testLimitWithPreSortedInputs()
     {
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p -> p.limit(
                         10,
                         ImmutableList.of(),
@@ -96,7 +96,7 @@ public class TestRemoveRedundantLimit
                         node(AggregationNode.class,
                                 node(ValuesNode.class)));
 
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p -> p.limit(
                         10,
                         ImmutableList.of(),
@@ -117,7 +117,7 @@ public class TestRemoveRedundantLimit
     @Test
     public void doesNotFire()
     {
-        tester().assertThat(new RemoveRedundantLimit())
+        tester().assertRule(new RemoveRedundantLimit())
                 .on(p ->
                         p.limit(
                                 10,

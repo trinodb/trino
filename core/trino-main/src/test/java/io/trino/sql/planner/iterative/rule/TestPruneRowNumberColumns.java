@@ -36,7 +36,7 @@ public class TestPruneRowNumberColumns
     public void testRowNumberSymbolNotReferenced()
     {
         // no partitioning, no limit per partition
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -50,7 +50,7 @@ public class TestPruneRowNumberColumns
                                 values(ImmutableList.of("a"))));
 
         // partitioning is present, no limit per partition
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -64,7 +64,7 @@ public class TestPruneRowNumberColumns
                                 values(ImmutableList.of("a"))));
 
         // no partitioning, limit per partition is present
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -80,7 +80,7 @@ public class TestPruneRowNumberColumns
                                         values(ImmutableList.of("a")))));
 
         // partitioning and limit per partition are present
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -104,7 +104,7 @@ public class TestPruneRowNumberColumns
     @Test
     public void testDoNotPrunePartitioningSymbol()
     {
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -118,7 +118,7 @@ public class TestPruneRowNumberColumns
     @Test
     public void testDoNotPruneHashSymbol()
     {
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -133,7 +133,7 @@ public class TestPruneRowNumberColumns
     @Test
     public void testSourceSymbolNotReferenced()
     {
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -156,7 +156,7 @@ public class TestPruneRowNumberColumns
     @Test
     public void testAllSymbolsReferenced()
     {
-        tester().assertThat(new PruneRowNumberColumns())
+        tester().assertRule(new PruneRowNumberColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");

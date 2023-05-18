@@ -32,7 +32,7 @@ public class TestPruneUnnestSourceColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneUnnestSourceColumns())
+        tester().assertRule(new PruneUnnestSourceColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -55,7 +55,7 @@ public class TestPruneUnnestSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneUnnestSourceColumns())
+        tester().assertRule(new PruneUnnestSourceColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");

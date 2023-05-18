@@ -34,7 +34,7 @@ public class TestPruneApplyCorrelation
     @Test
     public void testPruneCorrelationSymbolNotReferencedInSubquery()
     {
-        tester().assertThat(new PruneApplyCorrelation())
+        tester().assertRule(new PruneApplyCorrelation())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol inputSymbol = p.symbol("input_symbol");
@@ -57,7 +57,7 @@ public class TestPruneApplyCorrelation
     @Test
     public void testAllCorrelationSymbolsReferencedInSubquery()
     {
-        tester().assertThat(new PruneApplyCorrelation())
+        tester().assertRule(new PruneApplyCorrelation())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol inputSymbol = p.symbol("input_symbol");

@@ -35,7 +35,7 @@ public class TestPushSampleIntoTableScan
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new PushSampleIntoTableScan(new TestMetadata(false)))
+        tester().assertRule(new PushSampleIntoTableScan(new TestMetadata(false)))
                 .on(p ->
                         p.sample(
                                 0.15,
@@ -47,7 +47,7 @@ public class TestPushSampleIntoTableScan
     @Test
     public void test()
     {
-        tester().assertThat(new PushSampleIntoTableScan(new TestMetadata(true)))
+        tester().assertRule(new PushSampleIntoTableScan(new TestMetadata(true)))
                 .on(p ->
                         p.sample(
                                 0.15,

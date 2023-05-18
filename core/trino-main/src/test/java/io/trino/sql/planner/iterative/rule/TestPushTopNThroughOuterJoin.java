@@ -37,7 +37,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testPushTopNThroughLeftJoin()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -61,7 +61,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testPushTopNThroughRightJoin()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -85,7 +85,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testFullJoin()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -101,7 +101,7 @@ public class TestPushTopNThroughOuterJoin
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -121,7 +121,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testDoNotPushTopNWhenSymbolsFromBothSources()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -141,7 +141,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testDoNotPushWhenAlreadyLimited()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -161,7 +161,7 @@ public class TestPushTopNThroughOuterJoin
     @Test
     public void testDoNotPushWhenStepNotPartial()
     {
-        tester().assertThat(new PushTopNThroughOuterJoin())
+        tester().assertRule(new PushTopNThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");

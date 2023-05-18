@@ -74,7 +74,7 @@ public class RuleTester
         this.typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
     }
 
-    public RuleAssert assertThat(Rule<?> rule)
+    public RuleAssert assertRule(Rule<?> rule)
     {
         return new RuleAssert(metadata, functionManager, queryRunner.getStatsCalculator(), queryRunner.getEstimatedExchangesCostCalculator(), session, rule, transactionManager, accessControl);
     }

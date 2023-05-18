@@ -27,7 +27,7 @@ public class TestEvaluateEmptyIntersect
     @Test
     public void testDoesNotApply()
     {
-        tester().assertThat(new EvaluateEmptyIntersect())
+        tester().assertRule(new EvaluateEmptyIntersect())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -48,7 +48,7 @@ public class TestEvaluateEmptyIntersect
     @Test
     public void testRemoveIntersectWhenSetEmpty()
     {
-        tester().assertThat(new EvaluateEmptyIntersect())
+        tester().assertRule(new EvaluateEmptyIntersect())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");

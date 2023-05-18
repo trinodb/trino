@@ -33,7 +33,7 @@ public class TestRemoveAggregationInSemiJoin
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveAggregationInSemiJoin())
+        tester().assertRule(new RemoveAggregationInSemiJoin())
                 .on(TestRemoveAggregationInSemiJoin::semiJoinWithDistinctAsFilteringSource)
                 .matches(
                         semiJoin("leftKey", "rightKey", "match",
@@ -44,7 +44,7 @@ public class TestRemoveAggregationInSemiJoin
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveAggregationInSemiJoin())
+        tester().assertRule(new RemoveAggregationInSemiJoin())
                 .on(TestRemoveAggregationInSemiJoin::semiJoinWithAggregationAsFilteringSource)
                 .doesNotFire();
     }

@@ -31,7 +31,7 @@ public class TestPruneDistinctAggregation
     @Test
     public void testPruning()
     {
-        tester().assertThat(new PruneDistinctAggregation())
+        tester().assertRule(new PruneDistinctAggregation())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     AggregationNode child = p.aggregation(aggregationBuilder ->
@@ -48,7 +48,7 @@ public class TestPruneDistinctAggregation
     @Test
     public void testNonPruning()
     {
-        tester().assertThat(new PruneDistinctAggregation())
+        tester().assertRule(new PruneDistinctAggregation())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     AggregationNode child = p.aggregation(aggregationBuilder ->

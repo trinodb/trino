@@ -30,7 +30,7 @@ public class TestPruneEnforceSingleRowColumns
     @Test
     public void testPruneInputColumn()
     {
-        tester().assertThat(new PruneEnforceSingleRowColumns())
+        tester().assertRule(new PruneEnforceSingleRowColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -50,7 +50,7 @@ public class TestPruneEnforceSingleRowColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneEnforceSingleRowColumns())
+        tester().assertRule(new PruneEnforceSingleRowColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.project(

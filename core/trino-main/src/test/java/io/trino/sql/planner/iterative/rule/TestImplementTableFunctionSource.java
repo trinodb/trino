@@ -51,7 +51,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testNoSources()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> p.tableFunction(
                         "test_function",
                         ImmutableList.of(p.symbol("a")),
@@ -67,7 +67,7 @@ public class TestImplementTableFunctionSource
     public void testSingleSourceWithRowSemantics()
     {
         // no pass-through columns
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -93,7 +93,7 @@ public class TestImplementTableFunctionSource
                         values("c")));
 
         // pass-through columns
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -123,7 +123,7 @@ public class TestImplementTableFunctionSource
     public void testSingleSourceWithSetSemantics()
     {
         // no pass-through columns, no partition by
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -151,7 +151,7 @@ public class TestImplementTableFunctionSource
                         values("c", "d")));
 
         // no pass-through columns, partitioning column present
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -179,7 +179,7 @@ public class TestImplementTableFunctionSource
                         values("c", "d")));
 
         // pass-through columns
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -210,7 +210,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testTwoSourcesWithSetSemantics()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -287,7 +287,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testThreeSourcesWithSetSemantics()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -396,7 +396,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testTwoCoPartitionedSources()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -477,7 +477,7 @@ public class TestImplementTableFunctionSource
     public void testCoPartitionJoinTypes()
     {
         // both sources are prune when empty, so they are combined using inner join
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -550,7 +550,7 @@ public class TestImplementTableFunctionSource
                                                                 values("d"))))))));
 
         // only the left source is prune when empty, so sources are combined using left join
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -623,7 +623,7 @@ public class TestImplementTableFunctionSource
                                                                 values("d"))))))));
 
         // only the right source is prune when empty. the sources are reordered so that the prune when empty source is first. they are combined using left join
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -696,7 +696,7 @@ public class TestImplementTableFunctionSource
                                                                 values("c"))))))));
 
         // neither source is prune when empty, so sources are combined using full join
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -772,7 +772,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testThreeCoPartitionedSources()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -881,7 +881,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testTwoCoPartitionLists()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -1024,7 +1024,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testCoPartitionedAndNotCoPartitionedSources()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -1130,7 +1130,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testCoerceForCopartitioning()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -1221,7 +1221,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testTwoCoPartitioningColumns()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -1303,7 +1303,7 @@ public class TestImplementTableFunctionSource
     @Test
     public void testTwoSourcesWithRowAndSetSemantics()
     {
-        tester().assertThat(new ImplementTableFunctionSource(tester().getMetadata()))
+        tester().assertRule(new ImplementTableFunctionSource(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

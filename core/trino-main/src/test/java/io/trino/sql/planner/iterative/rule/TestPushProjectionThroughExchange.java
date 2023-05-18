@@ -42,7 +42,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testDoesNotFireNoExchange()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), new LongLiteral("3")),
@@ -53,7 +53,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testDoesNotFireNarrowingProjection()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -75,7 +75,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testSimpleMultipleInputs()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -111,7 +111,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testHashMapping()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol h1 = p.symbol("h_1");
@@ -147,7 +147,7 @@ public class TestPushProjectionThroughExchange
         // required by the Exchange as a partitioning symbol.
         // When all the assignments from the parent Projection are added to the pushed-down Projection,
         // this assignment is omitted. Otherwise the doubled assignment would cause an error.
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol aTimes5 = p.symbol("a_times_5");
@@ -172,7 +172,7 @@ public class TestPushProjectionThroughExchange
         // required by the Exchange as a partitioning symbol.
         // When all the assignments from the parent Projection are added to the pushed-down Projection,
         // this assignment is omitted. Otherwise the doubled assignment would cause an error.
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol bTimes5 = p.symbol("b_times_5");
@@ -202,7 +202,7 @@ public class TestPushProjectionThroughExchange
         // It is just passed to output.
         // When all the assignments from the parent Projection are added to the pushed-down Projection,
         // the translated assignment is added too, so that the input symbol 'a' can be passed to the Exchange's output.
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol aTimes5 = p.symbol("a_times_5");
@@ -227,7 +227,7 @@ public class TestPushProjectionThroughExchange
         // It is just passed to output.
         // When all the assignments from the parent Projection are added to the pushed-down Projection,
         // the translated assignment is added too, so that the input symbol 'a' can be passed to the Exchange's output.
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol bTimes5 = p.symbol("b_times_5");
@@ -251,7 +251,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testPartitioningColumnAndHashWithoutIdentityMappingInProjection()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -293,7 +293,7 @@ public class TestPushProjectionThroughExchange
     @Test
     public void testOrderingColumnsArePreserved()
     {
-        tester().assertThat(new PushProjectionThroughExchange())
+        tester().assertRule(new PushProjectionThroughExchange())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

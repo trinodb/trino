@@ -38,7 +38,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     @Test
     public void testTransformSemiJoinToInnerJoin()
     {
-        tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
+        tester().assertRule(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -73,7 +73,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     @Test
     public void testRemoveRedundantFilter()
     {
-        tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
+        tester().assertRule(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -107,7 +107,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     @Test
     public void testFilterNotMatching()
     {
-        tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
+        tester().assertRule(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -130,7 +130,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
     @Test
     public void testDoNotRewriteInContextOfDelete()
     {
-        tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
+        tester().assertRule(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -151,7 +151,7 @@ public class TestTransformFilteringSemiJoinToInnerJoin
                 })
                 .doesNotFire();
 
-        tester().assertThat(new TransformFilteringSemiJoinToInnerJoin())
+        tester().assertRule(new TransformFilteringSemiJoinToInnerJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

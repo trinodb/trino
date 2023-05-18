@@ -34,7 +34,7 @@ public class TestImplementIntersectDistinctAsUnion
     @Test
     public void test()
     {
-        tester().assertThat(new ImplementIntersectDistinctAsUnion(tester().getMetadata()))
+        tester().assertRule(new ImplementIntersectDistinctAsUnion(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

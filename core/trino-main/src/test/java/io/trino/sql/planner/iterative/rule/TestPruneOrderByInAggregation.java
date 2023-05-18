@@ -44,7 +44,7 @@ public class TestPruneOrderByInAggregation
     @Test
     public void testBasics()
     {
-        tester().assertThat(new PruneOrderByInAggregation(METADATA))
+        tester().assertRule(new PruneOrderByInAggregation(METADATA))
                 .on(this::buildAggregation)
                 .matches(
                         aggregation(

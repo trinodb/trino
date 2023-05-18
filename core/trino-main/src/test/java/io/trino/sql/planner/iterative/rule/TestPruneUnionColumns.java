@@ -31,7 +31,7 @@ public class TestPruneUnionColumns
     @Test
     public void testPruneInputColumns()
     {
-        tester().assertThat(new PruneUnionColumns())
+        tester().assertRule(new PruneUnionColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -56,7 +56,7 @@ public class TestPruneUnionColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneUnionColumns())
+        tester().assertRule(new PruneUnionColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.project(

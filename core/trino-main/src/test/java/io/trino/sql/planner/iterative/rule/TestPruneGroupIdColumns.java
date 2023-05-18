@@ -31,7 +31,7 @@ public class TestPruneGroupIdColumns
     @Test
     public void testPruneAggregationArgument()
     {
-        tester().assertThat(new PruneGroupIdColumns())
+        tester().assertRule(new PruneGroupIdColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -58,7 +58,7 @@ public class TestPruneGroupIdColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneGroupIdColumns())
+        tester().assertRule(new PruneGroupIdColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol k = p.symbol("k");
@@ -76,7 +76,7 @@ public class TestPruneGroupIdColumns
     @Test
     public void doNotPruneGroupingSymbols()
     {
-        tester().assertThat(new PruneGroupIdColumns())
+        tester().assertRule(new PruneGroupIdColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol k = p.symbol("k");
@@ -94,7 +94,7 @@ public class TestPruneGroupIdColumns
     @Test
     public void testGroupIdSymbolUnreferenced()
     {
-        tester().assertThat(new PruneGroupIdColumns())
+        tester().assertRule(new PruneGroupIdColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol k = p.symbol("k");

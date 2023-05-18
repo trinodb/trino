@@ -29,7 +29,7 @@ public class TestRemoveRedundantSort
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveRedundantSort())
+        tester().assertRule(new RemoveRedundantSort())
                 .on(p ->
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
@@ -45,7 +45,7 @@ public class TestRemoveRedundantSort
     @Test
     public void testForZeroCardinality()
     {
-        tester().assertThat(new RemoveRedundantSort())
+        tester().assertRule(new RemoveRedundantSort())
                 .on(p ->
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),
@@ -56,7 +56,7 @@ public class TestRemoveRedundantSort
     @Test
     public void doesNotFire()
     {
-        tester().assertThat(new RemoveRedundantSort())
+        tester().assertRule(new RemoveRedundantSort())
                 .on(p ->
                         p.sort(
                                 ImmutableList.of(p.symbol("c")),

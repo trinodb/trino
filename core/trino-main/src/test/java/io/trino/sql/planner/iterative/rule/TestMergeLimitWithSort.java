@@ -32,7 +32,7 @@ public class TestMergeLimitWithSort
     @Test
     public void testMergeLimitWithSort()
     {
-        tester().assertThat(new MergeLimitWithSort())
+        tester().assertRule(new MergeLimitWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -51,7 +51,7 @@ public class TestMergeLimitWithSort
     @Test
     public void doNotMergeLimitWithTies()
     {
-        tester().assertThat(new MergeLimitWithSort())
+        tester().assertRule(new MergeLimitWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -67,7 +67,7 @@ public class TestMergeLimitWithSort
     @Test
     public void testLimitWithPreSortedInputs()
     {
-        tester().assertThat(new MergeLimitWithSort())
+        tester().assertRule(new MergeLimitWithSort())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     List<Symbol> orderBy = ImmutableList.of(a);

@@ -31,7 +31,7 @@ public class TestPruneUnionSourceColumns
     @Test
     public void testPruneOneChild()
     {
-        tester().assertThat(new PruneUnionSourceColumns())
+        tester().assertRule(new PruneUnionSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -56,7 +56,7 @@ public class TestPruneUnionSourceColumns
     @Test
     public void testPruneAllChildren()
     {
-        tester().assertThat(new PruneUnionSourceColumns())
+        tester().assertRule(new PruneUnionSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -87,7 +87,7 @@ public class TestPruneUnionSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneUnionSourceColumns())
+        tester().assertRule(new PruneUnionSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");

@@ -37,7 +37,7 @@ public class TestPruneFilterColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns())
+        tester().assertRule(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -52,7 +52,7 @@ public class TestPruneFilterColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns())
+        tester().assertRule(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, symbol -> symbol.getName().equals("a")))
                 .doesNotFire();
     }
@@ -60,7 +60,7 @@ public class TestPruneFilterColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneFilterColumns())
+        tester().assertRule(new PruneFilterColumns())
                 .on(p -> buildProjectedFilter(p, alwaysTrue()))
                 .doesNotFire();
     }

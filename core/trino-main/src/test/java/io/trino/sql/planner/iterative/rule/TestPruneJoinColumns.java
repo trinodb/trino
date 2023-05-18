@@ -41,7 +41,7 @@ public class TestPruneJoinColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneJoinColumns())
+        tester().assertRule(new PruneJoinColumns())
                 .on(p -> buildProjectedJoin(p, symbol -> symbol.getName().equals("rightValue")))
                 .matches(
                         strictProject(
@@ -56,7 +56,7 @@ public class TestPruneJoinColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneJoinColumns())
+        tester().assertRule(new PruneJoinColumns())
                 .on(p -> buildProjectedJoin(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }
@@ -64,7 +64,7 @@ public class TestPruneJoinColumns
     @Test
     public void testCrossJoin()
     {
-        tester().assertThat(new PruneJoinColumns())
+        tester().assertRule(new PruneJoinColumns())
                 .on(p -> {
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");

@@ -43,7 +43,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void doesNotFireWithoutGlobalAggregation()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -62,7 +62,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void doesNotFireWithoutUnnest()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -75,7 +75,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void doesNotFireOnSourceDependentUnnest()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -96,7 +96,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testTransformCorrelatedUnnest()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -130,7 +130,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testWithMask()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr"), p.symbol("masks")),
                         p.values(p.symbol("corr"), p.symbol("masks")),
@@ -169,7 +169,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testWithOrdinality()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -203,7 +203,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testMultipleGlobalAggregations()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -247,7 +247,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testProjectOverGlobalAggregation()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -285,7 +285,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     @Test
     public void testPreprojectUnnestSymbol()
     {
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -325,7 +325,7 @@ public class TestDecorrelateLeftUnnestWithGlobalAggregation
     {
         // in the following case, the correlated subquery is shaped as follows:
         // project(global_aggregation(project(grouped_aggregation(project(unnest)))))
-        tester().assertThat(new DecorrelateLeftUnnestWithGlobalAggregation())
+        tester().assertRule(new DecorrelateLeftUnnestWithGlobalAggregation())
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("groups"), p.symbol("numbers")),
                         p.values(p.symbol("groups"), p.symbol("numbers")),

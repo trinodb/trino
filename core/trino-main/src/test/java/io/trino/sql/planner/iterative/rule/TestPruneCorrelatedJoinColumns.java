@@ -40,7 +40,7 @@ public class TestPruneCorrelatedJoinColumns
     public void testRemoveUnusedCorrelatedJoinNode()
     {
         // retain input of INNER join
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -58,7 +58,7 @@ public class TestPruneCorrelatedJoinColumns
                                 values("a", "correlationSymbol")));
 
         // retain input of LEFT join
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -78,7 +78,7 @@ public class TestPruneCorrelatedJoinColumns
                                 values("a", "correlationSymbol")));
 
         // retain subquery of INNER join
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -95,7 +95,7 @@ public class TestPruneCorrelatedJoinColumns
                                 values("b")));
 
         // retain subquery of RIGHT join
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -117,7 +117,7 @@ public class TestPruneCorrelatedJoinColumns
     @Test
     public void testPruneUnreferencedSubquerySymbol()
     {
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -150,7 +150,7 @@ public class TestPruneCorrelatedJoinColumns
     @Test
     public void testPruneUnreferencedInputSymbol()
     {
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -182,7 +182,7 @@ public class TestPruneCorrelatedJoinColumns
     @Test
     public void testDoNotPruneUnreferencedCorrelationSymbol()
     {
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -202,7 +202,7 @@ public class TestPruneCorrelatedJoinColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneCorrelatedJoinColumns())
+        tester().assertRule(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");

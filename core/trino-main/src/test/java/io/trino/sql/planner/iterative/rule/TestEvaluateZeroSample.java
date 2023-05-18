@@ -29,7 +29,7 @@ public class TestEvaluateZeroSample
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new EvaluateZeroSample())
+        tester().assertRule(new EvaluateZeroSample())
                 .on(p ->
                         p.sample(
                                 0.15,
@@ -41,7 +41,7 @@ public class TestEvaluateZeroSample
     @Test
     public void test()
     {
-        tester().assertThat(new EvaluateZeroSample())
+        tester().assertRule(new EvaluateZeroSample())
                 .on(p ->
                         p.sample(
                                 0,

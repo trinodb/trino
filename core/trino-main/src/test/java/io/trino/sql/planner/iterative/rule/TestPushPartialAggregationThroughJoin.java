@@ -40,7 +40,7 @@ public class TestPushPartialAggregationThroughJoin
     @Test
     public void testPushesPartialAggregationThroughJoin()
     {
-        tester().assertThat(new PushPartialAggregationThroughJoin())
+        tester().assertRule(new PushPartialAggregationThroughJoin())
                 .setSystemProperty(PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN, "true")
                 .on(p -> p.aggregation(ab -> ab
                         .source(

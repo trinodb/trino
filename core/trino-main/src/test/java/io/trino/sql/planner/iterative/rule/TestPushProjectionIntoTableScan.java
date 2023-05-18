@@ -100,7 +100,7 @@ public class TestPushProjectionIntoTableScan
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
             PushProjectionIntoTableScan optimizer = createRule(ruleTester);
 
-            ruleTester.assertThat(optimizer)
+            ruleTester.assertRule(optimizer)
                     .on(p -> {
                         Symbol symbol = p.symbol(columnName, columnType);
                         return p.project(
@@ -163,7 +163,7 @@ public class TestPushProjectionIntoTableScan
                             Map.Entry::getValue,
                             e -> column(e.getValue(), types.get(e.getKey()))));
 
-            ruleTester.assertThat(createRule(ruleTester))
+            ruleTester.assertRule(createRule(ruleTester))
                     .on(p -> {
                         // Register symbols
                         types.forEach((symbol, type) -> p.symbol(symbol.getName(), type));
@@ -224,7 +224,7 @@ public class TestPushProjectionIntoTableScan
         // Create catalog with applyProjection enabled
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            assertThatThrownBy(() -> ruleTester.assertThat(createRule(ruleTester))
+            assertThatThrownBy(() -> ruleTester.assertRule(createRule(ruleTester))
                     // projection pushdown results in different table handle without partitioning
                     .on(p -> p.project(
                             Assignments.of(),

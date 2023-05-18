@@ -364,6 +364,6 @@ public class TestDetermineSemiJoinDistributionType
 
     private RuleAssert assertDetermineSemiJoinDistributionType(CostComparator costComparator)
     {
-        return tester.assertThat(new DetermineSemiJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
+        return tester.assertRule(new DetermineSemiJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
     }
 }

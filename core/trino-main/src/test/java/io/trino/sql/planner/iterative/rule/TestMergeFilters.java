@@ -31,7 +31,7 @@ public class TestMergeFilters
     @Test
     public void test()
     {
-        tester().assertThat(new MergeFilters(metadata))
+        tester().assertRule(new MergeFilters(metadata))
                 .on(p ->
                         p.filter(expression("b > 44"),
                                 p.filter(expression("a < 42"),

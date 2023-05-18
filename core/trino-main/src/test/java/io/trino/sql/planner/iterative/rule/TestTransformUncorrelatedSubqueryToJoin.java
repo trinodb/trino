@@ -39,7 +39,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     @Test
     public void testRewriteInnerCorrelatedJoin()
     {
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -63,7 +63,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     @Test
     public void testRewriteLeftCorrelatedJoin()
     {
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -87,7 +87,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     @Test
     public void testRewriteRightCorrelatedJoin()
     {
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -103,7 +103,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                                 .left(values("a"))
                                 .right(values("b"))));
 
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -130,7 +130,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     @Test
     public void testRewriteFullCorrelatedJoin()
     {
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -146,7 +146,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                                 .left(values("a"))
                                 .right(values("b"))));
 
-        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+        tester().assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -168,7 +168,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
     {
         Symbol symbol = new Symbol("x");
         tester()
-                .assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .assertRule(new TransformUncorrelatedSubqueryToJoin())
                 .on(p -> p.correlatedJoin(ImmutableList.of(symbol), p.values(symbol), p.values()))
                 .doesNotFire();
     }

@@ -35,7 +35,7 @@ public class TestPushLimitThroughSemiJoin
     @Test
     public void test()
     {
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p -> p.limit(1, buildSemiJoin(p)))
                 .matches(
                         semiJoin(
@@ -47,7 +47,7 @@ public class TestPushLimitThroughSemiJoin
     @Test
     public void testPushLimitWithTies()
     {
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p ->
                         p.limit(
                                 1,
@@ -63,7 +63,7 @@ public class TestPushLimitThroughSemiJoin
     @Test
     public void testPushLimitWithPreSortedInputs()
     {
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p ->
                         p.limit(
                                 1,
@@ -85,7 +85,7 @@ public class TestPushLimitThroughSemiJoin
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p ->
                         p.semiJoin(
                                 p.symbol("leftKey"),
@@ -98,7 +98,7 @@ public class TestPushLimitThroughSemiJoin
                                         p.values(p.symbol("rightKey")))))
                 .doesNotFire();
 
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p -> p.limit(
                         1,
                         ImmutableList.of(p.symbol("match")),
@@ -106,7 +106,7 @@ public class TestPushLimitThroughSemiJoin
                 .doesNotFire();
 
         // Do not push down Limit with pre-sorted inputs if input ordering depends on symbol produced by SemiJoin
-        tester().assertThat(new PushLimitThroughSemiJoin())
+        tester().assertRule(new PushLimitThroughSemiJoin())
                 .on(p -> p.limit(
                         1,
                         false,

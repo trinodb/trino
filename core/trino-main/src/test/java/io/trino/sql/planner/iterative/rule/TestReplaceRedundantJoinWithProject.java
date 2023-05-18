@@ -34,7 +34,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testDoesNotFireOnInnerJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -46,7 +46,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testDoesNotFireWhenOuterSourceEmpty()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -54,7 +54,7 @@ public class TestReplaceRedundantJoinWithProject
                                 p.values(0, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -66,7 +66,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testDoesNotFireOnFullJoinWithBothSourcesEmpty()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -78,7 +78,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testReplaceLeftJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -93,7 +93,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testReplaceRightJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -108,7 +108,7 @@ public class TestReplaceRedundantJoinWithProject
     @Test
     public void testReplaceFULLJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -119,7 +119,7 @@ public class TestReplaceRedundantJoinWithProject
                                 ImmutableMap.of("a", expression("a"), "b", expression("CAST(null AS bigint)")),
                                 values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral())))));
 
-        tester().assertThat(new ReplaceRedundantJoinWithProject())
+        tester().assertRule(new ReplaceRedundantJoinWithProject())
                 .on(p ->
                         p.join(
                                 FULL,

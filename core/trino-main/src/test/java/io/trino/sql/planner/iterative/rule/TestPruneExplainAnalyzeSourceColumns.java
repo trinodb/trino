@@ -32,7 +32,7 @@ public class TestPruneExplainAnalyzeSourceColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneExplainAnalyzeSourceColumns())
+        tester().assertRule(new PruneExplainAnalyzeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -51,7 +51,7 @@ public class TestPruneExplainAnalyzeSourceColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneExplainAnalyzeSourceColumns())
+        tester().assertRule(new PruneExplainAnalyzeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

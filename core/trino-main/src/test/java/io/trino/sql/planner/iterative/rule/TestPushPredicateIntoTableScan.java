@@ -119,7 +119,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void testDoesNotFireIfNoTableScan()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.values(p.symbol("a", BIGINT)))
                 .doesNotFire();
     }
@@ -127,7 +127,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void testEliminateTableScanWhenNoLayoutExist()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'G'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -140,7 +140,7 @@ public class TestPushPredicateIntoTableScan
     public void testReplaceWithExistsWhenNoLayoutExist()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -155,7 +155,7 @@ public class TestPushPredicateIntoTableScan
     public void testConsumesDeterministicPredicateIfNewDomainIsSame()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -173,7 +173,7 @@ public class TestPushPredicateIntoTableScan
     public void testConsumesDeterministicPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44' OR nationkey = BIGINT '45'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -193,7 +193,7 @@ public class TestPushPredicateIntoTableScan
         Type orderStatusType = createVarcharType(1);
         ColumnHandle columnHandle = new TpchColumnHandle("orderstatus", orderStatusType);
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O")));
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'O' OR orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -209,7 +209,7 @@ public class TestPushPredicateIntoTableScan
     public void testDoesNotConsumeRemainingPredicateIfNewDomainIsWider()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
                         new LogicalExpression(
                                 AND,
@@ -271,7 +271,7 @@ public class TestPushPredicateIntoTableScan
     public void testDoesNotFireOnNonDeterministicPredicate()
     {
         ColumnHandle columnHandle = new TpchColumnHandle("nationkey", BIGINT);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
                         new ComparisonExpression(
                                 EQUAL,
@@ -290,7 +290,7 @@ public class TestPushPredicateIntoTableScan
     @Test
     public void testDoesNotFireIfRuleNotChangePlan()
     {
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey % 17 =  BIGINT '44' AND nationkey % 15 =  BIGINT '43'"),
                         p.tableScan(
                                 nationTableHandle,
@@ -304,7 +304,7 @@ public class TestPushPredicateIntoTableScan
     public void testRuleAddedTableLayoutToFilterTableScan()
     {
         Map<String, Domain> filterConstraint = ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F")));
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("orderstatus = 'F'"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -318,7 +318,7 @@ public class TestPushPredicateIntoTableScan
     public void testNonDeterministicPredicate()
     {
         Type orderStatusType = createVarcharType(1);
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(
                         LogicalExpression.and(
                                 new ComparisonExpression(
@@ -355,7 +355,7 @@ public class TestPushPredicateIntoTableScan
         Session session = Session.builder(tester().getSession())
                 .setCatalog(MOCK_CATALOG)
                 .build();
-        assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
+        assertThatThrownBy(() -> tester().assertRule(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(expression("col = VARCHAR 'G'"),
                         p.tableScan(
@@ -366,7 +366,7 @@ public class TestPushPredicateIntoTableScan
                 .matches(anyTree()))
                 .hasMessage("Partitioning must not change after predicate is pushed down");
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .withSession(session)
                 .on(p -> p.filter(expression("col = VARCHAR 'G'"),
                         p.tableScan(
@@ -382,7 +382,7 @@ public class TestPushPredicateIntoTableScan
     {
         ColumnHandle nationKeyColumn = new TpchColumnHandle("nationkey", BIGINT);
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("CAST(null AS boolean)"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -390,7 +390,7 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
                 .matches(values(ImmutableList.of("A"), ImmutableList.of()));
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = CAST(null AS BIGINT)"),
                         p.tableScan(
                                 ordersTableHandle,
@@ -398,7 +398,7 @@ public class TestPushPredicateIntoTableScan
                                 ImmutableMap.of(p.symbol("nationkey", BIGINT), nationKeyColumn))))
                 .matches(values(ImmutableList.of("A"), ImmutableList.of()));
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p -> p.filter(expression("nationkey = BIGINT '44' AND CAST(null AS boolean)"),
                         p.tableScan(
                                 ordersTableHandle,

@@ -34,7 +34,7 @@ public class TestRemoveEmptyUnionBranches
     @Test
     public void testDoNotEliminateNonEmptyBranches()
     {
-        tester().assertThat(new RemoveEmptyUnionBranches())
+        tester().assertRule(new RemoveEmptyUnionBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -55,7 +55,7 @@ public class TestRemoveEmptyUnionBranches
     @Test
     public void testRemoveEmptyBranches()
     {
-        tester().assertThat(new RemoveEmptyUnionBranches())
+        tester().assertRule(new RemoveEmptyUnionBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -85,7 +85,7 @@ public class TestRemoveEmptyUnionBranches
     @Test
     public void testReplaceUnionWithProjection()
     {
-        tester().assertThat(new RemoveEmptyUnionBranches())
+        tester().assertRule(new RemoveEmptyUnionBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");
@@ -109,7 +109,7 @@ public class TestRemoveEmptyUnionBranches
     @Test
     public void testAllEmptyBranches()
     {
-        tester().assertThat(new RemoveEmptyUnionBranches())
+        tester().assertRule(new RemoveEmptyUnionBranches())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol input1 = p.symbol("input1");

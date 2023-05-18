@@ -34,7 +34,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyIfExpression()
     {
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, true, false)"),
                         p.values(p.symbol("a"))))
@@ -44,7 +44,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, true)"),
                         p.values(p.symbol("a"))))
@@ -54,7 +54,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, false, true)"),
                         p.values(p.symbol("a"))))
@@ -64,7 +64,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // true result iff the condition is null or false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, null, true)"),
                         p.values(p.symbol("a"))))
@@ -74,7 +74,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, true, true)"),
                         p.values(p.symbol("a"))))
@@ -84,7 +84,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // always false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, false, false)"),
                         p.values(p.symbol("a"))))
@@ -94,7 +94,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // both results equal
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, b > 0, b > 0)"),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -107,7 +107,7 @@ public class TestSimplifyFilterPredicate
         FunctionCall randomFunction = new FunctionCall(
                 tester().getMetadata().resolveFunction(tester().getSession(), QualifiedName.of("random"), ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         new IfExpression(
                                 expression("a"),
@@ -117,7 +117,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // always null (including the default) -> simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, null)"),
                         p.values(p.symbol("a"))))
@@ -127,7 +127,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> first branch
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(true, a, NOT a)"),
                         p.values(p.symbol("a"))))
@@ -137,7 +137,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true -> second branch
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(false, a, NOT a)"),
                         p.values(p.symbol("a"))))
@@ -147,7 +147,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // condition is true, no second branch -> the result is null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(false, a)"),
                         p.values(p.symbol("a"))))
@@ -157,7 +157,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not known result (`b`) - cannot optimize
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, true, b)"),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -168,7 +168,7 @@ public class TestSimplifyFilterPredicate
     public void testSimplifyNullIfExpression()
     {
         // NULLIF(x, y) returns true if and only if: x != y AND x = true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("NULLIF(a, b)"),
                         p.values(p.symbol("a"), p.symbol("b"))))
@@ -181,7 +181,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySearchedCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "          WHEN a < 0 THEN true " +
@@ -193,7 +193,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN true " +
@@ -208,7 +208,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN false " +
@@ -223,7 +223,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN false " +
@@ -237,7 +237,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // one result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN false " +
@@ -252,7 +252,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // first result true, and remaining results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN true " +
@@ -267,7 +267,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results not true, and default true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN a < 0 THEN false " +
@@ -282,7 +282,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all conditions not true - return the default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN false THEN a " +
@@ -297,7 +297,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all conditions not true, no default specified - return false
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN false THEN a " +
@@ -311,7 +311,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // not true conditions preceding true condition - return the result associated with the true condition
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN false THEN a " +
@@ -325,7 +325,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // remove not true condition and move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN false THEN a " +
@@ -339,7 +339,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // move the result associated with the first true condition to default
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN b < 0 THEN a " +
@@ -358,7 +358,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // cannot remove any clause
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE " +
                                 "           WHEN b < 0 THEN a " +
@@ -372,7 +372,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testSimplifySimpleCaseExpression()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE a" +
                                 "           WHEN b THEN true " +
@@ -383,7 +383,7 @@ public class TestSimplifyFilterPredicate
                 .doesNotFire();
 
         // comparison with null returns null - no WHEN branch matches, return default value
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE null" +
                                 "           WHEN null THEN true " +
@@ -397,7 +397,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // comparison with null returns null - no WHEN branch matches, the result is default null, simplified to FALSE
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE null" +
                                 "           WHEN null THEN true " +
@@ -410,7 +410,7 @@ public class TestSimplifyFilterPredicate
                                 values("a")));
 
         // all results true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE a" +
                                 "           WHEN b + 1 THEN true " +
@@ -424,7 +424,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE a" +
                                 "           WHEN b + 1 THEN false " +
@@ -438,7 +438,7 @@ public class TestSimplifyFilterPredicate
                                 values("a", "b")));
 
         // all results not true (including default null result)
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("CASE a" +
                                 "           WHEN b + 1 THEN false " +
@@ -454,7 +454,7 @@ public class TestSimplifyFilterPredicate
     @Test
     public void testCastNull()
     {
-        tester().assertThat(new SimplifyFilterPredicate(tester().getMetadata()))
+        tester().assertRule(new SimplifyFilterPredicate(tester().getMetadata()))
                 .on(p -> p.filter(
                         expression("IF(a, CAST(CAST(CAST(null AS boolean) AS bigint) AS boolean), false)"),
                         p.values(p.symbol("a"))))

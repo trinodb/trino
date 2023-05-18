@@ -31,7 +31,7 @@ public class TestPruneSampleColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneSampleColumns())
+        tester().assertRule(new PruneSampleColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("b")),
                         p.sample(
@@ -50,7 +50,7 @@ public class TestPruneSampleColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneSampleColumns())
+        tester().assertRule(new PruneSampleColumns())
                 .on(p -> p.project(
                         Assignments.identity(p.symbol("a"), p.symbol("b")),
                         p.sample(

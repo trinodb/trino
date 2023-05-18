@@ -41,7 +41,7 @@ public class TestPushProjectionThroughUnion
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new PushProjectionThroughUnion())
+        tester().assertRule(new PushProjectionThroughUnion())
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("x"), new LongLiteral("3")),
@@ -52,7 +52,7 @@ public class TestPushProjectionThroughUnion
     @Test
     public void testTrivialProjection()
     {
-        tester().assertThat(new PushProjectionThroughUnion())
+        tester().assertRule(new PushProjectionThroughUnion())
                 .on(p -> {
                     Symbol left = p.symbol("left");
                     Symbol right = p.symbol("right");
@@ -75,7 +75,7 @@ public class TestPushProjectionThroughUnion
     @Test
     public void test()
     {
-        tester().assertThat(new PushProjectionThroughUnion())
+        tester().assertRule(new PushProjectionThroughUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

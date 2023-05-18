@@ -175,7 +175,7 @@ public class TestConnectorPushdownRulesWithIceberg
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
 
         // Test projected columns pushdown to IcebergTableHandle in case of full column references
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
@@ -192,7 +192,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                         ImmutableMap.of("col", fullColumn::equals))));
 
         // Rule should return Optional.empty after projected ColumnHandles have been added to IcebergTableHandle
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
@@ -206,7 +206,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 .doesNotFire();
 
         // Test Dereference pushdown
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -255,7 +255,7 @@ public class TestConnectorPushdownRulesWithIceberg
 
         IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
                                 PlanBuilder.expression("a = 5"),
@@ -304,7 +304,7 @@ public class TestConnectorPushdownRulesWithIceberg
         IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
         IcebergColumnHandle columnB = new IcebergColumnHandle(primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
 
-        tester().assertThat(pruneTableScanColumns)
+        tester().assertRule(pruneTableScanColumns)
                 .on(p -> {
                     Symbol symbolA = p.symbol("a", INTEGER);
                     Symbol symbolB = p.symbol("b", INTEGER);
@@ -369,7 +369,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty());
 
         // Test projection pushdown with duplicate column references
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
                     Expression negation = new ArithmeticUnaryExpression(MINUS, column);
@@ -393,7 +393,7 @@ public class TestConnectorPushdownRulesWithIceberg
                                 ImmutableMap.of("just_bigint_0", bigintColumn::equals))));
 
         // Test Dereference pushdown
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new LongLiteral("1"));
                     Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new LongLiteral("2"));

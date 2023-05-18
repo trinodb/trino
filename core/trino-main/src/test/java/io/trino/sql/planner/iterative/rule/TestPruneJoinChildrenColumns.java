@@ -41,7 +41,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns())
+        tester().assertRule(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, symbol -> symbol.getName().equals("leftValue")))
                 .matches(
                         join(INNER, builder -> builder
@@ -59,7 +59,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneJoinChildrenColumns())
+        tester().assertRule(new PruneJoinChildrenColumns())
                 .on(p -> buildJoin(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }
@@ -67,7 +67,7 @@ public class TestPruneJoinChildrenColumns
     @Test
     public void testCrossJoin()
     {
-        tester().assertThat(new PruneJoinChildrenColumns())
+        tester().assertRule(new PruneJoinChildrenColumns())
                 .on(p -> {
                     Symbol leftValue = p.symbol("leftValue");
                     Symbol rightValue = p.symbol("rightValue");

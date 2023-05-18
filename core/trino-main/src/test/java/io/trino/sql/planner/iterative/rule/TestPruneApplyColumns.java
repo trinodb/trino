@@ -38,7 +38,7 @@ public class TestPruneApplyColumns
     @Test
     public void testRemoveUnusedApplyNode()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -64,7 +64,7 @@ public class TestPruneApplyColumns
     public void testRemoveUnreferencedAssignments()
     {
         // remove assignment and prune unused input symbol
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -98,7 +98,7 @@ public class TestPruneApplyColumns
                                                 values("subquery_symbol")))));
 
         // remove assignment and prune unused subquery symbol
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -135,7 +135,7 @@ public class TestPruneApplyColumns
     @Test
     public void testPruneUnreferencedSubquerySymbol()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -169,7 +169,7 @@ public class TestPruneApplyColumns
     @Test
     public void testPruneUnreferencedInputSymbol()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol unreferenced = p.symbol("unreferenced");
@@ -203,7 +203,7 @@ public class TestPruneApplyColumns
     @Test
     public void testDoNotPruneUnreferencedUsedCorrelationSymbol()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -225,7 +225,7 @@ public class TestPruneApplyColumns
     @Test
     public void testDoNotPruneUnreferencedCorrelationSymbol()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");
@@ -245,7 +245,7 @@ public class TestPruneApplyColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneApplyColumns())
+        tester().assertRule(new PruneApplyColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol correlationSymbol = p.symbol("correlation_symbol");

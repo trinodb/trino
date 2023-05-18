@@ -25,7 +25,7 @@ public class TestRemoveEmptyGlobalAggregation
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveEmptyGlobalAggregation())
+        tester().assertRule(new RemoveEmptyGlobalAggregation())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.aggregation(aggregation ->
@@ -38,7 +38,7 @@ public class TestRemoveEmptyGlobalAggregation
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveEmptyGlobalAggregation())
+        tester().assertRule(new RemoveEmptyGlobalAggregation())
                 .on(p -> p.aggregation(aggregation ->
                         aggregation
                                 .globalGrouping()

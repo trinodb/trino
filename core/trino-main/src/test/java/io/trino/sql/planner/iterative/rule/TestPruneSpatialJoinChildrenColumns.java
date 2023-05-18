@@ -34,7 +34,7 @@ public class TestPruneSpatialJoinChildrenColumns
     @Test
     public void testPruneOneChild()
     {
-        tester().assertThat(new PruneSpatialJoinChildrenColumns())
+        tester().assertRule(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -61,7 +61,7 @@ public class TestPruneSpatialJoinChildrenColumns
     @Test
     public void testPruneBothChildren()
     {
-        tester().assertThat(new PruneSpatialJoinChildrenColumns())
+        tester().assertRule(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -91,7 +91,7 @@ public class TestPruneSpatialJoinChildrenColumns
     @Test
     public void testDoNotPruneOneOutputOrFilterSymbols()
     {
-        tester().assertThat(new PruneSpatialJoinChildrenColumns())
+        tester().assertRule(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -110,7 +110,7 @@ public class TestPruneSpatialJoinChildrenColumns
     @Test
     public void testDoNotPrunePartitionSymbols()
     {
-        tester().assertThat(new PruneSpatialJoinChildrenColumns())
+        tester().assertRule(new PruneSpatialJoinChildrenColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

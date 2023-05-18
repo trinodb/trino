@@ -28,7 +28,7 @@ public class TestRemoveRedundantTableFunction
     @Test
     public void testRemoveTableFunction()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertRule(new RemoveRedundantTableFunction())
                 .on(p -> {
                     Symbol passThrough = p.symbol("pass_through");
                     Symbol proper = p.symbol("proper");
@@ -46,7 +46,7 @@ public class TestRemoveRedundantTableFunction
     @Test
     public void testDoNotRemoveKeepWhenEmpty()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertRule(new RemoveRedundantTableFunction())
                 .on(p -> {
                     Symbol passThrough = p.symbol("pass_through");
                     Symbol proper = p.symbol("proper");
@@ -63,7 +63,7 @@ public class TestRemoveRedundantTableFunction
     @Test
     public void testDoNotRemoveNonEmptyInput()
     {
-        tester().assertThat(new RemoveRedundantTableFunction())
+        tester().assertRule(new RemoveRedundantTableFunction())
                 .on(p -> {
                     Symbol passThrough = p.symbol("pass_through");
                     Symbol proper = p.symbol("proper");

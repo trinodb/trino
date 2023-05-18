@@ -33,7 +33,7 @@ public class TestPruneSortColumns
     @Test
     public void testDoNotPruneOrderingSymbol()
     {
-        tester().assertThat(new PruneSortColumns())
+        tester().assertRule(new PruneSortColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.project(
@@ -46,7 +46,7 @@ public class TestPruneSortColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneSortColumns())
+        tester().assertRule(new PruneSortColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -67,7 +67,7 @@ public class TestPruneSortColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneSortColumns())
+        tester().assertRule(new PruneSortColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

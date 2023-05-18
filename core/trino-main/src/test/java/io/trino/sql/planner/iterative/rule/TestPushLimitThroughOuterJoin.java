@@ -32,7 +32,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testPushLimitThroughLeftJoin()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -54,7 +54,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testPushLimitThroughRightJoin()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -76,7 +76,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testPushLimitThroughFullOuterJoin()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -93,7 +93,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testDoNotPushWhenAlreadyLimited()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -110,7 +110,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testDoNotPushLimitWithTies()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -129,7 +129,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testLimitWithPreSortedInputsLeftJoin()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -145,7 +145,7 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -170,7 +170,7 @@ public class TestPushLimitThroughOuterJoin
     @Test
     public void testLimitWithPreSortedInputsRightJoin()
     {
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");
@@ -186,7 +186,7 @@ public class TestPushLimitThroughOuterJoin
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushLimitThroughOuterJoin())
+        tester().assertRule(new PushLimitThroughOuterJoin())
                 .on(p -> {
                     Symbol leftKey = p.symbol("leftKey");
                     Symbol rightKey = p.symbol("rightKey");

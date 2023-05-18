@@ -30,7 +30,7 @@ public class TestPruneAssignUniqueIdColumns
     @Test
     public void testRemoveUnusedAssignUniqueId()
     {
-        tester().assertThat(new PruneAssignUniqueIdColumns())
+        tester().assertRule(new PruneAssignUniqueIdColumns())
                 .on(p -> {
                     Symbol uniqueId = p.symbol("unique_id");
                     Symbol a = p.symbol("a");
@@ -50,7 +50,7 @@ public class TestPruneAssignUniqueIdColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneAssignUniqueIdColumns())
+        tester().assertRule(new PruneAssignUniqueIdColumns())
                 .on(p -> {
                     Symbol uniqueId = p.symbol("unique_id");
                     Symbol a = p.symbol("a");
@@ -74,7 +74,7 @@ public class TestPruneAssignUniqueIdColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneAssignUniqueIdColumns())
+        tester().assertRule(new PruneAssignUniqueIdColumns())
                 .on(p -> {
                     Symbol uniqueId = p.symbol("unique_id");
                     Symbol a = p.symbol("a");

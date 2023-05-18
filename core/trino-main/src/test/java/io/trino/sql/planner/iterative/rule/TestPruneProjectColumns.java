@@ -29,7 +29,7 @@ public class TestPruneProjectColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneProjectColumns())
+        tester().assertRule(new PruneProjectColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -50,7 +50,7 @@ public class TestPruneProjectColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneProjectColumns())
+        tester().assertRule(new PruneProjectColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

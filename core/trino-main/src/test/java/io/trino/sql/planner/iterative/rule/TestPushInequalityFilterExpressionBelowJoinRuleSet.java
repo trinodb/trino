@@ -50,7 +50,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testExpressionNotPushedDownToLeftJoinSource()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -66,7 +66,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testJoinFilterExpressionPushedDownToRightJoinSource()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -88,7 +88,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testManyJoinFilterExpressionsPushedDownToRightJoinSource()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -115,7 +115,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testOnlyRightJoinFilterExpressionPushedDownToRightJoinSource()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -138,7 +138,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testParentFilterExpressionNotPushedDownToLeftJoinSource()
     {
-        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -155,7 +155,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testParentFilterExpressionPushedDownToRightJoinSource()
     {
-        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -181,7 +181,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testManyParentFilterExpressionsPushedDownToRightJoinSource()
     {
-        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -210,7 +210,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testOnlyParentFilterExpressionExposedInaJoin()
     {
-        tester().assertThat(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushParentInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -240,7 +240,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testNoExpression()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -255,7 +255,7 @@ public class TestPushInequalityFilterExpressionBelowJoinRuleSet
     @Test
     public void testNotSupportedExpression()
     {
-        tester().assertThat(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
+        tester().assertRule(ruleSet.pushJoinInequalityFilterExpressionBelowJoinRule())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

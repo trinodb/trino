@@ -37,7 +37,7 @@ public class TestPruneOffsetColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneOffsetColumns())
+        tester().assertRule(new PruneOffsetColumns())
                 .on(p -> buildProjectedOffset(p, symbol -> symbol.getName().equals("b")))
                 .matches(
                         strictProject(
@@ -52,7 +52,7 @@ public class TestPruneOffsetColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneOffsetColumns())
+        tester().assertRule(new PruneOffsetColumns())
                 .on(p -> buildProjectedOffset(p, alwaysTrue()))
                 .doesNotFire();
     }

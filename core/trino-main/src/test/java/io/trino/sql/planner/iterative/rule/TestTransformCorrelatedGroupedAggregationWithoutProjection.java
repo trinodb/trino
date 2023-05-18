@@ -41,7 +41,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -52,7 +52,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
     @Test
     public void doesNotFireOnCorrelatedWithNonGroupedAggregation()
     {
-        tester().assertThat(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -66,7 +66,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
     @Test
     public void rewritesOnSubqueryWithoutDistinct()
     {
-        tester().assertThat(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -101,7 +101,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
     @Test
     public void rewritesOnSubqueryWithDistinct()
     {
-        tester().assertThat(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -145,7 +145,7 @@ public class TestTransformCorrelatedGroupedAggregationWithoutProjection
     {
         // distinct aggregation can be decorrelated in the subquery by PlanNodeDecorrelator
         // because the correlated predicate is equality comparison
-        tester().assertThat(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGroupedAggregationWithoutProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

@@ -45,7 +45,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitNonIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(1,
@@ -62,7 +62,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitWithTiesNNonIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -84,7 +84,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testPushdownLimitWithTiesThroughProjectionWithExpression()
     {
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -108,7 +108,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testDoNotPushdownLimitWithTiesThroughProjectionWithExpression()
     {
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -129,7 +129,7 @@ public class TestPushLimitThroughProject
     @Test
     public void testDoesntPushdownLimitThroughIdentityProjection()
     {
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(1,
@@ -144,7 +144,7 @@ public class TestPushLimitThroughProject
     {
         RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
 
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.limit(1,
@@ -161,7 +161,7 @@ public class TestPushLimitThroughProject
     public void testLimitWithPreSortedInputs()
     {
         // Do not push down order sensitive Limit if input ordering depends on symbol produced by Project
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -179,7 +179,7 @@ public class TestPushLimitThroughProject
                 })
                 .doesNotFire();
 
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol projectedA = p.symbol("projectedA");
                     Symbol a = p.symbol("a");
@@ -207,7 +207,7 @@ public class TestPushLimitThroughProject
     {
         RowType rowType = RowType.from(ImmutableList.of(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BIGINT)));
 
-        tester().assertThat(new PushLimitThroughProject(tester().getTypeAnalyzer()))
+        tester().assertRule(new PushLimitThroughProject(tester().getTypeAnalyzer()))
                 .on(p -> {
                     Symbol a = p.symbol("a", rowType);
                     return p.limit(1,

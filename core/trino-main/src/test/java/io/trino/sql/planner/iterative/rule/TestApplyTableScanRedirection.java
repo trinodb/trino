@@ -90,7 +90,7 @@ public class TestApplyTableScanRedirection
     {
         MockConnectorFactory mockFactory = createMockFactory(Optional.empty());
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+            ruleTester.assertRule(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -111,7 +111,7 @@ public class TestApplyTableScanRedirection
                 ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+            ruleTester.assertRule(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -132,7 +132,7 @@ public class TestApplyTableScanRedirection
                 ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+            ruleTester.assertRule(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> p.values(p.symbol("a", BIGINT)))
                     .withSession(MOCK_SESSION)
                     .doesNotFire();
@@ -147,7 +147,7 @@ public class TestApplyTableScanRedirection
                 ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_C));
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+            ruleTester.assertRule(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -191,7 +191,7 @@ public class TestApplyTableScanRedirection
                 ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A));
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
+            ruleTester.assertRule(new ApplyTableScanRedirection(ruleTester.getPlannerContext()))
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -222,7 +222,7 @@ public class TestApplyTableScanRedirection
             ApplyTableScanRedirection applyTableScanRedirection = new ApplyTableScanRedirection(ruleTester.getPlannerContext());
             TupleDomain<ColumnHandle> constraint = TupleDomain.withColumnDomains(
                     ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, singleValue(VARCHAR, utf8Slice("foo"))));
-            ruleTester.assertThat(applyTableScanRedirection)
+            ruleTester.assertRule(applyTableScanRedirection)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_A, VARCHAR);
                         return p.tableScan(
@@ -240,7 +240,7 @@ public class TestApplyTableScanRedirection
                                             TupleDomain.all(),
                                             ImmutableMap.of("DEST_COL", DESTINATION_COLUMN_HANDLE_A::equals))));
 
-            ruleTester.assertThat(applyTableScanRedirection)
+            ruleTester.assertRule(applyTableScanRedirection)
                     .on(p -> {
                         Symbol column = p.symbol(SOURCE_COLUMN_NAME_B, VARCHAR);
                         return p.tableScan(

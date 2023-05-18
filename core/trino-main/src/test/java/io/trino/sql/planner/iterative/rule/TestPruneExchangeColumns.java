@@ -38,7 +38,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testDoNotPruneReferencedOutputSymbol()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -55,7 +55,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testDoNotPrunePartitioningSymbol()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -74,7 +74,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testDoNotPruneHashSymbol()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol h = p.symbol("h");
@@ -96,7 +96,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testDoNotPruneOrderingSymbol()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -114,7 +114,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testPruneUnreferencedSymbol()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -141,7 +141,7 @@ public class TestPruneExchangeColumns
     @Test
     public void testPruneUnreferencedSymbolMultipleSources()
     {
-        tester().assertThat(new PruneExchangeColumns())
+        tester().assertRule(new PruneExchangeColumns())
                 .on(p -> {
                     Symbol a1 = p.symbol("a_1");
                     Symbol a2 = p.symbol("a_2");

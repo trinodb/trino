@@ -31,7 +31,7 @@ public class TestMergeIntersect
     @Test
     public void testFlattening()
     {
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -68,7 +68,7 @@ public class TestMergeIntersect
     @Test
     public void testMixedFlattening()
     {
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -96,7 +96,7 @@ public class TestMergeIntersect
     @Test
     public void testNotFlattening()
     {
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -114,35 +114,35 @@ public class TestMergeIntersect
     @Test
     public void testQuantifiers()
     {
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, true, true, true))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, true, true, false))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, true, false, true))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, false, true, true))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, true, false, false))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, false, false, true))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, false, true, false))
                 .matches(intersect(true, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
 
-        tester().assertThat(new MergeIntersect())
+        tester().assertRule(new MergeIntersect())
                 .on(p -> buildNestedIntersect(p, false, false, false))
                 .matches(intersect(false, values("v_1"), values("v_2"), values("v_3"), values("v_4")));
     }

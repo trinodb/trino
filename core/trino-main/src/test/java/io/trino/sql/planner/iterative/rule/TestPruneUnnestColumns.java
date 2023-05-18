@@ -37,7 +37,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testPruneOrdinalitySymbol()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -68,7 +68,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testPruneReplicateSymbol()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -99,7 +99,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testDoNotPruneOrdinalitySymbolUsedInFilter()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -121,7 +121,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testDoNotPruneReplicateSymbolUsedInFilter()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -143,7 +143,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testDoNotPruneUnnestedSymbol()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");
@@ -165,7 +165,7 @@ public class TestPruneUnnestColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneUnnestColumns())
+        tester().assertRule(new PruneUnnestColumns())
                 .on(p -> {
                     Symbol replicateSymbol = p.symbol("replicate_symbol");
                     Symbol unnestSymbol = p.symbol("unnest_symbol");

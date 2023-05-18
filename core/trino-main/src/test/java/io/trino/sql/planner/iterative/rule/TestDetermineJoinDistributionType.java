@@ -1134,6 +1134,6 @@ public class TestDetermineJoinDistributionType
 
     private RuleAssert assertDetermineJoinDistributionType(CostComparator costComparator)
     {
-        return tester.assertThat(new DetermineJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
+        return tester.assertRule(new DetermineJoinDistributionType(costComparator, new TaskCountEstimator(() -> NODES_COUNT)));
     }
 }

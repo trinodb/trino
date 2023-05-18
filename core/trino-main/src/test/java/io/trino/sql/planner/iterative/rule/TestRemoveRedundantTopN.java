@@ -34,7 +34,7 @@ public class TestRemoveRedundantTopN
     @Test
     public void test()
     {
-        tester().assertThat(new RemoveRedundantTopN())
+        tester().assertRule(new RemoveRedundantTopN())
                 .on(p ->
                         p.topN(
                                 10,
@@ -47,7 +47,7 @@ public class TestRemoveRedundantTopN
                         node(AggregationNode.class,
                                 node(ValuesNode.class)));
 
-        tester().assertThat(new RemoveRedundantTopN())
+        tester().assertRule(new RemoveRedundantTopN())
                 .on(p ->
                         p.topN(
                                 10,
@@ -69,7 +69,7 @@ public class TestRemoveRedundantTopN
     @Test
     public void testZeroTopN()
     {
-        tester().assertThat(new RemoveRedundantTopN())
+        tester().assertRule(new RemoveRedundantTopN())
                 .on(p ->
                         p.topN(
                                 0,
@@ -88,7 +88,7 @@ public class TestRemoveRedundantTopN
     @Test
     public void doesNotFire()
     {
-        tester().assertThat(new RemoveRedundantTopN())
+        tester().assertRule(new RemoveRedundantTopN())
                 .on(p ->
                         p.topN(
                                 10,

@@ -35,7 +35,7 @@ public class TestPruneTableWriterSourceColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneTableWriterSourceColumns())
+        tester().assertRule(new PruneTableWriterSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -56,7 +56,7 @@ public class TestPruneTableWriterSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneTableWriterSourceColumns())
+        tester().assertRule(new PruneTableWriterSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -71,7 +71,7 @@ public class TestPruneTableWriterSourceColumns
     @Test
     public void testDoNotPrunePartitioningSchemeSymbols()
     {
-        tester().assertThat(new PruneTableWriterSourceColumns())
+        tester().assertRule(new PruneTableWriterSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol partition = p.symbol("partition");
@@ -93,7 +93,7 @@ public class TestPruneTableWriterSourceColumns
     @Test
     public void testDoNotPruneStatisticAggregationSymbols()
     {
-        tester().assertThat(new PruneTableWriterSourceColumns())
+        tester().assertRule(new PruneTableWriterSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol group = p.symbol("group");

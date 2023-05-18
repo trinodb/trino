@@ -42,7 +42,7 @@ public class TestPruneIndexSourceColumns
     @Test
     public void testNotAllOutputsReferenced()
     {
-        tester().assertThat(new PruneIndexSourceColumns())
+        tester().assertRule(new PruneIndexSourceColumns())
                 .on(p -> buildProjectedIndexSource(p, symbol -> symbol.getName().equals("orderkey")))
                 .matches(
                         strictProject(
@@ -55,7 +55,7 @@ public class TestPruneIndexSourceColumns
     @Test
     public void testAllOutputsReferenced()
     {
-        tester().assertThat(new PruneIndexSourceColumns())
+        tester().assertRule(new PruneIndexSourceColumns())
                 .on(p -> buildProjectedIndexSource(p, Predicates.alwaysTrue()))
                 .doesNotFire();
     }

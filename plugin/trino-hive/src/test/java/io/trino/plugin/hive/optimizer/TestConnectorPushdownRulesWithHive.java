@@ -154,7 +154,7 @@ public class TestConnectorPushdownRulesWithHive
         HiveColumnHandle fullColumn = partialColumn.getBaseColumn();
 
         // Test projected columns pushdown to HiveTableHandle in case of full column references
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
@@ -171,7 +171,7 @@ public class TestConnectorPushdownRulesWithHive
                                         ImmutableMap.of("col", fullColumn::equals))));
 
         // Rule should return Optional.empty after projected ColumnHandles have been added to HiveTableHandle
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(p.symbol("struct_of_int", baseType), p.symbol("struct_of_int", baseType).toSymbolReference()),
@@ -185,7 +185,7 @@ public class TestConnectorPushdownRulesWithHive
                 .doesNotFire();
 
         // Test Dereference pushdown
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p ->
                         p.project(
                                 Assignments.of(
@@ -217,7 +217,7 @@ public class TestConnectorPushdownRulesWithHive
 
         HiveColumnHandle column = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
-        tester().assertThat(pushPredicateIntoTableScan)
+        tester().assertRule(pushPredicateIntoTableScan)
                 .on(p ->
                         p.filter(
                                 PlanBuilder.expression("a = 5"),
@@ -250,7 +250,7 @@ public class TestConnectorPushdownRulesWithHive
         HiveColumnHandle columnA = createBaseColumn("a", 0, HIVE_INT, INTEGER, REGULAR, Optional.empty());
         HiveColumnHandle columnB = createBaseColumn("b", 1, HIVE_INT, INTEGER, REGULAR, Optional.empty());
 
-        tester().assertThat(pruneTableScanColumns)
+        tester().assertRule(pruneTableScanColumns)
                 .on(p -> {
                     Symbol symbolA = p.symbol("a", INTEGER);
                     Symbol symbolB = p.symbol("b", INTEGER);
@@ -305,7 +305,7 @@ public class TestConnectorPushdownRulesWithHive
                 Optional.empty());
 
         // Test projection pushdown with duplicate column references
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     SymbolReference column = p.symbol("just_bigint", BIGINT).toSymbolReference();
                     Expression negation = new ArithmeticUnaryExpression(MINUS, column);
@@ -329,7 +329,7 @@ public class TestConnectorPushdownRulesWithHive
                                 ImmutableMap.of("just_bigint_0", bigintColumn::equals))));
 
         // Test Dereference pushdown
-        tester().assertThat(pushProjectionIntoTableScan)
+        tester().assertRule(pushProjectionIntoTableScan)
                 .on(p -> {
                     SubscriptExpression subscript = new SubscriptExpression(p.symbol("struct_of_bigint", ROW_TYPE).toSymbolReference(), new LongLiteral("1"));
                     Expression sum = new ArithmeticBinaryExpression(ADD, subscript, new LongLiteral("2"));

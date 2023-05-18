@@ -47,7 +47,7 @@ public class TestDecorrelateUnnest
     @Test
     public void doesNotFireWithoutUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -58,7 +58,7 @@ public class TestDecorrelateUnnest
     @Test
     public void doesNotFireOnSourceDependentUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -74,7 +74,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testLeftCorrelatedJoinWithLeftUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -101,7 +101,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testInnerCorrelatedJoinWithLeftUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -128,7 +128,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testInnerCorrelatedJoinWithInnerUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -155,7 +155,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testLeftCorrelatedJoinWithInnerUnnest()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -183,7 +183,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testEnforceSingleRow()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -219,7 +219,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testLimit()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -255,7 +255,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testLimitWithTies()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -293,7 +293,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testTopN()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -331,7 +331,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testProject()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -358,7 +358,7 @@ public class TestDecorrelateUnnest
                                                 Optional.empty(),
                                                 assignUniqueId("unique", values("corr"))))));
 
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -390,7 +390,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testDifferentNodesInSubquery()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -443,7 +443,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testWithPreexistingOrdinality()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -471,7 +471,7 @@ public class TestDecorrelateUnnest
     @Test
     public void testPreprojectUnnestSymbol()
     {
-        tester().assertThat(new DecorrelateUnnest(tester().getMetadata()))
+        tester().assertRule(new DecorrelateUnnest(tester().getMetadata()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

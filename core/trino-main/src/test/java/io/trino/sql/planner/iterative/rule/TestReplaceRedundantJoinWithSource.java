@@ -39,7 +39,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testDoesNotFireOnJoinWithEmptySource()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -47,7 +47,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(0, p.symbol("a"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -55,7 +55,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(1)))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -63,7 +63,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(0, p.symbol("a"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -75,7 +75,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testDoesNotFireOnJoinWithNoScalarSource()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -83,7 +83,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -91,7 +91,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -99,7 +99,7 @@ public class TestReplaceRedundantJoinWithSource
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -111,7 +111,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testReplaceCrossJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -120,7 +120,7 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -133,7 +133,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testReplaceInnerJoinWithFilter()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -145,7 +145,7 @@ public class TestReplaceRedundantJoinWithSource
                                 "a > 0",
                                 values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral())))));
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -161,7 +161,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testReplaceLeftJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -171,7 +171,7 @@ public class TestReplaceRedundantJoinWithSource
                         values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
         // in case of outer join, filter does not affect the result
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -185,7 +185,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testReplaceRightJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -195,7 +195,7 @@ public class TestReplaceRedundantJoinWithSource
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
         // in case of outer join, filter does not affect the result
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -209,7 +209,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testReplaceFullJoin()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -218,7 +218,7 @@ public class TestReplaceRedundantJoinWithSource
                 .matches(
                         values(ImmutableList.of("a"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -228,7 +228,7 @@ public class TestReplaceRedundantJoinWithSource
                         values(ImmutableList.of("b"), nCopies(10, ImmutableList.of(new NullLiteral()))));
 
         // in case of outer join, filter does not affect the result
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -241,7 +241,7 @@ public class TestReplaceRedundantJoinWithSource
         // Right source is scalar with no outputs. Left source cannot be determined to be at least scalar.
         // In such case, FULL join cannot be replaced with left source. The result would be incorrect
         // if left source was empty.
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -254,7 +254,7 @@ public class TestReplaceRedundantJoinWithSource
         // Left source is scalar with no outputs. Right source cannot be determined to be at least scalar.
         // In such case, FULL join cannot be replaced with right source. The result would be incorrect
         // if right source was empty.
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -268,7 +268,7 @@ public class TestReplaceRedundantJoinWithSource
     @Test
     public void testPruneOutputs()
     {
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -286,7 +286,7 @@ public class TestReplaceRedundantJoinWithSource
                                 ImmutableMap.of("a", PlanMatchPattern.expression("a")),
                                 values(ImmutableList.of("a", "b"), nCopies(10, ImmutableList.of(new NullLiteral(), new NullLiteral())))));
 
-        tester().assertThat(new ReplaceRedundantJoinWithSource())
+        tester().assertRule(new ReplaceRedundantJoinWithSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

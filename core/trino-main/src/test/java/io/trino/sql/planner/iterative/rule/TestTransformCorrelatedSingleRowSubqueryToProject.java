@@ -36,7 +36,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -44,7 +44,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testRewrite()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.correlatedJoin(
                                 ImmutableList.of(p.symbol("l_nationkey")),
@@ -69,7 +69,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testDoesNotFireWithEmptyValuesNode()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p ->
                         p.correlatedJoin(
                                 ImmutableList.of(p.symbol("a")),
@@ -81,7 +81,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testCorrelatedValues()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.correlatedJoin(
@@ -97,7 +97,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                         ImmutableList.of(new NullLiteral()),
                                         ImmutableList.of(new NullLiteral())))));
 
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -122,7 +122,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testUncorrelatedValues()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -145,7 +145,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testMultipleRowValues()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -160,7 +160,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
     @Test
     public void testNonRowValues()
     {
-        tester().assertThat(new TransformCorrelatedSingleRowSubqueryToProject())
+        tester().assertRule(new TransformCorrelatedSingleRowSubqueryToProject())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.correlatedJoin(

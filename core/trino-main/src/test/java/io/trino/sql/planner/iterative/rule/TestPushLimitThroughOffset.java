@@ -31,7 +31,7 @@ public class TestPushLimitThroughOffset
     @Test
     public void testPushdownLimitThroughOffset()
     {
-        tester().assertThat(new PushLimitThroughOffset())
+        tester().assertRule(new PushLimitThroughOffset())
                 .on(p -> p.limit(
                         2,
                         p.offset(5, p.values())))
@@ -44,7 +44,7 @@ public class TestPushLimitThroughOffset
     @Test
     public void testPushdownLimitWithTiesThroughOffset()
     {
-        tester().assertThat(new PushLimitThroughOffset())
+        tester().assertRule(new PushLimitThroughOffset())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -61,7 +61,7 @@ public class TestPushLimitThroughOffset
     @Test
     public void doNotPushdownWhenRowCountOverflowsLong()
     {
-        tester().assertThat(new PushLimitThroughOffset())
+        tester().assertRule(new PushLimitThroughOffset())
                 .on(p -> {
                     return p.limit(
                             Long.MAX_VALUE,
@@ -73,7 +73,7 @@ public class TestPushLimitThroughOffset
     @Test
     public void testPushdownWithPreSortedSymbolsThroughOffset()
     {
-        tester().assertThat(new PushLimitThroughOffset())
+        tester().assertRule(new PushLimitThroughOffset())
                 .on(p -> p.limit(
                         2,
                         false,

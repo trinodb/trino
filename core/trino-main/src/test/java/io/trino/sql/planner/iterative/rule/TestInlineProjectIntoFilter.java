@@ -32,7 +32,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlineProjection()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a"),
                         p.project(
@@ -47,7 +47,7 @@ public class TestInlineProjectIntoFilter
                                                 ImmutableMap.of("b", expression("b")),
                                                 values("b")))));
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -76,7 +76,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testNoSimpleConjuncts()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a OR false"),
                         p.project(
@@ -88,7 +88,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testMultipleReferencesToConjunct()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a AND a"),
                         p.project(
@@ -96,7 +96,7 @@ public class TestInlineProjectIntoFilter
                                 p.values(p.symbol("b")))))
                 .doesNotFire();
 
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a AND (a OR false)"),
                         p.project(
@@ -108,7 +108,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlineMultiple()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a AND b"),
                         p.project(
@@ -126,7 +126,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testInlinePartially()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a AND a AND b"),
                         p.project(
@@ -146,7 +146,7 @@ public class TestInlineProjectIntoFilter
     public void testTrivialProjection()
     {
         // identity projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a"),
                         p.project(
@@ -155,7 +155,7 @@ public class TestInlineProjectIntoFilter
                 .doesNotFire();
 
         // renaming projection
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("a"),
                         p.project(
@@ -167,7 +167,7 @@ public class TestInlineProjectIntoFilter
     @Test
     public void testCorrelationSymbol()
     {
-        tester().assertThat(new InlineProjectIntoFilter(tester().getMetadata()))
+        tester().assertRule(new InlineProjectIntoFilter(tester().getMetadata()))
                 .on(p -> p.filter(
                         PlanBuilder.expression("corr"),
                         p.project(

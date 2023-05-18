@@ -40,7 +40,7 @@ public class TestUseNonPartitionedJoinLookupSource
     @Test
     public void testLocalGatheringExchangeNotChanged()
     {
-        tester().assertThat(new UseNonPartitionedJoinLookupSource())
+        tester().assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -55,7 +55,7 @@ public class TestUseNonPartitionedJoinLookupSource
     @Test
     public void testLocalRepartitioningExchangeChangedToGather()
     {
-        tester().assertThat(new UseNonPartitionedJoinLookupSource())
+        tester().assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -73,7 +73,7 @@ public class TestUseNonPartitionedJoinLookupSource
     @Test
     public void testLeftRepartitionNotChanged()
     {
-        tester().assertThat(new UseNonPartitionedJoinLookupSource())
+        tester().assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -89,7 +89,7 @@ public class TestUseNonPartitionedJoinLookupSource
     public void testRepartitioningExchangeNotChangedIfBuildSideTooBig()
     {
         tester()
-                .assertThat(new UseNonPartitionedJoinLookupSource())
+                .assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -107,7 +107,7 @@ public class TestUseNonPartitionedJoinLookupSource
     @Test
     public void testRepartitioningExchangeNotChangedIfRuleDisabled()
     {
-        tester().assertThat(new UseNonPartitionedJoinLookupSource())
+        tester().assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -124,7 +124,7 @@ public class TestUseNonPartitionedJoinLookupSource
     public void testRepartitioningExchangeNotChangedIfBuildSideContainsJoin()
     {
         tester()
-                .assertThat(new UseNonPartitionedJoinLookupSource())
+                .assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -141,7 +141,7 @@ public class TestUseNonPartitionedJoinLookupSource
     public void testRepartitioningExchangeNotChangedIfBuildSideContainsUnnest()
     {
         tester()
-                .assertThat(new UseNonPartitionedJoinLookupSource())
+                .assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -161,7 +161,7 @@ public class TestUseNonPartitionedJoinLookupSource
     public void testRepartitioningExchangeNotChangedIfBuildSideRowCountUnknown()
     {
         tester()
-                .assertThat(new UseNonPartitionedJoinLookupSource())
+                .assertRule(new UseNonPartitionedJoinLookupSource())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

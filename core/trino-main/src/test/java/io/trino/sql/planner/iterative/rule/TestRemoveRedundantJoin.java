@@ -28,7 +28,7 @@ public class TestRemoveRedundantJoin
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -36,7 +36,7 @@ public class TestRemoveRedundantJoin
                                 p.values(10, p.symbol("b"))))
                 .doesNotFire();
 
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 FULL,
@@ -48,7 +48,7 @@ public class TestRemoveRedundantJoin
     @Test
     public void testInnerJoinRemoval()
     {
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -56,7 +56,7 @@ public class TestRemoveRedundantJoin
                                 p.values(0)))
                 .matches(values("a"));
 
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 INNER,
@@ -68,7 +68,7 @@ public class TestRemoveRedundantJoin
     @Test
     public void testLeftJoinRemoval()
     {
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 LEFT,
@@ -80,7 +80,7 @@ public class TestRemoveRedundantJoin
     @Test
     public void testRightJoinRemoval()
     {
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 RIGHT,
@@ -92,7 +92,7 @@ public class TestRemoveRedundantJoin
     @Test
     public void testFullJoinRemoval()
     {
-        tester().assertThat(new RemoveRedundantJoin())
+        tester().assertRule(new RemoveRedundantJoin())
                 .on(p ->
                         p.join(
                                 FULL,

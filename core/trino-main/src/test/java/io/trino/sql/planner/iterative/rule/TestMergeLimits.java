@@ -30,7 +30,7 @@ public class TestMergeLimits
     @Test
     public void testMergeLimitsNoTies()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> p.limit(
                         5,
                         p.limit(
@@ -45,7 +45,7 @@ public class TestMergeLimits
     @Test
     public void testMergeLimitsNoTiesTies()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -64,7 +64,7 @@ public class TestMergeLimits
     @Test
     public void testRearrangeLimitsNoTiesTies()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -86,7 +86,7 @@ public class TestMergeLimits
     @Test
     public void testDoNotFireParentWithTies()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     return p.limit(
@@ -102,7 +102,7 @@ public class TestMergeLimits
     @Test
     public void testOrderSensitiveChild()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> p.limit(
                         5,
                         p.limit(3, false, ImmutableList.of(p.symbol("a")), p.values())))
@@ -118,7 +118,7 @@ public class TestMergeLimits
     @Test
     public void testOrderSensitiveParent()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> p.limit(
                         3,
                         false,
@@ -136,7 +136,7 @@ public class TestMergeLimits
     @Test
     public void testOrderSensitiveParentAndChild()
     {
-        tester().assertThat(new MergeLimits())
+        tester().assertRule(new MergeLimits())
                 .on(p -> p.limit(
                         3,
                         false,

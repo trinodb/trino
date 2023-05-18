@@ -41,7 +41,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnPlanWithoutCorrelatedJoinNode()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -49,7 +49,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnCorrelatedWithoutAggregation()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -60,7 +60,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(),
                         p.values(p.symbol("a")),
@@ -71,7 +71,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnCorrelatedWithNonScalarAggregation()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -85,7 +85,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnMultipleProjections()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -103,7 +103,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void doesNotFireOnSubqueryWithoutProjection()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -117,7 +117,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -139,7 +139,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void rewritesOnSubqueryWithDistinct()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -187,7 +187,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     {
         // distinct aggregation can be decorrelated in the subquery by PlanNodeDecorrelator
         // because the correlated predicate is equality comparison
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -233,7 +233,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
     @Test
     public void testWithPreexistingMask()
     {
-        tester().assertThat(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
+        tester().assertRule(new TransformCorrelatedGlobalAggregationWithProjection(tester().getPlannerContext()))
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

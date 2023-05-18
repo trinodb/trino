@@ -42,7 +42,7 @@ public class TestPruneAggregationSourceColumns
     @Test
     public void testNotAllInputsReferenced()
     {
-        tester().assertThat(new PruneAggregationSourceColumns())
+        tester().assertRule(new PruneAggregationSourceColumns())
                 .on(p -> buildAggregation(p, alwaysTrue()))
                 .matches(
                         aggregation(
@@ -66,7 +66,7 @@ public class TestPruneAggregationSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneAggregationSourceColumns())
+        tester().assertRule(new PruneAggregationSourceColumns())
                 .on(p -> buildAggregation(p, symbol -> !symbol.getName().equals("unused")))
                 .doesNotFire();
     }

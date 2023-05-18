@@ -34,7 +34,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testPruneUnreferencedInput()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))
@@ -53,7 +53,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testDoNotPruneInputsWithAllRowsPerMatch()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .rowsPerMatch(ALL_SHOW_EMPTY)
                         .pattern(new IrLabel("X"))
@@ -65,7 +65,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testDoNotPrunePartitionByInputs()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .partitionBy(ImmutableList.of(p.symbol("a")))
                         .rowsPerMatch(ONE)
@@ -78,7 +78,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testDoNotPruneOrderByInputs()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .orderBy(new OrderingScheme(ImmutableList.of(p.symbol("a")), ImmutableMap.of(p.symbol("a"), ASC_NULLS_LAST)))
                         .rowsPerMatch(ONE)
@@ -91,7 +91,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testDoNotPruneMeasureInputs()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .addMeasure(p.symbol("measure"), "LAST(X.a)", BIGINT)
                         .rowsPerMatch(ONE)
@@ -104,7 +104,7 @@ public class TestPrunePatternRecognitionSourceColumns
     @Test
     public void testDoNotPruneVariableDefinitionInputs()
     {
-        tester().assertThat(new PrunePatternRecognitionSourceColumns())
+        tester().assertRule(new PrunePatternRecognitionSourceColumns())
                 .on(p -> p.patternRecognition(builder -> builder
                         .rowsPerMatch(ONE)
                         .pattern(new IrLabel("X"))

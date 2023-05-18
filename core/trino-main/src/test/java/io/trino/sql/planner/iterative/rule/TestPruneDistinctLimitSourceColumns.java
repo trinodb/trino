@@ -32,7 +32,7 @@ public class TestPruneDistinctLimitSourceColumns
     @Test
     public void testPruneInputColumn()
     {
-        tester().assertThat(new PruneDistinctLimitSourceColumns())
+        tester().assertRule(new PruneDistinctLimitSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -49,7 +49,7 @@ public class TestPruneDistinctLimitSourceColumns
                                         ImmutableMap.of("a", expression("a")),
                                         values("a", "b"))));
 
-        tester().assertThat(new PruneDistinctLimitSourceColumns())
+        tester().assertRule(new PruneDistinctLimitSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -73,7 +73,7 @@ public class TestPruneDistinctLimitSourceColumns
     @Test
     public void allInputsNeeded()
     {
-        tester().assertThat(new PruneDistinctLimitSourceColumns())
+        tester().assertRule(new PruneDistinctLimitSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

@@ -32,7 +32,7 @@ public class TestPruneMergeSourceColumns
     @Test
     public void testPruneInputColumn()
     {
-        tester().assertThat(new PruneMergeSourceColumns())
+        tester().assertRule(new PruneMergeSourceColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol mergeRow = p.symbol("merge_row");
@@ -59,7 +59,7 @@ public class TestPruneMergeSourceColumns
     @Test
     public void testDoNotPruneRowId()
     {
-        tester().assertThat(new PruneMergeSourceColumns())
+        tester().assertRule(new PruneMergeSourceColumns())
                 .on(p -> {
                     Symbol mergeRow = p.symbol("merge_row");
                     Symbol rowId = p.symbol("row_id");

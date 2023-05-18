@@ -81,7 +81,7 @@ public class TestPruneWindowColumns
     @Test
     public void testWindowNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns())
+        tester().assertRule(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p, symbol -> inputSymbolNameSet.contains(symbol.getName()), alwaysTrue()))
                 .matches(
                         strictProject(
@@ -92,7 +92,7 @@ public class TestPruneWindowColumns
     @Test
     public void testOneFunctionNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns())
+        tester().assertRule(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p,
                         symbol -> symbol.getName().equals("output2") || symbol.getName().equals("unused"),
                         alwaysTrue()))
@@ -124,7 +124,7 @@ public class TestPruneWindowColumns
     @Test
     public void testAllColumnsNeeded()
     {
-        tester().assertThat(new PruneWindowColumns())
+        tester().assertRule(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(p, alwaysTrue(), alwaysTrue()))
                 .doesNotFire();
     }
@@ -133,7 +133,7 @@ public class TestPruneWindowColumns
     public void testUsedInputsNotNeeded()
     {
         // If the WindowNode needs all its inputs, we can't discard them from its child.
-        tester().assertThat(new PruneWindowColumns())
+        tester().assertRule(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(
                         p,
                         // only the window function outputs
@@ -146,7 +146,7 @@ public class TestPruneWindowColumns
     @Test
     public void testUnusedInputNotNeeded()
     {
-        tester().assertThat(new PruneWindowColumns())
+        tester().assertRule(new PruneWindowColumns())
                 .on(p -> buildProjectedWindow(
                         p,
                         // only the window function outputs

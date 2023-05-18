@@ -31,7 +31,7 @@ public class TestPruneExceptSourceColumns
     @Test
     public void testPruneOneChild()
     {
-        tester().assertThat(new PruneExceptSourceColumns())
+        tester().assertRule(new PruneExceptSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -53,7 +53,7 @@ public class TestPruneExceptSourceColumns
     @Test
     public void testPruneAllChildren()
     {
-        tester().assertThat(new PruneExceptSourceColumns())
+        tester().assertRule(new PruneExceptSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");
@@ -78,7 +78,7 @@ public class TestPruneExceptSourceColumns
     @Test
     public void testAllInputsReferenced()
     {
-        tester().assertThat(new PruneExceptSourceColumns())
+        tester().assertRule(new PruneExceptSourceColumns())
                 .on(p -> {
                     Symbol output = p.symbol("output");
                     Symbol a = p.symbol("a");

@@ -58,7 +58,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void doesNotFireOnPlanWithoutCorrelatedJoinlNode()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.values(p.symbol("a")))
                 .doesNotFire();
     }
@@ -66,7 +66,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void doesNotFireOnCorrelatedNonScalar()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -77,7 +77,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void doesNotFireOnUncorrelated()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.<Symbol>of(),
                         p.values(p.symbol("a")),
@@ -88,7 +88,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void rewritesOnSubqueryWithoutProjection()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -116,7 +116,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void rewritesOnSubqueryWithProjection()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -146,7 +146,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void rewritesOnSubqueryWithProjectionOnTopEnforceSingleNode()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
@@ -182,7 +182,7 @@ public class TestTransformCorrelatedScalarSubquery
     @Test
     public void rewritesScalarSubquery()
     {
-        tester().assertThat(rule)
+        tester().assertRule(rule)
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),

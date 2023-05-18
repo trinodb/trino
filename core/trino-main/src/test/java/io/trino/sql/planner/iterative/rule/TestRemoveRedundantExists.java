@@ -34,7 +34,7 @@ public class TestRemoveRedundantExists
     @Test
     public void testExistsFalse()
     {
-        tester().assertThat(new RemoveRedundantExists())
+        tester().assertRule(new RemoveRedundantExists())
                 .on(p -> p.apply(Assignments.of(p.symbol("exists"), new ExistsPredicate(TRUE_LITERAL)),
                         ImmutableList.of(),
                         p.values(1),
@@ -48,7 +48,7 @@ public class TestRemoveRedundantExists
     @Test
     public void testExistsTrue()
     {
-        tester().assertThat(new RemoveRedundantExists())
+        tester().assertRule(new RemoveRedundantExists())
                 .on(p -> p.apply(Assignments.of(p.symbol("exists"), new ExistsPredicate(TRUE_LITERAL)),
                         ImmutableList.of(),
                         p.values(1),
@@ -62,14 +62,14 @@ public class TestRemoveRedundantExists
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new RemoveRedundantExists())
+        tester().assertRule(new RemoveRedundantExists())
                 .on(p -> p.apply(Assignments.of(p.symbol("exists"), new ExistsPredicate(TRUE_LITERAL)),
                         ImmutableList.of(),
                         p.values(1),
                         p.tableScan(ImmutableList.of(), ImmutableMap.of())))
                 .doesNotFire();
 
-        tester().assertThat(new RemoveRedundantExists())
+        tester().assertRule(new RemoveRedundantExists())
                 .on(p -> p.apply(
                         Assignments.builder()
                                 .put(p.symbol("exists"), new ExistsPredicate(TRUE_LITERAL))

@@ -30,7 +30,7 @@ public class TestMergeLimitWithDistinct
     @Test
     public void test()
     {
-        tester().assertThat(new MergeLimitWithDistinct())
+        tester().assertRule(new MergeLimitWithDistinct())
                 .on(p ->
                         p.limit(
                                 1,
@@ -45,7 +45,7 @@ public class TestMergeLimitWithDistinct
     @Test
     public void testDoesNotFire()
     {
-        tester().assertThat(new MergeLimitWithDistinct())
+        tester().assertRule(new MergeLimitWithDistinct())
                 .on(p ->
                         p.limit(
                                 1,
@@ -55,7 +55,7 @@ public class TestMergeLimitWithDistinct
                                         .source(p.values(p.symbol("foo"))))))
                 .doesNotFire();
 
-        tester().assertThat(new MergeLimitWithDistinct())
+        tester().assertRule(new MergeLimitWithDistinct())
                 .on(p ->
                         p.limit(
                                 1,
@@ -68,7 +68,7 @@ public class TestMergeLimitWithDistinct
     @Test
     public void testDoNotMergeLimitWithTies()
     {
-        tester().assertThat(new MergeLimitWithDistinct())
+        tester().assertRule(new MergeLimitWithDistinct())
                 .on(p -> {
                     Symbol foo = p.symbol("foo");
                     return p.limit(

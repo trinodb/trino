@@ -29,7 +29,7 @@ public class TestRemoveRedundantEnforceSingleRowNode
     @Test
     public void testRemoveEnforceWhenSourceScalar()
     {
-        tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
+        tester().assertRule(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.aggregation(builder -> builder
                         .addAggregation(p.symbol("c"), expression("count(a)"), ImmutableList.of(BIGINT))
                         .globalGrouping()
@@ -40,11 +40,11 @@ public class TestRemoveRedundantEnforceSingleRowNode
     @Test
     public void testDoNotFireWhenSourceNotScalar()
     {
-        tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
+        tester().assertRule(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.values(10, p.symbol("a"))))
                 .doesNotFire();
 
-        tester().assertThat(new RemoveRedundantEnforceSingleRowNode())
+        tester().assertRule(new RemoveRedundantEnforceSingleRowNode())
                 .on(p -> p.enforceSingleRow(p.values(p.symbol("a"))))
                 .doesNotFire();
     }

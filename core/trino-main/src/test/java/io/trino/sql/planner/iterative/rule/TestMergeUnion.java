@@ -29,7 +29,7 @@ public class TestMergeUnion
     @Test
     public void testFlattening()
     {
-        tester().assertThat(new MergeUnion())
+        tester().assertRule(new MergeUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -66,7 +66,7 @@ public class TestMergeUnion
     @Test
     public void testMixedFlattening()
     {
-        tester().assertThat(new MergeUnion())
+        tester().assertRule(new MergeUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
@@ -94,7 +94,7 @@ public class TestMergeUnion
     @Test
     public void testNotFlattening()
     {
-        tester().assertThat(new MergeUnion())
+        tester().assertRule(new MergeUnion())
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");

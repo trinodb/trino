@@ -26,7 +26,7 @@ public class TestRemoveRedundantOffset
     @Test
     public void testOffsetEqualToSubplanCardinality()
     {
-        tester().assertThat(new RemoveRedundantOffset())
+        tester().assertRule(new RemoveRedundantOffset())
                 .on(p -> p.offset(10, p.values(10)))
                 .matches(values(ImmutableList.of(), ImmutableList.of()));
     }
@@ -34,7 +34,7 @@ public class TestRemoveRedundantOffset
     @Test
     public void testOffsetExceedsSubplanCardinality()
     {
-        tester().assertThat(new RemoveRedundantOffset())
+        tester().assertRule(new RemoveRedundantOffset())
                 .on(p -> p.offset(10, p.values(5)))
                 .matches(values(ImmutableList.of(), ImmutableList.of()));
     }
@@ -42,7 +42,7 @@ public class TestRemoveRedundantOffset
     @Test
     public void testOffsetEqualToZero()
     {
-        tester().assertThat(new RemoveRedundantOffset())
+        tester().assertRule(new RemoveRedundantOffset())
                 .on(p -> p.offset(
                         0,
                         p.values(
@@ -61,7 +61,7 @@ public class TestRemoveRedundantOffset
     @Test
     public void testDoNotFireWhenOffsetLowerThanSubplanCardinality()
     {
-        tester().assertThat(new RemoveRedundantOffset())
+        tester().assertRule(new RemoveRedundantOffset())
                 .on(p -> p.offset(5, p.values(10)))
                 .doesNotFire();
     }

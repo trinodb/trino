@@ -51,7 +51,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testNoDistinct()
     {
-        tester().assertThat(new SingleDistinctAggregationToGroupBy())
+        tester().assertRule(new SingleDistinctAggregationToGroupBy())
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(input1)"), ImmutableList.of(BIGINT))
@@ -66,7 +66,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testSingleDistinct()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
@@ -80,7 +80,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testMultipleAggregations()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
@@ -93,7 +93,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testDistinctWithFilter()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
@@ -111,7 +111,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                                                 p.symbol("input2"))))))
                 .doesNotFire();
 
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1) filter (where filter1)"), ImmutableList.of(BIGINT))
@@ -133,7 +133,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
     @Test
     public void testGlobalAggregation()
     {
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .globalGrouping()
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
@@ -186,33 +186,33 @@ public class TestMultipleDistinctAggregationToMarkDistinct
         int clusterThreadCount = NODES_COUNT * tester().getSession().getSystemProperty(TASK_CONCURRENCY, Integer.class);
 
         // small NDV
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(2 * clusterThreadCount).build())
                 .matches(expectedMarkDistinct);
 
         // unknown estimate
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(Double.NaN).build())
                 .matches(expectedMarkDistinct);
 
         // medium NDV, optimize_mixed_distinct_aggregations enabled
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "true")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(50 * clusterThreadCount).build())
                 .matches(expectedMarkDistinct);
 
         // medium NDV, optimize_mixed_distinct_aggregations disabled
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, "false")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(50 * clusterThreadCount).build())
                 .doesNotFire();
 
         // medium NDV, optimize_mixed_distinct_aggregations enabled but plan has multiple distinct aggregations
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .nodeId(aggregationNodeId)
                         .singleGroupingSet(p.symbol("key"))
@@ -225,38 +225,38 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                 .doesNotFire();
 
         // big NDV
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .doesNotFire();
 
         // big NDV, mark_distinct_strategy = always, use_mark_distinct = null
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(MARK_DISTINCT_STRATEGY, "always")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .matches(expectedMarkDistinct);
         // big NDV, mark_distinct_strategy = null, use_mark_distinct = true
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(USE_MARK_DISTINCT, "true")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(1000 * clusterThreadCount).build())
                 .doesNotFire();
         // small NDV, mark_distinct_strategy = none, use_mark_distinct = null
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(MARK_DISTINCT_STRATEGY, "none")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(2 * clusterThreadCount).build())
                 .doesNotFire();
         // small NDV, mark_distinct_strategy = null, use_mark_distinct = false
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(plan)
                 .setSystemProperty(USE_MARK_DISTINCT, "false")
                 .overrideStats(aggregationNodeId.toString(), PlanNodeStatsEstimate.builder().setOutputRowCount(2 * clusterThreadCount).build())
                 .doesNotFire();
 
         // big NDV but on multiple grouping keys
-        tester().assertThat(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
+        tester().assertRule(new MultipleDistinctAggregationToMarkDistinct(TASK_COUNT_ESTIMATOR))
                 .on(p -> p.aggregation(builder -> builder
                         .nodeId(aggregationNodeId)
                         .singleGroupingSet(p.symbol("key1"), p.symbol("key2"))

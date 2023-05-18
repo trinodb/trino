@@ -137,7 +137,7 @@ public class TestDetermineTableScanNodePartitioning
             boolean expectedEnabled)
     {
         TableHandle tableHandle = tester.getCurrentCatalogTableHandle(TEST_SCHEMA, tableName);
-        tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
+        tester.assertRule(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
                 .on(p -> {
                     Symbol a = p.symbol(COLUMN_A);
                     Symbol b = p.symbol(COLUMN_B);

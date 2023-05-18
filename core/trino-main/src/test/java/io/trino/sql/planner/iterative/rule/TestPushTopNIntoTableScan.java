@@ -67,7 +67,7 @@ public class TestPushTopNIntoTableScan
     {
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.empty());
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
@@ -92,7 +92,7 @@ public class TestPushTopNIntoTableScan
                 (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
@@ -121,7 +121,7 @@ public class TestPushTopNIntoTableScan
                 (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
@@ -154,7 +154,7 @@ public class TestPushTopNIntoTableScan
                 (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
@@ -183,7 +183,7 @@ public class TestPushTopNIntoTableScan
                 (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, false, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);
@@ -234,7 +234,7 @@ public class TestPushTopNIntoTableScan
                 (session, handle, topNCount, sortItems, tableAssignments) -> Optional.of(new TopNApplicationResult<>(connectorHandle, true, false));
         MockConnectorFactory mockFactory = createMockFactory(assignments, Optional.of(applyTopN));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            ruleTester.assertThat(new PushTopNIntoTableScan(ruleTester.getMetadata()))
+            ruleTester.assertRule(new PushTopNIntoTableScan(ruleTester.getMetadata()))
                     .on(p -> {
                         Symbol dimension = p.symbol(dimensionName, VARCHAR);
                         Symbol metric = p.symbol(metricName, BIGINT);

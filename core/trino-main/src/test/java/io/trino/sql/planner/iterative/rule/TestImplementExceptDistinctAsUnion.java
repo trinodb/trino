@@ -34,7 +34,7 @@ public class TestImplementExceptDistinctAsUnion
     @Test
     public void test()
     {
-        tester().assertThat(new ImplementExceptDistinctAsUnion(tester().getMetadata()))
+        tester().assertRule(new ImplementExceptDistinctAsUnion(tester().getMetadata()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol b = p.symbol("b");
