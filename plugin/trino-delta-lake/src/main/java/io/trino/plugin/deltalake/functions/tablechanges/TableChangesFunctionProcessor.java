@@ -174,7 +174,7 @@ public class TableChangesFunctionProcessor
     private DeltaLakePageSource createDeltaLakePageSource(TableChangesSplit split)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()));
+        TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
