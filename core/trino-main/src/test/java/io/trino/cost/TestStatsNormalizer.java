@@ -67,7 +67,7 @@ public class TestStatsNormalizer
                 .addSymbolStatistics(c, SymbolStatsEstimate.unknown())
                 .build();
 
-        PlanNodeStatsAssertion.assertThat(normalizer.normalize(estimate, ImmutableList.of(b, c), TypeProvider.copyOf(ImmutableMap.of(b, BIGINT, c, BIGINT))))
+        PlanNodeStatsAssertion.assertPlanNodeStats(normalizer.normalize(estimate, ImmutableList.of(b, c), TypeProvider.copyOf(ImmutableMap.of(b, BIGINT, c, BIGINT))))
                 .symbolsWithKnownStats(b)
                 .symbolStats(b, symbolAssert -> symbolAssert.distinctValuesCount(30));
     }
@@ -156,7 +156,7 @@ public class TestStatsNormalizer
     private PlanNodeStatsAssertion assertNormalized(PlanNodeStatsEstimate estimate, TypeProvider types)
     {
         PlanNodeStatsEstimate normalized = normalizer.normalize(estimate, estimate.getSymbolsWithKnownStatistics(), types);
-        return PlanNodeStatsAssertion.assertThat(normalized);
+        return PlanNodeStatsAssertion.assertPlanNodeStats(normalized);
     }
 
     private double asStatsValue(Object value, Type type)

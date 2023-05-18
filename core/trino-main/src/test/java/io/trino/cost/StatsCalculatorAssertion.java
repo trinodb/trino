@@ -103,7 +103,7 @@ public class StatsCalculatorAssertion
                             types,
                             tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
                 });
-        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate));
+        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertPlanNodeStats(statsEstimate));
         return this;
     }
 
@@ -118,7 +118,7 @@ public class StatsCalculatorAssertion
                 types,
                 tableStatsProvider.orElseGet(() -> new CachingTableStatsProvider(metadata, session)));
         checkState(statsEstimate.isPresent(), "Expected stats estimates to be present");
-        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertThat(statsEstimate.get()));
+        statisticsAssertionConsumer.accept(PlanNodeStatsAssertion.assertPlanNodeStats(statsEstimate.get()));
         return this;
     }
 

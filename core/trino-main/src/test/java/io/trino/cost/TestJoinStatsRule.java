@@ -31,7 +31,7 @@ import java.util.function.Function;
 
 import static io.trino.SystemSessionProperties.JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR;
 import static io.trino.cost.FilterStatsCalculator.UNKNOWN_FILTER_COEFFICIENT;
-import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
+import static io.trino.cost.PlanNodeStatsAssertion.assertPlanNodeStats;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
@@ -354,7 +354,7 @@ public class TestJoinStatsRule
                 symbolStatistics(LEFT_JOIN_COLUMN, 0.0, 20.0, (LEFT_ROWS_COUNT * LEFT_JOIN_COLUMN_NULLS + RIGHT_ROWS_COUNT * 0.2) / TOTAL_ROWS_COUNT, LEFT_JOIN_COLUMN_NDV),
                 symbolStatistics(LEFT_OTHER_COLUMN, 42, 42, (0.42 * LEFT_ROWS_COUNT + RIGHT_ROWS_COUNT) / TOTAL_ROWS_COUNT, 1));
 
-        assertThat(JOIN_STATS_RULE.addJoinComplementStats(
+        assertPlanNodeStats(JOIN_STATS_RULE.addJoinComplementStats(
                 LEFT_STATS,
                 LEFT_STATS,
                 statsToAdd))

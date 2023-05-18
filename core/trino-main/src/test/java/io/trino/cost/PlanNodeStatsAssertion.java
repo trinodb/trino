@@ -32,7 +32,7 @@ public class PlanNodeStatsAssertion
         this.actual = actual;
     }
 
-    public static PlanNodeStatsAssertion assertThat(PlanNodeStatsEstimate actual)
+    public static PlanNodeStatsAssertion assertPlanNodeStats(PlanNodeStatsEstimate actual)
     {
         return new PlanNodeStatsAssertion(actual);
     }

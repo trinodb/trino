@@ -751,7 +751,7 @@ public class TestFilterStatsCalculator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return PlanNodeStatsAssertion.assertThat(statsCalculator.filterStats(
+                    return PlanNodeStatsAssertion.assertPlanNodeStats(statsCalculator.filterStats(
                             inputStatistics,
                             expression,
                             transactionSession,

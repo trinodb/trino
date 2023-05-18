@@ -226,7 +226,7 @@ public class TestComparisonStatsCalculator
 
     private PlanNodeStatsAssertion assertCalculate(Expression comparisonExpression)
     {
-        return PlanNodeStatsAssertion.assertThat(filterStatsCalculator.filterStats(standardInputStatistics, comparisonExpression, session, types));
+        return PlanNodeStatsAssertion.assertPlanNodeStats(filterStatsCalculator.filterStats(standardInputStatistics, comparisonExpression, session, types));
     }
 
     @Test
