@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.plugin.deltalake.transactionlog.writer.S3NativeTransactionLogSynchronizer;
-import io.trino.testing.QueryRunner;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -30,9 +29,10 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,19 +44,16 @@ public class TestDeltaLakeConnectorSmokeTest
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
 
     @Override
-    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception
+    protected Map<String, String> storageConfiguration()
     {
-        return DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.<String, String>builder()
-                        .putAll(connectorProperties)
-                        .put("delta.enable-non-concurrent-writes", "true")
-                        .put("hive.s3.max-connections", "2")
-                        .buildOrThrow(),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+        return ImmutableMap.<String, String>builder()
+                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .put("hive.s3.path-style-access", "true")
+                .put("hive.s3.max-connections", "2")
+                .put("delta.enable-non-concurrent-writes", "true")
+                .buildOrThrow();
     }
 
     @Test(dataProvider = "writesLockedQueryProvider")

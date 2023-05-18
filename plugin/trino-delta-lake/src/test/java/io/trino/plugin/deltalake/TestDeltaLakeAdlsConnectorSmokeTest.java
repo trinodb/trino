@@ -43,8 +43,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createAbfsDeltaLakeQueryRunner;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.requiredNonEmptySystemProperty;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -98,10 +97,12 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
     }
 
     @Override
-    protected QueryRunner createDeltaLakeQueryRunner(Map<String, String> connectorProperties)
-            throws Exception
+    protected Map<String, String> storageConfiguration()
     {
-        return createAbfsDeltaLakeQueryRunner(DELTA_CATALOG, SCHEMA, ImmutableMap.of(), connectorProperties, hiveMinioDataLake.getHiveHadoop());
+        return ImmutableMap.<String, String>builder()
+                .put("hive.azure.abfs-storage-account", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-account"))
+                .put("hive.azure.abfs-access-key", requiredNonEmptySystemProperty("hive.hadoop2.azure-abfs-access-key"))
+                .buildOrThrow();
     }
 
     @AfterClass(alwaysRun = true)
