@@ -299,15 +299,27 @@ public class OracleClient
     @Override
     protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
     {
-        String sql = "DROP TABLE " + quoted(remoteTableName);
-        // Oracle puts dropped tables into a recycling bin, which keeps them accessible for a period of time.
-        // PURGE will bypass the bin and completely delete the table immediately.
-        // We should only PURGE the table if it is a temporary table that trino created,
-        // as purging all dropped tables may be unexpected behavior for our clients.
-        if (temporaryTable) {
-            sql += " PURGE";
+        String quotedTable = quoted(remoteTableName);
+        String dropTableSql = "DROP TABLE " + quotedTable;
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            if (temporaryTable) {
+                // By default, when dropping a table, oracle does not wait for the table lock.
+                // If another transaction is using the table at the same time, DROP TABLE will throw.
+                // The solution is to first lock the table, waiting for other active transactions to complete.
+                // In Oracle, DDL automatically commits, so DROP TABLE will release the lock afterwards.
+                // NOTE: We can only lock tables owned by trino, hence only doing this for temporary tables.
+                execute(session, connection, "LOCK TABLE " + quotedTable + " IN EXCLUSIVE MODE");
+                // Oracle puts dropped tables into a recycling bin, which keeps them accessible for a period of time.
+                // PURGE will bypass the bin and completely delete the table immediately.
+                // We should only PURGE the table if it is a temporary table that trino created,
+                // as purging all dropped tables may be unexpected behavior for our clients.
+                dropTableSql += " PURGE";
+            }
+            execute(session, connection, dropTableSql);
         }
-        execute(session, sql);
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
