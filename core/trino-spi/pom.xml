@@ -450,6 +450,11 @@
                                     <newVisibility>private</newVisibility>
                                     <justification>Constructor should have never been public as there is a static factory method</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</old>
+                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, io.trino.spi.type.Type, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

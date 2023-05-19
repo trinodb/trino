@@ -112,6 +112,7 @@ public final class ChoicesSpecializedSqlScalarFunction
         ScalarImplementationChoice bestChoice = Collections.max(choices, comparingInt(ScalarImplementationChoice::getScore));
         MethodHandle methodHandle = ScalarFunctionAdapter.adapt(
                 bestChoice.getMethodHandle(),
+                boundSignature.getReturnType(),
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
