@@ -74,6 +74,7 @@
         <dep.netty.version>4.1.92.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
+        <dep.jackson.version>2.15.1</dep.jackson.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
 
