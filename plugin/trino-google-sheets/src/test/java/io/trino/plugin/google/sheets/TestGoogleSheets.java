@@ -25,17 +25,21 @@ import com.google.api.services.sheets.v4.model.UpdateValuesResponse;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -73,7 +77,8 @@ public class TestGoogleSheets
                 .setSheets(ImmutableList.of(
                         new Sheet().setProperties(new SheetProperties().setTitle("Metadata")),
                         new Sheet().setProperties(new SheetProperties().setTitle("Number Text")),
-                        new Sheet().setProperties(new SheetProperties().setTitle("Table with duplicate and missing column names"))));
+                        new Sheet().setProperties(new SheetProperties().setTitle("Table with duplicate and missing column names")),
+                        new Sheet().setProperties(new SheetProperties().setTitle("Nation Insert test"))));
 
         spreadsheet = sheetsService.spreadsheets().create(spreadsheet).setFields("spreadsheetId").execute();
         String spreadsheetId = spreadsheet.getSpreadsheetId();
@@ -82,12 +87,13 @@ public class TestGoogleSheets
                 ImmutableList.of("Table Name", "Sheet ID", "Owner", "Notes"),
                 ImmutableList.of("metadata_table", spreadsheetId + "#Metadata", "", "Self reference to this sheet as table"),
                 ImmutableList.of("number_text", spreadsheetId + "#Number Text", "alice", "Table to test type mapping"),
-                ImmutableList.of("table_with_duplicate_and_missing_column_names", spreadsheetId + "#Table with duplicate and missing column names", "bob", "Table to test behaviour with duplicate columns")));
+                ImmutableList.of("table_with_duplicate_and_missing_column_names", spreadsheetId + "#Table with duplicate and missing column names", "bob", "Table to test behaviour with duplicate columns"),
+                ImmutableList.of("nation_insert_test", spreadsheetId + "#Nation Insert test", "", "Table containing tpch nation table to test inserts")));
         UpdateValuesResponse updateResult = sheetsService.spreadsheets().values()
                 .update(spreadsheetId, "Metadata", updateValues)
                 .setValueInputOption("RAW")
                 .execute();
-        assertEquals(toIntExact(updateResult.getUpdatedRows()), 4);
+        assertEquals(toIntExact(updateResult.getUpdatedRows()), 5);
 
         updateValues = new ValueRange().setValues(ImmutableList.of(
                 ImmutableList.of("number", "text"),
@@ -111,16 +117,23 @@ public class TestGoogleSheets
                 .execute();
         assertEquals(toIntExact(updateResult.getUpdatedRows()), 2);
 
+        updateValues = new ValueRange().setValues(ImmutableList.of(ImmutableList.of("nationkey", "name", "regionkey", "comment")));
+        updateResult = sheetsService.spreadsheets().values().update(spreadsheetId, "Nation Insert test", updateValues)
+                .setValueInputOption("RAW")
+                .execute();
+        assertEquals(toIntExact(updateResult.getUpdatedRows()), 1);
+
         return spreadsheetId;
     }
 
     @Test
     public void testListTable()
     {
-        assertQuery("show tables", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        @Language("SQL") String expectedTableNamesStatement = "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names', 'nation_insert_test')";
+        assertQuery("show tables", expectedTableNamesStatement);
         assertQueryReturnsEmptyResult("SHOW TABLES IN gsheets.information_schema LIKE 'number_text'");
-        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
-        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", "SELECT * FROM (VALUES 'metadata_table', 'number_text', 'table_with_duplicate_and_missing_column_names')");
+        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema'", expectedTableNamesStatement);
+        assertQuery("select table_name from gsheets.information_schema.tables WHERE table_schema <> 'information_schema' LIMIT 1000", expectedTableNamesStatement);
         assertEquals(getQueryRunner().execute("select table_name from gsheets.information_schema.tables WHERE table_schema = 'unknown_schema'").getRowCount(), 0);
     }
 
@@ -280,6 +293,18 @@ public class TestGoogleSheets
     {
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
                 .hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
+    }
+
+    @Test
+    public void testInsertIntoTable()
+            throws Exception
+    {
+        assertQuery("SELECT count(*) FROM nation_insert_test", "SELECT 0");
+        assertUpdate("INSERT INTO nation_insert_test SELECT cast(nationkey as varchar), cast(name as varchar), cast(regionkey as varchar), cast(comment as varchar) FROM tpch.tiny.nation", 25);
+        assertEventually(
+                new Duration(5, TimeUnit.MINUTES),
+                new Duration(30, TimeUnit.SECONDS),
+                () -> assertQuery("SELECT * FROM nation_insert_test", "SELECT * FROM nation"));
     }
 
     private Sheets getSheetsService()

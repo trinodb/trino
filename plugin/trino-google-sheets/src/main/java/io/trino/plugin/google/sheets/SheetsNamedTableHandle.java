@@ -54,6 +54,11 @@ public final class SheetsNamedTableHandle
         return Objects.hash(schemaTableName);
     }
 
+    public SchemaTableName getSchemaTableName()
+    {
+        return schemaTableName;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

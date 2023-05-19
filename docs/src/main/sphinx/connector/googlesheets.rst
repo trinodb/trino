@@ -6,7 +6,7 @@ Google Sheets connector
 
   <img src="../_static/img/google-sheets.png" class="connector-logo">
 
-The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
+The Google Sheets connector allows reading and writing `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
 
 Configuration
 -------------
@@ -99,6 +99,20 @@ The first row of the provided sheet range is used as the header and will determi
 names of the Trino table.
 For more details on sheet range syntax see the `google sheets docs <https://developers.google.com/sheets/api/guides/concepts>`_.
 
+Writing to sheets
+-----------------
+
+The same way sheets can be queried, they can also be written by appending data to existing sheets.
+In this case the service account user must also have **Editor** permissions on the sheet.
+
+After data is written to a table, the table contents are removed from the cache described in `API usage limits`_.
+If the table is accessed immediately after the write, querying the Google Sheets API may not reflect the change yet.
+In that case the old version of the table is read and cached for the configured amount of time,
+and it might take some time for the written changes to propagate properly.
+
+Keep in mind that the Google Sheets API has `usage limits <https://developers.google.com/sheets/api/limits>`_, that limit the speed of inserting data.
+If you run into timeouts you can increase timeout times to avoid ``503: The service is currently unavailable`` errors.
+
 API usage limits
 ----------------
 
@@ -136,15 +150,15 @@ No other types are supported.
 SQL support
 -----------
 
-The connector provides :ref:`globally available <sql-globally-available>` and
-:ref:`read operation <sql-read-operations>` statements to access data and
-metadata in Google Sheets.
+In addition to the :ref:`globally available <sql-globally-available>` and :ref:`read operation <sql-read-operations>` statements,
+this connector supports the following features:
+
+* :doc:`/sql/insert`
 
 Table functions
 ---------------
 
-The connector provides specific :doc:`table functions </functions/table>` to
-access Google Sheets.
+The connector provides specific :doc:`/functions/table` to access Google Sheets.
 
 .. _google-sheets-sheet-function:
 
