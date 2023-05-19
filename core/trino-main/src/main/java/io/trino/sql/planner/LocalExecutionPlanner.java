@@ -437,10 +437,10 @@ public class LocalExecutionPlanner
 
     private final NonEvictableCache<FunctionKey, AccumulatorFactory> accumulatorFactoryCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
-            .expireAfterWrite(1, HOURS));
+            .expireAfterAccess(1, HOURS));
     private final NonEvictableCache<FunctionKey, AggregationWindowFunctionSupplier> aggregationWindowFunctionSupplierCache = buildNonEvictableCache(CacheBuilder.newBuilder()
             .maximumSize(1000)
-            .expireAfterWrite(1, HOURS));
+            .expireAfterAccess(1, HOURS));
 
     @Inject
     public LocalExecutionPlanner(
