@@ -13,29 +13,105 @@
  */
 package io.trino.plugin.google.sheets;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.SheetsScopes;
+import com.google.api.services.sheets.v4.model.Sheet;
+import com.google.api.services.sheets.v4.model.SheetProperties;
+import com.google.api.services.sheets.v4.model.Spreadsheet;
+import com.google.api.services.sheets.v4.model.SpreadsheetProperties;
+import com.google.api.services.sheets.v4.model.UpdateValuesResponse;
+import com.google.api.services.sheets.v4.model.ValueRange;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+
+import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static io.trino.plugin.google.sheets.SheetsQueryRunner.createSheetsQueryRunner;
 import static io.trino.plugin.google.sheets.TestSheetsPlugin.DATA_SHEET_ID;
-import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
+import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
+import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets
         extends AbstractTestQueryFramework
 {
+    private static final String APPLICATION_NAME = "trino google sheets integration test";
+    private static final String TEST_SPREADSHEET_NAME = "Trino integration test";
+
+    private Sheets sheetsService;
+    private String spreadsheetId;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createSheetsQueryRunner(
-                ImmutableMap.of(),
-                ImmutableMap.of(
-                        "gsheets.read-timeout", "1m",
-                        "gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID));
+        sheetsService = getSheetsService();
+        spreadsheetId = createSpreadsheetWithTestdata();
+        return createSheetsQueryRunner(ImmutableMap.of(), ImmutableMap.of(
+                "gsheets.metadata-sheet-id", spreadsheetId + "#Metadata",
+                "gsheets.connection-timeout", "1m",
+                "gsheets.read-timeout", "1m",
+                "gsheets.write-timeout", "1m"));
+    }
+
+    // This test currently only creates spreadsheets and does not delete them afterward.
+    // This is due to the fact that the Google Sheets API does not support deleting spreadsheets,
+    // the Drive API needs to be used (see https://github.com/trinodb/trino/pull/15026 for details)
+    private String createSpreadsheetWithTestdata()
+            throws IOException
+    {
+        Spreadsheet spreadsheet = new Spreadsheet()
+                .setProperties(new SpreadsheetProperties().setTitle(TEST_SPREADSHEET_NAME))
+                .setSheets(ImmutableList.of(
+                        new Sheet().setProperties(new SheetProperties().setTitle("Metadata")),
+                        new Sheet().setProperties(new SheetProperties().setTitle("Number Text")),
+                        new Sheet().setProperties(new SheetProperties().setTitle("Table with duplicate and missing column names"))));
+
+        spreadsheet = sheetsService.spreadsheets().create(spreadsheet).setFields("spreadsheetId").execute();
+        String spreadsheetId = spreadsheet.getSpreadsheetId();
+
+        ValueRange updateValues = new ValueRange().setValues(ImmutableList.of(
+                ImmutableList.of("Table Name", "Sheet ID", "Owner", "Notes"),
+                ImmutableList.of("metadata_table", spreadsheetId + "#Metadata", "", "Self reference to this sheet as table"),
+                ImmutableList.of("number_text", spreadsheetId + "#Number Text", "alice", "Table to test type mapping"),
+                ImmutableList.of("table_with_duplicate_and_missing_column_names", spreadsheetId + "#Table with duplicate and missing column names", "bob", "Table to test behaviour with duplicate columns")));
+        UpdateValuesResponse updateResult = sheetsService.spreadsheets().values()
+                .update(spreadsheetId, "Metadata", updateValues)
+                .setValueInputOption("RAW")
+                .execute();
+        assertEquals(toIntExact(updateResult.getUpdatedRows()), 4);
+
+        updateValues = new ValueRange().setValues(ImmutableList.of(
+                ImmutableList.of("number", "text"),
+                ImmutableList.of("1", "one"),
+                ImmutableList.of("2", "two"),
+                ImmutableList.of("3", "three"),
+                ImmutableList.of("4", "four"),
+                ImmutableList.of("5", "five")));
+        updateResult = sheetsService.spreadsheets().values()
+                .update(spreadsheetId, "Number Text", updateValues)
+                .setValueInputOption("RAW")
+                .execute();
+        assertEquals(toIntExact(updateResult.getUpdatedRows()), 6);
+
+        updateValues = new ValueRange().setValues(ImmutableList.of(
+                ImmutableList.of("a", "A", "", "C"),
+                ImmutableList.of("1", "2", "3", "4")));
+        updateResult = sheetsService.spreadsheets().values()
+                .update(spreadsheetId, "Table with duplicate and missing column names", updateValues)
+                .setValueInputOption("RAW")
+                .execute();
+        assertEquals(toIntExact(updateResult.getUpdatedRows()), 2);
+
+        return spreadsheetId;
     }
 
     @Test
@@ -52,7 +128,7 @@ public class TestGoogleSheets
     public void testDescTable()
     {
         assertQuery("desc number_text", "SELECT * FROM (VALUES('number','varchar','',''), ('text','varchar','',''))");
-        assertQuery("desc metadata_table", "SELECT * FROM (VALUES('table name','varchar','',''), ('sheetid_sheetname','varchar','',''), "
+        assertQuery("desc metadata_table", "SELECT * FROM (VALUES('table name','varchar','',''), ('sheet id','varchar','',''), "
                 + "('owner','varchar','',''), ('notes','varchar','',''))");
     }
 
@@ -204,5 +280,23 @@ public class TestGoogleSheets
     {
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(gsheets.system.sheet(id => 'DOESNOTEXIST'))"))
                 .hasMessageContaining("Failed reading data from sheet: DOESNOTEXIST");
+    }
+
+    private Sheets getSheetsService()
+            throws Exception
+    {
+        return new Sheets.Builder(newTrustedTransport(),
+                JacksonFactory.getDefaultInstance(),
+                getCredentials())
+                .setApplicationName(APPLICATION_NAME)
+                .build();
+    }
+
+    private GoogleCredential getCredentials()
+            throws Exception
+    {
+        String credentialsPath = getTestCredentialsPath();
+        return GoogleCredential.fromStream(new FileInputStream(credentialsPath))
+                .createScoped(ImmutableList.of(SheetsScopes.SPREADSHEETS, SheetsScopes.DRIVE));
     }
 }
