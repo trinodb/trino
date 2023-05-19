@@ -265,6 +265,42 @@ In addition to the above Kafka types, the Redis connector supports ``hash`` type
 
 .. _Kafka connector: ./kafka.html
 
+Type mapping
+------------
+
+Because Trino and Redis each support types that the other does not, this
+connector :ref:`maps some types <type-mapping-overview>` when reading data. Type
+mapping depends on the RAW, CSV, JSON, and AVRO file formats.
+
+Row decoding
+^^^^^^^^^^^^
+
+A decoder is used to map data to table columns.
+
+The connector contains the following decoders:
+
+* ``raw``: Message is not interpreted; ranges of raw message bytes are mapped
+  to table columns.
+* ``csv``: Message is interpreted as comma separated message, and fields are
+  mapped to table columns.
+* ``json``: Message is parsed as JSON, and JSON fields are mapped to table
+  columns.
+* ``avro``: Message is parsed based on an Avro schema, and Avro fields are
+  mapped to table columns.
+
+.. note::
+
+    If no table definition file exists for a table, the ``dummy`` decoder is
+    used, which does not expose any columns.
+
+.. include:: raw-decoder.fragment
+
+.. include:: csv-decoder.fragment
+
+.. include:: json-decoder.fragment
+
+.. include:: avro-decoder.fragment
+
 .. _redis-sql-support:
 
 SQL support
