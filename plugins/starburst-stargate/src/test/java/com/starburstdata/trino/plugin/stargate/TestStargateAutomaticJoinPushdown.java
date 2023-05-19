@@ -42,7 +42,8 @@ public class TestStargateAutomaticJoinPushdown
     }
 
     @Override
-    protected QueryRunner createQueryRunner() throws Exception
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
 
