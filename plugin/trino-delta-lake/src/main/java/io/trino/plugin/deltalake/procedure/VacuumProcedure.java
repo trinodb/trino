@@ -176,7 +176,7 @@ public class VacuumProcedure
         String tableLocation = tableSnapshot.getTableLocation();
         String transactionLogDir = getTransactionLogDir(tableLocation);
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        String commonPathPrefix = tableLocation + "/";
+        String commonPathPrefix = tableLocation.endsWith("/") ? tableLocation : tableLocation + "/";
         String queryId = session.getQueryId();
 
         // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
