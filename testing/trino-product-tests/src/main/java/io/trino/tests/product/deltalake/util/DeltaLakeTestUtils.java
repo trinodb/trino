@@ -67,7 +67,7 @@ public final class DeltaLakeTestUtils
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
         return (String) onTrino()
-                .executeQuery("SELECT comment FROM information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'")
+                .executeQuery("SELECT comment FROM delta.information_schema.columns WHERE table_schema = '" + schemaName + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'")
                 .getOnlyValue();
     }
 
