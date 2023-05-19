@@ -243,7 +243,7 @@ public final class ViewReaderUtil
                         Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker);
             }
-            catch (RuntimeException e) {
+            catch (Throwable e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),
