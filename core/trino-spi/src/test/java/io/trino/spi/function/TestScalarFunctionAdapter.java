@@ -50,6 +50,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -62,6 +63,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -72,6 +74,7 @@ public class TestScalarFunctionAdapter
     private static final ArrayType ARRAY_TYPE = new ArrayType(BIGINT);
     private static final CharType CHAR_TYPE = createCharType(7);
     private static final TimestampType TIMESTAMP_TYPE = createTimestampType(9);
+    private static final Type RETURN_TYPE = BOOLEAN;
     private static final List<Type> ARGUMENT_TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, ARRAY_TYPE);
     private static final List<Type> OBJECTS_ARGUMENT_TYPES = ImmutableList.of(VARCHAR, ARRAY_TYPE, CHAR_TYPE, TIMESTAMP_TYPE);
 
@@ -85,7 +88,7 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "neverNull";
-        verifyAllAdaptations(actualConvention, methodName, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, ARGUMENT_TYPES);
     }
 
     @Test
@@ -98,23 +101,25 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "neverNullObjects";
-        verifyAllAdaptations(actualConvention, methodName, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, RETURN_TYPE, OBJECTS_ARGUMENT_TYPES);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             String methodName,
+            Type returnType,
             List<Type> argumentTypes)
             throws Throwable
     {
         MethodType type = methodType(actualConvention.getReturnConvention() == FAIL_ON_NULL ? boolean.class : Boolean.class, toCallArgumentTypes(actualConvention, argumentTypes));
         MethodHandle methodHandle = lookup().findVirtual(Target.class, methodName, type);
-        verifyAllAdaptations(actualConvention, methodHandle, argumentTypes);
+        verifyAllAdaptations(actualConvention, methodHandle, returnType, argumentTypes);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             MethodHandle methodHandle,
+            Type returnType,
             List<Type> argumentTypes)
             throws Throwable
     {
@@ -128,6 +133,7 @@ public class TestScalarFunctionAdapter
                         methodHandle,
                         actualConvention,
                         expectedConvention,
+                        returnType,
                         argumentTypes);
             }
         }
@@ -137,6 +143,7 @@ public class TestScalarFunctionAdapter
             MethodHandle methodHandle,
             InvocationConvention actualConvention,
             InvocationConvention expectedConvention,
+            Type returnType,
             List<Type> argumentTypes)
             throws Throwable
     {
@@ -144,6 +151,7 @@ public class TestScalarFunctionAdapter
         try {
             adaptedMethodHandle = ScalarFunctionAdapter.adapt(
                     methodHandle,
+                    returnType,
                     argumentTypes,
                     actualConvention,
                     expectedConvention);
@@ -167,7 +175,9 @@ public class TestScalarFunctionAdapter
         // crete an exact invoker to the handle, so we can use object invoke interface without type coercion concerns
         MethodHandle exactInvoker = MethodHandles.exactInvoker(adaptedMethodHandle.type())
                 .bindTo(adaptedMethodHandle);
-        exactInvoker = MethodHandles.explicitCastArguments(exactInvoker, exactInvoker.type().changeReturnType(Boolean.class));
+        if (expectedConvention.getReturnConvention() != BLOCK_BUILDER) {
+            exactInvoker = MethodHandles.explicitCastArguments(exactInvoker, exactInvoker.type().changeReturnType(Boolean.class));
+        }
 
         // try all combinations of null and not null arguments
         for (int notNullMask = 0; notNullMask < (1 << actualConvention.getArgumentConventions().size()); notNullMask++) {
@@ -178,6 +188,18 @@ public class TestScalarFunctionAdapter
             Target target = new Target();
             List<Object> argumentValues = toCallArgumentValues(newCallingConvention, nullArguments, target, argumentTypes);
             try {
+                if (expectedConvention.getReturnConvention() == BLOCK_BUILDER) {
+                    BlockBuilder blockBuilder = returnType.createBlockBuilder(null, 1);
+                    argumentValues.add(blockBuilder);
+                    exactInvoker.invokeWithArguments(argumentValues);
+                    Block result = blockBuilder.build();
+                    assertThat(result.getPositionCount()).isEqualTo(1);
+                    if (!result.isNull(0)) {
+                        assertTrue(BOOLEAN.getBoolean(result, 0));
+                    }
+                    return;
+                }
+
                 Boolean result = (Boolean) exactInvoker.invokeWithArguments(argumentValues);
                 switch (expectedConvention.getReturnConvention()) {
                     case FAIL_ON_NULL -> assertTrue(result);
