@@ -46,7 +46,7 @@ public class SheetsQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("gsheets.credentials-path", getTestCredentialsPath());
             connectorProperties.putIfAbsent("gsheets.max-data-cache-size", "1000");
-            connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "5m");
+            connectorProperties.putIfAbsent("gsheets.data-cache-ttl", "1m");
 
             queryRunner.installPlugin(new SheetsPlugin());
             queryRunner.createCatalog(GOOGLE_SHEETS, GOOGLE_SHEETS, connectorProperties);
