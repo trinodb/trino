@@ -110,6 +110,7 @@ public abstract class BaseIcebergSystemTables
     {
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions_transform");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_nan");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_dml");
@@ -309,6 +310,15 @@ public abstract class BaseIcebergSystemTables
 
             MaterializedResult result = computeActual("SELECT content, file_format, file_size_in_bytes, record_count, column_sizes, value_counts, null_value_counts," +
                     " nan_value_counts, key_metadata, split_offsets, equality_ids, lower_bounds, upper_bounds FROM \"" + table.getName() + "$files\" ORDER BY file_path");
+            Map<Integer, Long> columnSizesOne = null;
+            Map<Integer, Long> columnSizesTwo = null;
+            Map<Integer, Long> nullValueCounts = null;
+
+            if (this.format.equals(PARQUET)) {
+                columnSizesOne = Map.of(1, Long.valueOf(55), 2, Long.valueOf(73), 3, Long.valueOf(73));
+                columnSizesTwo = Map.of(1, Long.valueOf(56), 2, Long.valueOf(73), 3, Long.valueOf(73));
+                nullValueCounts = Map.of();
+            }
 
             MaterializedResult expectedStatistics =
                     MaterializedResult.resultBuilder(
@@ -326,11 +336,13 @@ public abstract class BaseIcebergSystemTables
                                     new ArrayType(INTEGER),
                                     new MapType(INTEGER, VARCHAR, new TypeOperators()),
                                     new MapType(INTEGER, VARCHAR, new TypeOperators()))
-                            .row(0, "ORC", fileSizes[0], 3L, null, Map.of(1, Long.valueOf(3), 2, Long.valueOf(3), 3, Long.valueOf(3)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "0", 2, "10", 3, "2019-09-08"), Map.of(1, "2", 2, "20", 3, "2019-09-09"))
-                            .row(0, "ORC", fileSizes[1], 3L, null, Map.of(1, Long.valueOf(3), 2, Long.valueOf(3), 3, Long.valueOf(3)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "3", 2, "30", 3, "2019-09-09"), Map.of(1, "5", 2, "40", 3, "2019-09-10"))
+//                            .columnNames(List.of("content", "file_format", "file_size_in_bytes", "record_count", "column_sizes", "value_counts",
+//                                    "null_value_counts", "nan_value_counts", "key_metadata", "split_offsets", "equality_ids", "lower_bounds", "upper_bounds"))
+                            .row(0, this.format.name(), fileSizes[0], 3L, columnSizesOne, Map.of(1, Long.valueOf(3), 2, Long.valueOf(3), 3, Long.valueOf(3)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "0", 2, "10", 3, "2019-09-08"), Map.of(1, "2", 2, "20", 3, "2019-09-09"))
+                            .row(0, this.format.name(), fileSizes[1], 3L, columnSizesTwo, Map.of(1, Long.valueOf(3), 2, Long.valueOf(3), 3, Long.valueOf(3)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "3", 2, "30", 3, "2019-09-09"), Map.of(1, "5", 2, "40", 3, "2019-09-10"))
                             .build();
 
-            assertEquals(result, expectedStatistics);
+            assertThat(result).isEqualTo(expectedStatistics);
         }
     }
 
@@ -366,9 +378,16 @@ public abstract class BaseIcebergSystemTables
             MaterializedResult filePathResult = computeActual("SELECT file_path FROM \"" + table.getName() + "$files\" ORDER BY file_path");
             long[] fileSizes = getFileSizes(filePathResult.getMaterializedRows());
 
+            Map<Integer, Long> columnSizes = null;
+            Map<Integer, Long> nullValueCounts = null;
+
+            if (this.format.equals(PARQUET)) {
+                columnSizes = Map.of(1, Long.valueOf(44), 2, Long.valueOf(40), 3, Long.valueOf(40));
+                nullValueCounts = Map.of();
+            }
+
             MaterializedResult result = computeActual("SELECT content, file_format, file_size_in_bytes, record_count, column_sizes, value_counts, null_value_counts," +
                     " nan_value_counts, key_metadata, split_offsets, equality_ids, lower_bounds, upper_bounds, partition FROM \"" + table.getName() + "$files\" ORDER BY file_path");
-
             MaterializedResult expectedStatistics =
                     MaterializedResult.resultBuilder(
                                     getSession(),
@@ -387,14 +406,14 @@ public abstract class BaseIcebergSystemTables
                                     new MapType(INTEGER, VARCHAR, new TypeOperators()),
                                     RowType.rowType(new RowType.Field(Optional.of("_id"), INTEGER),
                                             new RowType.Field(Optional.of("_date"), DateType.DATE)))
-                            .row(0, "ORC", fileSizes[0], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "1", 2, "10", 3, "2019-09-09"), Map.of(1, "1", 2, "10", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 10, LocalDate.of(2019, 9, 9)))
-                            .row(0, "ORC", fileSizes[1], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "2", 2, "20", 3, "2019-09-09"), Map.of(1, "2", 2, "20", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 20, LocalDate.of(2019, 9, 9)))
-                            .row(0, "ORC", fileSizes[2], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "3", 2, "30", 3, "2019-09-09"), Map.of(1, "3", 2, "30", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 30, LocalDate.of(2019, 9, 9)))
-                            .row(0, "ORC", fileSizes[3], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "4", 2, "30", 3, "2019-09-10"), Map.of(1, "4", 2, "30", 3, "2019-09-10"), new MaterializedRow(DEFAULT_PRECISION, 30, LocalDate.of(2019, 9, 10)))
-                            .row(0, "ORC", fileSizes[3], 1L, null, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), null, null, null, null, Map.of(1, "5", 2, "40", 3, "2019-09-10"), Map.of(1, "5", 2, "40", 3, "2019-09-10"), new MaterializedRow(DEFAULT_PRECISION, 40, LocalDate.of(2019, 9, 10)))
+                            .row(0, this.format.name(), fileSizes[0], 1L, columnSizes, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "1", 2, "10", 3, "2019-09-09"), Map.of(1, "1", 2, "10", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 10, LocalDate.of(2019, 9, 9)))
+                            .row(0, this.format.name(), fileSizes[1], 1L, columnSizes, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "2", 2, "20", 3, "2019-09-09"), Map.of(1, "2", 2, "20", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 20, LocalDate.of(2019, 9, 9)))
+                            .row(0, this.format.name(), fileSizes[2], 1L, columnSizes, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "3", 2, "30", 3, "2019-09-09"), Map.of(1, "3", 2, "30", 3, "2019-09-09"), new MaterializedRow(DEFAULT_PRECISION, 30, LocalDate.of(2019, 9, 9)))
+                            .row(0, this.format.name(), fileSizes[3], 1L, columnSizes, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "4", 2, "30", 3, "2019-09-10"), Map.of(1, "4", 2, "30", 3, "2019-09-10"), new MaterializedRow(DEFAULT_PRECISION, 30, LocalDate.of(2019, 9, 10)))
+                            .row(0, this.format.name(), fileSizes[4], 1L, columnSizes, Map.of(1, Long.valueOf(1), 2, Long.valueOf(1), 3, Long.valueOf(1)), Map.of(1, Long.valueOf(0), 2, Long.valueOf(0), 3, Long.valueOf(0)), nullValueCounts, null, null, null, Map.of(1, "5", 2, "40", 3, "2019-09-10"), Map.of(1, "5", 2, "40", 3, "2019-09-10"), new MaterializedRow(DEFAULT_PRECISION, 40, LocalDate.of(2019, 9, 10)))
                             .build();
 
-            assertEquals(result, expectedStatistics);
+            assertThat(result).isEqualTo(expectedStatistics);
         }
     }
 

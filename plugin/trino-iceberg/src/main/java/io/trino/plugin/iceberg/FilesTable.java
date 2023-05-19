@@ -157,7 +157,6 @@ public class FilesTable
         private boolean closed;
         private final MapType integerToBigintMapType;
         private final MapType integerToVarcharMapType;
-        private TypeManager typeManager;
         Optional<IcebergPartitionColumn> partitionColumnType;
         private final List<PartitionField> partitionFields;
 
@@ -175,7 +174,6 @@ public class FilesTable
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.integerToBigintMapType = new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
             this.integerToVarcharMapType = new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
-            this.typeManager = typeManager;
             this.partitionColumnType = partitionColumnType;
             this.partitionFields = partitionFields;
             addCloseable(planFiles);

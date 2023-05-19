@@ -47,6 +47,7 @@ public class StructLikeWrapperWithFieldIdToIndex
         return structLikeWrapper;
     }
 
+    @Override
     public boolean equals(Object o)
     {
         if (this == o) {
