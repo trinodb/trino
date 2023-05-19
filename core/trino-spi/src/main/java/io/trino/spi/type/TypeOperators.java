@@ -47,6 +47,9 @@ import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -200,6 +203,7 @@ public class TypeOperators
         {
             return ScalarFunctionAdapter.adapt(
                     operatorMethodHandle.getMethodHandle(),
+                    getOperatorReturnType(operatorConvention),
                     getOperatorArgumentTypes(operatorConvention),
                     operatorMethodHandle.getCallingConvention(),
                     operatorConvention.callingConvention());
@@ -346,6 +350,16 @@ public class TypeOperators
             OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.type(), comparisonType, Optional.empty(), simpleConvention(FAIL_ON_NULL, NULL_FLAG, NULL_FLAG));
             MethodHandle comparisonInvoker = adaptOperator(comparisonOperator);
             return adaptNeverNullComparisonToOrdering(sortOrder, comparisonInvoker);
+        }
+
+        private static Type getOperatorReturnType(OperatorConvention operatorConvention)
+        {
+            return switch (operatorConvention.operatorType()) {
+                case EQUAL, IS_DISTINCT_FROM, LESS_THAN, LESS_THAN_OR_EQUAL, INDETERMINATE -> BOOLEAN;
+                case COMPARISON_UNORDERED_LAST, COMPARISON_UNORDERED_FIRST -> INTEGER;
+                case HASH_CODE, XX_HASH_64 -> BIGINT;
+                default -> throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.operatorType());
+            };
         }
 
         private static List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
