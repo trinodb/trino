@@ -502,7 +502,7 @@ public class MongoSession
         if (domain.getValues().isNone() && domain.isNullAllowed()) {
             return Optional.of(documentOf(name, isNullPredicate()));
         }
-        if (domain.getValues().isAll() && !domain.isNullAllowed()) {
+        if (domain.isNotNull()) {
             return Optional.of(documentOf(name, isNotNullPredicate()));
         }
 

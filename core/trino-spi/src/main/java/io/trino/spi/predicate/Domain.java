@@ -154,6 +154,11 @@ public final class Domain
         return values.isNone() && nullAllowed;
     }
 
+    public boolean isNotNull()
+    {
+        return values.isAll() && !nullAllowed;
+    }
+
     public Object getSingleValue()
     {
         if (!isSingleValue()) {
