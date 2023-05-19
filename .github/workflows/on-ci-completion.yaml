@@ -1,0 +1,62 @@
+name: on-ci-completion
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+
+jobs:
+  spot-loss-retry:
+    runs-on: [self-hosted, sep-cicd, gha-fleet-nano]
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: spot-loss-retry
+        uses: actions/github-script@v6
+        with:
+          script: |
+            console.log("Checking " + context.payload.workflow_run.html_url);
+            if (context.payload.workflow_run.run_attempt > 1) {
+              console.log("Workflow was already rerun")
+              return;
+            }
+            const jobs = await github.paginate(context.payload.workflow_run.jobs_url);
+            let should_retry = false;
+            jobs.filter(job => job.status == "completed" && job.conclusion == "failure").forEach(job => {
+              console.log("Checking job " + job.name);
+              let steps = Array();
+              for (const step of job.steps) {
+                steps.push(step);
+              }
+              if (steps.length < 2) {
+                console.warn("Not enough steps for job: " + job.name);
+                return;
+              }
+              const lastStep = steps[steps.length - 1];
+              if (lastStep.name != "Complete job") {
+                console.warn("Unexpected last step name: " + lastStep.name);
+                return;
+              }
+              if (lastStep.conclusion != "success") {
+                console.warn("Unexpected last step conclusion: " + lastStep.conclusion);
+                return;
+              }
+              const previousStep = steps[steps.length - 2];
+              if (!previousStep.name.startsWith("Post ")) {
+                console.warn("Unexpected penultimate step name: " + previousStep.name);
+                return;
+              }
+              if (previousStep.conclusion != "skipped") {
+                console.log("Skipping job as penultimate step was not skipped");
+                return;
+              }
+              console.log("Will retry job: " + job.name);
+              should_retry = true;
+              return;
+            })
+            if (should_retry) {
+              await github.request("POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs", {
+                owner: context.payload.workflow_run.repository.owner.login,
+                repo: context.payload.workflow_run.repository.name,
+                run_id: context.payload.workflow_run.id
+              });
+            }
