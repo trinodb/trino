@@ -186,25 +186,20 @@ public class DeltaLakeWriter
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(rootTableLocation.appendPath(relativeFilePath));
-        List<String> dataColumnNames = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalColumnName).collect(toImmutableList());
-        List<Type> dataColumnTypes = columnHandles.stream().map(DeltaLakeColumnHandle::getBasePhysicalType).collect(toImmutableList());
+        Map<String, Type> dataColumnTypes = columnHandles.stream()
+                .collect(toImmutableMap(DeltaLakeColumnHandle::getBasePhysicalColumnName, DeltaLakeColumnHandle::getBasePhysicalType));
         return new DataFileInfo(
                 relativeFilePath,
                 getWrittenBytes(),
                 creationTime,
                 dataFileType,
                 partitionValues,
-                readStatistics(inputFile, dataColumnNames, dataColumnTypes, rowCount));
+                readStatistics(inputFile, dataColumnTypes, rowCount));
     }
 
-    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, List<String> dataColumnNames, List<Type> dataColumnTypes, long rowCount)
+    private static DeltaLakeJsonFileStatistics readStatistics(TrinoInputFile inputFile, Map<String, Type> typeForColumn, long rowCount)
             throws IOException
     {
-        ImmutableMap.Builder<String, Type> typeForColumn = ImmutableMap.builder();
-        for (int i = 0; i < dataColumnNames.size(); i++) {
-            typeForColumn.put(dataColumnNames.get(i), dataColumnTypes.get(i));
-        }
-
         try (TrinoParquetDataSource trinoParquetDataSource = new TrinoParquetDataSource(
                 inputFile,
                 new ParquetReaderOptions(),
@@ -222,7 +217,7 @@ public class DeltaLakeWriter
                 }
             }
 
-            return mergeStats(metadataForColumn.build(), typeForColumn.buildOrThrow(), rowCount);
+            return mergeStats(metadataForColumn.build(), typeForColumn, rowCount);
         }
     }
 
