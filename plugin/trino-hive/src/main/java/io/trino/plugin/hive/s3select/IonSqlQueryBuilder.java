@@ -19,7 +19,6 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -37,7 +36,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -105,14 +103,10 @@ public class IonSqlQueryBuilder
 
     private String getFullyQualifiedColumnName(HiveColumnHandle column)
     {
-        switch (s3SelectDataType) {
-            case JSON:
-                return format("s.%s", column.getBaseColumnName());
-            case CSV:
-                return format("s._%d", column.getBaseHiveColumnIndex() + 1);
-            default:
-                throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Attempted to build SQL for unknown S3SelectDataType");
-        }
+        return switch (s3SelectDataType) {
+            case JSON -> "s.%s".formatted(column.getBaseColumnName());
+            case CSV -> "s._%d".formatted(column.getBaseHiveColumnIndex() + 1);
+        };
     }
 
     private List<String> toConjuncts(List<HiveColumnHandle> columns, TupleDomain<HiveColumnHandle> tupleDomain)
