@@ -29,6 +29,8 @@ public class TestStarburstOracleConnectorSmokeTest
                 .withUnlockEnterpriseFeatures(false)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(connectionProperties())
+                        // connection pooling is enabled by default. This tests the non-pooling flavor
+                        .put("oracle.connection-pool.enabled", "false")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
