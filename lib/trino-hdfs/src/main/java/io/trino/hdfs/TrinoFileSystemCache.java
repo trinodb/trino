@@ -117,6 +117,7 @@ public class TrinoFileSystemCache
         try {
             fileSystemHolder = cache.compute(key, (k, currentFileSystemHolder) -> {
                 if (currentFileSystemHolder == null) {
+                    // ConcurrentHashMap.compute guarantees that remapping function is invoked at most once, so cacheSize remains eventually consistent with cache.size()
                     if (cacheSize.getAndUpdate(currentSize -> Math.min(currentSize + 1, maxSize)) >= maxSize) {
                         throw new RuntimeException(
                                 new IOException(format("FileSystem max cache size has been reached: %s", maxSize)));
