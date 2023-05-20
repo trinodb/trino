@@ -27,7 +27,8 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
-import it.unimi.dsi.fastutil.longs.LongArrays;
+
+import java.util.Arrays;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -74,17 +75,16 @@ public final class ArraysOverlapFunction
             rightLongArray = new long[rightSize * 2];
         }
 
-        int leftNonNullSize = sortLongArray(leftArray, leftLongArray, type, comparisonOperator);
-        int rightNonNullSize = sortLongArray(rightArray, rightLongArray, type, comparisonOperator);
+        int leftNonNullSize = sortLongArray(leftArray, leftLongArray, type);
+        int rightNonNullSize = sortLongArray(rightArray, rightLongArray, type);
 
         int leftPosition = 0;
         int rightPosition = 0;
         while (leftPosition < leftNonNullSize && rightPosition < rightNonNullSize) {
-            long compareValue = comparisonOperator.compare(leftLongArray[leftPosition], rightLongArray[rightPosition]);
-            if (compareValue > 0) {
+            if (leftLongArray[leftPosition] > rightLongArray[rightPosition]) {
                 rightPosition++;
             }
-            else if (compareValue < 0) {
+            else if (leftLongArray[leftPosition] < rightLongArray[rightPosition]) {
                 leftPosition++;
             }
             else {
@@ -95,7 +95,7 @@ public final class ArraysOverlapFunction
     }
 
     // Assumes buffer is long enough, returns count of non-null elements.
-    private static int sortLongArray(Block array, long[] buffer, Type type, LongComparison comparisonOperator)
+    private static int sortLongArray(Block array, long[] buffer, Type type)
     {
         int arraySize = array.getPositionCount();
         int nonNullSize = 0;
@@ -105,7 +105,12 @@ public final class ArraysOverlapFunction
             }
         }
 
-        LongArrays.unstableSort(buffer, 0, nonNullSize, (left, right) -> (int) comparisonOperator.compare(left, right));
+        for (int i = 1; i < nonNullSize; i++) {
+            if (buffer[i - 1] > buffer[i]) {
+                Arrays.sort(buffer, 0, nonNullSize);
+                break;
+            }
+        }
 
         return nonNullSize;
     }
