@@ -56,7 +56,7 @@ class HashDistributionSplitAssigner
     private final Set<PlanNodeId> replicatedSources;
     private final Set<PlanNodeId> allSources;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
-    private final Map<Integer, TaskPartition> outputPartitionToTaskPartition;
+    private final Map<Integer, TaskPartition> sourcePartitionToTaskPartition;
 
     private final Set<Integer> createdTaskPartitions = new HashSet<>();
     private final Set<PlanNodeId> completedSources = new HashSet<>();
@@ -69,15 +69,13 @@ class HashDistributionSplitAssigner
             Set<PlanNodeId> partitionedSources,
             Set<PlanNodeId> replicatedSources,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
+            Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
             PlanFragment fragment,
             long targetPartitionSizeInBytes,
             int targetMaxTaskCount)
     {
         if (fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
-            verify(
-
-                    fragment.getPartitionedSources().isEmpty() && fragment.getRemoteSourceNodes().size() == 1,
+            verify(fragment.getPartitionedSources().isEmpty() && fragment.getRemoteSourceNodes().size() == 1,
                     "SCALED_WRITER_HASH_DISTRIBUTION fragments are expected to have exactly one remote source and no table scans");
         }
         return new HashDistributionSplitAssigner(
@@ -85,10 +83,10 @@ class HashDistributionSplitAssigner
                 partitionedSources,
                 replicatedSources,
                 sourcePartitioningScheme,
-                createOutputPartitionToTaskPartition(
+                createSourcePartitionToTaskPartition(
                         sourcePartitioningScheme,
                         partitionedSources,
-                        outputDataSizeEstimates,
+                        sourceDataSizeEstimates,
                         targetPartitionSizeInBytes,
                         targetMaxTaskCount,
                         sourceId -> fragment.getPartitioning().equals(SCALED_WRITER_HASH_DISTRIBUTION),
@@ -102,16 +100,16 @@ class HashDistributionSplitAssigner
             Set<PlanNodeId> partitionedSources,
             Set<PlanNodeId> replicatedSources,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            Map<Integer, TaskPartition> outputPartitionToTaskPartition)
+            Map<Integer, TaskPartition> sourcePartitionToTaskPartition)
     {
         this.catalogRequirement = requireNonNull(catalogRequirement, "catalogRequirement is null");
         this.replicatedSources = ImmutableSet.copyOf(requireNonNull(replicatedSources, "replicatedSources is null"));
-        allSources = ImmutableSet.<PlanNodeId>builder()
+        this.allSources = ImmutableSet.<PlanNodeId>builder()
                 .addAll(partitionedSources)
                 .addAll(replicatedSources)
                 .build();
         this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
-        this.outputPartitionToTaskPartition = ImmutableMap.copyOf(requireNonNull(outputPartitionToTaskPartition, "outputPartitionToTaskPartition is null"));
+        this.sourcePartitionToTaskPartition = ImmutableMap.copyOf(requireNonNull(sourcePartitionToTaskPartition, "sourcePartitionToTaskPartition is null"));
     }
 
     @Override
@@ -126,9 +124,9 @@ class HashDistributionSplitAssigner
             }
         }
         else {
-            splits.forEach((outputPartitionId, split) -> {
-                TaskPartition taskPartition = outputPartitionToTaskPartition.get(outputPartitionId);
-                verify(taskPartition != null, "taskPartition not found for outputPartitionId: %s", outputPartitionId);
+            splits.forEach((sourcePartitionId, split) -> {
+                TaskPartition taskPartition = sourcePartitionToTaskPartition.get(sourcePartitionId);
+                verify(taskPartition != null, "taskPartition not found for sourcePartitionId: %s", sourcePartitionId);
 
                 List<SubPartition> subPartitions;
                 if (taskPartition.getSplitBy().isPresent() && taskPartition.getSplitBy().get().equals(planNodeId)) {
@@ -144,7 +142,7 @@ class HashDistributionSplitAssigner
                         // Assigns lazily to ensure task ids are incremental and with no gaps.
                         // Gaps can occur when scanning over a bucketed table as some buckets may contain no data.
                         subPartition.assignId(taskPartitionId);
-                        Set<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(outputPartitionId)
+                        Set<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
                                 .map(InternalNode::getHostAndPort)
                                 .map(ImmutableSet::of)
                                 .orElse(ImmutableSet.of());
@@ -202,10 +200,10 @@ class HashDistributionSplitAssigner
     }
 
     @VisibleForTesting
-    static Map<Integer, TaskPartition> createOutputPartitionToTaskPartition(
+    static Map<Integer, TaskPartition> createSourcePartitionToTaskPartition(
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             Set<PlanNodeId> partitionedSources,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
+            Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
             long targetPartitionSizeInBytes,
             int targetMaxTaskCount,
             Predicate<PlanNodeId> canSplit,
@@ -214,14 +212,14 @@ class HashDistributionSplitAssigner
         int partitionCount = sourcePartitioningScheme.getPartitionCount();
         if (sourcePartitioningScheme.isExplicitPartitionToNodeMappingPresent() ||
                 partitionedSources.isEmpty() ||
-                !outputDataSizeEstimates.keySet().containsAll(partitionedSources)) {
+                !sourceDataSizeEstimates.keySet().containsAll(partitionedSources)) {
             // if bucket scheme is set explicitly or if estimates are missing create one task partition per output partition
             return IntStream.range(0, partitionCount)
                     .boxed()
                     .collect(toImmutableMap(Function.identity(), (key) -> new TaskPartition(1, Optional.empty())));
         }
 
-        List<OutputDataSizeEstimate> partitionedSourcesEstimates = outputDataSizeEstimates.entrySet().stream()
+        List<OutputDataSizeEstimate> partitionedSourcesEstimates = sourceDataSizeEstimates.entrySet().stream()
                 .filter(entry -> partitionedSources.contains(entry.getKey()))
                 .map(Map.Entry::getValue)
                 .collect(toImmutableList());
@@ -249,7 +247,7 @@ class HashDistributionSplitAssigner
                         partitionSizeInBytes,
                         targetPartitionSizeInBytes,
                         partitionedSources,
-                        outputDataSizeEstimates,
+                        sourceDataSizeEstimates,
                         partitionId,
                         canSplit);
                 result.put(partitionId, taskPartition);
@@ -268,13 +266,13 @@ class HashDistributionSplitAssigner
             long partitionSizeInBytes,
             long targetPartitionSizeInBytes,
             Set<PlanNodeId> partitionedSources,
-            Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
+            Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates,
             int partitionId,
             Predicate<PlanNodeId> canSplit)
     {
         if (partitionSizeInBytes > targetPartitionSizeInBytes) {
             // try to assign multiple sub-partitions if possible
-            Map<PlanNodeId, Long> sourceSizes = getSourceSizes(partitionedSources, outputDataSizeEstimates, partitionId);
+            Map<PlanNodeId, Long> sourceSizes = getSourceSizes(partitionedSources, sourceDataSizeEstimates, partitionId);
             PlanNodeId largestSource = sourceSizes.entrySet().stream()
                     .max(Map.Entry.comparingByValue())
                     .map(Map.Entry::getKey)
@@ -289,10 +287,10 @@ class HashDistributionSplitAssigner
         return new TaskPartition(1, Optional.empty());
     }
 
-    private static Map<PlanNodeId, Long> getSourceSizes(Set<PlanNodeId> partitionedSources, Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates, int partitionId)
+    private static Map<PlanNodeId, Long> getSourceSizes(Set<PlanNodeId> partitionedSources, Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates, int partitionId)
     {
         return partitionedSources.stream()
-                .collect(toImmutableMap(Function.identity(), source -> outputDataSizeEstimates.get(source).getPartitionSizeInBytes(partitionId)));
+                .collect(toImmutableMap(Function.identity(), source -> sourceDataSizeEstimates.get(source).getPartitionSizeInBytes(partitionId)));
     }
 
     private record PartitionAssignment(TaskPartition taskPartition, long assignedDataSizeInBytes)
