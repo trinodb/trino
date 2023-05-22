@@ -62,7 +62,7 @@ class HashDistributionSplitAssigner
     private final Set<PlanNodeId> completedSources = new HashSet<>();
     private final ListMultimap<PlanNodeId, Split> replicatedSplits = ArrayListMultimap.create();
 
-    private int nextTaskPartitionId;
+    private boolean allTaskPartitionsCreated;
 
     public static HashDistributionSplitAssigner create(
             Optional<CatalogHandle> catalogRequirement,
@@ -117,6 +117,33 @@ class HashDistributionSplitAssigner
     {
         AssignmentResult.Builder assignment = AssignmentResult.builder();
 
+        if (!allTaskPartitionsCreated) {
+            // create tasks all at once
+            int nextTaskPartitionId = 0;
+            for (int sourcePartitionId = 0; sourcePartitionId < sourcePartitioningScheme.getPartitionCount(); sourcePartitionId++) {
+                TaskPartition taskPartition = sourcePartitionToTaskPartition.get(sourcePartitionId);
+                verify(taskPartition != null, "taskPartition not found for sourcePartitionId: %s", sourcePartitionId);
+
+                for (SubPartition subPartition : taskPartition.getSubPartitions()) {
+                    if (!subPartition.isIdAssigned()) {
+                        int taskPartitionId = nextTaskPartitionId++;
+                        subPartition.assignId(taskPartitionId);
+                        Set<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
+                                .map(InternalNode::getHostAndPort)
+                                .map(ImmutableSet::of)
+                                .orElse(ImmutableSet.of());
+                        assignment.addPartition(new Partition(
+                                taskPartitionId,
+                                new NodeRequirements(catalogRequirement, hostRequirement)));
+                        createdTaskPartitions.add(taskPartitionId);
+                    }
+                }
+            }
+            assignment.setNoMorePartitions();
+
+            allTaskPartitionsCreated = true;
+        }
+
         if (replicatedSources.contains(planNodeId)) {
             replicatedSplits.putAll(planNodeId, splits.values());
             for (Integer partitionId : createdTaskPartitions) {
@@ -137,27 +164,6 @@ class HashDistributionSplitAssigner
                 }
 
                 for (SubPartition subPartition : subPartitions) {
-                    if (!subPartition.isIdAssigned()) {
-                        int taskPartitionId = nextTaskPartitionId++;
-                        // Assigns lazily to ensure task ids are incremental and with no gaps.
-                        // Gaps can occur when scanning over a bucketed table as some buckets may contain no data.
-                        subPartition.assignId(taskPartitionId);
-                        Set<HostAddress> hostRequirement = sourcePartitioningScheme.getNodeRequirement(sourcePartitionId)
-                                .map(InternalNode::getHostAndPort)
-                                .map(ImmutableSet::of)
-                                .orElse(ImmutableSet.of());
-                        assignment.addPartition(new Partition(
-                                taskPartitionId,
-                                new NodeRequirements(catalogRequirement, hostRequirement)));
-                        for (PlanNodeId replicatedSource : replicatedSplits.keySet()) {
-                            assignment.updatePartition(new PartitionUpdate(taskPartitionId, replicatedSource, replicatedSplits.get(replicatedSource), completedSources.contains(replicatedSource)));
-                        }
-                        for (PlanNodeId completedSource : completedSources) {
-                            assignment.updatePartition(new PartitionUpdate(taskPartitionId, completedSource, ImmutableList.of(), true));
-                        }
-                        createdTaskPartitions.add(taskPartitionId);
-                    }
-
                     assignment.updatePartition(new PartitionUpdate(subPartition.getId(), planNodeId, ImmutableList.of(split), false));
                 }
             });
@@ -168,23 +174,11 @@ class HashDistributionSplitAssigner
             for (Integer taskPartition : createdTaskPartitions) {
                 assignment.updatePartition(new PartitionUpdate(taskPartition, planNodeId, ImmutableList.of(), true));
             }
+
             if (completedSources.containsAll(allSources)) {
-                if (createdTaskPartitions.isEmpty()) {
-                    assignment.addPartition(new Partition(
-                            0,
-                            new NodeRequirements(catalogRequirement, ImmutableSet.of())));
-                    for (PlanNodeId replicatedSource : replicatedSplits.keySet()) {
-                        assignment.updatePartition(new PartitionUpdate(0, replicatedSource, replicatedSplits.get(replicatedSource), true));
-                    }
-                    for (PlanNodeId completedSource : completedSources) {
-                        assignment.updatePartition(new PartitionUpdate(0, completedSource, ImmutableList.of(), true));
-                    }
-                    createdTaskPartitions.add(0);
-                }
                 for (Integer taskPartition : createdTaskPartitions) {
                     assignment.sealPartition(taskPartition);
                 }
-                assignment.setNoMorePartitions();
                 replicatedSplits.clear();
             }
         }
