@@ -35,7 +35,6 @@ import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.lang.Double.NaN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGetSourceTablesRowCount
@@ -51,7 +50,7 @@ public class TestGetSourceTablesRowCount
                                 tableScan -> tableScan
                                         .setSymbols(ImmutableList.of(symbol))
                                         .setAssignments(ImmutableMap.of(symbol, new TestingColumnHandle("col")))
-                                        .setStatistics(Optional.of(unknown()))))).isEqualTo(NaN);
+                                        .setStatistics(Optional.of(unknown()))))).isNaN();
     }
 
     @Test
@@ -88,7 +87,7 @@ public class TestGetSourceTablesRowCount
                         planBuilder.join(
                                 INNER,
                                 planBuilder.values(sourceSymbol1),
-                                planBuilder.values(sourceSymbol2)))).isEqualTo(NaN);
+                                planBuilder.values(sourceSymbol2)))).isNaN();
     }
 
     private double getSourceTablesRowCount(PlanNode planNode)

@@ -63,7 +63,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static java.lang.Double.NaN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
@@ -907,7 +906,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(symbol),
                         noLookup(),
                         node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -949,7 +948,7 @@ public class TestDetermineJoinDistributionType
                                 planBuilder.values(sourceSymbol2)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
 
         // unnest node
         assertThat(getSourceTablesSizeInBytes(
@@ -959,7 +958,7 @@ public class TestDetermineJoinDistributionType
                                 planBuilder.values(sourceSymbol1)),
                         noLookup(),
                         node -> sourceStatsEstimate1,
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
     }
 
     @Test
@@ -975,7 +974,7 @@ public class TestDetermineJoinDistributionType
                         planBuilder.values(symbol),
                         noLookup(),
                         node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -1055,7 +1054,7 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
 
         // un-estimated union with estimated expanding source
         assertThat(getFirstKnownOutputSizeInBytes(
@@ -1104,7 +1103,7 @@ public class TestDetermineJoinDistributionType
 
                             return PlanNodeStatsEstimate.unknown();
                         },
-                        planBuilder.getTypes())).isEqualTo(NaN);
+                        planBuilder.getTypes())).isNaN();
     }
 
     private RuleAssert assertDetermineJoinDistributionType()

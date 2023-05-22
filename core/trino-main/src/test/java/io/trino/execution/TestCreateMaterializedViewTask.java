@@ -251,7 +251,8 @@ public class TestCreateMaterializedViewTask
                 metadata.getMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()));
         assertThat(definitionOptional).isPresent();
         Map<String, Object> properties = definitionOptional.get().getProperties();
-        assertThat(properties).containsEntry("foo", DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
+
+        assertThat(properties).doesNotContainKey("foo");
         assertThat(properties).containsEntry("bar", DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
     }
 

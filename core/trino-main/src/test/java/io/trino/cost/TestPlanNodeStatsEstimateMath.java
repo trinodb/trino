@@ -58,13 +58,18 @@ public class TestPlanNodeStatsEstimateMath
         assertAddNullsFraction(unknownRowCount, unknownNullsFraction, NaN);
         assertAddNullsFraction(first, unknownNullsFraction, NaN);
         assertAddNullsFraction(unknownRowCount, second, NaN);
-        assertAddNullsFraction(first, second, 0.16666666666666666);
-        assertAddNullsFraction(fractionalRowCountFirst, fractionalRowCountSecond, 0.2333333333333333);
+        assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(0.16666666666666666);
+        assertThat(addStatsAndSumDistinctValues(fractionalRowCountFirst, fractionalRowCountSecond).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(0.2333333333333333);
     }
 
     private static void assertAddNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isNaN();
+        }
+        else {
+            assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -88,7 +93,7 @@ public class TestPlanNodeStatsEstimateMath
         assertAddAverageRowSize(fractionalRowCountFirst, fractionalRowCountSecond, 0.3608695652173913);
     }
 
-    private static void assertAddAverageRowSize(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
+    private static void assertAddAverageRowSize(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, Double expected)
     {
         assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getAverageRowSize()).isEqualTo(expected);
     }
@@ -111,7 +116,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSumNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isNaN();
+        }
+        else {
+            assertThat(addStatsAndSumDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -132,7 +142,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertMaxNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertThat(addStatsAndMaxDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(addStatsAndMaxDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isNaN();
+        }
+        else {
+            assertThat(addStatsAndMaxDistinctValues(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -191,7 +206,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSubtractNullsFraction(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isNaN();
+        }
+        else {
+            assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -215,7 +235,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertSubtractNumberOfDistinctValues(PlanNodeStatsEstimate first, PlanNodeStatsEstimate second, double expected)
     {
-        assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isNaN();
+        }
+        else {
+            assertThat(subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -235,8 +260,20 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(30, NaN, NaN, new StatisticRange(supersetLow, supersetHigh, 10));
         PlanNodeStatsEstimate second = statistics(20, NaN, NaN, new StatisticRange(subsetLow, subsetHigh, 5));
         SymbolStatsEstimate statistics = subtractSubsetStats(first, second).getSymbolStatistics(SYMBOL);
-        assertThat(statistics.getLowValue()).isEqualTo(expectedLow);
-        assertThat(statistics.getHighValue()).isEqualTo(expectedHigh);
+
+        if (Double.isNaN(expectedLow)) {
+            assertThat(statistics.getLowValue()).isNaN();
+        }
+        else {
+            assertThat(statistics.getLowValue()).isEqualTo(expectedLow);
+        }
+
+        if (Double.isNaN(expectedHigh)) {
+            assertThat(statistics.getHighValue()).isNaN();
+        }
+        else {
+            assertThat(statistics.getHighValue()).isEqualTo(expectedHigh);
+        }
     }
 
     @Test
@@ -246,9 +283,9 @@ public class TestPlanNodeStatsEstimateMath
         PlanNodeStatsEstimate first = statistics(20, NaN, NaN, NON_EMPTY_RANGE);
         PlanNodeStatsEstimate second = statistics(10, NaN, NaN, NON_EMPTY_RANGE);
 
-        assertThat(capStats(unknownRowCount, unknownRowCount).getOutputRowCount()).isEqualTo(NaN);
-        assertThat(capStats(first, unknownRowCount).getOutputRowCount()).isEqualTo(NaN);
-        assertThat(capStats(unknownRowCount, second).getOutputRowCount()).isEqualTo(NaN);
+        assertThat(capStats(unknownRowCount, unknownRowCount).getOutputRowCount()).isNaN();
+        assertThat(capStats(first, unknownRowCount).getOutputRowCount()).isNaN();
+        assertThat(capStats(unknownRowCount, second).getOutputRowCount()).isNaN();
         assertThat(capStats(first, second).getOutputRowCount()).isEqualTo(10.0);
         assertThat(capStats(second, first).getOutputRowCount()).isEqualTo(10.0);
     }
@@ -272,7 +309,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertCapAverageRowSize(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getAverageRowSize()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getAverageRowSize()).isNaN();
+        }
+        else {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getAverageRowSize()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -292,7 +334,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertCapNumberOfDistinctValues(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isNaN();
+        }
+        else {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getDistinctValuesCount()).isEqualTo(expected);
+        }
     }
 
     @Test
@@ -314,8 +361,20 @@ public class TestPlanNodeStatsEstimateMath
     private static void assertCapRange(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expectedLow, double expectedHigh)
     {
         SymbolStatsEstimate symbolStats = capStats(stats, cap).getSymbolStatistics(SYMBOL);
-        assertThat(symbolStats.getLowValue()).isEqualTo(expectedLow);
-        assertThat(symbolStats.getHighValue()).isEqualTo(expectedHigh);
+
+        if (Double.isNaN(expectedLow)) {
+            assertThat(symbolStats.getLowValue()).isNaN();
+        }
+        else {
+            assertThat(symbolStats.getLowValue()).isEqualTo(expectedLow);
+        }
+
+        if (Double.isNaN(expectedHigh)) {
+            assertThat(symbolStats.getHighValue()).isNaN();
+        }
+        else {
+            assertThat(symbolStats.getHighValue()).isEqualTo(expectedHigh);
+        }
     }
 
     @Test
@@ -337,7 +396,12 @@ public class TestPlanNodeStatsEstimateMath
 
     private static void assertCapNullsFraction(PlanNodeStatsEstimate stats, PlanNodeStatsEstimate cap, double expected)
     {
-        assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        if (Double.isNaN(expected)) {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getNullsFraction()).isNaN();
+        }
+        else {
+            assertThat(capStats(stats, cap).getSymbolStatistics(SYMBOL).getNullsFraction()).isEqualTo(expected);
+        }
     }
 
     private static PlanNodeStatsEstimate statistics(double rowCount, double nullsFraction, double averageRowSize, StatisticRange range)

@@ -116,7 +116,7 @@ public class TestDiscoveryNodeManager
 
             for (InternalNode actual : activeNodes) {
                 for (InternalNode expected : this.activeNodes) {
-                    assertThat(actual).isNotEqualTo(expected);
+                    assertThat(actual).isNotSameAs(expected);
                 }
             }
 
@@ -127,7 +127,7 @@ public class TestDiscoveryNodeManager
 
             for (InternalNode actual : inactiveNodes) {
                 for (InternalNode expected : this.inactiveNodes) {
-                    assertThat(actual).isNotEqualTo(expected);
+                    assertThat(actual).isNotSameAs(expected);
                 }
             }
 

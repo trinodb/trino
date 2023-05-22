@@ -56,7 +56,6 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.transaction.TransactionBuilder.transaction;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.fail;
 
@@ -130,10 +129,9 @@ public class RuleAssert
         RuleApplication ruleApplication = applyRule();
 
         if (ruleApplication.wasRuleApplied()) {
-            fail("", format(
-                    "Expected %s to not fire for:\n%s",
+            fail("Expected %s to not fire for:\n%s",
                     rule,
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, functionManager, StatsAndCosts.empty(), session, 2, false))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, functionManager, StatsAndCosts.empty(), session, 2, false)));
         }
     }
 
@@ -143,29 +141,26 @@ public class RuleAssert
         TypeProvider types = ruleApplication.types;
 
         if (!ruleApplication.wasRuleApplied()) {
-            fail("", format(
-                    "%s did not fire for:\n%s",
+            fail("%s did not fire for:\n%s",
                     rule,
-                    formatPlan(plan, types)));
+                    formatPlan(plan, types));
         }
 
         PlanNode actual = ruleApplication.getTransformedPlan();
 
         if (actual == plan) { // plans are not comparable, so we can only ensure they are not the same instance
-            fail("", format(
-                    "%s: rule fired but return the original plan:\n%s",
+            fail("%s: rule fired but return the original plan:\n%s",
                     rule,
-                    formatPlan(plan, types)));
+                    formatPlan(plan, types));
         }
 
         if (!ImmutableSet.copyOf(plan.getOutputSymbols()).equals(ImmutableSet.copyOf(actual.getOutputSymbols()))) {
-            fail("", format(
-                    "%s: output schema of transformed and original plans are not equivalent\n" +
+            fail("%s: output schema of transformed and original plans are not equivalent\n" +
                             "\texpected: %s\n" +
                             "\tactual:   %s",
                     rule,
                     plan.getOutputSymbols(),
-                    actual.getOutputSymbols()));
+                    actual.getOutputSymbols());
         }
 
         inTransaction(session -> {
