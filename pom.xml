@@ -2071,6 +2071,7 @@
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
                                     <include>org.yaml:snakeyaml:2.0</include>
+                                    <include>javax.inject:inject:*</include>
                                 </includes>
                             </bannedDependencies>
                             <requireProfileIdsExist />
