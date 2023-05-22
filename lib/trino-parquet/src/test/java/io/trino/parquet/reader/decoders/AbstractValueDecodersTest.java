@@ -22,6 +22,7 @@ import io.trino.parquet.dictionary.Dictionary;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.TestingColumnReader;
 import io.trino.parquet.reader.flat.ColumnAdapter;
+import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.bytes.ByteBufferInputStream;
@@ -71,7 +72,6 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ValuesType.VALUES;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getDictionaryDecoder;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.concat;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -147,7 +147,7 @@ public abstract class AbstractValueDecodersTest
         ValuesReader valuesReader = getApacheParquetReader(encoding, field, dictionary);
         ValueDecoder<T> apacheValuesDecoder = testType.apacheValuesDecoderProvider().apply(valuesReader);
 
-        Optional<ValueDecoder<T>> dictionaryDecoder = dictionaryPage.map(page -> getDictionaryDecoder(
+        Optional<ValueDecoder<T>> dictionaryDecoder = dictionaryPage.map(page -> DictionaryDecoder.getDictionaryDecoder(
                 page,
                 testType.columnAdapter(),
                 testType.optimizedValuesDecoderProvider().create(PLAIN),

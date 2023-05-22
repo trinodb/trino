@@ -23,6 +23,9 @@ import org.apache.parquet.schema.PrimitiveType;
 import java.util.function.Supplier;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
+import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
@@ -89,6 +92,17 @@ public class TestFlatColumnReaderRowRanges
 
     private static FlatColumnReader<int[]> createFlatColumnReader(PrimitiveField field)
     {
-        return new FlatColumnReader<>(field, getIntDecodersProvider(field), FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, INT_ADAPTER, MEMORY_CONTEXT);
+        ValueDecodersProvider<int[]> valueDecodersProvider = getIntDecodersProvider(field);
+        return new FlatColumnReader<>(
+                field,
+                valueDecodersProvider,
+                FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder,
+                (dictionaryPage, isNonNull) -> getDictionaryDecoder(
+                        dictionaryPage,
+                        INT_ADAPTER,
+                        valueDecodersProvider.create(PLAIN),
+                        isNonNull),
+                INT_ADAPTER,
+                MEMORY_CONTEXT);
     }
 }

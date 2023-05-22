@@ -32,11 +32,10 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getDictionaryDecoder;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static io.trino.parquet.reader.flat.RowRangesIterator.createRowRangesIterator;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -49,6 +48,7 @@ public abstract class AbstractColumnReader<BufferType>
     protected final PrimitiveField field;
     protected final ValueDecodersProvider<BufferType> decodersProvider;
     protected final ColumnAdapter<BufferType> columnAdapter;
+    private final DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider;
 
     protected PageReader pageReader;
     protected RowRangesIterator rowRanges;
@@ -59,10 +59,12 @@ public abstract class AbstractColumnReader<BufferType>
     public AbstractColumnReader(
             PrimitiveField field,
             ValueDecodersProvider<BufferType> decodersProvider,
+            DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider,
             ColumnAdapter<BufferType> columnAdapter)
     {
         this.field = requireNonNull(field, "field is null");
         this.decodersProvider = requireNonNull(decodersProvider, "decoders is null");
+        this.dictionaryDecoderProvider = requireNonNull(dictionaryDecoderProvider, "dictionaryDecoderProvider is null");
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
     }
 
@@ -78,11 +80,7 @@ public abstract class AbstractColumnReader<BufferType>
         // For dictionary based encodings - https://github.com/apache/parquet-format/blob/master/Encodings.md
         if (dictionaryPage != null) {
             log.debug("field %s, readDictionaryPage %s", field, dictionaryPage);
-            dictionaryDecoder = getDictionaryDecoder(
-                    dictionaryPage,
-                    columnAdapter,
-                    decodersProvider.create(PLAIN),
-                    isNonNull());
+            dictionaryDecoder = dictionaryDecoderProvider.create(dictionaryPage, isNonNull());
             produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
         }
         this.rowRanges = createRowRangesIterator(rowRanges);
