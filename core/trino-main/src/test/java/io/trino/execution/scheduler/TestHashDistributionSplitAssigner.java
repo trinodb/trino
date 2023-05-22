@@ -73,7 +73,7 @@ public class TestHashDistributionSplitAssigner
                 .withSplitPartitionCount(10)
                 .withTargetPartitionSizeInBytes(1024)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(10)
                 .run();
         testAssigner()
                 .withReplicatedSources(REPLICATED_1)
@@ -93,7 +93,7 @@ public class TestHashDistributionSplitAssigner
                 .withSplitPartitionCount(10)
                 .withTargetPartitionSizeInBytes(1024)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(10)
                 .run();
         testAssigner()
                 .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
@@ -106,7 +106,7 @@ public class TestHashDistributionSplitAssigner
                 .withSplitPartitionCount(10)
                 .withTargetPartitionSizeInBytes(1024)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(10)
                 .run();
     }
 
@@ -135,7 +135,7 @@ public class TestHashDistributionSplitAssigner
                 .withTargetPartitionSizeInBytes(1000)
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
         // no splits
         testAssigner()
@@ -147,7 +147,7 @@ public class TestHashDistributionSplitAssigner
                 .withTargetPartitionSizeInBytes(1000)
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
     }
 
@@ -174,7 +174,7 @@ public class TestHashDistributionSplitAssigner
                 .withTargetPartitionSizeInBytes(1000)
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
                 .withMergeAllowed(false)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
         // no splits
         testAssigner()
@@ -185,7 +185,7 @@ public class TestHashDistributionSplitAssigner
                 .withTargetPartitionSizeInBytes(1000)
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 1))))
                 .withMergeAllowed(false)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
     }
 
@@ -212,7 +212,7 @@ public class TestHashDistributionSplitAssigner
                 .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
                 .withTargetPartitionSizeInBytes(1000)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
         // no splits
         testAssigner()
@@ -223,7 +223,7 @@ public class TestHashDistributionSplitAssigner
                 .withPartitionToNodeMap(Optional.of(ImmutableList.of(NODE_1, NODE_2, NODE_3)))
                 .withTargetPartitionSizeInBytes(1000)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(3)
                 .run();
     }
 
@@ -332,7 +332,7 @@ public class TestHashDistributionSplitAssigner
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(5, 1, 1))))
                 .withSplittableSources(PARTITIONED_1)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(2)
+                .withExpectedTaskCount(3)
                 .run();
 
         // largest source is not splittable
@@ -345,7 +345,7 @@ public class TestHashDistributionSplitAssigner
                 .withTargetPartitionSizeInBytes(3)
                 .withSourceDataSizeEstimates(ImmutableMap.of(PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(5, 1, 1))))
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(2)
                 .run();
 
         // multiple sources
@@ -392,7 +392,7 @@ public class TestHashDistributionSplitAssigner
                         PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(2, 1, 1))))
                 .withSplittableSources(PARTITIONED_2)
                 .withMergeAllowed(true)
-                .withExpectedTaskCount(1)
+                .withExpectedTaskCount(2)
                 .run();
 
         // targetPartitionSizeInBytes re-adjustment based on taskTargetMaxCount
