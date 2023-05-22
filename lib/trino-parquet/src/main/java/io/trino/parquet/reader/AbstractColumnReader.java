@@ -81,7 +81,7 @@ public abstract class AbstractColumnReader<BufferType>
             dictionaryDecoder = getDictionaryDecoder(
                     dictionaryPage,
                     columnAdapter,
-                    decodersProvider.create(PLAIN, field),
+                    decodersProvider.create(PLAIN),
                     isNonNull());
             produceDictionaryBlock = shouldProduceDictionaryBlock(rowRanges);
         }
@@ -105,7 +105,7 @@ public abstract class AbstractColumnReader<BufferType>
             valueDecoder = dictionaryDecoder;
         }
         else {
-            valueDecoder = decodersProvider.create(encoding, field);
+            valueDecoder = decodersProvider.create(encoding);
         }
         valueDecoder.init(new SimpleSliceInputStream(data));
         return valueDecoder;

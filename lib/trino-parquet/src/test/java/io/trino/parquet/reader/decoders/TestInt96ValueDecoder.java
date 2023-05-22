@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.Fixed12Block;
@@ -43,10 +44,12 @@ public final class TestInt96ValueDecoder
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(INT96, OptionalInt.empty(), TIMESTAMP_NANOS);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(INT96, OptionalInt.empty(), TIMESTAMP_NANOS),
-                        ValueDecoders::getInt96TimestampDecoder,
+                        field,
+                        valueDecoders::getInt96TimestampDecoder,
                         Int96ApacheParquetValueDecoder::new,
                         FIXED12_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
