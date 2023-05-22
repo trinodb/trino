@@ -18,6 +18,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.TransformingValueDecoders;
+import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.FlatColumnReader;
@@ -330,7 +331,7 @@ public final class ColumnReaderFactory
         if (isFlatColumn(field)) {
             return new FlatColumnReader<>(field, decodersProvider, columnAdapter, memoryContext);
         }
-        return new NestedColumnReader<>(field, decodersProvider, columnAdapter, memoryContext);
+        return new NestedColumnReader<>(field, decodersProvider, ValueDecoder::createLevelsDecoder, columnAdapter, memoryContext);
     }
 
     private static boolean useBatchedColumnReaders(ParquetReaderOptions options, PrimitiveField field)
