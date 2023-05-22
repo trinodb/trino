@@ -45,6 +45,10 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
@@ -294,13 +298,22 @@ public class MigrateProcedure
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(typeManager.getType(column.getType().getTypeSignature()), nextFieldId);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(column.getType().getTypeSignature()), nextFieldId);
             Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
         org.apache.iceberg.types.Type icebergSchema = Types.StructType.of(icebergColumns);
         icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
         return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId)
+    {
+        if (type instanceof ArrayType || type instanceof MapType || type instanceof RowType) {
+            // TODO https://github.com/trinodb/trino/issues/17583 Add support for these complex types
+            throw new TrinoException(NOT_SUPPORTED, "Migrating %s type is not supported".formatted(type));
+        }
+        return toIcebergTypeForNewColumn(type, nextFieldId);
     }
 
     public Map<String, Optional<Partition>> listAllPartitions(HiveMetastore metastore, io.trino.plugin.hive.metastore.Table table)
