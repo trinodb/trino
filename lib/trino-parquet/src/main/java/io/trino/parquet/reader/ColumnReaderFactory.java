@@ -47,10 +47,13 @@ import org.joda.time.DateTimeZone;
 
 import java.util.Optional;
 
+import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetTypeUtils.createDecimalType;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
 import static io.trino.parquet.reader.flat.BinaryColumnAdapter.BINARY_ADAPTER;
 import static io.trino.parquet.reader.flat.ByteColumnAdapter.BYTE_ADAPTER;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.getDictionaryDecoder;
 import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.parquet.reader.flat.Int128ColumnAdapter.INT128_ADAPTER;
 import static io.trino.parquet.reader.flat.IntColumnAdapter.INT_ADAPTER;
@@ -327,10 +330,27 @@ public final class ColumnReaderFactory
             ColumnAdapter<T> columnAdapter,
             LocalMemoryContext memoryContext)
     {
+        DictionaryDecoderProvider<T> dictionaryDecoderProvider = (dictionaryPage, isNonNull) -> getDictionaryDecoder(
+                dictionaryPage,
+                columnAdapter,
+                decodersProvider.create(PLAIN),
+                isNonNull);
         if (isFlatColumn(field)) {
-            return new FlatColumnReader<>(field, decodersProvider, FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, columnAdapter, memoryContext);
+            return new FlatColumnReader<>(
+                    field,
+                    decodersProvider,
+                    FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder,
+                    dictionaryDecoderProvider,
+                    columnAdapter,
+                    memoryContext);
         }
-        return new NestedColumnReader<>(field, decodersProvider, ValueDecoder::createLevelsDecoder, columnAdapter, memoryContext);
+        return new NestedColumnReader<>(
+                field,
+                decodersProvider,
+                ValueDecoder::createLevelsDecoder,
+                dictionaryDecoderProvider,
+                columnAdapter,
+                memoryContext);
     }
 
     private static boolean useBatchedColumnReaders(ParquetReaderOptions options, PrimitiveField field)

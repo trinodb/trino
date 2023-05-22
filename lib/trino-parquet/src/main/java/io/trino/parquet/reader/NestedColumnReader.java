@@ -39,6 +39,7 @@ import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
 import static io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -110,10 +111,11 @@ public class NestedColumnReader<BufferType>
             PrimitiveField field,
             ValueDecodersProvider<BufferType> decodersProvider,
             LevelsDecoderProvider levelsDecoderProvider,
+            DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider,
             ColumnAdapter<BufferType> columnAdapter,
             LocalMemoryContext memoryContext)
     {
-        super(field, decodersProvider, columnAdapter);
+        super(field, decodersProvider, dictionaryDecoderProvider, columnAdapter);
         this.levelsDecoderProvider = requireNonNull(levelsDecoderProvider, "levelsDecoderProvider is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }

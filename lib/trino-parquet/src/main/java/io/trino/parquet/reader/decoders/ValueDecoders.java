@@ -14,13 +14,10 @@
 package io.trino.parquet.reader.decoders;
 
 import io.airlift.slice.Slice;
-import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.parquet.reader.flat.BinaryBuffer;
-import io.trino.parquet.reader.flat.ColumnAdapter;
-import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalConversions;
@@ -281,21 +278,6 @@ public final class ValueDecoders
             case DELTA_BYTE_ARRAY -> new BinaryDeltaByteArrayDecoder();
             default -> throw wrongEncoding(encoding);
         };
-    }
-
-    public static <T> DictionaryDecoder<T> getDictionaryDecoder(
-            DictionaryPage dictionaryPage,
-            ColumnAdapter<T> columnAdapter,
-            ValueDecoder<T> plainValuesDecoder,
-            boolean isNonNull)
-    {
-        int size = dictionaryPage.getDictionarySize();
-        // Extra value is added to the end of the dictionary for nullable columns because
-        // parquet dictionary page does not include null but Trino DictionaryBlock's dictionary does
-        T dictionary = columnAdapter.createBuffer(size + (isNonNull ? 0 : 1));
-        plainValuesDecoder.init(new SimpleSliceInputStream(dictionaryPage.getSlice()));
-        plainValuesDecoder.read(dictionary, 0, size);
-        return new DictionaryDecoder<>(dictionary, columnAdapter, size, isNonNull);
     }
 
     public ValueDecoder<int[]> getInt32Decoder(ParquetEncoding encoding)
