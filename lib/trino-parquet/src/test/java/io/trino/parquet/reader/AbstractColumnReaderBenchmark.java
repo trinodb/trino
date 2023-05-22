@@ -61,6 +61,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     private static final int DATA_GENERATION_BATCH_SIZE = 16384;
     private static final int READ_BATCH_SIZE = 4096;
 
+    private final ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
     private final List<DataPage> dataPages = new ArrayList<>();
     private int dataPositions;
 
@@ -102,11 +103,7 @@ public abstract class AbstractColumnReaderBenchmark<VALUES>
     public int read()
             throws IOException
     {
-        ColumnReader columnReader = ColumnReaderFactory.create(
-                field,
-                UTC,
-                newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReader columnReader = columnReaderFactory.create(field, newSimpleAggregatedMemoryContext());
         columnReader.setPageReader(new PageReader(UNCOMPRESSED, dataPages.iterator(), false, false), Optional.empty());
         int rowsRead = 0;
         while (rowsRead < dataPositions) {
