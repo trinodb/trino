@@ -15,7 +15,6 @@ package io.trino.parquet.reader;
 
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
 import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -90,6 +89,6 @@ public class TestFlatColumnReaderRowRanges
 
     private static FlatColumnReader<int[]> createFlatColumnReader(PrimitiveField field)
     {
-        return new FlatColumnReader<>(field, ValueDecoders::getIntDecoder, FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, INT_ADAPTER, MEMORY_CONTEXT);
+        return new FlatColumnReader<>(field, getIntDecodersProvider(field), FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, INT_ADAPTER, MEMORY_CONTEXT);
     }
 }
