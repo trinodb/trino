@@ -17,6 +17,7 @@ import io.trino.plugin.pinot.PinotException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.IntegerType;
@@ -50,7 +51,7 @@ public class DecoderFactory
             if (type instanceof BigintType) {
                 return new BigintDecoder();
             }
-            if (type instanceof IntegerType) {
+            if (type instanceof IntegerType || type instanceof DateType) {
                 return new IntegerDecoder();
             }
             if (type instanceof BooleanType) {
