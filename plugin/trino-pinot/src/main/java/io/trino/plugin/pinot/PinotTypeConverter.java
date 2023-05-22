@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RealType;
@@ -30,9 +31,12 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.operator.transform.TransformResultMetadata;
+import org.apache.pinot.spi.data.DateTimeFieldSpec;
+import org.apache.pinot.spi.data.DateTimeFormatSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
@@ -53,24 +57,39 @@ public class PinotTypeConverter
 
     public Type toTrinoType(FieldSpec field)
     {
-        return toTrinoType(field.getDataType(), field.isSingleValueField());
+        return toTrinoType(field.getDataType(), field.isSingleValueField(), getFormatSpec(field));
+    }
+
+    private static Optional<DateTimeFormatSpec> getFormatSpec(FieldSpec field)
+    {
+        if (field instanceof DateTimeFieldSpec spec) {
+            return Optional.of(spec.getFormatSpec());
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isDateType(DateTimeFormatSpec formatSpec)
+    {
+        return formatSpec.getColumnUnit() == TimeUnit.DAYS &&
+                formatSpec.getTimeFormat() == DateTimeFieldSpec.TimeFormat.EPOCH &&
+                formatSpec.getColumnSize() == 1;
     }
 
     public Type toTrinoType(TransformResultMetadata transformResultMetadata)
     {
-        return toTrinoType(transformResultMetadata.getDataType(), transformResultMetadata.isSingleValue());
+        return toTrinoType(transformResultMetadata.getDataType(), transformResultMetadata.isSingleValue(), Optional.empty());
     }
 
-    private Type toTrinoType(FieldSpec.DataType dataType, boolean isSingleValue)
+    private Type toTrinoType(FieldSpec.DataType dataType, boolean isSingleValue, Optional<DateTimeFormatSpec> formatSpec)
     {
-        Type type = toTrinoType(dataType);
+        Type type = toTrinoType(dataType, formatSpec);
         if (isSingleValue) {
             return type;
         }
         return new ArrayType(type);
     }
 
-    private Type toTrinoType(FieldSpec.DataType dataType)
+    private Type toTrinoType(FieldSpec.DataType dataType, Optional<DateTimeFormatSpec> formatSpec)
     {
         switch (dataType) {
             case BOOLEAN:
@@ -80,8 +99,14 @@ public class PinotTypeConverter
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case INT:
+                if (formatSpec.map(PinotTypeConverter::isDateType).orElse(false)) {
+                    return DateType.DATE;
+                }
                 return IntegerType.INTEGER;
             case LONG:
+                if (formatSpec.map(PinotTypeConverter::isDateType).orElse(false)) {
+                    return DateType.DATE;
+                }
                 return BigintType.BIGINT;
             case STRING:
                 return VarcharType.VARCHAR;
