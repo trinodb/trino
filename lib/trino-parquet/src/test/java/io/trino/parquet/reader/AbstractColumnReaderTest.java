@@ -539,7 +539,8 @@ public abstract class AbstractColumnReaderTest
         // Create reader
         PrimitiveField field = createField(format, true);
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        ColumnReader reader = ColumnReaderFactory.create(field, UTC, memoryContext, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReader reader = columnReaderFactory.create(field, memoryContext);
         // Write data
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         format.write(dictionaryWriter, new Integer[] {1, 2, 3});

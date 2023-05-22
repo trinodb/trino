@@ -73,6 +73,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MICROS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.MILLIS;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit.NANOS;
@@ -85,15 +86,24 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT96;
 
 public final class ColumnReaderFactory
 {
-    private ColumnReaderFactory() {}
+    private final DateTimeZone timeZone;
+    private final boolean useBatchColumnReaders;
+    private final boolean useBatchNestedColumnReaders;
 
-    public static ColumnReader create(PrimitiveField field, DateTimeZone timeZone, AggregatedMemoryContext aggregatedMemoryContext, ParquetReaderOptions options)
+    public ColumnReaderFactory(DateTimeZone timeZone, ParquetReaderOptions readerOptions)
+    {
+        this.timeZone = requireNonNull(timeZone, "dateTimeZone is null");
+        this.useBatchColumnReaders = readerOptions.useBatchColumnReaders();
+        this.useBatchNestedColumnReaders = readerOptions.useBatchNestedColumnReaders();
+    }
+
+    public ColumnReader create(PrimitiveField field, AggregatedMemoryContext aggregatedMemoryContext)
     {
         Type type = field.getType();
         PrimitiveTypeName primitiveType = field.getDescriptor().getPrimitiveType().getPrimitiveTypeName();
         LogicalTypeAnnotation annotation = field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
         LocalMemoryContext memoryContext = aggregatedMemoryContext.newLocalMemoryContext(ColumnReader.class.getSimpleName());
-        if (useBatchedColumnReaders(options, field)) {
+        if (useBatchedColumnReaders(field)) {
             ValueDecoders valueDecoders = new ValueDecoders(field);
             if (BOOLEAN.equals(type) && primitiveType == PrimitiveTypeName.BOOLEAN) {
                 return createColumnReader(field, valueDecoders::getBooleanDecoder, BYTE_ADAPTER, memoryContext);
@@ -353,12 +363,12 @@ public final class ColumnReaderFactory
                 memoryContext);
     }
 
-    private static boolean useBatchedColumnReaders(ParquetReaderOptions options, PrimitiveField field)
+    private boolean useBatchedColumnReaders(PrimitiveField field)
     {
         if (isFlatColumn(field)) {
-            return options.useBatchColumnReaders();
+            return useBatchColumnReaders;
         }
-        return options.useBatchColumnReaders() && options.useBatchNestedColumnReaders();
+        return useBatchColumnReaders && useBatchNestedColumnReaders;
     }
 
     private static boolean isFlatColumn(PrimitiveField field)
