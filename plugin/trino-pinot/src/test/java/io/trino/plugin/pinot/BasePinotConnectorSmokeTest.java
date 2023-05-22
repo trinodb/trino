@@ -735,7 +735,7 @@ public abstract class BasePinotConnectorSmokeTest
         }
     }
 
-    private static Map<String, String> schemaRegistryAwareProducer(TestingKafka testingKafka)
+    public static Map<String, String> schemaRegistryAwareProducer(TestingKafka testingKafka)
     {
         return ImmutableMap.<String, String>builder()
                 .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString())
