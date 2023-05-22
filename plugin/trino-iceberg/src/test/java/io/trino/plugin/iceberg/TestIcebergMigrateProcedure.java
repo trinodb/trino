@@ -64,6 +64,9 @@ public class TestIcebergMigrateProcedure
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
+                .contains("format = '%s'".formatted(fileFormat));
+
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
         assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 1");
 
