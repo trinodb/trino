@@ -16,7 +16,6 @@ package io.trino.parquet.reader;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoder;
-import io.trino.parquet.reader.decoders.ValueDecoders;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -102,6 +101,6 @@ public class TestNestedColumnReaderRowRanges
 
     private static NestedColumnReader<int[]> createNestedColumnReader(PrimitiveField field)
     {
-        return new NestedColumnReader<>(field, ValueDecoders::getIntDecoder, ValueDecoder::createLevelsDecoder, INT_ADAPTER, MEMORY_CONTEXT);
+        return new NestedColumnReader<>(field, getIntDecodersProvider(field), ValueDecoder::createLevelsDecoder, INT_ADAPTER, MEMORY_CONTEXT);
     }
 }

@@ -150,9 +150,9 @@ public abstract class AbstractValueDecodersTest
         Optional<ValueDecoder<T>> dictionaryDecoder = dictionaryPage.map(page -> getDictionaryDecoder(
                 page,
                 testType.columnAdapter(),
-                testType.optimizedValuesDecoderProvider().create(PLAIN, field),
+                testType.optimizedValuesDecoderProvider().create(PLAIN),
                 field.isRequired()));
-        ValueDecoder<T> optimizedValuesDecoder = dictionaryDecoder.orElseGet(() -> testType.optimizedValuesDecoderProvider().create(encoding, field));
+        ValueDecoder<T> optimizedValuesDecoder = dictionaryDecoder.orElseGet(() -> testType.optimizedValuesDecoderProvider().create(encoding));
 
         apacheValuesDecoder.init(new SimpleSliceInputStream(dataBuffer.dataPage()));
         optimizedValuesDecoder.init(new SimpleSliceInputStream(dataBuffer.dataPage()));

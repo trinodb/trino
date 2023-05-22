@@ -14,7 +14,6 @@
 package io.trino.parquet.reader.decoders;
 
 import io.trino.parquet.ParquetEncoding;
-import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -42,7 +41,7 @@ public interface ValueDecoder<T>
 
     interface ValueDecodersProvider<T>
     {
-        ValueDecoder<T> create(ParquetEncoding encoding, PrimitiveField field);
+        ValueDecoder<T> create(ParquetEncoding encoding);
     }
 
     interface LevelsDecoderProvider
