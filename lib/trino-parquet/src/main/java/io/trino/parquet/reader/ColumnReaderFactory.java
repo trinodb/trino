@@ -22,6 +22,7 @@ import io.trino.parquet.reader.decoders.ValueDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.FlatColumnReader;
+import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.AbstractIntType;
 import io.trino.spi.type.AbstractLongType;
@@ -329,7 +330,7 @@ public final class ColumnReaderFactory
             LocalMemoryContext memoryContext)
     {
         if (isFlatColumn(field)) {
-            return new FlatColumnReader<>(field, decodersProvider, columnAdapter, memoryContext);
+            return new FlatColumnReader<>(field, decodersProvider, FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, columnAdapter, memoryContext);
         }
         return new NestedColumnReader<>(field, decodersProvider, ValueDecoder::createLevelsDecoder, columnAdapter, memoryContext);
     }

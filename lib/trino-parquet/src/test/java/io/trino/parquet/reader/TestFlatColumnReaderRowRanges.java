@@ -17,6 +17,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.parquet.reader.flat.FlatColumnReader;
+import io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.PrimitiveType;
 
@@ -61,8 +62,8 @@ public class TestFlatColumnReaderRowRanges
     {
         INT_PRIMITIVE_NO_NULLS(() -> new IntColumnReader(FIELD), FIELD),
         INT_PRIMITIVE_NULLABLE(() -> new IntColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
-        INT_FLAT_NO_NULLS(() -> new FlatColumnReader<>(FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), FIELD),
-        INT_FLAT_NULLABLE(() -> new FlatColumnReader<>(NULLABLE_FIELD, ValueDecoders::getIntDecoder, INT_ADAPTER, MEMORY_CONTEXT), NULLABLE_FIELD),
+        INT_FLAT_NO_NULLS(() -> createFlatColumnReader(FIELD), FIELD),
+        INT_FLAT_NULLABLE(() -> createFlatColumnReader(NULLABLE_FIELD), NULLABLE_FIELD),
         /**/;
 
         private final Supplier<ColumnReader> columnReader;
@@ -85,5 +86,10 @@ public class TestFlatColumnReaderRowRanges
         {
             return field;
         }
+    }
+
+    private static FlatColumnReader<int[]> createFlatColumnReader(PrimitiveField field)
+    {
+        return new FlatColumnReader<>(field, ValueDecoders::getIntDecoder, FlatDefinitionLevelDecoder::getFlatDefinitionLevelDecoder, INT_ADAPTER, MEMORY_CONTEXT);
     }
 }
