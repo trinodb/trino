@@ -130,6 +130,7 @@ public class QueryManagerConfig
     private int faultTolerantExecutionMinPartitionCount = 4;
     private int faultTolerantExecutionMinPartitionCountForWrite = 50;
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
+    private double faultTolerantExecutionMinSourceStageProgress = 0.2;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -938,6 +939,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled)
     {
         this.faultTolerantExecutionForcePreferredWritePartitioningEnabled = faultTolerantExecutionForcePreferredWritePartitioningEnabled;
+        return this;
+    }
+
+    public double getFaultTolerantExecutionMinSourceStageProgress()
+    {
+        return faultTolerantExecutionMinSourceStageProgress;
+    }
+
+    @Config("fault-tolerant-execution-min-source-stage-progress")
+    @ConfigDescription("Minimal progress of source stage to consider scheduling of parent stage")
+    public QueryManagerConfig setFaultTolerantExecutionMinSourceStageProgress(double faultTolerantExecutionMinSourceStageProgress)
+    {
+        this.faultTolerantExecutionMinSourceStageProgress = faultTolerantExecutionMinSourceStageProgress;
         return this;
     }
 

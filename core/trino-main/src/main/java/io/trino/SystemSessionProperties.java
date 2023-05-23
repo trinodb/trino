@@ -184,6 +184,7 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
+    public static final String FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS = "fault_tolerant_execution_min_source_stage_progress";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -933,6 +934,11 @@ public final class SystemSessionProperties
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
                         value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS,
+                        "Minimal progress of source stage to consider scheduling of parent stage",
+                        queryManagerConfig.getFaultTolerantExecutionMinSourceStageProgress(),
+                        true),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1737,6 +1743,11 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionMinPartitionCountForWrite(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionMinSourceStageProgress(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS, Double.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
