@@ -3097,8 +3097,9 @@ public class DeltaLakeMetadata
 
         String tableLocation = table.get().location();
         TableSnapshot tableSnapshot = getSnapshot(new SchemaTableName(systemTableName.getSchemaName(), tableName), tableLocation, session);
+        MetadataEntry metadataEntry;
         try {
-            transactionLogAccess.getMetadataEntry(tableSnapshot, session);
+            metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
         catch (TrinoException e) {
             if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
@@ -3113,6 +3114,10 @@ public class DeltaLakeMetadata
                     systemTableName,
                     getCommitInfoEntries(tableLocation, session),
                     typeManager));
+            case PROPERTIES -> Optional.of(new DeltaLakePropertiesTable(
+                    systemTableName,
+                    metadataEntry,
+                    transactionLogAccess.getProtocolEntry(session, tableSnapshot)));
         };
     }
 

@@ -729,6 +729,26 @@ The output of the query has the following history columns:
     - ``BOOLEAN``
     - Whether or not the operation appended data
 
+``$properties`` table
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``$properties`` table provides access to Delta Lake table configuration,
+table features and table properties. The table rows are key/value pairs.
+
+You can retrieve the properties of the Delta
+table ``test_table`` by using the following query::
+
+    SELECT * FROM "test_table$properties"
+
+.. code-block:: text
+
+     key                        | value           |
+    ----------------------------+-----------------+
+    delta.minReaderVersion      | 1               |
+    delta.minWriterVersion      | 4               |
+    delta.columnMapping.mode    | name            |
+    delta.feature.columnMapping | supported       |
+
 .. _delta-lake-special-columns:
 
 Metadata columns
