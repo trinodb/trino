@@ -97,6 +97,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
+                .setFaultTolerantExecutionMinSourceStageProgress(0.2)
                 .setMaxWriterTasksCount(100));
     }
 
@@ -162,6 +163,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-min-partition-count", "12")
                 .put("fault-tolerant-execution-min-partition-count-for-write", "99")
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
+                .put("fault-tolerant-execution-min-source-stage-progress", "0.3")
                 .put("query.max-writer-task-count", "101")
                 .buildOrThrow();
 
@@ -224,6 +226,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinPartitionCount(12)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(99)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
+                .setFaultTolerantExecutionMinSourceStageProgress(0.3)
                 .setMaxWriterTasksCount(101);
 
         assertFullMapping(properties, expected);
