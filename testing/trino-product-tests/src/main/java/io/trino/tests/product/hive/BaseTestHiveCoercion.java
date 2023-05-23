@@ -47,6 +47,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
@@ -381,40 +382,46 @@ public abstract class BaseTestHiveCoercion
         onTrino().executeQuery(
                 """
                     INSERT INTO %s VALUES
-                    (TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '2121-07-15 15:30:12.123499', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '2121-07-15 15:30:12.123500', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '2121-07-15 15:30:12.123501', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '2121-07-15 15:30:12.123499999', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '2121-07-15 15:30:12.123500000', 1),
-                    (TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '2121-07-15 15:30:12.123500001', 1)
+                    (TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '0000-01-01 00:00:00.123499', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '0000-01-01 00:00:00.123500', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '0000-01-01 00:00:00.123501', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '0000-01-01 00:00:00.123499999', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '0000-01-01 00:00:00.123500000', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '0000-01-01 00:00:00.123500001', 1)
                     """.formatted(tableName));
 
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_varchar timestamp_to_varchar STRING", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN historical_timestamp_to_varchar historical_timestamp_to_varchar STRING", tableName));
 
         for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
                     row("reference_timestamp", "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision())),
                     row("timestamp_to_varchar", "varchar"),
+                    row("historical_timestamp_to_varchar", "varchar"),
                     row("id", "bigint"));
 
             List<String> allColumns = ImmutableList.of(
                     "reference_timestamp",
                     "timestamp_to_varchar",
+                    "historical_timestamp_to_varchar",
                     "id");
 
             // For Trino, remove unsupported columns
             List<String> prestoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
             Map<String, List<Object>> expectedTinoResults = Maps.filterKeys(
-                    expectedRowsForEngineProvider(Engine.TRINO, hiveTimestampPrecision),
+                    expectedRowsForEngineProvider(Engine.TRINO, tableName, hiveTimestampPrecision),
                     prestoReadColumns::contains);
 
             String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
             assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedTinoResults, prestoReadColumns, 6, tableName);
 
+            assertQueryFailure(() -> onTrino().executeQuery("SELECT historical_timestamp_to_varchar FROM %s".formatted(tableName)))
+                    .hasMessageContaining("Coercion on historical dates is not supported");
+
             List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
             Map<String, List<Object>> expectedHiveResults = Maps.filterKeys(
-                    expectedRowsForEngineProvider(Engine.HIVE, hiveTimestampPrecision),
+                    expectedRowsForEngineProvider(Engine.HIVE, tableName, hiveTimestampPrecision),
                     hiveReadColumns::contains);
 
             String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
@@ -422,7 +429,7 @@ public abstract class BaseTestHiveCoercion
         }
     }
 
-    protected Map<String, List<Object>> expectedRowsForEngineProvider(Engine engine, HiveTimestampPrecision hiveTimestampPrecision)
+    protected Map<String, List<Object>> expectedRowsForEngineProvider(Engine engine, String tableName, HiveTimestampPrecision hiveTimestampPrecision)
     {
         List<Object> timestampValues = expectedTimestampValuesForEngineProvider(engine, hiveTimestampPrecision);
         ImmutableMap.Builder<String, List<Object>> rowBuilder = ImmutableMap.<String, List<Object>>builder()
@@ -431,6 +438,12 @@ public abstract class BaseTestHiveCoercion
                         .map(Object::toString)
                         .collect(toImmutableList()))
                 .put("id", nCopies(6, 1));
+
+        if (engine == Engine.HIVE) {
+            rowBuilder.put("historical_timestamp_to_varchar", expectedHistoricalTimestampValuesProvider(tableName).stream()
+                    .map(Timestamp::toString)
+                    .collect(toImmutableList()));
+        }
 
         return rowBuilder.buildOrThrow();
     }
@@ -476,6 +489,28 @@ public abstract class BaseTestHiveCoercion
                             Timestamp.valueOf("2121-07-15 15:30:12.123500001"));
             default -> throw new IllegalStateException("Unsupported timestamp precision");
         };
+    }
+
+    protected List<Timestamp> expectedHistoricalTimestampValuesProvider(String tableName)
+    {
+        Predicate<String> isFormat = formatName -> tableName.toLowerCase(ENGLISH).contains(formatName);
+        // ORC tables render `0000-01-01` date as `0001-01-03`
+        if (isFormat.test("orc")) {
+            return ImmutableList.of(
+                    Timestamp.valueOf("0001-01-03 00:00:00.123499"),
+                    Timestamp.valueOf("0001-01-03 00:00:00.123500"),
+                    Timestamp.valueOf("0001-01-03 00:00:00.123501"),
+                    Timestamp.valueOf("0001-01-03 00:00:00.123499999"),
+                    Timestamp.valueOf("0001-01-03 00:00:00.123500000"),
+                    Timestamp.valueOf("0001-01-03 00:00:00.123500001"));
+        }
+        return ImmutableList.of(
+                Timestamp.valueOf("0001-01-01 00:00:00.123499"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123501"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123499999"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500000"),
+                Timestamp.valueOf("0001-01-01 00:00:00.123500001"));
     }
 
     protected List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
@@ -609,7 +644,13 @@ public abstract class BaseTestHiveCoercion
 
     protected Map<ColumnContext, String> expectedExceptionsWithTrinoContext()
     {
-        return ImmutableMap.of();
+        return ImmutableMap.<ColumnContext, String>builder()
+                .put(columnContext("orc", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .put(columnContext("parquet", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .put(columnContext("rcbinary", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .put(columnContext("rctext", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .put(columnContext("textfile", "historical_timestamp_to_varchar"), "Coercion on historical dates is not supported")
+                .buildOrThrow();
     }
 
     private void assertQueryResults(
@@ -752,6 +793,7 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_smaller_varchar", VARCHAR)
                 .put("reference_timestamp", TIMESTAMP)
                 .put("timestamp_to_varchar", VARCHAR)
+                .put("historical_timestamp_to_varchar", VARCHAR)
                 .buildOrThrow();
 
         assertThat(queryResult)

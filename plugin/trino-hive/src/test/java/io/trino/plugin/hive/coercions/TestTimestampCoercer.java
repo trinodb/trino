@@ -15,6 +15,7 @@ package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.SqlTimestamp;
@@ -40,6 +41,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTimestampCoercer
 {
@@ -103,11 +105,36 @@ public class TestTimestampCoercer
         assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createVarcharType(29), "2023-04-11 05:16:12.345678876");
     }
 
+    @Test
+    public void testHistoricalShortTimestampToVarchar()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("1899-12-31T23:59:59.999999");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertThatThrownBy(() -> assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createUnboundedVarcharType(), "1899-12-31 23:59:59.999999"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Coercion on historical dates is not supported");
+    }
+
+    @Test
+    public void testHistoricalLongTimestampToVarchar()
+    {
+        LocalDateTime localDateTime = LocalDateTime.parse("1899-12-31T23:59:59.999999999");
+        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
+        assertThatThrownBy(() -> assertLongTimestampToVarcharCoercions(
+                TIMESTAMP_PICOS,
+                new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()),
+                createUnboundedVarcharType(),
+                "1899-12-31 23:59:59.999999999"))
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("Coercion on historical dates is not supported");
+    }
+
     @DataProvider
     public Object[][] timestampValuesProvider()
     {
         return new Object[][] {
                 // before epoch
+                {"1900-01-01T00:00:00.000", "1900-01-01 00:00:00"},
                 {"1958-01-01T13:18:03.123", "1958-01-01 13:18:03.123"},
                 // after epoch
                 {"2019-03-18T10:01:17.987", "2019-03-18 10:01:17.987"},

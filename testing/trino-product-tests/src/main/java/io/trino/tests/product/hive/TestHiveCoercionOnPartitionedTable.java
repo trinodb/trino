@@ -136,7 +136,8 @@ public class TestHiveCoercionOnPartitionedTable
                 .setCreateTableDDLTemplate("" +
                         "CREATE TABLE %NAME%(" +
                         "    reference_timestamp               TIMESTAMP," +
-                        "    timestamp_to_varchar              TIMESTAMP" +
+                        "    timestamp_to_varchar              TIMESTAMP," +
+                        "    historical_timestamp_to_varchar   TIMESTAMP" +
                         ") " +
                         "PARTITIONED BY (id BIGINT) " +
                         rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +

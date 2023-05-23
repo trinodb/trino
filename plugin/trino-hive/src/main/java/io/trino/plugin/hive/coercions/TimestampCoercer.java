@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slices;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.LongTimestamp;
@@ -25,6 +26,7 @@ import java.time.chrono.IsoChronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_TIMESTAMP_COERCION;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
@@ -35,6 +37,8 @@ import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.format.ResolverStyle.LENIENT;
+import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 public final class TimestampCoercer
 {
@@ -44,7 +48,11 @@ public final class TimestampCoercer
             .appendLiteral(' ')
             .append(ISO_LOCAL_TIME)
             .toFormatter()
+            .withResolverStyle(LENIENT)
             .withChronology(IsoChronology.INSTANCE);
+
+    // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
+    private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1900, 1, 1).toEpochDay() * SECONDS_PER_DAY;
 
     private TimestampCoercer() {}
 
@@ -62,6 +70,9 @@ public final class TimestampCoercer
             long epochMicros = fromType.getLong(block, position);
             long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
             int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+                throw new TrinoException(HIVE_INVALID_TIMESTAMP_COERCION, "Coercion on historical dates is not supported");
+            }
             toType.writeSlice(
                     blockBuilder,
                     truncateToLength(
@@ -88,6 +99,9 @@ public final class TimestampCoercer
             long microsFraction = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
             // Hive timestamp has nanoseconds precision, so no truncation here
             long nanosFraction = (microsFraction * NANOSECONDS_PER_MICROSECOND) + (timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND);
+            if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+                throw new TrinoException(HIVE_INVALID_TIMESTAMP_COERCION, "Coercion on historical dates is not supported");
+            }
 
             toType.writeSlice(
                     blockBuilder,

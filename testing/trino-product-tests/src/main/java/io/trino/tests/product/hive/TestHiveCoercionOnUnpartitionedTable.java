@@ -92,6 +92,7 @@ public class TestHiveCoercionOnUnpartitionedTable
                          CREATE TABLE %NAME%(
                              reference_timestamp               TIMESTAMP,
                              timestamp_to_varchar              TIMESTAMP,
+                             historical_timestamp_to_varchar   TIMESTAMP,
                              id                                BIGINT)
                         STORED AS\s""" + fileFormat);
     }
