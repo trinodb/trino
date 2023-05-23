@@ -802,7 +802,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                     PlanFragmentId childFragmentId = child.getFragment().getId();
                     StageExecution childExecution = getStageExecution(getStageId(childFragmentId));
                     sourceExchanges.put(childFragmentId, childExecution.getExchange());
-                    outputEstimates.put(childFragmentId, childExecution.getOutputDataSize());
+                    OutputDataSizeEstimateResult outputDataSizeResult = childExecution.getOutputDataSize();
+                    verify(outputDataSizeResult.complete(), "Expected complete outputDataSizeResult"); // todo speculative execution
+                    outputEstimates.put(childFragmentId, outputDataSizeResult.estimate().orElseThrow());
                     stageConsumers.put(childExecution.getStageId(), stageId);
                 }
 
@@ -1357,16 +1359,33 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void noMorePartitions()
         {
+            noMorePartitions = true;
             if (getState().isDone()) {
                 return;
             }
 
-            noMorePartitions = true;
             if (remainingPartitions.isEmpty()) {
                 stage.finish();
                 // TODO close exchange early
                 taskSource.close();
             }
+        }
+
+        public boolean isNoMorePartitions()
+        {
+            return noMorePartitions;
+        }
+
+        public int getPartitionsCount()
+        {
+            checkState(noMorePartitions, "noMorePartitions not set yet");
+            return partitions.size();
+        }
+
+        public int getRemainingPartitionsCount()
+        {
+            checkState(noMorePartitions, "noMorePartitions not set yet");
+            return remainingPartitions.size();
         }
 
         public void closeExchange()
@@ -1662,11 +1681,32 @@ public class EventDrivenFaultTolerantQueryScheduler
             return getStagePartition(partitionId).getNodeRequirements();
         }
 
-        public OutputDataSizeEstimate getOutputDataSize()
+        public OutputDataSizeEstimateResult getOutputDataSize()
         {
-            // TODO enable speculative execution
-            checkState(stage.getState() == StageState.FINISHED, "stage %s is expected to be in FINISHED state, got %s", stage.getStageId(), stage.getState());
-            return new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize));
+            if (stage.getState() == StageState.FINISHED) {
+                return OutputDataSizeEstimateResult.complete(new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)));
+            }
+            if (!isNoMorePartitions()) {
+                return OutputDataSizeEstimateResult.unknown();
+            }
+
+            int allPartitionsCount = getPartitionsCount();
+            int remainingPartitionsCount = getRemainingPartitionsCount();
+
+            if (remainingPartitionsCount == allPartitionsCount) {
+                return OutputDataSizeEstimateResult.unknown();
+            }
+
+            double extrapolationRatio = (double) (allPartitionsCount - remainingPartitionsCount) / allPartitionsCount;
+            ImmutableLongArray.Builder estimateBuilder = ImmutableLongArray.builder(outputDataSize.length);
+
+            for (long partitionSize : outputDataSize) {
+                estimateBuilder.add((long) (partitionSize / extrapolationRatio));
+            }
+
+            return OutputDataSizeEstimateResult.partial(
+                    new OutputDataSizeEstimate(estimateBuilder.build()),
+                    extrapolationRatio);
         }
 
         public ExchangeSourceOutputSelector getSinkOutputSelector()
@@ -1738,6 +1778,33 @@ public class EventDrivenFaultTolerantQueryScheduler
             StagePartition partition = partitions.get(partitionId);
             checkState(partition != null, "partition with id %s does not exist in stage %s", partitionId, stage.getStageId());
             return partition;
+        }
+    }
+
+    private record OutputDataSizeEstimateResult(
+            Optional<OutputDataSizeEstimate> estimate,
+            double confidence,
+            boolean complete)
+    {
+        private OutputDataSizeEstimateResult {
+            checkArgument(confidence >= 0.0, "confidence must be >= 0.0");
+            checkArgument(confidence <= 1.0, "confidence must be <= 1.0");
+            checkArgument(!complete || confidence == 1.0, "confidence must be 1.0 for complete result");
+        }
+
+        public static OutputDataSizeEstimateResult unknown()
+        {
+            return new OutputDataSizeEstimateResult(Optional.empty(), 0.0, false);
+        }
+
+        public static OutputDataSizeEstimateResult complete(OutputDataSizeEstimate estimate)
+        {
+            return new OutputDataSizeEstimateResult(Optional.of(estimate), 1.0, true);
+        }
+
+        public static OutputDataSizeEstimateResult partial(OutputDataSizeEstimate estimate, double confidence)
+        {
+            return new OutputDataSizeEstimateResult(Optional.of(estimate), confidence, false);
         }
     }
 
