@@ -16,7 +16,6 @@ package io.trino.plugin.hive.orc;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
-import io.trino.plugin.hive.coercions.TimestampCoercer.ShortTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -34,10 +33,9 @@ public final class OrcTypeTranslator
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(OrcTypeKind fromOrcType, Type toTrinoType, HiveTimestampPrecision timestampPrecision)
     {
         if (fromOrcType == TIMESTAMP && toTrinoType instanceof VarcharType varcharType) {
-            TimestampType timestampType = createTimestampType(timestampPrecision.getPrecision());
-            if (timestampType.isShort()) {
-                return Optional.of(new ShortTimestampToVarcharCoercer(timestampType, varcharType));
-            }
+            // Hive treats TIMESTAMP with NANOSECONDS precision and when we try to coerce from a timestamp column,
+            // we read it as TIMESTAMP(9) column and coerce accordingly.
+            TimestampType timestampType = createTimestampType(HiveTimestampPrecision.NANOSECONDS.getPrecision());
             return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
         }
         return Optional.empty();

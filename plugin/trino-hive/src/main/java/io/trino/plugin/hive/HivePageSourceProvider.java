@@ -560,14 +560,16 @@ public class HivePageSourceProvider
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
-                                    fromHiveType.getType(typeManager));
+                                    // Hive treats TIMESTAMP with NANOSECONDS precision and when we try to coerce from a timestamp column,
+                                    // we read it as TIMESTAMP(9) column and coerce accordingly.
+                                    fromHiveType.getType(typeManager, HiveTimestampPrecision.NANOSECONDS));
                         });
 
                         return new HiveColumnHandle(
                                 columnHandle.getBaseColumnName(),
                                 columnHandle.getBaseHiveColumnIndex(),
                                 fromHiveTypeBase,
-                                fromHiveTypeBase.getType(typeManager),
+                                fromHiveTypeBase.getType(typeManager, HiveTimestampPrecision.NANOSECONDS),
                                 newColumnProjectionInfo,
                                 columnHandle.getColumnType(),
                                 columnHandle.getComment());

@@ -27,12 +27,10 @@ import org.testng.annotations.Test;
 import java.time.LocalDateTime;
 
 import static io.trino.plugin.hive.HivePageSource.createCoercer;
-import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -44,15 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestTimestampCoercer
 {
     @Test(dataProvider = "timestampValuesProvider")
-    public void testShortTimestampToVarchar(String timestampValue, String hiveTimestampValue)
-    {
-        LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
-        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createUnboundedVarcharType(), hiveTimestampValue);
-    }
-
-    @Test(dataProvider = "timestampValuesProvider")
-    public void testLongTimestampToVarchar(String timestampValue, String hiveTimestampValue)
+    public void testTimestampToVarchar(String timestampValue, String hiveTimestampValue)
     {
         LocalDateTime localDateTime = LocalDateTime.parse(timestampValue);
         SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
@@ -60,47 +50,40 @@ public class TestTimestampCoercer
     }
 
     @Test
-    public void testShortTimestampToSmallerVarchar()
-    {
-        LocalDateTime localDateTime = LocalDateTime.parse("2023-04-11T05:16:12.345678");
-        SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_MICROS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(1), "2");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(2), "20");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(3), "202");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(4), "2023");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(5), "2023-");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(6), "2023-0");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(7), "2023-04");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(8), "2023-04-");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(9), "2023-04-1");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(10), "2023-04-11");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(11), "2023-04-11 ");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(12), "2023-04-11 0");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(13), "2023-04-11 05");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(14), "2023-04-11 05:");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(15), "2023-04-11 05:1");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(16), "2023-04-11 05:16");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(17), "2023-04-11 05:16:");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(18), "2023-04-11 05:16:1");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(19), "2023-04-11 05:16:12");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(20), "2023-04-11 05:16:12.");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(21), "2023-04-11 05:16:12.3");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(22), "2023-04-11 05:16:12.34");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(23), "2023-04-11 05:16:12.345");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(24), "2023-04-11 05:16:12.3456");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(25), "2023-04-11 05:16:12.34567");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(26), "2023-04-11 05:16:12.345678");
-        assertShortTimestampToVarcharCoercions(TIMESTAMP_MICROS, timestamp.getEpochMicros(), createVarcharType(27), "2023-04-11 05:16:12.345678");
-    }
-
-    @Test
-    public void testLongTimestampToSmallerVarchar()
+    public void testTimestampToSmallerVarchar()
     {
         LocalDateTime localDateTime = LocalDateTime.parse("2023-04-11T05:16:12.345678876");
         SqlTimestamp timestamp = SqlTimestamp.fromSeconds(TIMESTAMP_PICOS.getPrecision(), localDateTime.toEpochSecond(UTC), localDateTime.get(NANO_OF_SECOND));
-        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createVarcharType(27), "2023-04-11 05:16:12.3456788");
-        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createVarcharType(28), "2023-04-11 05:16:12.34567887");
-        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros()), createVarcharType(29), "2023-04-11 05:16:12.345678876");
+        LongTimestamp longTimestamp = new LongTimestamp(timestamp.getEpochMicros(), timestamp.getPicosOfMicros());
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(1), "2");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(2), "20");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(3), "202");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(4), "2023");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(5), "2023-");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(6), "2023-0");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(7), "2023-04");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(8), "2023-04-");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(9), "2023-04-1");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(10), "2023-04-11");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(11), "2023-04-11 ");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(12), "2023-04-11 0");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(13), "2023-04-11 05");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(14), "2023-04-11 05:");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(15), "2023-04-11 05:1");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(16), "2023-04-11 05:16");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(17), "2023-04-11 05:16:");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(18), "2023-04-11 05:16:1");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(19), "2023-04-11 05:16:12");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(20), "2023-04-11 05:16:12.");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(21), "2023-04-11 05:16:12.3");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(22), "2023-04-11 05:16:12.34");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(23), "2023-04-11 05:16:12.345");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(24), "2023-04-11 05:16:12.3456");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(25), "2023-04-11 05:16:12.34567");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(26), "2023-04-11 05:16:12.345678");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(27), "2023-04-11 05:16:12.3456788");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(28), "2023-04-11 05:16:12.34567887");
+        assertLongTimestampToVarcharCoercions(TIMESTAMP_PICOS, longTimestamp, createVarcharType(29), "2023-04-11 05:16:12.345678876");
     }
 
     @DataProvider
@@ -127,11 +110,6 @@ public class TestTimestampCoercer
                 // before epoch with second fraction
                 {"1969-12-31T23:59:59.123456", "1969-12-31 23:59:59.123456"}
         };
-    }
-
-    public static void assertShortTimestampToVarcharCoercions(TimestampType fromType, Long valueToBeCoerced, VarcharType toType, String expectedValue)
-    {
-        assertCoercions(fromType, valueToBeCoerced, toType, Slices.utf8Slice(expectedValue), MICROSECONDS);
     }
 
     public static void assertLongTimestampToVarcharCoercions(TimestampType fromType, LongTimestamp valueToBeCoerced, VarcharType toType, String expectedValue)

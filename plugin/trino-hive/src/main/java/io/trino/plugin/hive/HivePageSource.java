@@ -23,7 +23,6 @@ import io.trino.plugin.hive.coercions.FloatToDoubleCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberToVarcharCoercer;
 import io.trino.plugin.hive.coercions.IntegerNumberUpscaleCoercer;
 import io.trino.plugin.hive.coercions.TimestampCoercer.LongTimestampToVarcharCoercer;
-import io.trino.plugin.hive.coercions.TimestampCoercer.ShortTimestampToVarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.trino.plugin.hive.type.Category;
@@ -305,7 +304,9 @@ public class HivePageSource
             return Optional.empty();
         }
 
-        Type fromType = fromHiveType.getType(typeManager, timestampPrecision);
+        // Hive treats TIMESTAMP with NANOSECONDS precision and when we try to coerce from a timestamp column,
+        // we read it as TIMESTAMP(9) column and coerce accordingly.
+        Type fromType = fromHiveType.getType(typeManager, HiveTimestampPrecision.NANOSECONDS);
         Type toType = toHiveType.getType(typeManager, timestampPrecision);
 
         if (toType instanceof VarcharType toVarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
@@ -360,9 +361,6 @@ public class HivePageSource
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
         }
         if (fromType instanceof TimestampType timestampType && toType instanceof VarcharType varcharType) {
-            if (timestampType.isShort()) {
-                return Optional.of(new ShortTimestampToVarcharCoercer(timestampType, varcharType));
-            }
             return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
