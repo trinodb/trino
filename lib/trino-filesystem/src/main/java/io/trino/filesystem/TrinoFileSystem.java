@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Optional;
@@ -151,6 +153,51 @@ public interface TrinoFileSystem
      */
     FileIterator listFiles(Location location)
             throws IOException;
+
+    default FileIterator listFilesNonRecursive(Location location)
+            throws IOException
+    {
+        FileIterator recursiveIterator = listFiles(location);
+        return new FileIterator() {
+
+            @Nullable
+            private Optional<FileEntry> next;
+
+            @Override
+            public boolean hasNext()
+                    throws IOException
+            {
+                computeNext();
+                return next.isPresent();
+            }
+
+            @Override
+            public FileEntry next()
+                    throws IOException
+            {
+                computeNext();
+                FileEntry ret = next.orElseThrow(() -> new RuntimeException("no more elements"));
+                next = null;
+                return ret;
+            }
+
+            private void computeNext()
+                    throws IOException
+            {
+                if (next != null) {
+                    return;
+                }
+                while (recursiveIterator.hasNext()) {
+                    FileEntry val = recursiveIterator.next();
+                    if (val.location().parentDirectory().equals(location)) {
+                        next = Optional.of(val);
+                        return;
+                    }
+                }
+                next = Optional.empty();
+            }
+        };
+    }
 
     /**
      * Checks if a directory exists at the specified location. For non-hierarchical file systems
