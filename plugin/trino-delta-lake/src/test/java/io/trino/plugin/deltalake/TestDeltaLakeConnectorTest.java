@@ -37,7 +37,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -1675,6 +1677,85 @@ public class TestDeltaLakeConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES ('other', 1), ('str3', 3)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReadDifferentTimestampChangeRanges()
+    {
+        String tableName = "test_reading_ranges_of_changes_on_table_with_cdf_enabled_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (page_url VARCHAR, domain VARCHAR, views INTEGER) WITH (change_data_feed_enabled = true)");
+        assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url1', 'domain1', 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url2', 'domain2', 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES('url3', 'domain3', 3)", 1);
+        assertQueryReturnsEmptyResult("SELECT * FROM TABLE(system.table_changes(" +
+                "schema_name =>'test_schema', table_name => '" + tableName + "', since_timestamp => TIMESTAMP '2024-10-31 01:00'))");
+
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url22' WHERE domain = 'domain2'", 1);
+        assertUpdate("UPDATE " + tableName + " SET page_url = 'url33' WHERE views = 3", 1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE page_url = 'url1'", 1);
+
+        assertQuery("SELECT * FROM " + tableName,
+                """
+                 VALUES
+                    ('url22', 'domain2', 2),
+                    ('url33', 'domain3', 3)
+                 """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(" +
+                "schema_name =>'test_schema', table_name => '" + tableName + "', since_timestamp => TIMESTAMP '2022-10-31 01:00'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes('test_schema', '" + tableName + "'))",
+                """
+                        VALUES
+                            ('url1', 'domain1', 1, 'insert', BIGINT '1'),
+                            ('url2', 'domain2', 2, 'insert', BIGINT '2'),
+                            ('url3', 'domain3', 3, 'insert', BIGINT '3'),
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+        List<String> timestamps = getQueryRunner().execute("SELECT timestamp FROM \"" + tableName + "$history\" ORDER BY version ASC")
+                .getOnlyColumn()
+                .map(column -> ((ZonedDateTime) column).withZoneSameInstant(ZoneId.of("UTC")).toLocalDateTime().format(formatter))
+                .collect(toImmutableList());
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(" +
+                        "schema_name =>'test_schema', table_name => '" + tableName + "', since_timestamp => TIMESTAMP '" + timestamps.get(4) + "'))",
+                """
+                        VALUES
+                            ('url2', 'domain2', 2, 'update_preimage', BIGINT '4'),
+                            ('url22', 'domain2', 2, 'update_postimage', BIGINT '4'),
+                            ('url3', 'domain3', 3, 'update_preimage', BIGINT '5'),
+                            ('url33', 'domain3', 3, 'update_postimage', BIGINT '5'),
+                            ('url1', 'domain1', 1, 'delete', BIGINT '6')
+                        """);
+
+        assertTableChangesQuery("SELECT * FROM TABLE(system.table_changes(" +
+                        "schema_name =>'test_schema', table_name => '" + tableName + "', since_timestamp => TIMESTAMP '" + timestamps.get(6) + "'))",
+                "VALUES ('url1', 'domain1', 1, 'delete', BIGINT '6')");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes(" +
+                "schema_name =>'test_schema', table_name => '" + tableName + "', since_version => 2, since_timestamp => TIMESTAMP '" + timestamps.get(6) + "'))",
+                "Please provide either since_value or since_timestamp, not both");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes(" +
+                        "'test_schema', '" + tableName + "', null, TIMESTAMP '" + timestamps.get(6) + "'))",
+                "To utilize since_timestamp please call the function with named parameters");
+        assertQueryFails("SELECT * FROM TABLE(system.table_changes(" +
+                        "'test_schema', '" + tableName + "', 5, TIMESTAMP '" + timestamps.get(6) + "'))",
+                "Please provide either since_value or since_timestamp, not both");
     }
 
     @Override

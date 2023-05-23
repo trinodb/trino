@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.functions.tablechanges;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.Locations;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -35,13 +36,12 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.DATA_FILE;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
@@ -62,71 +62,107 @@ public class TableChangesSplitSource
     {
         tableLocation = functionHandle.tableLocation();
         fileSystem = fileSystemFactory.create(session);
-        currentVersion = new AtomicLong(functionHandle.firstReadVersion());
+        String logDir = getTransactionLogDir(tableLocation);
+        currentVersion = new AtomicLong(extractCurrentVersion(functionHandle, logDir, fileSystem));
         tableReadVersion = functionHandle.tableReadVersion();
-        transactionLogDir = getTransactionLogDir(tableLocation);
+        transactionLogDir = logDir;
+    }
+
+    private static long extractCurrentVersion(TableChangesTableFunctionHandle functionHandle, String transactionLogDir, TrinoFileSystem fileSystem)
+    {
+        if (functionHandle.firstReadVersion().isPresent()) {
+            return functionHandle.firstReadVersion().get();
+        }
+        long currentVersion = functionHandle.tableReadVersion();
+        while (currentVersion >= 0) {
+            Location transactionLogFilePath = getTransactionLogJsonEntryPath(transactionLogDir, currentVersion);
+            try {
+                if (fileSystem.newInputFile(transactionLogFilePath).exists()) {
+                    List<DeltaLakeTransactionLogEntry> entries = getEntries(currentVersion, transactionLogDir, fileSystem);
+                    if (entries.isEmpty()) {
+                        throw new TrinoException(DELTA_LAKE_BAD_DATA, "Delta log should not contain empty entry");
+                    }
+                    CommitInfoEntry commitInfo = extractCommitInfoEntry(entries);
+                    if (commitInfo.getTimestamp() < functionHandle.firstReadTimestamp().get()) {
+                        return currentVersion + 1;
+                    }
+                }
+            }
+            catch (IOException exception) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", exception);
+            }
+            currentVersion--;
+        }
+        return 0; // provided sinceTimestamp is so much in the past that we need to read entire table
+    }
+
+    private static List<DeltaLakeTransactionLogEntry> getEntries(long currentVersion, String transactionLogDir, TrinoFileSystem fileSystem)
+    {
+        try {
+            return getEntriesFromJson(currentVersion, transactionLogDir, fileSystem)
+                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + currentVersion));
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
+        }
+    }
+
+    private static CommitInfoEntry extractCommitInfoEntry(List<DeltaLakeTransactionLogEntry> entries)
+    {
+        return entries.stream()
+                .map(DeltaLakeTransactionLogEntry::getCommitInfo)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseThrow();
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize) // TODO dont ignore maxSize https://github.com/trinodb/trino/issues/17182
     {
         long processedVersion = currentVersion.getAndIncrement();
-        try {
-            if (processedVersion > tableReadVersion) {
-                return CompletableFuture.completedFuture(new ConnectorSplitBatch(ImmutableList.of(), true));
+        if (processedVersion > tableReadVersion) {
+            return CompletableFuture.completedFuture(new ConnectorSplitBatch(ImmutableList.of(), true));
+        }
+        List<DeltaLakeTransactionLogEntry> entries = getEntries(processedVersion, transactionLogDir, fileSystem);
+        if (entries.isEmpty()) {
+            return CompletableFuture.completedFuture(new ConnectorSplitBatch(ImmutableList.of(), false));
+        }
+        CommitInfoEntry commitInfo = extractCommitInfoEntry(entries);
+        List<ConnectorSplit> splits = new ArrayList<>();
+        boolean containsCdcEntry = false;
+        boolean containsRemoveEntry = false;
+        for (DeltaLakeTransactionLogEntry entry : entries) {
+            CdcEntry cdcEntry = entry.getCDC();
+            if (cdcEntry != null) {
+                containsCdcEntry = true;
+                splits.add(mapToDeltaLakeTableChangesSplit(
+                        commitInfo,
+                        CDF_FILE,
+                        cdcEntry.getSize(),
+                        cdcEntry.getPath(),
+                        cdcEntry.getCanonicalPartitionValues()));
             }
-            List<DeltaLakeTransactionLogEntry> entries = getEntriesFromJson(processedVersion, transactionLogDir, fileSystem)
-                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + processedVersion));
-            if (entries.isEmpty()) {
-                return CompletableFuture.completedFuture(new ConnectorSplitBatch(ImmutableList.of(), false));
+            if (entry.getRemove() != null && entry.getRemove().isDataChange()) {
+                containsRemoveEntry = true;
             }
-            List<CommitInfoEntry> commitInfoEntries = entries.stream()
-                    .map(DeltaLakeTransactionLogEntry::getCommitInfo)
-                    .filter(Objects::nonNull)
-                    .collect(toImmutableList());
-            if (commitInfoEntries.size() != 1) {
-                throw new TrinoException(DELTA_LAKE_BAD_DATA, "There should be exactly 1 commitInfo present in a metadata file");
-            }
-            CommitInfoEntry commitInfo = getOnlyElement(commitInfoEntries);
-            List<ConnectorSplit> splits = new ArrayList<>();
-            boolean containsCdcEntry = false;
-            boolean containsRemoveEntry = false;
+        }
+        if (containsRemoveEntry && !containsCdcEntry) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Change Data Feed is not enabled at version %d. Version contains 'remove' entries without 'cdc' entries", processedVersion));
+        }
+        if (!containsRemoveEntry) {
             for (DeltaLakeTransactionLogEntry entry : entries) {
-                CdcEntry cdcEntry = entry.getCDC();
-                if (cdcEntry != null) {
-                    containsCdcEntry = true;
+                if (entry.getAdd() != null && entry.getAdd().isDataChange()) {
+                    AddFileEntry addEntry = entry.getAdd();
                     splits.add(mapToDeltaLakeTableChangesSplit(
                             commitInfo,
-                            CDF_FILE,
-                            cdcEntry.getSize(),
-                            cdcEntry.getPath(),
-                            cdcEntry.getCanonicalPartitionValues()));
-                }
-                if (entry.getRemove() != null && entry.getRemove().isDataChange()) {
-                    containsRemoveEntry = true;
+                            DATA_FILE,
+                            addEntry.getSize(),
+                            addEntry.getPath(),
+                            addEntry.getCanonicalPartitionValues()));
                 }
             }
-            if (containsRemoveEntry && !containsCdcEntry) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Change Data Feed is not enabled at version %d. Version contains 'remove' entries without 'cdc' entries", processedVersion));
-            }
-            if (!containsRemoveEntry) {
-                for (DeltaLakeTransactionLogEntry entry : entries) {
-                    if (entry.getAdd() != null && entry.getAdd().isDataChange()) {
-                        AddFileEntry addEntry = entry.getAdd();
-                        splits.add(mapToDeltaLakeTableChangesSplit(
-                                commitInfo,
-                                DATA_FILE,
-                                addEntry.getSize(),
-                                addEntry.getPath(),
-                                addEntry.getCanonicalPartitionValues()));
-                    }
-                }
-            }
-            return CompletableFuture.completedFuture(new ConnectorSplitBatch(splits, processedVersion == tableReadVersion));
         }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
-        }
+        return CompletableFuture.completedFuture(new ConnectorSplitBatch(splits, processedVersion == tableReadVersion));
     }
 
     private TableChangesSplit mapToDeltaLakeTableChangesSplit(

@@ -46,6 +46,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.SYNTHESIZED;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -60,9 +61,12 @@ public class TableChangesFunction
     public static final String SCHEMA_NAME_ARGUMENT = "SCHEMA_NAME";
     private static final String TABLE_NAME_ARGUMENT = "TABLE_NAME";
     private static final String SINCE_VERSION_ARGUMENT = "SINCE_VERSION";
+    private static final String SINCE_TIMESTAMP_ARGUMENT = "SINCE_TIMESTAMP";
     private static final String CHANGE_TYPE_COLUMN_NAME = "_change_type";
     private static final String COMMIT_VERSION_COLUMN_NAME = "_commit_version";
     private static final String COMMIT_TIMESTAMP_COLUMN_NAME = "_commit_timestamp";
+    private static final long DEFAULT_GUARD_VALUE = -176527834319L;
+    public static final int MICROSECONDS_PER_MILLISECOND = 1000;
 
     private final DeltaLakeMetadataFactory deltaLakeMetadataFactory;
 
@@ -74,7 +78,8 @@ public class TableChangesFunction
                 ImmutableList.of(
                         ScalarArgumentSpecification.builder().name(SCHEMA_NAME_ARGUMENT).type(VARCHAR).build(),
                         ScalarArgumentSpecification.builder().name(TABLE_NAME_ARGUMENT).type(VARCHAR).build(),
-                        ScalarArgumentSpecification.builder().name(SINCE_VERSION_ARGUMENT).type(BIGINT).defaultValue(null).build()),
+                        ScalarArgumentSpecification.builder().name(SINCE_VERSION_ARGUMENT).type(BIGINT).defaultValue(DEFAULT_GUARD_VALUE).build(),
+                        ScalarArgumentSpecification.builder().name(SINCE_TIMESTAMP_ARGUMENT).type(TIMESTAMP_MILLIS).defaultValue(null).build()),
                 GENERIC_TABLE);
         this.deltaLakeMetadataFactory = requireNonNull(deltaLakeMetadataFactory, "deltaLakeMetadataFactory is null");
     }
@@ -100,9 +105,38 @@ public class TableChangesFunction
         long sinceVersion = -1; // -1 to start from 0 when since_version is not provided
         if (sinceVersionValue != null) {
             sinceVersion = (long) sinceVersionValue;
-            checkFunctionArgument(sinceVersion >= 0, "Invalid value of since_version: %s. It must not be negative.", sinceVersion);
+            checkFunctionArgument(sinceVersion >= 0 || sinceVersion == DEFAULT_GUARD_VALUE, "Invalid value of since_version: %s. It must not be negative.", sinceVersion);
         }
-        long firstReadVersion = sinceVersion + 1; // +1 to ensure that the since_version is exclusive; may overflow
+
+        ScalarArgument sinceTimestampArgument = (ScalarArgument) arguments.get(SINCE_TIMESTAMP_ARGUMENT);
+        Object sinceTimestampValue = sinceTimestampArgument.getValue();
+        long sinceTimestamp = 0L;
+        if (sinceTimestampValue != null) {
+            sinceTimestamp = ((Long) sinceTimestampValue) / MICROSECONDS_PER_MILLISECOND;
+            checkFunctionArgument(sinceTimestamp > 0, "Invalid value of since_timestamp: %s. It must not be negative.", sinceTimestamp);
+        }
+
+        if (sinceVersionValue == null && sinceTimestampValue != null) { // to prevent system.table_changes('schemaName', 'tableName', null, TIMESTAMP '2024-10-31 01:00')
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "To utilize since_timestamp please call the function with named parameters");
+        }
+
+        if (sinceVersion >= 0 && sinceTimestampValue != null) { // to prevent system.table_changes('schemaName', 'tableName', 5, TIMESTAMP '2024-10-31 01:00')
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Please provide either since_value or since_timestamp, not both");
+        }
+
+        Optional<Long> firstReadVersion = Optional.empty();
+        if (sinceVersion != DEFAULT_GUARD_VALUE) { // user provided since_version
+            firstReadVersion = Optional.of(sinceVersion + 1);
+        }
+
+        if (sinceVersion == DEFAULT_GUARD_VALUE && sinceTimestampValue == null) { // to correctly handle system.table_changes('schemaName', 'tableName)
+            firstReadVersion = Optional.of(0L);
+        }
+
+        Optional<Long> firstReadTimestamp = Optional.empty();
+        if (sinceTimestamp > 0) {
+            firstReadTimestamp = Optional.of(sinceTimestamp);
+        }
 
         DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(session.getIdentity());
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
@@ -138,7 +172,13 @@ public class TableChangesFunction
         outputFields.add(new Descriptor.Field(COMMIT_TIMESTAMP_COLUMN_NAME, Optional.of(TIMESTAMP_TZ_MILLIS)));
 
         return TableFunctionAnalysis.builder()
-                .handle(new TableChangesTableFunctionHandle(schemaTableName, firstReadVersion, tableHandle.getReadVersion(), tableHandle.getLocation(), columnHandles))
+                .handle(new TableChangesTableFunctionHandle(
+                        schemaTableName,
+                        firstReadVersion,
+                        firstReadTimestamp,
+                        tableHandle.getReadVersion(),
+                        tableHandle.getLocation(),
+                        columnHandles))
                 .returnedType(new Descriptor(outputFields.build()))
                 .build();
     }

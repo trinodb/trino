@@ -19,18 +19,22 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public record TableChangesTableFunctionHandle(
         SchemaTableName schemaTableName,
-        long firstReadVersion,
+        Optional<Long> firstReadVersion,
+        Optional<Long> firstReadTimestamp,
         long tableReadVersion,
         String tableLocation,
         List<DeltaLakeColumnHandle> columns) implements ConnectorTableFunctionHandle
 {
     public TableChangesTableFunctionHandle {
         requireNonNull(schemaTableName, "schemaTableName is null");
+        requireNonNull(firstReadVersion, "firstReadVersion is null");
+        requireNonNull(firstReadTimestamp, "firstReadTimestamp is null");
         requireNonNull(tableLocation, "tableLocation is null");
         columns = ImmutableList.copyOf(columns);
     }
