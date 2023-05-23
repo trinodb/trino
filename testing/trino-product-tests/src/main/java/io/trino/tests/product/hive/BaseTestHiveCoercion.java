@@ -16,7 +16,9 @@ package io.trino.tests.product.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.trino.jdbc.TrinoArray;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.fulfillment.table.MutableTablesState;
 import io.trino.tempto.fulfillment.table.TableDefinition;
@@ -28,6 +30,8 @@ import io.trino.tempto.query.QueryResult;
 
 import java.math.BigDecimal;
 import java.sql.JDBCType;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -41,10 +45,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
+import static io.trino.tests.product.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -59,7 +65,9 @@ import static java.sql.JDBCType.JAVA_OBJECT;
 import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.STRUCT;
+import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
+import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -364,6 +372,112 @@ public abstract class BaseTestHiveCoercion
                 .buildOrThrow();
     }
 
+    protected void doTestHiveCoercionWithDifferentTimestampPrecision(HiveTableDefinition tableDefinition)
+    {
+        String tableName = mutableTableInstanceOf(tableDefinition).getNameInDatabase();
+
+        // Insert all the data with nanoseconds precision
+        setHiveTimestampPrecision(NANOSECONDS);
+        onTrino().executeQuery(
+                """
+                    INSERT INTO %s VALUES
+                    (TIMESTAMP '2121-07-15 15:30:12.123499', TIMESTAMP '2121-07-15 15:30:12.123499', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500', TIMESTAMP '2121-07-15 15:30:12.123500', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123501', TIMESTAMP '2121-07-15 15:30:12.123501', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123499999', TIMESTAMP '2121-07-15 15:30:12.123499999', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500000', TIMESTAMP '2121-07-15 15:30:12.123500000', 1),
+                    (TIMESTAMP '2121-07-15 15:30:12.123500001', TIMESTAMP '2121-07-15 15:30:12.123500001', 1)
+                    """.formatted(tableName));
+
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_varchar timestamp_to_varchar STRING", tableName));
+
+        for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
+            setHiveTimestampPrecision(hiveTimestampPrecision);
+            assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
+                    row("reference_timestamp", "timestamp(%d)".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("timestamp_to_varchar", "varchar"),
+                    row("id", "bigint"));
+
+            List<String> allColumns = ImmutableList.of(
+                    "reference_timestamp",
+                    "timestamp_to_varchar",
+                    "id");
+
+            // For Trino, remove unsupported columns
+            List<String> prestoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
+            Map<String, List<Object>> expectedTinoResults = Maps.filterKeys(
+                    expectedRowsForEngineProvider(Engine.TRINO, hiveTimestampPrecision),
+                    prestoReadColumns::contains);
+
+            String prestoSelectQuery = format("SELECT %s FROM %s", String.join(", ", prestoReadColumns), tableName);
+            assertQueryResults(Engine.TRINO, prestoSelectQuery, expectedTinoResults, prestoReadColumns, 6, tableName);
+
+            List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
+            Map<String, List<Object>> expectedHiveResults = Maps.filterKeys(
+                    expectedRowsForEngineProvider(Engine.HIVE, hiveTimestampPrecision),
+                    hiveReadColumns::contains);
+
+            String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
+            assertQueryResults(Engine.HIVE, hiveSelectQuery, expectedHiveResults, hiveReadColumns, 6, tableName);
+        }
+    }
+
+    protected Map<String, List<Object>> expectedRowsForEngineProvider(Engine engine, HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        List<Object> timestampValues = expectedTimestampValuesForEngineProvider(engine, hiveTimestampPrecision);
+        ImmutableMap.Builder<String, List<Object>> rowBuilder = ImmutableMap.<String, List<Object>>builder()
+                .put("reference_timestamp", timestampValues)
+                .put("timestamp_to_varchar", timestampValues.stream()
+                        .map(Object::toString)
+                        .collect(toImmutableList()))
+                .put("id", nCopies(6, 1));
+
+        return rowBuilder.buildOrThrow();
+    }
+
+    protected List<Object> expectedTimestampValuesForEngineProvider(Engine engine, HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        if (engine == Engine.HIVE) {
+            return ImmutableList.of(
+                    Timestamp.valueOf("2121-07-15 15:30:12.123499"),
+                    Timestamp.valueOf("2121-07-15 15:30:12.123500"),
+                    Timestamp.valueOf("2121-07-15 15:30:12.123501"),
+                    Timestamp.valueOf("2121-07-15 15:30:12.123499999"),
+                    Timestamp.valueOf("2121-07-15 15:30:12.123500000"),
+                    Timestamp.valueOf("2121-07-15 15:30:12.123500001"));
+        }
+
+        return switch (hiveTimestampPrecision) {
+            case MILLISECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-07-15 15:30:12.123"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.124"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.124"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.124"));
+
+            case MICROSECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-07-15 15:30:12.123499"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123501"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500"));
+
+            case NANOSECONDS ->
+                    ImmutableList.of(
+                            Timestamp.valueOf("2121-07-15 15:30:12.123499"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123501"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123499999"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500000"),
+                            Timestamp.valueOf("2121-07-15 15:30:12.123500001"));
+            default -> throw new IllegalStateException("Unsupported timestamp precision");
+        };
+    }
+
     protected List<String> removeUnsupportedColumnsForHive(List<String> columns, String tableName)
     {
         // TODO: assert exceptions being thrown for each column
@@ -636,6 +750,8 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_to_string", VARCHAR)
                 .put("timestamp_to_bounded_varchar", VARCHAR)
                 .put("timestamp_to_smaller_varchar", VARCHAR)
+                .put("reference_timestamp", TIMESTAMP)
+                .put("timestamp_to_varchar", VARCHAR)
                 .buildOrThrow();
 
         assertThat(queryResult)
@@ -762,5 +878,15 @@ public abstract class BaseTestHiveCoercion
     private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
     {
         return engine.queryExecutor().executeQuery(sql, params);
+    }
+
+    private static void setHiveTimestampPrecision(HiveTimestampPrecision hiveTimestampPrecision)
+    {
+        try {
+            setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", hiveTimestampPrecision.name());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

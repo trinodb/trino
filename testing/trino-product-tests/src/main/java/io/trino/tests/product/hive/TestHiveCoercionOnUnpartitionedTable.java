@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -34,6 +35,10 @@ public class TestHiveCoercionOnUnpartitionedTable
         extends BaseTestHiveCoercion
 {
     public static final HiveTableDefinition HIVE_COERCION_ORC = tableDefinitionBuilder("ORC")
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_ORC = tableDefinitionForTimestampCoercionBuilder("ORC")
             .setNoData()
             .build();
 
@@ -79,13 +84,27 @@ public class TestHiveCoercionOnUnpartitionedTable
                        STORED AS\s""" + fileFormat);
     }
 
+    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat)
+    {
+        String tableName = format("%s_hive_timestamp_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
+        return HiveTableDefinition.builder(tableName)
+                .setCreateTableDDLTemplate("""
+                         CREATE TABLE %NAME%(
+                             reference_timestamp               TIMESTAMP,
+                             timestamp_to_varchar              TIMESTAMP,
+                             id                                BIGINT)
+                        STORED AS\s""" + fileFormat);
+    }
+
     public static final class OrcRequirements
             implements RequirementsProvider
     {
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_ORC).withState(CREATED).build());
         }
     }
 
@@ -94,6 +113,13 @@ public class TestHiveCoercionOnUnpartitionedTable
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
+    }
+
+    @Requires(OrcRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveTimestampCoercion()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
     }
 
     @Override
