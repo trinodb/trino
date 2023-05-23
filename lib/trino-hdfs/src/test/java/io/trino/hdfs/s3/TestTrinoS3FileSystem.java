@@ -564,11 +564,11 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = UnrecoverableS3OperationException.class, expectedExceptionsMessageRegExp = ".*\\Q (Path: /tmp/test/path)\\E")
+    @Test
     public void testUnrecoverableS3ExceptionMessage()
-            throws Exception
     {
-        throw new UnrecoverableS3OperationException(new Path("/tmp/test/path"), new IOException("test io exception"));
+        assertThat(new UnrecoverableS3OperationException("my-bucket", "tmp/test/path", new IOException("test io exception")))
+                .hasMessage("java.io.IOException: test io exception (Bucket: my-bucket, Key: tmp/test/path)");
     }
 
     @Test
