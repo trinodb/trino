@@ -150,6 +150,7 @@ import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
 import static com.google.common.base.Preconditions.checkState;
@@ -922,12 +923,6 @@ public class TrinoS3FileSystem
     public static class UnrecoverableS3OperationException
             extends IOException
     {
-        public UnrecoverableS3OperationException(Path path, Throwable cause)
-        {
-            // append the path info to the message
-            super(format("%s (Path: %s)", cause, path), cause);
-        }
-
         public UnrecoverableS3OperationException(String bucket, String key, Throwable cause)
         {
             // append bucket and key to the message
@@ -941,14 +936,14 @@ public class TrinoS3FileSystem
     {
         String bucketName = getBucketName(uri);
         String key = keyFromPath(path);
-        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(path, bucketName, key);
+        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(bucketName, key);
         if (s3ObjectMetadata == null && !key.isEmpty()) {
-            return getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR);
+            return getS3ObjectMetadata(bucketName, key + PATH_SEPARATOR);
         }
         return s3ObjectMetadata;
     }
 
-    private ObjectMetadata getS3ObjectMetadata(Path path, String bucketName, String key)
+    private ObjectMetadata getS3ObjectMetadata(String bucketName, String key)
             throws IOException
     {
         try {
@@ -969,7 +964,7 @@ public class TrinoS3FileSystem
                                 switch (awsException.getStatusCode()) {
                                     case HTTP_FORBIDDEN:
                                     case HTTP_BAD_REQUEST:
-                                        throw new UnrecoverableS3OperationException(path, e);
+                                        throw new UnrecoverableS3OperationException(bucketName, key, e);
                                 }
                             }
                             if (e instanceof AmazonS3Exception s3Exception &&
@@ -1294,7 +1289,7 @@ public class TrinoS3FileSystem
                                 switch (s3Exception.getStatusCode()) {
                                     case HTTP_FORBIDDEN, HTTP_BAD_REQUEST -> throw new UnrecoverableS3OperationException(bucket, key, e);
                                     case HTTP_NOT_FOUND -> {
-                                        throwIfFileNotFound(s3Exception);
+                                        throwIfFileNotFound(bucket, key, s3Exception);
                                         throw new UnrecoverableS3OperationException(bucket, key, e);
                                     }
                                 }
@@ -1376,8 +1371,9 @@ public class TrinoS3FileSystem
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
                             InputStream stream;
+                            String key = keyFromPath(path);
                             try {
-                                GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
+                                GetObjectRequest request = new GetObjectRequest(bucket, key)
                                         .withRange(position, (position + length) - 1)
                                         .withRequesterPays(requesterPaysEnabled);
                                 stream = s3.getObject(request).getObjectContent();
@@ -1388,7 +1384,7 @@ public class TrinoS3FileSystem
                                     switch (s3Exception.getStatusCode()) {
                                         case HTTP_FORBIDDEN:
                                         case HTTP_BAD_REQUEST:
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throw new UnrecoverableS3OperationException(bucket, key, e);
                                     }
                                 }
                                 if (e instanceof AmazonS3Exception s3Exception) {
@@ -1396,8 +1392,8 @@ public class TrinoS3FileSystem
                                         case HTTP_RANGE_NOT_SATISFIABLE:
                                             throw new EOFException(CANNOT_SEEK_PAST_EOF);
                                         case HTTP_NOT_FOUND:
-                                            throwIfFileNotFound(s3Exception);
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throwIfFileNotFound(bucket, key, s3Exception);
+                                            throw new UnrecoverableS3OperationException(bucket, key, e);
                                     }
                                 }
                                 throw e;
@@ -1551,8 +1547,9 @@ public class TrinoS3FileSystem
                         .stopOn(InterruptedException.class, UnrecoverableS3OperationException.class, AbortedException.class, FileNotFoundException.class)
                         .onRetry(STATS::newGetObjectRetry)
                         .run("getS3Object", () -> {
+                            String key = keyFromPath(path);
                             try {
-                                GetObjectRequest request = new GetObjectRequest(bucket, keyFromPath(path))
+                                GetObjectRequest request = new GetObjectRequest(bucket, key)
                                         .withRange(start)
                                         .withRequesterPays(requesterPaysEnabled);
                                 return s3.getObject(request).getObjectContent();
@@ -1563,7 +1560,7 @@ public class TrinoS3FileSystem
                                     switch (awsException.getStatusCode()) {
                                         case HTTP_FORBIDDEN:
                                         case HTTP_BAD_REQUEST:
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throw new UnrecoverableS3OperationException(bucket, key, e);
                                     }
                                 }
                                 if (e instanceof AmazonS3Exception s3Exception) {
@@ -1572,8 +1569,8 @@ public class TrinoS3FileSystem
                                             // ignore request for start past end of object
                                             return new ByteArrayInputStream(new byte[0]);
                                         case HTTP_NOT_FOUND:
-                                            throwIfFileNotFound(s3Exception);
-                                            throw new UnrecoverableS3OperationException(path, e);
+                                            throwIfFileNotFound(bucket, key, s3Exception);
+                                            throw new UnrecoverableS3OperationException(bucket, key, e);
                                     }
                                 }
                                 throw e;
@@ -2061,12 +2058,12 @@ public class TrinoS3FileSystem
         return Base64.getEncoder().encodeToString(md5);
     }
 
-    private static void throwIfFileNotFound(AmazonS3Exception s3Exception)
+    private static void throwIfFileNotFound(String bucket, String key, AmazonS3Exception s3Exception)
             throws FileNotFoundException
     {
         String errorCode = s3Exception.getErrorCode();
         if (NO_SUCH_KEY_ERROR_CODE.equals(errorCode) || NO_SUCH_BUCKET_ERROR_CODE.equals(errorCode)) {
-            FileNotFoundException fileNotFoundException = new FileNotFoundException(s3Exception.getMessage());
+            FileNotFoundException fileNotFoundException = new FileNotFoundException(format("%s (Bucket: %s, Key: %s)", firstNonNull(s3Exception.getMessage(), s3Exception), bucket, key));
             fileNotFoundException.initCause(s3Exception);
             throw fileNotFoundException;
         }
