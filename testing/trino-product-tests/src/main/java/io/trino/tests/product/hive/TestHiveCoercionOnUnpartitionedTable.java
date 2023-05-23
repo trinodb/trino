@@ -101,6 +101,8 @@ public class TestHiveCoercionOnUnpartitionedTable
     {
         // TODO: These expected failures should be fixed.
         return ImmutableMap.<ColumnContext, String>builder()
+                // Expected failures from BaseTestHiveCoercion
+                .putAll(super.expectedExceptionsWithTrinoContext())
                 // ORC
                 .put(columnContext("orc", "row_to_row"), "Cannot read SQL type 'smallint' from ORC stream '.row_to_row.ti2si' of type BYTE")
                 .put(columnContext("orc", "list_to_list"), "Cannot read SQL type 'integer' from ORC stream '.list_to_list.item.ti2int' of type BYTE")
