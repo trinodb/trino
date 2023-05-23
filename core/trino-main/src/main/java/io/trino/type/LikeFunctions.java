@@ -76,6 +76,17 @@ public final class LikeFunctions
         }
     }
 
+    public static boolean isMatchAllPattern(Slice pattern)
+    {
+        for (int i = 0; i < pattern.length(); i++) {
+            int current = pattern.getByte(i);
+            if (current != '%') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static boolean isLikePattern(Slice pattern, Optional<Slice> escape)
     {
         return patternConstantPrefixBytes(pattern, escape) < pattern.length();
