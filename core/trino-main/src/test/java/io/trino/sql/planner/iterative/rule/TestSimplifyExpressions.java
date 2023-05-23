@@ -39,10 +39,12 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -75,6 +77,45 @@ public class TestSimplifyExpressions
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", BIGINT, "Y", BIGINT));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", DOUBLE, "Y", DOUBLE));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", VARCHAR, "Y", VARCHAR));
+    }
+
+    @Test
+    public void testLikeExpressions()
+    {
+        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
+        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
+        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
+        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
+        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createCharType(10)));
+        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createCharType(10)));
+
+        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
+        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
+        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
+        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
+        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createVarcharType(10)));
+        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createVarcharType(10)));
+
+        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
+
+        // test with the like constant
+        assertSimplifies("name LIKE 'This is a constant'", "name = VARCHAR 'This is a constant'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '!@#$#!'", "name = VARCHAR '!@#$#!'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '中文abc字母😂'", "name = VARCHAR '中文abc字母😂'", ImmutableMap.of("name", VARCHAR));
+
+        // test with the escape char
+        assertSimplifies("name LIKE '\\%' ESCAPE '\\'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE 'abc\\%' ESCAPE '\\'", "name = VARCHAR 'abc%'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '\\%%%%' ESCAPE '\\'", "name LIKE '\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%\\%\\%%%%' ESCAPE '\\'", "name LIKE '%\\%\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%%' ESCAPE '%'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '%%%%' ESCAPE '%'", "name = VARCHAR '%%'", ImmutableMap.of("name", VARCHAR));
+        assertSimplifies("name LIKE '中文%%abc字母😂' ESCAPE '%'", "name = VARCHAR '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
     }
 
     @Test
