@@ -34,6 +34,7 @@ public class FileHiveMetastoreConfig
 
     private String catalogDirectory;
     private VersionCompatibility versionCompatibility = NOT_SUPPORTED;
+    private boolean disableLocationChecks; // TODO this should probably be true by default, to align with well-behaving metastores other than HMS
     private String metastoreUser = "presto";
 
     @NotNull
@@ -60,6 +61,18 @@ public class FileHiveMetastoreConfig
     public FileHiveMetastoreConfig setVersionCompatibility(VersionCompatibility versionCompatibility)
     {
         this.versionCompatibility = versionCompatibility;
+        return this;
+    }
+
+    public boolean isDisableLocationChecks()
+    {
+        return disableLocationChecks;
+    }
+
+    @Config("hive.metastore.disable-location-checks")
+    public FileHiveMetastoreConfig setDisableLocationChecks(boolean disableLocationChecks)
+    {
+        this.disableLocationChecks = disableLocationChecks;
         return this;
     }
 
