@@ -32,8 +32,8 @@ public class MongoTableHandle
 {
     private final SchemaTableName schemaTableName;
     private final RemoteTableName remoteTableName;
-    private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> filter;
+    private final TupleDomain<ColumnHandle> constraint;
     private final OptionalInt limit;
 
     public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> filter)
@@ -116,8 +116,8 @@ public class MongoTableHandle
                 .add("schemaTableName", schemaTableName)
                 .add("remoteTableName", remoteTableName)
                 .add("filter", filter)
-                .add("limit", limit)
                 .add("constraint", constraint)
+                .add("limit", limit)
                 .toString();
     }
 }
