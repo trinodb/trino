@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -27,9 +27,12 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.containers.Minio;
+import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -44,6 +47,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -59,6 +63,9 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,25 +79,57 @@ public class TestDeltaLakeConnectorTest
     private static final String SCHEMA = "test_schema";
 
     protected final String bucketName = "trino-ci-test-" + randomNameSuffix();
-    protected HiveMinioDataLake hiveMinioDataLake;
+    protected Minio minio;
+    protected MinioClient minioClient;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
-        hiveMinioDataLake.start();
-        QueryRunner queryRunner = DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                SCHEMA,
-                ImmutableMap.of(
-                        "delta.enable-non-concurrent-writes", "true",
-                        "delta.register-table-procedure.enabled", "true"),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
-        queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), REQUIRED_TPCH_TABLES);
+        minio = closeAfterClass(Minio.builder().build());
+        minio.start();
+        minio.createBucket(bucketName);
+        minioClient = closeAfterClass(minio.createMinioClient());
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog(DELTA_CATALOG)
+                        .setSchema(SCHEMA)
+                        .build())
+                .build();
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+
+            queryRunner.installPlugin(new DeltaLakePlugin());
+            queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
+                    .put("hive.metastore", "file")
+                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
+                    .put("hive.metastore.disable-location-checks", "true")
+                    .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                    .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("hive.s3.endpoint", minio.getMinioAddress())
+                    .put("hive.s3.path-style-access", "true")
+                    .put("delta.enable-non-concurrent-writes", "true")
+                    .put("delta.register-table-procedure.enabled", "true")
+                    .buildOrThrow());
+
+            queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
+            queryRunner.execute("CREATE SCHEMA schemawithoutunderscore WITH (location = 's3://" + bucketName + "/schemawithoutunderscore')");
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), REQUIRED_TPCH_TABLES);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+
         return queryRunner;
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        minio = null; // closed by closeAfterClass
+        minioClient = null; // closed by closeAfterClass
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -286,44 +325,6 @@ public class TestDeltaLakeConnectorTest
                         "WITH (\n" +
                         "   location = 's3://%s/test_schema'\n" +
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
-    }
-
-    /**
-     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTable for more test coverage
-     */
-    @Override
-    public void testRenameTable()
-    {
-        assertThatThrownBy(super::testRenameTable)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
-    }
-
-    /**
-     * @see io.trino.plugin.deltalake.BaseDeltaLakeConnectorSmokeTest#testRenameExternalTableAcrossSchemas for more test coverage
-     */
-    @Override
-    public void testRenameTableAcrossSchema()
-    {
-        assertThatThrownBy(super::testRenameTableAcrossSchema)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
-    }
-
-    @Override
-    public void testRenameTableToUnqualifiedPreservesSchema()
-    {
-        assertThatThrownBy(super::testRenameTableToUnqualifiedPreservesSchema)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_source_schema_");
-    }
-
-    @Override
-    public void testRenameTableToLongTableName()
-    {
-        assertThatThrownBy(super::testRenameTableToLongTableName)
-                .hasMessage("Renaming managed tables is not allowed with current metastore configuration")
-                .hasStackTraceContaining("SQL: ALTER TABLE test_rename_");
     }
 
     @Override
@@ -1172,7 +1173,7 @@ public class TestDeltaLakeConnectorTest
                         .replaceFirst("s3://" + bucketName, "");
 
                 // Replace table1 data file with table2 data file, so that the table's schema and data's schema has different column order
-                hiveMinioDataLake.getMinioClient().copyObject(bucketName, temporaryDataFile, bucketName, tableDataFile);
+                minioClient.copyObject(bucketName, temporaryDataFile, bucketName, tableDataFile);
             }
 
             assertThat(query("SELECT nested2.e, nested1.a, nested2.f, nested1.b, id FROM " + testTable.getName()))
@@ -1747,7 +1748,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)(.*Read timed out)|(.*\"`NAME`\" that has maximum length of 128.*)");
+        assertThat(e).hasMessageMatching("Schema name must be shorter than or equal to '128' characters but got.*");
     }
 
     @Override
@@ -1759,7 +1760,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("(?s)(.*Read timed out)|(.*\"`TBL_NAME`\" that has maximum length of 128.*)");
+        assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got.*");
     }
 
     private Set<String> getActiveFiles(String tableName)
@@ -1783,7 +1784,7 @@ public class TestDeltaLakeConnectorTest
 
     private List<String> getTableFiles(String tableName)
     {
-        return hiveMinioDataLake.listFiles(format("%s/%s", SCHEMA, tableName)).stream()
+        return minioClient.listObjects(bucketName, format("%s/%s", SCHEMA, tableName)).stream()
                 .map(path -> format("s3://%s/%s", bucketName, path))
                 .collect(toImmutableList());
     }
