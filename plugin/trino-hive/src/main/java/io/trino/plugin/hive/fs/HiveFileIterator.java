@@ -32,6 +32,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
+import static java.net.URLDecoder.decode;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.Path.SEPARATOR_CHAR;
 
@@ -122,7 +123,7 @@ public class HiveFileIterator
     @VisibleForTesting
     static boolean isHiddenOrWithinHiddenParentDirectory(Path path, String prefix)
     {
-        String pathString = path.toUri().toString();
+        String pathString = decode(path.toUri().toString());
         checkArgument(pathString.startsWith(prefix), "path %s does not start with prefix %s", pathString, prefix);
         return containsHiddenPathPartAfterIndex(pathString, prefix.endsWith("/") ? prefix.length() : prefix.length() + 1);
     }
