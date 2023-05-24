@@ -964,7 +964,8 @@ public class CachingHiveMetastore
 
     public void invalidateTable(String databaseName, String tableName)
     {
-        invalidateTableCache(databaseName, tableName);
+        HiveTableName hiveTableName = new HiveTableName(databaseName, tableName);
+        tableCache.invalidate(hiveTableName);
         tableNamesCache.invalidate(databaseName);
         allTableNamesCache.invalidateAll();
         viewNamesCache.invalidate(databaseName);
@@ -972,23 +973,9 @@ public class CachingHiveMetastore
         tablePrivilegesCache.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(tablePrivilegesCache::invalidate);
-        invalidateTableStatisticsCache(databaseName, tableName);
+        tableStatisticsCache.invalidate(hiveTableName);
         invalidateTablesWithParameterCache(databaseName, tableName);
         invalidatePartitionCache(databaseName, tableName);
-    }
-
-    private void invalidateTableCache(String databaseName, String tableName)
-    {
-        tableCache.asMap().keySet().stream()
-                .filter(table -> table.getDatabaseName().equals(databaseName) && table.getTableName().equals(tableName))
-                .forEach(tableCache::invalidate);
-    }
-
-    private void invalidateTableStatisticsCache(String databaseName, String tableName)
-    {
-        tableStatisticsCache.asMap().keySet().stream()
-                .filter(table -> table.getDatabaseName().equals(databaseName) && table.getTableName().equals(tableName))
-                .forEach(tableStatisticsCache::invalidate);
     }
 
     private void invalidateTablesWithParameterCache(String databaseName, String tableName)
