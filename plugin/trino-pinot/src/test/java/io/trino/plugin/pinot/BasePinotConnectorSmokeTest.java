@@ -117,7 +117,7 @@ public abstract class BasePinotConnectorSmokeTest
     private static final String DUPLICATE_TABLE_LOWERCASE = "dup_table";
     private static final String DUPLICATE_TABLE_MIXED_CASE = "dup_Table";
     private static final String JSON_TABLE = "my_table";
-    private static final String JSON_TYPE_TABLE = "json_table";
+    private static final String JSON_TYPE_TABLE = "json_type_table";
     private static final String RESERVED_KEYWORD_TABLE = "reserved_keyword";
     private static final String QUOTES_IN_COLUMN_NAME_TABLE = "quotes_in_column_name";
     private static final String DUPLICATE_VALUES_IN_COLUMNS_TABLE = "duplicate_values_in_columns";
@@ -2800,7 +2800,7 @@ public abstract class BasePinotConnectorSmokeTest
                         "  (JSON '{\"id\":1,\"name\":\"user_1\"}')," +
                         "  (JSON '{\"id\":2,\"name\":\"user_2\"}')");
         assertThat(query("SELECT name FROM \"SELECT json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
-                "  FROM json_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
+                "  FROM json_type_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
                 .matches("VALUES (VARCHAR 'user_1')");
         assertThat(query("SELECT JSON_EXTRACT_SCALAR(json_col, '$.name') FROM " + JSON_TYPE_TABLE +
                 "  WHERE JSON_EXTRACT_SCALAR(json_col, '$.id') = '1'"))
