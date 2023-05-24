@@ -27,7 +27,6 @@ import javax.validation.constraints.DecimalMin;
 
 public class ParquetWriterConfig
 {
-    public static final String PARQUET_WRITER_MIN_BLOCK_SIZE = "4MB";
     public static final String PARQUET_WRITER_MAX_BLOCK_SIZE = "2GB";
     public static final String PARQUET_WRITER_MIN_PAGE_SIZE = "8kB";
     public static final String PARQUET_WRITER_MAX_PAGE_SIZE = "8MB";
@@ -39,7 +38,6 @@ public class ParquetWriterConfig
     private int batchSize = ParquetWriterOptions.DEFAULT_BATCH_SIZE;
     private double validationPercentage = 5;
 
-    @MinDataSize(PARQUET_WRITER_MIN_BLOCK_SIZE)
     @MaxDataSize(PARQUET_WRITER_MAX_BLOCK_SIZE)
     public DataSize getBlockSize()
     {
