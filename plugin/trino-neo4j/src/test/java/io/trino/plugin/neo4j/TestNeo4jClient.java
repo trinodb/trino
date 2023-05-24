@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
+import io.trino.spi.TrinoException;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -100,7 +101,7 @@ public class TestNeo4jClient
         for (String query : queries) {
             PreparedQuery preparedQuery = new PreparedQuery(query, ImmutableList.of());
             assertThatThrownBy(() -> neo4jClient.getTableHandle(getQueryRunner().getDefaultSession().toConnectorSession(), preparedQuery))
-                    .isInstanceOf(UnsupportedOperationException.class).hasMessageStartingWith("Error get results for the given query");
+                    .isInstanceOf(TrinoException.class).hasMessageStartingWith("Not supported");
             assertFalse(cachedResultSetInfo.getIfPresent(preparedQuery).isHasResultSet());
             assertNull(cachedResultSetInfo.getIfPresent(preparedQuery).getMetadata());
         }

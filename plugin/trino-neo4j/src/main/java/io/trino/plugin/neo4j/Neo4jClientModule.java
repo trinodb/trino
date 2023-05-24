@@ -71,6 +71,8 @@ public class Neo4jClientModule
     public static Properties getConnectionProperties()
     {
         Properties connectionProperties = new Properties();
+        // force the connector to read-only mode
+        connectionProperties.put("readonly", "true");
         return connectionProperties;
     }
 }

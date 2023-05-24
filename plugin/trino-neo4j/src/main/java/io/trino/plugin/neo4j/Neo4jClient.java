@@ -95,6 +95,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -398,7 +399,7 @@ public class Neo4jClient
         BoltNeo4jConnection boltNeo4jConnection = connection.unwrap(BoltNeo4jConnection.class);
         Neo4jResultSetInfo resultSetInfo = getNeo4jResultSetInfo(boltNeo4jConnection, preparedQuery);
         if (!resultSetInfo.isHasResultSet()) {
-            throw new UnsupportedOperationException("Error get results for the given query. " + preparedQuery.getQuery());
+            throw new TrinoException(NOT_SUPPORTED, "Not supported. All table function queries are required to return a result set but the give query does not. " + preparedQuery.getQuery());
         }
         if (resultSetInfo.getMetadata() == null) {
             try (PreparedStatement mdStatement = connection.prepareStatement(preparedQuery.getQuery());) {

@@ -49,7 +49,7 @@ public class BaseNeo4jTest
     private TestingNeo4jServer getExistingServer()
     {
         TestingNeo4jServer testingNeo4jServer = mock(TestingNeo4jServer.class);
-        when(testingNeo4jServer.getJdbcUrl(Optional.empty())).thenReturn("jdbc:neo4j:bolt://localhost:7687");
+        when(testingNeo4jServer.getJdbcUrl(Optional.empty())).thenReturn("jdbc:neo4j:bolt://localhost:51927");
         when(testingNeo4jServer.getUsername()).thenReturn("neo4j");
         when(testingNeo4jServer.getPassword()).thenReturn("password");
         return testingNeo4jServer;

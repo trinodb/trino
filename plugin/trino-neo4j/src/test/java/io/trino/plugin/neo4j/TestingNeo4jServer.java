@@ -21,6 +21,10 @@ import org.testcontainers.containers.Neo4jContainer;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -47,7 +51,7 @@ public class TestingNeo4jServer
     {
         this.container = new Neo4jContainer<>(dockerImageName)
                 .withAdminPassword(DEFAULT_PASSWORD)
-//                .withEnv("NEO4JLABS_PLUGINS", "[\"apoc\"]")
+                .withEnv("NEO4JLABS_PLUGINS", "[\"apoc\"]")
                 // this data is used to pre-load neo4j schema
                 .withClasspathResourceMapping("/movies-graph-data.cql", SAMPLE_DATA_PATH, BindMode.READ_ONLY);
 
@@ -91,6 +95,22 @@ public class TestingNeo4jServer
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
+        }
+    }
+
+    public void execute(String sql)
+    {
+        execute(sql, getUsername(), getPassword());
+    }
+
+    public void execute(String sql, String user, String password)
+    {
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(Optional.empty()), user, password);
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
