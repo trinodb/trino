@@ -382,7 +382,9 @@ public class TrinoS3FileSystem
                 closer.register(closeable);
             }
             closer.register(uploadExecutor::shutdown);
-            closer.register(s3::shutdown);
+            if (s3 != null) {
+                closer.register(s3::shutdown);
+            }
         }
     }
 
