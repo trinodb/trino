@@ -243,7 +243,7 @@ public class MockThriftMetastoreClient
                 0,
                 DEFAULT_STORAGE_DESCRIPTOR,
                 ImmutableList.of(new FieldSchema("key", "string", null)),
-                ImmutableMap.of(),
+                ImmutableMap.of("numRows", "2398040535435"),
                 "",
                 "",
                 TableType.MANAGED_TABLE.name());
@@ -363,7 +363,7 @@ public class MockThriftMetastoreClient
                 !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2, TEST_PARTITION_VALUES3).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of("numRows", "2398040535435"));
     }
 
     @Override
