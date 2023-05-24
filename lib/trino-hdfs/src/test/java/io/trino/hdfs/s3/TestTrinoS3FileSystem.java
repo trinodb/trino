@@ -168,7 +168,7 @@ public class TestTrinoS3FileSystem
         return awsCredentialsProvider.getCredentials();
     }
 
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region")
+    @Test
     public void testEndpointWithPinToCurrentRegionConfiguration()
             throws Exception
     {
@@ -176,7 +176,9 @@ public class TestTrinoS3FileSystem
         config.set(S3_ENDPOINT, "test.example.endpoint.com");
         config.set(S3_PIN_CLIENT_TO_CURRENT_REGION, "true");
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
-            fs.initialize(new URI("s3a://test-bucket/"), config);
+            assertThatThrownBy(() -> fs.initialize(new URI("s3a://test-bucket/"), config))
+                    .isInstanceOf(VerifyException.class)
+                    .hasMessage("Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
         }
     }
 
@@ -583,14 +585,19 @@ public class TestTrinoS3FileSystem
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Error creating an instance of .*")
+    @Test
     public void testCustomCredentialsClassCannotBeFound()
             throws Exception
     {
         Configuration config = newEmptyConfiguration();
         config.set(S3_CREDENTIALS_PROVIDER, "com.example.DoesNotExist");
         try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
-            fs.initialize(new URI("s3n://test-bucket/"), config);
+            assertThatThrownBy(() -> fs.initialize(new URI("s3n://test-bucket/"), config))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Error creating an instance of com.example.DoesNotExist for URI s3n://test-bucket/")
+                    .cause()
+                    .isInstanceOf(ClassNotFoundException.class)
+                    .hasMessage("Class com.example.DoesNotExist not found");
         }
     }
 
