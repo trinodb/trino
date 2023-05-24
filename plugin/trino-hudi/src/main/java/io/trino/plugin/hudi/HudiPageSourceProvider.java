@@ -162,7 +162,15 @@ public class HudiPageSourceProvider
                 .collect(Collectors.toList());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(path), split.getFileSize());
-        ConnectorPageSource dataPageSource = createPageSource(session, regularColumns, split, inputFile, dataSourceStats, options, timeZone);
+        ConnectorPageSource dataPageSource = createPageSource(
+                session,
+                regularColumns,
+                split,
+                inputFile,
+                dataSourceStats,
+                options.withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
+                        .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session)),
+                timeZone);
 
         return new HudiPageSource(
                 toPartitionName(split.getPartitionKeys()),
@@ -238,8 +246,7 @@ public class HudiPageSourceProvider
                     finalDataSource,
                     timeZone,
                     newSimpleAggregatedMemoryContext(),
-                    options.withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
-                            .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session)),
+                    options,
                     exception -> handleException(dataSourceId, exception),
                     Optional.of(parquetPredicate),
                     columnIndexes.build(),
