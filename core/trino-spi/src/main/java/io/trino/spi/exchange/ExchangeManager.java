@@ -75,6 +75,11 @@ public interface ExchangeManager
     ExchangeSource createSource();
 
     /**
+     * Provides information if Exchange implementation provided with this plugin supports concurrent reading and writing.
+     */
+    boolean supportsConcurrentReadAndWrite();
+
+    /**
      * Shutdown the exchange manager by releasing any held resources such as
      * threads, sockets, etc. This method will only be called when no
      * queries are using the exchange manager. After this method is called,
