@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406-SNAPSHOT</version>
+        <version>419-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -460,13 +460,8 @@
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>
                     <ignoredResourcePatterns>
-                        <!-- com.amazonaws:aws-java-sdk-core and software.amazon.awssdk:sdk-core MIME type file duplicate-->
-                        <ignoredResourcePattern>mime.types</ignoredResourcePattern>
-                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                         <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
-                        <!-- TODO: To be removed https://github.com/trinodb/trino/issues/15371 -->
-                        <ignoredResourcePattern>google/protobuf/.*\.proto$</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
@@ -490,10 +485,6 @@
                                 <exclude>**/io/trino/faulttolerant/delta/Test*.java</exclude>
                                 <exclude>**/io/trino/faulttolerant/hive/Test*.java</exclude>
                                 <exclude>**/io/trino/faulttolerant/iceberg/Test*.java</exclude>
-                                <exclude>**/io/trino/faulttolerant/mongodb/Test*.java</exclude>
-                                <exclude>**/io/trino/faulttolerant/mysql/Test*.java</exclude>
-                                <exclude>**/io/trino/faulttolerant/postgresql/Test*.java</exclude>
-                                <exclude>**/io/trino/faulttolerant/sqlserver/Test*.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -502,26 +493,7 @@
         </profile>
 
         <profile>
-            <id>test-fault-tolerant-hive-1</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- Failure recovery tests spend most of the time waiting for a retry -->
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/io/trino/faulttolerant/hive/*FailureRecoveryTest.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>test-fault-tolerant-hive-2</id>
+            <id>test-fault-tolerant-hive</id>
             <build>
                 <plugins>
                     <plugin>
@@ -570,78 +542,6 @@
                             <threadCount>4</threadCount>
                             <includes>
                                 <include>**/io/trino/faulttolerant/iceberg/Test*.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>test-fault-tolerant-postgresql</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/io/trino/faulttolerant/postgresql/Test*.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>test-fault-tolerant-mysql</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/io/trino/faulttolerant/mysql/Test*.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>test-fault-tolerant-sqlserver</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/io/trino/faulttolerant/sqlserver/Test*.java</include>
-                            </includes>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
-            <id>test-fault-tolerant-mongodb</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <threadCount>4</threadCount>
-                            <includes>
-                                <include>**/io/trino/faulttolerant/mongodb/Test*.java</include>
                             </includes>
                         </configuration>
                     </plugin>

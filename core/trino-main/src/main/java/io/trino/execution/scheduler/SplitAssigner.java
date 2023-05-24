@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import com.google.common.primitives.ImmutableIntArray;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import io.trino.execution.scheduler.EventDrivenTaskSource.Partition;
-import io.trino.execution.scheduler.EventDrivenTaskSource.PartitionUpdate;
 import io.trino.metadata.Split;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -38,6 +36,23 @@ interface SplitAssigner
 
     AssignmentResult finish();
 
+    record Partition(int partitionId, NodeRequirements nodeRequirements)
+    {
+        public Partition
+        {
+            requireNonNull(nodeRequirements, "nodeRequirements is null");
+        }
+    }
+
+    record PartitionUpdate(int partitionId, PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+    {
+        public PartitionUpdate
+        {
+            requireNonNull(planNodeId, "planNodeId is null");
+            splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
+        }
+    }
+
     record AssignmentResult(
             List<Partition> partitionsAdded,
             boolean noMorePartitions,
@@ -48,22 +63,6 @@ interface SplitAssigner
         {
             partitionsAdded = ImmutableList.copyOf(requireNonNull(partitionsAdded, "partitionsAdded is null"));
             partitionUpdates = ImmutableList.copyOf(requireNonNull(partitionUpdates, "partitionUpdates is null"));
-        }
-
-        public void update(EventDrivenTaskSource.Callback callback)
-        {
-            if (!partitionsAdded.isEmpty()) {
-                callback.partitionsAdded(partitionsAdded);
-            }
-            if (noMorePartitions) {
-                callback.noMorePartitions();
-            }
-            if (!partitionUpdates.isEmpty()) {
-                callback.partitionsUpdated(partitionUpdates);
-            }
-            if (!sealedPartitions.isEmpty()) {
-                callback.partitionsSealed(sealedPartitions);
-            }
         }
 
         public static AssignmentResult.Builder builder()

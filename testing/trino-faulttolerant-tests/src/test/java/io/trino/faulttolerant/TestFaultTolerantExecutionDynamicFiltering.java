@@ -58,6 +58,8 @@ public class TestFaultTolerantExecutionDynamicFiltering
                 // keep limits lower to test edge cases
                 .addExtraProperty("dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10")
                 .addExtraProperty("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "10")
+                .addExtraProperty("dynamic-filtering.small-partitioned.range-row-limit-per-driver", "100")
+                .addExtraProperty("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "400")
                 .build();
     }
 

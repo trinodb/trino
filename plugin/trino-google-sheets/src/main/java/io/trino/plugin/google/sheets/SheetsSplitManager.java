@@ -22,14 +22,15 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
-import io.trino.spi.connector.TableNotFoundException;
 
 import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
+import static io.trino.plugin.google.sheets.SheetsConnectorTableHandle.tableNotFound;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsSplitManager
@@ -51,14 +52,35 @@ public class SheetsSplitManager
             DynamicFilter dynamicFilter,
             Constraint constraint)
     {
-        SheetsTableHandle tableHandle = (SheetsTableHandle) connectorTableHandle;
-        SheetsTable table = sheetsClient.getTable(tableHandle.getTableName())
+        SheetsConnectorTableHandle tableHandle = (SheetsConnectorTableHandle) connectorTableHandle;
+        SheetsTable table = sheetsClient.getTable(tableHandle)
                 // this can happen if table is removed during a query
-                .orElseThrow(() -> new TableNotFoundException(tableHandle.toSchemaTableName()));
+                .orElseThrow(() -> tableNotFound(tableHandle));
 
         List<ConnectorSplit> splits = new ArrayList<>();
-        splits.add(new SheetsSplit(tableHandle.getSchemaName(), tableHandle.getTableName(), table.getValues()));
+        splits.add(sheetsSplitFromTableHandle(tableHandle, table.getValues()));
         Collections.shuffle(splits);
         return new FixedSplitSource(splits);
+    }
+
+    private static SheetsSplit sheetsSplitFromTableHandle(
+            SheetsConnectorTableHandle tableHandle,
+            List<List<String>> values)
+    {
+        if (tableHandle instanceof SheetsNamedTableHandle namedTableHandle) {
+            return new SheetsSplit(
+                    Optional.of(namedTableHandle.getSchemaName()),
+                    Optional.of(namedTableHandle.getTableName()),
+                    Optional.empty(),
+                    values);
+        }
+        if (tableHandle instanceof SheetsSheetTableHandle sheetTableHandle) {
+            return new SheetsSplit(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(sheetTableHandle.getSheetExpression()),
+                    values);
+        }
+        throw new IllegalStateException("Found unexpected table handle type " + tableHandle);
     }
 }

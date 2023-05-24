@@ -102,6 +102,18 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SecurityContext context, String catalog)
+    {
+        delegate().checkCanCreateCatalog(context, catalog);
+    }
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext context, String catalog)
+    {
+        delegate().checkCanDropCatalog(context, catalog);
+    }
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return delegate().filterCatalogs(context, catalogs);
@@ -486,8 +498,8 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return delegate().getColumnMasks(context, tableName, columnName, type);
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 }

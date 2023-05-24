@@ -19,5 +19,6 @@ public enum CatalogType
     HIVE_METASTORE,
     GLUE,
     REST,
+    JDBC,
     /**/;
 }

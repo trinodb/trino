@@ -696,9 +696,7 @@ public class Validator
                 }
                 return a == null ? -1 : 1;
             }
-            if (a instanceof Number && b instanceof Number) {
-                Number x = (Number) a;
-                Number y = (Number) b;
+            if (a instanceof Number x && b instanceof Number y) {
                 boolean bothReal = isReal(x) && isReal(y);
                 boolean bothIntegral = isIntegral(x) && isIntegral(y);
                 boolean bothDecimals = isDecimal(x) && isDecimal(y);
@@ -733,10 +731,7 @@ public class Validator
 
                 return 0;
             }
-            if (a instanceof List && b instanceof List) {
-                List<?> aList = (List<?>) a;
-                List<?> bList = (List<?>) b;
-
+            if (a instanceof List<?> aList && b instanceof List<?> bList) {
                 if (aList.size() != bList.size()) {
                     return a.hashCode() < b.hashCode() ? -1 : 1;
                 }
@@ -750,10 +745,7 @@ public class Validator
 
                 return 0;
             }
-            if (a instanceof Map && b instanceof Map) {
-                Map<?, ?> aMap = (Map<?, ?>) a;
-                Map<?, ?> bMap = (Map<?, ?>) b;
-
+            if (a instanceof Map<?, ?> aMap && b instanceof Map<?, ?> bMap) {
                 if (aMap.size() != bMap.size()) {
                     return a.hashCode() < b.hashCode() ? -1 : 1;
                 }

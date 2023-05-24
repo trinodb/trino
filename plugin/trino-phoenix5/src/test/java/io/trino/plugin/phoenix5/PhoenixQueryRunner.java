@@ -134,7 +134,7 @@ public final class PhoenixQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
-                TestingPhoenixServer.getInstance(),
+                TestingPhoenixServer.getInstance().get(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
 

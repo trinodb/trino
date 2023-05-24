@@ -28,6 +28,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
@@ -54,13 +58,14 @@ import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
+import io.trino.plugin.hive.util.SerdeConstants;
 import io.trino.spi.ErrorType;
+import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -102,6 +107,7 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
@@ -123,11 +129,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
-import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
-import org.apache.hadoop.hive.serde.serdeConstants;
-import org.apache.hadoop.hive.serde2.OpenCSVSerde;
 import org.apache.hadoop.mapred.JobConf;
 
 import java.io.File;
@@ -151,18 +153,18 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.collect.Sets.intersection;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
@@ -176,7 +178,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnHandle.mergeRowIdColumnHandle;
-import static io.trino.plugin.hive.HiveColumnHandle.updateRowIdColumnHandle;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_COLUMN_ORDER_MISMATCH;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
@@ -191,6 +192,7 @@ import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.HiveSessionProperties.NON_TRANSACTIONAL_OPTIMIZE_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getDeltaLakeCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.trino.plugin.hive.HiveSessionProperties.getHudiCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getIcebergCatalogName;
 import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartitionsBehavior;
 import static io.trino.plugin.hive.HiveSessionProperties.getQueryPartitionFilterRequiredSchemas;
@@ -221,6 +223,8 @@ import static io.trino.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.REGEX_CASE_INSENSITIVE;
+import static io.trino.plugin.hive.HiveTableProperties.REGEX_PATTERN;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
@@ -231,6 +235,7 @@ import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaLiteral;
 import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.trino.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.trino.plugin.hive.HiveTableProperties.getExternalLocation;
+import static io.trino.plugin.hive.HiveTableProperties.getExtraProperties;
 import static io.trino.plugin.hive.HiveTableProperties.getFooterSkipCount;
 import static io.trino.plugin.hive.HiveTableProperties.getHeaderSkipCount;
 import static io.trino.plugin.hive.HiveTableProperties.getHiveStorageFormat;
@@ -238,7 +243,9 @@ import static io.trino.plugin.hive.HiveTableProperties.getNullFormat;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterColumns;
 import static io.trino.plugin.hive.HiveTableProperties.getOrcBloomFilterFpp;
 import static io.trino.plugin.hive.HiveTableProperties.getPartitionedBy;
+import static io.trino.plugin.hive.HiveTableProperties.getRegexPattern;
 import static io.trino.plugin.hive.HiveTableProperties.getSingleCharacterProperty;
+import static io.trino.plugin.hive.HiveTableProperties.isRegexCaseInsensitive;
 import static io.trino.plugin.hive.HiveTableProperties.isTransactional;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
@@ -249,6 +256,9 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXI
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
@@ -259,6 +269,7 @@ import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
@@ -266,21 +277,32 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.Part
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.STATS_PROPERTIES;
+import static io.trino.plugin.hive.type.Category.PRIMITIVE;
+import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
+import static io.trino.plugin.hive.util.AcidTables.isFullAcidTable;
+import static io.trino.plugin.hive.util.AcidTables.isTransactionalTable;
+import static io.trino.plugin.hive.util.AcidTables.writeAcidVersionFile;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketHandle;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
+import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.getRegularColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
+import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveUtil.verifyPartitionTypeSupported;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkTableIsWritable;
 import static io.trino.plugin.hive.util.HiveWriteUtils.checkedDelete;
+import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.initializeSerializer;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isS3FileSystem;
@@ -312,13 +334,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deltaSubdir;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.isTransactionalTable;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -331,26 +346,29 @@ public class HiveMetadata
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
-    private static final String TRANSACTIONAL = "transactional";
+    public static final String TRANSACTIONAL = "transactional";
     public static final String PRESTO_VIEW_COMMENT = "Presto View";
     public static final String PRESTO_VIEW_EXPANDED_TEXT_MARKER = "/* Presto View */";
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
 
-    public static final String SKIP_HEADER_COUNT_KEY = serdeConstants.HEADER_COUNT;
-    public static final String SKIP_FOOTER_COUNT_KEY = serdeConstants.FOOTER_COUNT;
+    public static final String SKIP_HEADER_COUNT_KEY = SerdeConstants.HEADER_COUNT;
+    public static final String SKIP_FOOTER_COUNT_KEY = SerdeConstants.FOOTER_COUNT;
 
-    private static final String TEXT_FIELD_SEPARATOR_KEY = serdeConstants.FIELD_DELIM;
-    private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = serdeConstants.ESCAPE_CHAR;
-    private static final String NULL_FORMAT_KEY = serdeConstants.SERIALIZATION_NULL_FORMAT;
+    private static final String TEXT_FIELD_SEPARATOR_KEY = SerdeConstants.FIELD_DELIM;
+    private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = SerdeConstants.ESCAPE_CHAR;
+    private static final String NULL_FORMAT_KEY = SerdeConstants.SERIALIZATION_NULL_FORMAT;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String AVRO_SCHEMA_LITERAL_KEY = "avro.schema.literal";
 
-    private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
-    private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
-    private static final String CSV_ESCAPE_KEY = OpenCSVSerde.ESCAPECHAR;
+    private static final String CSV_SEPARATOR_KEY = "separatorChar";
+    private static final String CSV_QUOTE_KEY = "quoteChar";
+    private static final String CSV_ESCAPE_KEY = "escapeChar";
+
+    private static final String REGEX_KEY = "input.regex";
+    private static final String REGEX_CASE_SENSITIVE_KEY = "input.regex.case.insensitive";
 
     private static final String AUTO_PURGE_KEY = "auto.purge";
 
@@ -359,6 +377,7 @@ public class HiveMetadata
     private final CatalogName catalogName;
     private final SemiTransactionalHiveMetastore metastore;
     private final boolean autoCommit;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
@@ -380,11 +399,13 @@ public class HiveMetadata
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
     private final long maxPartitionDropsPerQuery;
+    private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
     public HiveMetadata(
             CatalogName catalogName,
             SemiTransactionalHiveMetastore metastore,
             boolean autoCommit,
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             boolean writesToNonManagedTablesEnabled,
@@ -405,11 +426,13 @@ public class HiveMetadata
             DirectoryLister directoryLister,
             PartitionProjectionService partitionProjectionService,
             boolean allowTableRename,
-            long maxPartitionDropsPerQuery)
+            long maxPartitionDropsPerQuery,
+            HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.autoCommit = autoCommit;
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -431,6 +454,7 @@ public class HiveMetadata
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
+        this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
     }
 
     @Override
@@ -473,6 +497,9 @@ public class HiveMetadata
         }
         if (isIcebergTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Iceberg table '%s'", tableName));
+        }
+        if (isHudiTable(table)) {
+            throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Cannot query Hudi table '%s'", tableName));
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
@@ -557,9 +584,18 @@ public class HiveMetadata
     }
 
     @Override
+    public SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return ((HiveTableHandle) table).getSchemaTableName();
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getTableMetadata(session, ((HiveTableHandle) tableHandle).getSchemaTableName());
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        // This method does not calculate column metadata for the projected columns
+        checkArgument(handle.getProjectedColumns().size() == handle.getPartitionColumns().size() + handle.getDataColumns().size(), "Unexpected projected columns");
+        return getTableMetadata(session, handle.getSchemaTableName());
     }
 
     private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName tableName)
@@ -677,6 +713,12 @@ public class HiveMetadata
         getCsvSerdeProperty(table, CSV_ESCAPE_KEY)
                 .ifPresent(csvEscape -> properties.put(CSV_ESCAPE, csvEscape));
 
+        // REGEX specific properties
+        getSerdeProperty(table, REGEX_KEY)
+                .ifPresent(regex -> properties.put(REGEX_PATTERN, regex));
+        getSerdeProperty(table, REGEX_CASE_SENSITIVE_KEY)
+                .ifPresent(regexCaseInsensitive -> properties.put(REGEX_CASE_INSENSITIVE, parseBoolean(regexCaseInsensitive)));
+
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
         String autoPurgeProperty = table.getParameters().get(AUTO_PURGE_KEY);
@@ -732,6 +774,17 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        if (optionalSchemaName.isEmpty()) {
+            Optional<List<SchemaTableName>> allTables = metastore.getAllTables();
+            if (allTables.isPresent()) {
+                return ImmutableList.<SchemaTableName>builder()
+                        .addAll(allTables.get().stream()
+                                .filter(table -> !isHiveSystemSchema(table.getSchemaName()))
+                                .collect(toImmutableList()))
+                        .addAll(listMaterializedViews(session, optionalSchemaName))
+                        .build();
+            }
+        }
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllTables(schemaName)) {
@@ -770,35 +823,38 @@ public class HiveMetadata
         throw new UnsupportedOperationException("The deprecated listTableColumns is not supported because streamTableColumns is implemented instead");
     }
 
-    @SuppressWarnings("TryWithIdenticalCatches")
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        return listTables(session, prefix).stream().flatMap(tableName -> {
-            try {
-                if (redirectTable(session, tableName).isPresent()) {
-                    return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
-                }
-                return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
-            }
-            catch (HiveViewNotSupportedException e) {
-                // view is not supported
-                return Stream.empty();
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-                return Stream.empty();
-            }
-            catch (TrinoException e) {
-                // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
-                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
-                    throw e;
-                }
-                return Stream.empty();
-            }
-        })
+        return listTables(session, prefix).stream()
+                .flatMap(tableName -> streamTableColumns(session, tableName))
                 .iterator();
+    }
+
+    private Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTableName tableName)
+    {
+        try {
+            if (redirectTable(session, tableName).isPresent()) {
+                return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
+            }
+            return Stream.of(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
+        }
+        catch (HiveViewNotSupportedException e) {
+            // view is not supported
+            return Stream.empty();
+        }
+        catch (TableNotFoundException e) {
+            // table disappeared during listing operation
+            return Stream.empty();
+        }
+        catch (TrinoException e) {
+            // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
+            if (e.getErrorCode().getType() == ErrorType.EXTERNAL) {
+                return Stream.empty();
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -808,19 +864,23 @@ public class HiveMetadata
             return TableStatistics.empty();
         }
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle)
-                .entrySet().stream()
-                .filter(entry -> !((HiveColumnHandle) entry.getValue()).isHidden())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Set<ColumnHandle> projectedColumns = hiveTableHandle.getProjectedColumns();
+        // Return column statistics only for projectedColumns
+        // plus, since column statistics are not supported for non-primitive types in hive, filter those out
+        Map<String, ColumnHandle> columns = projectedColumns.stream()
+                .map(columnHandle -> (HiveColumnHandle) columnHandle)
+                .filter(entry -> !entry.isHidden() && entry.getHiveType().getCategory().equals(PRIMITIVE))
+                .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
+
         Map<String, Type> columnTypes = columns.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
         // TODO: https://github.com/trinodb/trino/issues/10980.
-        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-            List<HivePartition> partitions = ImmutableList.copyOf(partitionResult.getPartitions());
-            return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions);
+        Optional<List<HivePartition>> partitions = partitionManager.tryLoadPartitions(partitionResult);
+        if (partitions.isPresent()) {
+            return hiveStatisticsProvider.getTableStatistics(session, hiveTableHandle.getSchemaTableName(), columns, columnTypes, partitions.get());
         }
         return TableStatistics.empty();
     }
@@ -871,44 +931,15 @@ public class HiveMetadata
             return locationUri;
         });
 
-        String queryId = session.getQueryId();
         Database database = Database.builder()
                 .setDatabaseName(schemaName)
                 .setLocation(location)
                 .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
                 .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
+                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, session.getQueryId()))
                 .build();
 
-        // Ensure the database has queryId set. This is relied on for exception handling
-        verify(
-                getQueryId(database).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Database does not have correct query id set",
-                database);
-
-        try {
-            metastore.createDatabase(database);
-        }
-        catch (SchemaAlreadyExistsException e) {
-            // Ignore SchemaAlreadyExistsException when database looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
-            if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
-                throw e;
-            }
-        }
-    }
-
-    private static Optional<String> getQueryId(Database database)
-    {
-        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
-    }
-
-    private static boolean isCreatedBy(Database database, String queryId)
-    {
-        Optional<String> databaseQueryId = getQueryId(database);
-        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
+        metastore.createDatabase(session, database);
     }
 
     @Override
@@ -944,7 +975,7 @@ public class HiveMetadata
         }
 
         if (bucketProperty.isPresent() && getAvroSchemaLiteral(tableMetadata.getProperties()) != null) {
-            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not spported when Avro schema literal is set");
+            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema literal is set");
         }
 
         if (isTransactional) {
@@ -965,7 +996,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
         checkPartitionTypesSupported(partitionColumns);
 
-        Optional<Path> targetPath;
+        Optional<Location> targetPath;
         boolean external;
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
@@ -974,8 +1005,8 @@ public class HiveMetadata
             }
 
             external = true;
-            targetPath = Optional.of(getExternalLocationAsPath(externalLocation));
-            checkExternalPath(new HdfsContext(session), targetPath.get());
+            targetPath = Optional.of(getValidatedExternalLocation(externalLocation));
+            checkExternalPath(new HdfsContext(session), new Path(targetPath.get().toString()));
         }
         else {
             external = false;
@@ -1021,8 +1052,6 @@ public class HiveMetadata
 
         // When metastore is configured with metastore.create.as.acid=true, it will also change Trino-created tables
         // behind the scenes. In particular, this won't work with CTAS.
-        // TODO (https://github.com/trinodb/trino/issues/1956) convert this into normal table property
-
         boolean transactional = HiveTableProperties.isTransactional(tableMetadata.getProperties()).orElse(false);
         tableProperties.put(TRANSACTIONAL, String.valueOf(transactional));
 
@@ -1115,6 +1144,30 @@ public class HiveMetadata
                     tableProperties.put(CSV_SEPARATOR_KEY, separator.toString());
                 });
 
+        // REGEX specific properties
+        getRegexPattern(tableMetadata.getProperties())
+                .ifPresentOrElse(
+                        regexPattern -> {
+                            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.REGEX, REGEX_PATTERN);
+                            try {
+                                Pattern.compile(regexPattern);
+                            }
+                            catch (PatternSyntaxException e) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid REGEX pattern value: " + regexPattern);
+                            }
+                            tableProperties.put(REGEX_KEY, regexPattern);
+                        },
+                        () -> {
+                            if (hiveStorageFormat == HiveStorageFormat.REGEX) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, format("REGEX format requires the '%s' table property", REGEX_PATTERN));
+                            }
+                        });
+        isRegexCaseInsensitive(tableMetadata.getProperties())
+                .ifPresent(regexCaseInsensitive -> {
+                    checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.REGEX, REGEX_CASE_INSENSITIVE);
+                    tableProperties.put(REGEX_CASE_SENSITIVE_KEY, String.valueOf(regexCaseInsensitive));
+                });
+
         // Set bogus table stats to prevent Hive 2.x from gathering these stats at table creation.
         // These stats are not useful by themselves and can take very long time to collect when creating an
         // external table over large data set.
@@ -1127,7 +1180,27 @@ public class HiveMetadata
         // Partition Projection specific properties
         tableProperties.putAll(partitionProjectionService.getPartitionProjectionHiveTableProperties(tableMetadata));
 
-        return tableProperties.buildOrThrow();
+        Map<String, String> baseProperties = tableProperties.buildOrThrow();
+
+        // Extra properties
+        Map<String, String> extraProperties = getExtraProperties(tableMetadata.getProperties())
+                .orElseGet(ImmutableMap::of);
+        Set<String> illegalExtraProperties = Sets.intersection(
+                ImmutableSet.<String>builder()
+                        .addAll(baseProperties.keySet())
+                        .addAll(STATS_PROPERTIES)
+                        .build(),
+                extraProperties.keySet());
+        if (!illegalExtraProperties.isEmpty()) {
+            throw new TrinoException(
+                    INVALID_TABLE_PROPERTY,
+                    "Illegal keys in extra_properties: " + illegalExtraProperties);
+        }
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(baseProperties)
+                .putAll(extraProperties)
+                .buildOrThrow();
     }
 
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
@@ -1200,10 +1273,10 @@ public class HiveMetadata
         }
     }
 
-    private static Path getExternalLocationAsPath(String location)
+    private static Location getValidatedExternalLocation(String location)
     {
         try {
-            return new Path(location);
+            return Location.of(location);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
@@ -1242,7 +1315,7 @@ public class HiveMetadata
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
             Map<String, String> additionalTableParameters,
-            Optional<Path> targetPath,
+            Optional<Location> targetPath,
             boolean external,
             String prestoVersion,
             boolean usingSystemSecurity)
@@ -1452,7 +1525,7 @@ public class HiveMetadata
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = handle.getSchemaTableName();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
+                .orElseThrow(() -> new TableNotFoundException(tableName));
 
         List<Column> partitionColumns = table.getPartitionColumns();
         List<String> partitionColumnNames = partitionColumns.stream()
@@ -1471,13 +1544,19 @@ public class HiveMetadata
             metastore.setTableStatistics(table, createPartitionStatistics(columnTypes, computedStatisticsMap.get(ImmutableList.<String>of())));
         }
         else {
+            List<String> partitionNames;
             List<List<String>> partitionValuesList;
             if (handle.getAnalyzePartitionValues().isPresent()) {
                 partitionValuesList = handle.getAnalyzePartitionValues().get();
+                partitionNames = partitionValuesList.stream()
+                        // TODO (https://github.com/trinodb/trino/issues/15998) fix selective ANALYZE for table with non-canonical partition values
+                        .map(partitionValues -> makePartitionName(partitionColumns, partitionValues))
+                        .collect(toImmutableList());
             }
             else {
-                partitionValuesList = metastore.getPartitionNames(handle.getSchemaName(), handle.getTableName())
-                        .orElseThrow(() -> new TableNotFoundException(((HiveTableHandle) tableHandle).getSchemaTableName()))
+                partitionNames = metastore.getPartitionNames(handle.getSchemaName(), handle.getTableName())
+                        .orElseThrow(() -> new TableNotFoundException(tableName));
+                partitionValuesList = partitionNames
                         .stream()
                         .map(HiveUtil::toPartitionValues)
                         .collect(toImmutableList());
@@ -1490,27 +1569,45 @@ public class HiveMetadata
                     .collect(toImmutableMap(HiveColumnHandle::getName, column -> ImmutableSet.copyOf(metastore.getSupportedColumnStatistics(column.getType()))));
             Supplier<PartitionStatistics> emptyPartitionStatistics = Suppliers.memoize(() -> createEmptyPartitionStatistics(columnTypes, columnStatisticTypes));
 
-            int usedComputedStatistics = 0;
-            for (List<String> partitionValues : partitionValuesList) {
-                ComputedStatistics collectedStatistics = computedStatisticsMap.get(partitionValues);
+            List<Type> partitionTypes = handle.getPartitionColumns().stream()
+                    .map(HiveColumnHandle::getType)
+                    .collect(toImmutableList());
+
+            for (int i = 0; i < partitionNames.size(); i++) {
+                String partitionName = partitionNames.get(i);
+                List<String> partitionValues = partitionValuesList.get(i);
+                ComputedStatistics collectedStatistics = computedStatisticsMap.containsKey(partitionValues)
+                        ? computedStatisticsMap.get(partitionValues)
+                        : computedStatisticsMap.get(canonicalizePartitionValues(partitionName, partitionValues, partitionTypes));
                 if (collectedStatistics == null) {
                     partitionStatistics.put(partitionValues, emptyPartitionStatistics.get());
                 }
                 else {
-                    usedComputedStatistics++;
                     partitionStatistics.put(partitionValues, createPartitionStatistics(columnTypes, collectedStatistics));
                 }
             }
-            verify(usedComputedStatistics == computedStatistics.size(), "All computed statistics must be used");
             metastore.setPartitionStatistics(table, partitionStatistics.buildOrThrow());
         }
+    }
+
+    private static List<String> canonicalizePartitionValues(String partitionName, List<String> partitionValues, List<Type> partitionTypes)
+    {
+        verify(partitionValues.size() == partitionTypes.size(), "Expected partitionTypes size to be %s but got %s", partitionValues.size(), partitionTypes.size());
+        Block[] parsedPartitionValuesBlocks = new Block[partitionValues.size()];
+        for (int i = 0; i < partitionValues.size(); i++) {
+            String partitionValue = partitionValues.get(i);
+            Type partitionType = partitionTypes.get(i);
+            parsedPartitionValuesBlocks[i] = parsePartitionValue(partitionName, partitionValue, partitionType).asBlock();
+        }
+
+        return createPartitionValues(partitionTypes, new Page(parsedPartitionValuesBlocks), 0);
     }
 
     @Override
     public HiveOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
-        Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
-                .map(HiveMetadata::getExternalLocationAsPath);
+        Optional<Location> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
+                .map(HiveMetadata::getValidatedExternalLocation);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
         }
@@ -1597,7 +1694,7 @@ public class HiveMetadata
                 retryMode != NO_RETRIES);
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), schemaTableName);
+        metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), schemaTableName);
 
         return result;
     }
@@ -1623,7 +1720,7 @@ public class HiveMetadata
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
                 handle.getAdditionalTableParameters(),
-                Optional.of(writeInfo.getTargetPath()),
+                Optional.of(writeInfo.targetPath()),
                 handle.isExternal(),
                 prestoVersion,
                 accessControlMetadata.isUsingSystemSecurity());
@@ -1668,6 +1765,7 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
+        Optional<Path> writePath = Optional.of(new Path(writeInfo.writePath().toString()));
         if (handle.getPartitionedBy().isEmpty()) {
             List<String> fileNames;
             if (partitionUpdates.isEmpty()) {
@@ -1677,10 +1775,10 @@ public class HiveMetadata
             else {
                 fileNames = getOnlyElement(partitionUpdates).getFileNames();
             }
-            metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), Optional.of(fileNames), false, tableStatistics, handle.isRetriesEnabled());
+            metastore.createTable(session, table, principalPrivileges, writePath, Optional.of(fileNames), false, tableStatistics, handle.isRetriesEnabled());
         }
         else {
-            metastore.createTable(session, table, principalPrivileges, Optional.of(writeInfo.getWritePath()), Optional.empty(), false, tableStatistics, false);
+            metastore.createTable(session, table, principalPrivileges, writePath, Optional.empty(), false, tableStatistics, false);
         }
 
         if (!handle.getPartitionedBy().isEmpty()) {
@@ -1689,10 +1787,11 @@ public class HiveMetadata
             }
             for (PartitionUpdate update : partitionUpdates) {
                 Partition partition = buildPartitionObject(session, table, update);
+                List<String> canonicalPartitionValues = partition.getValues();
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         update.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                        getColumnStatistics(partitionComputedStatistics, canonicalPartitionValues));
                 metastore.addPartition(
                         session,
                         handle.getSchemaName(),
@@ -1797,11 +1896,27 @@ public class HiveMetadata
         }
 
         HiveCompressionCodec compression = selectCompressionCodec(session, format);
-        if (format.getOutputFormat().equals(OrcOutputFormat.class.getName()) && (compression == HiveCompressionCodec.ZSTD)) {
+        if (format.getOutputFormat().equals(ORC_OUTPUT_FORMAT_CLASS) && (compression == HiveCompressionCodec.ZSTD)) {
             compression = HiveCompressionCodec.GZIP; // ZSTD not supported by Hive ORC writer
         }
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), path));
         configureCompression(conf, compression);
+
+        // for simple line-oriented formats, just create an empty file directly
+        if (format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS)) {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            for (String fileName : fileNames) {
+                TrinoOutputFile trinoOutputFile = fileSystem.newOutputFile(Location.of(path.toString()).appendPath(fileName));
+                try {
+                    // create empty file
+                    trinoOutputFile.create().close();
+                }
+                catch (IOException e) {
+                    throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
+                }
+            }
+            return;
+        }
 
         hdfsEnvironment.doAs(session.getIdentity(), () -> {
             for (String fileName : fileNames) {
@@ -1823,102 +1938,6 @@ public class HiveMetadata
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
         }
-    }
-
-    @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = hiveTableHandle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        if (!isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for ACID transactional tables");
-        }
-        if (!autoCommit) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating transactional tables is not supported in explicit transactions (use autocommit mode)");
-        }
-        if (isSparkBucketedTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating Spark bucketed tables is not supported");
-        }
-
-        // Verify that none of the updated columns are partition columns or bucket columns
-
-        Set<String> updatedColumnNames = updatedColumns.stream().map(handle -> ((HiveColumnHandle) handle).getName()).collect(toImmutableSet());
-        Set<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(toImmutableSet());
-        if (!intersection(updatedColumnNames, partitionColumnNames).isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating Hive table partition columns is not supported");
-        }
-
-        hiveTableHandle.getBucketHandle().ifPresent(handle -> {
-            Set<String> bucketColumnNames = handle.getColumns().stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
-            if (!intersection(updatedColumnNames, bucketColumnNames).isEmpty()) {
-                throw new TrinoException(NOT_SUPPORTED, "Updating Hive table bucket columns is not supported");
-            }
-        });
-
-        checkTableIsWritable(table, writesToNonManagedTablesEnabled);
-
-        for (Column column : table.getDataColumns()) {
-            if (!isWritableType(column.getType())) {
-                throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with column type %s not supported", column.getType()));
-            }
-        }
-
-        List<HiveColumnHandle> allDataColumns = getRegularColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
-                .filter(columnHandle -> !columnHandle.isHidden())
-                .collect(toImmutableList());
-        List<HiveColumnHandle> hiveUpdatedColumns = updatedColumns.stream().map(HiveColumnHandle.class::cast).collect(toImmutableList());
-
-        if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
-        }
-        if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new TrinoException(NOT_SUPPORTED, format("Updating a Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
-        }
-
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Updating a Hive tables is not supported with query retries enabled");
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-
-        HiveUpdateProcessor updateProcessor = new HiveUpdateProcessor(allDataColumns, hiveUpdatedColumns);
-        AcidTransaction transaction = metastore.beginUpdate(session, table, updateProcessor);
-        HiveTableHandle updateHandle = hiveTableHandle.withTransaction(transaction);
-
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
-        return updateHandle;
-    }
-
-    @Override
-    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        checkArgument(handle.isAcidUpdate(), "handle should be a update handle, but is %s", handle);
-
-        requireNonNull(fragments, "fragments is null");
-
-        SchemaTableName tableName = handle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
-                .map(Slice::getBytes)
-                .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toImmutableList());
-
-        HdfsContext context = new HdfsContext(session);
-        for (PartitionAndStatementId ps : partitionAndStatementIds) {
-            createOrcAcidVersionFile(context, new Path(ps.getDeltaDirectory().get()));
-            createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory().get()));
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.finishUpdate(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionAndStatementIds);
     }
 
     @Override
@@ -1951,9 +1970,9 @@ public class HiveMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        HiveMergeTableHandle mergeHandle = (HiveMergeTableHandle) tableHandle;
+        HiveMergeTableHandle mergeHandle = (HiveMergeTableHandle) mergeTableHandle;
         HiveInsertTableHandle insertHandle = mergeHandle.getInsertHandle();
         HiveTableHandle handle = mergeHandle.getTableHandle();
         checkArgument(handle.isAcidMerge(), "handle should be a merge handle, but is %s", handle);
@@ -1970,10 +1989,9 @@ public class HiveMetadata
 
         Table table = finishChangingTable(AcidOperation.MERGE, "merge", session, insertHandle, partitionUpdates, computedStatistics);
 
-        HdfsContext context = new HdfsContext(session);
         for (PartitionUpdateAndMergeResults results : partitionMergeResults) {
-            results.getDeltaDirectory().ifPresent(deltaDirectory -> createOrcAcidVersionFile(context, new Path(deltaDirectory)));
-            results.getDeleteDeltaDirectory().ifPresent(deleteDeltadDirectory -> createOrcAcidVersionFile(context, new Path(deleteDeltadDirectory)));
+            results.getDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
+            results.getDeleteDeltaDirectory().ifPresent(directory -> createOrcAcidVersionFile(session.getIdentity(), directory));
         }
 
         List<Partition> partitions = partitionUpdates.stream()
@@ -1983,7 +2001,7 @@ public class HiveMetadata
 
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.finishMerge(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionMergeResults, partitions);
+        metastore.finishMerge(session, table.getDatabaseName(), table.getTableName(), writeInfo.writePath(), partitionMergeResults, partitions);
     }
 
     @Override
@@ -2054,7 +2072,7 @@ public class HiveMetadata
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
-                && writeInfo.getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
+                && writeInfo.writeMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             if (isTransactional) {
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in transactional tables doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
@@ -2064,7 +2082,7 @@ public class HiveMetadata
                 throw new TrinoException(NOT_SUPPORTED, "Overwriting existing partition in non auto commit context doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
         }
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), tableName);
+        metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), tableName);
         return result;
     }
 
@@ -2081,11 +2099,10 @@ public class HiveMetadata
         Table table = finishChangingTable(AcidOperation.INSERT, "insert", session, handle, partitionUpdates, computedStatistics);
 
         if (isFullAcidTable(table.getParameters())) {
-            HdfsContext context = new HdfsContext(session);
             for (PartitionUpdate update : partitionUpdates) {
-                long writeId = handle.getTransaction().getWriteId();
-                Path deltaDirectory = new Path(format("%s/%s/%s", table.getStorage().getLocation(), update.getName(), deltaSubdir(writeId, writeId, 0)));
-                createOrcAcidVersionFile(context, deltaDirectory);
+                String deltaSubdir = deltaSubdir(handle.getTransaction().getWriteId(), 0);
+                String directory = "%s/%s/%s".formatted(table.getStorage().getLocation(), update.getName(), deltaSubdir);
+                createOrcAcidVersionFile(session.getIdentity(), directory);
             }
         }
 
@@ -2176,11 +2193,15 @@ public class HiveMetadata
             }
             else if (partitionUpdate.getUpdateMode() == APPEND) {
                 // insert into existing partition
-                List<String> partitionValues = toPartitionValues(partitionUpdate.getName());
+                String partitionName = partitionUpdate.getName();
+                List<String> partitionValues = toPartitionValues(partitionName);
+                List<Type> partitionTypes = partitionedBy.stream()
+                        .map(columnTypes::get)
+                        .collect(toImmutableList());
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionValues));
+                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes));
                 partitionUpdateInfosBuilder.add(
                         new PartitionUpdateInfo(
                                 partitionValues,
@@ -2194,10 +2215,16 @@ public class HiveMetadata
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
                     throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
+
+                String partitionName = partitionUpdate.getName();
+                List<String> partitionValues = partition.getValues();
+                List<Type> partitionTypes = partitionedBy.stream()
+                        .map(columnTypes::get)
+                        .collect(toImmutableList());
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partition.getValues()));
+                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes));
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
                     if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
                         removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
@@ -2253,14 +2280,13 @@ public class HiveMetadata
         }
     }
 
-    private void createOrcAcidVersionFile(HdfsContext context, Path deltaDirectory)
+    private void createOrcAcidVersionFile(ConnectorIdentity identity, String deltaDirectory)
     {
         try {
-            FileSystem fs = hdfsEnvironment.getFileSystem(context, deltaDirectory);
-            writeVersionFile(deltaDirectory, fs);
+            writeAcidVersionFile(fileSystemFactory.create(identity), Location.of(deltaDirectory));
         }
         catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for deltaDirectory " + deltaDirectory, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for delta directory: " + deltaDirectory, e);
         }
     }
 
@@ -2317,6 +2343,18 @@ public class HiveMetadata
         return Optional.ofNullable(statistics.get(partitionValues))
                 .map(ComputedStatistics::getColumnStatistics)
                 .orElse(ImmutableMap.of());
+    }
+
+    private static Map<ColumnStatisticMetadata, Block> getColumnStatistics(
+            Map<List<String>, ComputedStatistics> statistics,
+            String partitionName,
+            List<String> partitionValues,
+            List<Type> partitionTypes)
+    {
+        Optional<Map<ColumnStatisticMetadata, Block>> columnStatistics = Optional.ofNullable(statistics.get(partitionValues))
+                .map(ComputedStatistics::getColumnStatistics);
+        return columnStatistics
+                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(partitionName, partitionValues, partitionTypes)));
     }
 
     @Override
@@ -2415,7 +2453,7 @@ public class HiveMetadata
         HiveTableHandle hiveSourceTableHandle = (HiveTableHandle) sourceTableHandle;
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(hiveExecuteHandle.getLocationHandle());
-        String writeDeclarationId = metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), hiveExecuteHandle.getSchemaTableName());
+        String writeDeclarationId = metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), hiveExecuteHandle.getSchemaTableName());
 
         return new BeginTableExecuteResult<>(
                 hiveExecuteHandle
@@ -2589,7 +2627,7 @@ public class HiveMetadata
                 .setDatabaseName(viewName.getSchemaName())
                 .setTableName(viewName.getTableName())
                 .setOwner(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.ofNullable(session.getUser()))
-                .setTableType(TableType.VIRTUAL_VIEW.name())
+                .setTableType(VIRTUAL_VIEW.name())
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
@@ -2652,34 +2690,46 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
+        Set<SchemaTableName> materializedViews = ImmutableSet.copyOf(listMaterializedViews(session, optionalSchemaName));
+        if (optionalSchemaName.isEmpty()) {
+            Optional<List<SchemaTableName>> allViews = metastore.getAllViews();
+            if (allViews.isPresent()) {
+                return allViews.get().stream()
+                        .filter(view -> !isHiveSystemSchema(view.getSchemaName()))
+                        .filter(view -> !materializedViews.contains(view))
+                        .collect(toImmutableList());
+            }
+        }
         ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
             for (String tableName : metastore.getAllViews(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+                SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
+                if (!materializedViews.contains(schemaTableName)) {
+                    tableNames.add(schemaTableName);
+                }
             }
         }
         return tableNames.build();
     }
 
     @Override
-    public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
+    public Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
     {
-        checkState(!isHiveSystemSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
-
-        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
-        if (db.isPresent()) {
-            return HiveSchemaProperties.fromDatabase(db.get());
+        if (isHiveSystemSchema(schemaName)) {
+            throw new TrinoException(NOT_SUPPORTED, "Schema properties are not supported for system schema: " + schemaName);
         }
-
-        throw new SchemaNotFoundException(schemaName.getSchemaName());
+        return metastore.getDatabase(schemaName)
+                .map(HiveSchemaProperties::fromDatabase)
+                .orElseThrow(() -> new SchemaNotFoundException(schemaName));
     }
 
     @Override
-    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
-        checkState(!isHiveSystemSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
-
-        return accessControlMetadata.getSchemaOwner(session, schemaName.getSchemaName()).map(HivePrincipal::toTrinoPrincipal);
+        if (isHiveSystemSchema(schemaName)) {
+            throw new TrinoException(NOT_SUPPORTED, "Schema owner is not supported for system schema: " + schemaName);
+        }
+        return accessControlMetadata.getSchemaOwner(session, schemaName).map(HivePrincipal::toTrinoPrincipal);
     }
 
     @Override
@@ -2726,7 +2776,7 @@ public class HiveMetadata
                         throw new HiveViewNotSupportedException(viewName);
                     }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker)
+                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker, hiveViewsTimestampPrecision)
                             .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
                     // use owner from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
@@ -2741,83 +2791,6 @@ public class HiveMetadata
                     }
                     return definition;
                 });
-    }
-
-    @Override
-    public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        SchemaTableName tableName = handle.getSchemaTableName();
-
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-        ensureTableSupportsDelete(table);
-
-        if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive tables is not supported with query retries enabled");
-        }
-        if (!autoCommit) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Hive transactional tables is not supported in explicit transactions (use autocommit mode)");
-        }
-        if (isSparkBucketedTable(table)) {
-            throw new TrinoException(NOT_SUPPORTED, "Deleting from Spark bucketed tables is not supported");
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-
-        AcidTransaction transaction = metastore.beginDelete(session, table);
-
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.declareIntentionToWrite(session, writeInfo.getWriteMode(), writeInfo.getWritePath(), handle.getSchemaTableName());
-
-        return handle.withTransaction(transaction);
-    }
-
-    @Override
-    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        checkArgument(handle.isAcidDelete(), "handle should be a delete handle, but is %s", handle);
-
-        requireNonNull(fragments, "fragments is null");
-
-        SchemaTableName tableName = handle.getSchemaTableName();
-        Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .orElseThrow(() -> new TableNotFoundException(tableName));
-
-        List<PartitionAndStatementId> partitionAndStatementIds = fragments.stream()
-                .map(Slice::getBytes)
-                .map(PartitionAndStatementId.CODEC::fromJson)
-                .collect(toImmutableList());
-
-        HdfsContext context = new HdfsContext(session);
-        for (PartitionAndStatementId ps : partitionAndStatementIds) {
-            createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory().get()));
-        }
-
-        LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
-        WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-        metastore.finishRowLevelDelete(session, table.getDatabaseName(), table.getTableName(), writeInfo.getWritePath(), partitionAndStatementIds);
-    }
-
-    private void ensureTableSupportsDelete(Table table)
-    {
-        if (table.getParameters().isEmpty() || !isFullAcidTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
-        }
-    }
-
-    @Override
-    public ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        return HiveColumnHandle.getDeleteRowIdColumnHandle();
-    }
-
-    @Override
-    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        HiveTableHandle table = (HiveTableHandle) tableHandle;
-        return updateRowIdColumnHandle(table.getDataColumns(), updatedColumns);
     }
 
     @Override
@@ -2900,10 +2873,7 @@ public class HiveMetadata
                         // Note that the computation is not persisted in the table handle, so can be redone many times
                         // TODO: https://github.com/trinodb/trino/issues/10980.
                         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, table, new Constraint(hiveTable.getEnforcedConstraint()));
-                        if (partitionManager.canPartitionsBeLoaded(partitionResult)) {
-                            return Optional.of(ImmutableList.copyOf(partitionResult.getPartitions()));
-                        }
-                        return Optional.empty();
+                        return partitionManager.tryLoadPartitions(partitionResult);
                     });
 
             if (partitions.isPresent()) {
@@ -2957,7 +2927,6 @@ public class HiveMetadata
         return new ConnectorTableProperties(
                 predicate,
                 tablePartitioning,
-                Optional.empty(),
                 discretePredicates,
                 sortingProperties);
     }
@@ -3435,7 +3404,7 @@ public class HiveMetadata
             return TableStatisticsMetadata.empty();
         }
         if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
-            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for trasactional not supported right now.
+            // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for transactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());
@@ -3554,7 +3523,11 @@ public class HiveMetadata
 
     private static HiveStorageFormat extractHiveStorageFormat(Table table)
     {
-        StorageFormat storageFormat = table.getStorage().getStorageFormat();
+        return extractHiveStorageFormat(table.getStorage().getStorageFormat());
+    }
+
+    public static HiveStorageFormat extractHiveStorageFormat(StorageFormat storageFormat)
+    {
         String outputFormat = storageFormat.getOutputFormat();
         String serde = storageFormat.getSerde();
 
@@ -3828,7 +3801,8 @@ public class HiveMetadata
         }
 
         Optional<CatalogSchemaTableName> catalogSchemaTableName = redirectTableToIceberg(session, table.get())
-                .or(() -> redirectTableToDeltaLake(session, table.get()));
+                .or(() -> redirectTableToDeltaLake(session, table.get()))
+                .or(() -> redirectTableToHudi(session, table.get()));
 
         // stitch back the suffix we cut off.
         return catalogSchemaTableName.map(name -> new CatalogSchemaTableName(
@@ -3857,6 +3831,18 @@ public class HiveMetadata
             return Optional.empty();
         }
         if (isDeltaLakeTable(table)) {
+            return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CatalogSchemaTableName> redirectTableToHudi(ConnectorSession session, Table table)
+    {
+        Optional<String> targetCatalogName = getHudiCatalogName(session);
+        if (targetCatalogName.isEmpty()) {
+            return Optional.empty();
+        }
+        if (isHudiTable(table)) {
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();

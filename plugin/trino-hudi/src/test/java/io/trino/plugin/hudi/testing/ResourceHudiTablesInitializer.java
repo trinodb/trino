@@ -16,6 +16,7 @@ package io.trino.plugin.hudi.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -27,7 +28,6 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hudi.common.model.HoodieTableType;
 
@@ -65,7 +65,7 @@ public class ResourceHudiTablesInitializer
             HiveMetastore metastore,
             String schemaName,
             String dataDir,
-            Configuration conf)
+            HdfsEnvironment environment)
             throws Exception
     {
         Path basePath = Path.of(dataDir);

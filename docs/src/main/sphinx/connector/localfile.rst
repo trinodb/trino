@@ -8,8 +8,9 @@ the local file system of each worker.
 Configuration
 -------------
 
-To configure the local file connector, create a catalog properties file
-under ``etc/catalog`` named, for example, ``localfile.properties`` with the following contents:
+To configure the local file connector, create a catalog properties file under
+``etc/catalog`` named, for example, ``example.properties`` with the following
+contents:
 
 .. code-block:: text
 
@@ -32,7 +33,7 @@ Local file connector schemas and tables
 The local file connector provides a single schema named ``logs``.
 You can see all the available tables by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM localfile.logs;
+    SHOW TABLES FROM example.logs;
 
 ``http_request_log``
 ^^^^^^^^^^^^^^^^^^^^

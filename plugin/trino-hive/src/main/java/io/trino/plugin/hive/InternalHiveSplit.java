@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.spi.HostAddress;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -33,17 +32,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
 public class InternalHiveSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveSplit.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(Properties.class).instanceSize() +
-            ClassLayout.parseClass(String.class).instanceSize() +
-            ClassLayout.parseClass(OptionalInt.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(Properties.class) + instanceSize(OptionalInt.class);
 
     private final String path;
     private final long end;
@@ -277,9 +273,8 @@ public class InternalHiveSplit
 
     public static class InternalHiveBlock
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(InternalHiveBlock.class).instanceSize());
-        private static final int HOST_ADDRESS_INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(HostAddress.class).instanceSize() +
-                ClassLayout.parseClass(String.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(InternalHiveBlock.class);
+        private static final int HOST_ADDRESS_INSTANCE_SIZE = instanceSize(HostAddress.class);
 
         private final long start;
         private final long end;

@@ -77,8 +77,7 @@ class AwsRequestSigner
                 .collect(toImmutableMap(Header::getName, Header::getValue));
 
         InputStream content = null;
-        if (request instanceof HttpEntityEnclosingRequest) {
-            HttpEntityEnclosingRequest enclosingRequest = (HttpEntityEnclosingRequest) request;
+        if (request instanceof HttpEntityEnclosingRequest enclosingRequest) {
             if (enclosingRequest.getEntity() != null) {
                 content = enclosingRequest.getEntity().getContent();
             }

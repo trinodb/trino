@@ -25,6 +25,9 @@ import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.plugin.hive.fs.BlockLocation;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
+import io.trino.plugin.hive.orc.OrcPageSourceFactory;
+import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
+import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.s3select.S3SelectPushdown;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.Domain;
@@ -58,7 +61,7 @@ public class InternalHiveSplitFactory
     private final FileSystem fileSystem;
     private final String partitionName;
     private final InputFormat<?, ?> inputFormat;
-    private final Properties schema;
+    private final Properties strippedSchema;
     private final List<HivePartitionKey> partitionKeys;
     private final Optional<Domain> pathDomain;
     private final TableToPartitionMapping tableToPartitionMapping;
@@ -90,7 +93,7 @@ public class InternalHiveSplitFactory
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
-        this.schema = requireNonNull(schema, "schema is null");
+        this.strippedSchema = stripUnnecessaryProperties(requireNonNull(schema, "schema is null"));
         this.partitionKeys = requireNonNull(partitionKeys, "partitionKeys is null");
         pathDomain = getPathDomain(requireNonNull(effectivePredicate, "effectivePredicate is null"));
         this.partitionMatchSupplier = requireNonNull(partitionMatchSupplier, "partitionMatchSupplier is null");
@@ -104,6 +107,15 @@ public class InternalHiveSplitFactory
         checkArgument(minimumTargetSplitSizeInBytes > 0, "minimumTargetSplitSize must be > 0, found: %s", minimumTargetSplitSize);
     }
 
+    private static Properties stripUnnecessaryProperties(Properties schema)
+    {
+        // Sending the full schema with every split is costly and can be avoided for formats supported natively
+        schema = OrcPageSourceFactory.stripUnnecessaryProperties(schema);
+        schema = ParquetPageSourceFactory.stripUnnecessaryProperties(schema);
+        schema = RcFilePageSourceFactory.stripUnnecessaryProperties(schema);
+        return schema;
+    }
+
     public String getPartitionName()
     {
         return partitionName;
@@ -113,7 +125,7 @@ public class InternalHiveSplitFactory
     {
         splittable = splittable &&
                 status.getLength() > minimumTargetSplitSizeInBytes &&
-                isSplittable(inputFormat, fileSystem, status.getPath());
+                isSplittable(inputFormat, fileSystem, new Path(status.getPath()));
         return createInternalHiveSplit(
                 status.getPath(),
                 status.getBlockLocations(),
@@ -132,7 +144,7 @@ public class InternalHiveSplitFactory
     {
         FileStatus file = fileSystem.getFileStatus(split.getPath());
         return createInternalHiveSplit(
-                split.getPath(),
+                split.getPath().toString(),
                 BlockLocation.fromHiveBlockLocations(fileSystem.getFileBlockLocations(file, split.getStart(), split.getLength())),
                 split.getStart(),
                 split.getLength(),
@@ -145,7 +157,7 @@ public class InternalHiveSplitFactory
     }
 
     private Optional<InternalHiveSplit> createInternalHiveSplit(
-            Path path,
+            String path,
             List<BlockLocation> blockLocations,
             long start,
             long length,
@@ -157,8 +169,7 @@ public class InternalHiveSplitFactory
             boolean splittable,
             Optional<AcidInfo> acidInfo)
     {
-        String pathString = path.toString();
-        if (!pathMatchesPredicate(pathDomain, pathString)) {
+        if (!pathMatchesPredicate(pathDomain, path)) {
             return Optional.empty();
         }
 
@@ -203,12 +214,12 @@ public class InternalHiveSplitFactory
         int bucketNumberIndex = readBucketNumber.orElse(0);
         return Optional.of(new InternalHiveSplit(
                 partitionName,
-                pathString,
+                path,
                 start,
                 start + length,
                 estimatedFileSize,
                 fileModificationTime,
-                schema,
+                strippedSchema,
                 partitionKeys,
                 blocks,
                 readBucketNumber,
@@ -224,7 +235,7 @@ public class InternalHiveSplitFactory
                 partitionMatchSupplier));
     }
 
-    private static void checkBlocks(Path path, List<InternalHiveBlock> blocks, long start, long length)
+    private static void checkBlocks(String path, List<InternalHiveBlock> blocks, long start, long length)
     {
         checkArgument(start >= 0, "Split (%s) has negative start (%s)", path, start);
         checkArgument(length >= 0, "Split (%s) has negative length (%s)", path, length);

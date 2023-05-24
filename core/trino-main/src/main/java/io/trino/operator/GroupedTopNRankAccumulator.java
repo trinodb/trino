@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.array.LongBigArray;
+import io.trino.spi.Page;
 import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -26,6 +26,7 @@ import java.util.function.LongConsumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.abs;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +58,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class GroupedTopNRankAccumulator
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRankAccumulator.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(GroupedTopNRankAccumulator.class);
     private static final long UNKNOWN_INDEX = -1;
     private static final long NULL_GROUP_ID = -1;
 
@@ -92,6 +93,31 @@ public class GroupedTopNRankAccumulator
                 + peerGroupLookup.sizeOf();
     }
 
+    public int findFirstPositionToAdd(Page newPage, GroupByIdBlock groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
+    {
+        long currentGroups = groupIdToHeapBuffer.getTotalGroups();
+        groupIdToHeapBuffer.allocateGroupIfNeeded(groupIds.getGroupCount());
+
+        for (int position = 0; position < newPage.getPositionCount(); position++) {
+            long groupId = groupIds.getGroupId(position);
+            if (groupId >= currentGroups || groupIdToHeapBuffer.getHeapValueCount(groupId) < topN) {
+                return position;
+            }
+            long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
+            if (heapRootNodeIndex == UNKNOWN_INDEX) {
+                return position;
+            }
+            long rightPageRowId = peekRootRowIdByHeapNodeIndex(heapRootNodeIndex);
+            Page rightPage = pageManager.getPage(rightPageRowId);
+            int rightPosition = pageManager.getPosition(rightPageRowId);
+            // If the current position is equal to or less than the current heap root index, then we may need to insert it
+            if (comparator.compareTo(newPage, position, rightPage, rightPosition) <= 0) {
+                return position;
+            }
+        }
+        return -1;
+    }
+
     /**
      * Add the specified row to this accumulator.
      * <p>
@@ -105,7 +131,7 @@ public class GroupedTopNRankAccumulator
         long peerHeapNodeIndex = peerGroupLookup.get(groupId, rowReference);
         if (peerHeapNodeIndex != UNKNOWN_INDEX) {
             directPeerGroupInsert(groupId, peerHeapNodeIndex, rowReference.allocateRowId());
-            if (calculateRootRank(groupId) > topN) {
+            if (calculateRootRank(groupId, groupIdToHeapBuffer.getHeapRootNodeIndex(groupId)) > topN) {
                 heapPop(groupId, rowIdEvictionListener);
             }
             // Return true because heapPop is guaranteed not to evict the newly inserted row (by definition of rank)
@@ -119,11 +145,12 @@ public class GroupedTopNRankAccumulator
             heapInsert(groupId, newPeerGroupIndex, 1);
             return true;
         }
-        if (rowReference.compareTo(strategy, peekRootRowId(groupId)) < 0) {
+        long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
+        if (rowReference.compareTo(strategy, peekRootRowIdByHeapNodeIndex(heapRootNodeIndex)) < 0) {
             // Given that total number of values >= topN, we can only consider values that are less than the root (otherwise topN would be violated)
             long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(rowReference.allocateRowId(), UNKNOWN_INDEX);
             // Rank will increase by +1 after insertion, so only need to pop if root rank is already == topN.
-            if (calculateRootRank(groupId) < topN) {
+            if (calculateRootRank(groupId, heapRootNodeIndex) < topN) {
                 heapInsert(groupId, newPeerGroupIndex, 1);
             }
             else {
@@ -158,7 +185,7 @@ public class GroupedTopNRankAccumulator
             long peerGroupIndex = heapNodeBuffer.getPeerGroupIndex(heapRootNodeIndex);
             verify(peerGroupIndex != UNKNOWN_INDEX, "Peer group should have at least one value");
 
-            long rank = calculateRootRank(groupId);
+            long rank = calculateRootRank(groupId, heapRootNodeIndex);
             do {
                 rowIdOutput.set(insertionIndex, peerGroupBuffer.getRowId(peerGroupIndex));
                 rankingOutput.set(insertionIndex, rank);
@@ -206,10 +233,9 @@ public class GroupedTopNRankAccumulator
         return valueCount;
     }
 
-    private long calculateRootRank(long groupId)
+    private long calculateRootRank(long groupId, long heapRootIndex)
     {
         long heapValueCount = groupIdToHeapBuffer.getHeapValueCount(groupId);
-        long heapRootIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkArgument(heapRootIndex != UNKNOWN_INDEX, "Group does not have a root");
         long rootPeerGroupCount = heapNodeBuffer.getPeerGroupCount(heapRootIndex);
         return heapValueCount - rootPeerGroupCount + 1;
@@ -224,9 +250,8 @@ public class GroupedTopNRankAccumulator
         groupIdToHeapBuffer.incrementHeapValueCount(groupId);
     }
 
-    private long peekRootRowId(long groupId)
+    private long peekRootRowIdByHeapNodeIndex(long heapRootNodeIndex)
     {
-        long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkArgument(heapRootNodeIndex != UNKNOWN_INDEX, "Group has nothing to peek");
         return peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(heapRootNodeIndex));
     }
@@ -487,7 +512,7 @@ public class GroupedTopNRankAccumulator
             long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
             long heapValueCount = groupIdToHeapBuffer.getHeapValueCount(groupId);
             long rootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
-            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRank(rootNodeIndex) <= topN, "Max heap has more values than needed");
+            verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRank(groupId, rootNodeIndex) <= topN, "Max heap has more values than needed");
             IntegrityStats integrityStats = verifyHeapIntegrity(groupId, rootNodeIndex);
             verify(integrityStats.getPeerGroupCount() == heapSize, "Recorded heap size does not match actual heap size");
             totalHeapNodes += integrityStats.getPeerGroupCount();
@@ -577,9 +602,9 @@ public class GroupedTopNRankAccumulator
     /**
      * Buffer abstracting a mapping from group ID to a heap. The group ID provides the index for all operations.
      */
-    private static class GroupIdToHeapBuffer
+    private static final class GroupIdToHeapBuffer
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupIdToHeapBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(GroupIdToHeapBuffer.class);
         private static final int METRICS_POSITIONS_PER_ENTRY = 2;
         private static final int METRICS_HEAP_SIZE_OFFSET = 1;
 
@@ -604,9 +629,12 @@ public class GroupedTopNRankAccumulator
 
         public void allocateGroupIfNeeded(long groupId)
         {
+            if (totalGroups > groupId) {
+                return;
+            }
             // Group IDs generated by GroupByHash are always generated consecutively starting from 0, so observing a
             // group ID N means groups [0, N] inclusive must exist.
-            totalGroups = max(groupId + 1, totalGroups);
+            totalGroups = groupId + 1;
             heapIndexBuffer.ensureCapacity(totalGroups);
             metricsBuffer.ensureCapacity(totalGroups * METRICS_POSITIONS_PER_ENTRY);
         }
@@ -675,9 +703,9 @@ public class GroupedTopNRankAccumulator
     /**
      * Buffer abstracting storage of nodes in the heap. Nodes are referenced by their node index for operations.
      */
-    private static class HeapNodeBuffer
+    private static final class HeapNodeBuffer
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(HeapNodeBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(HeapNodeBuffer.class);
         private static final int POSITIONS_PER_ENTRY = 4;
         private static final int PEER_GROUP_COUNT_OFFSET = 1;
         private static final int LEFT_CHILD_HEAP_INDEX_OFFSET = 2;
@@ -790,9 +818,9 @@ public class GroupedTopNRankAccumulator
      * Buffer abstracting storage of peer groups as linked chains of matching values. Peer groups are referenced by
      * their node index for operations.
      */
-    private static class PeerGroupBuffer
+    private static final class PeerGroupBuffer
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(PeerGroupBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(PeerGroupBuffer.class);
         private static final int POSITIONS_PER_ENTRY = 2;
         private static final int NEXT_PEER_INDEX_OFFSET = 1;
 

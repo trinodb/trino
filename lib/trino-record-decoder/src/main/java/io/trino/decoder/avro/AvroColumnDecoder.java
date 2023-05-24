@@ -36,6 +36,7 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.GenericRecord;
@@ -127,7 +128,18 @@ public class AvroColumnDecoder
 
     public FieldValueProvider decodeField(GenericRecord avroRecord)
     {
-        Object avroColumnValue = locateNode(avroRecord, columnMapping);
+        Object avroColumnValue;
+        try {
+            avroColumnValue = locateNode(avroRecord, columnMapping);
+        }
+        catch (AvroRuntimeException e) {
+            if (e.getMessage().contains("Not a valid schema field")) {
+                avroColumnValue = null;
+            }
+            else {
+                throw e;
+            }
+        }
         return new ObjectValueProvider(avroColumnValue, columnType, columnName);
     }
 
@@ -166,7 +178,7 @@ public class AvroColumnDecoder
         @Override
         public double getDouble()
         {
-            if (value instanceof Double || value instanceof Float) {
+            if (value instanceof Double) {
                 return ((Number) value).doubleValue();
             }
             throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));

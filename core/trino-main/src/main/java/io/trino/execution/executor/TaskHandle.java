@@ -31,14 +31,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.DoubleSupplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class TaskHandle
 {
+    private volatile boolean destroyed;
     private final TaskId taskId;
-    protected final DoubleSupplier utilizationSupplier;
+    private final DoubleSupplier utilizationSupplier;
 
     @GuardedBy("this")
     protected final Queue<PrioritizedSplitRunner> queuedLeafSplits = new ArrayDeque<>(10);
@@ -49,13 +49,11 @@ public class TaskHandle
     @GuardedBy("this")
     protected long scheduledNanos;
     @GuardedBy("this")
-    private boolean destroyed;
-    @GuardedBy("this")
     protected final SplitConcurrencyController concurrencyController;
 
     private final AtomicInteger nextSplitId = new AtomicInteger();
 
-    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
     private final MultilevelSplitQueue splitQueue;
     private final OptionalInt maxDriversPerTask;
 
@@ -89,17 +87,19 @@ public class TaskHandle
 
     public synchronized Priority resetLevelPriority()
     {
-        long levelMinPriority = splitQueue.getLevelMinPriority(priority.get().getLevel(), scheduledNanos);
-        if (priority.get().getLevelPriority() < levelMinPriority) {
-            Priority newPriority = new Priority(priority.get().getLevel(), levelMinPriority);
+        Priority currentPriority = priority.get();
+        long levelMinPriority = splitQueue.getLevelMinPriority(currentPriority.getLevel(), scheduledNanos);
+
+        if (currentPriority.getLevelPriority() < levelMinPriority) {
+            Priority newPriority = new Priority(currentPriority.getLevel(), levelMinPriority);
             priority.set(newPriority);
             return newPriority;
         }
 
-        return priority.get();
+        return currentPriority;
     }
 
-    public synchronized boolean isDestroyed()
+    public boolean isDestroyed()
     {
         return destroyed;
     }
@@ -134,16 +134,22 @@ public class TaskHandle
         return builder.build();
     }
 
-    public synchronized void enqueueSplit(PrioritizedSplitRunner split)
+    public synchronized boolean enqueueSplit(PrioritizedSplitRunner split)
     {
-        checkState(!destroyed, "Cannot add split to destroyed task handle");
+        if (destroyed) {
+            return false;
+        }
         queuedLeafSplits.add(split);
+        return true;
     }
 
-    public synchronized void recordIntermediateSplit(PrioritizedSplitRunner split)
+    public synchronized boolean recordIntermediateSplit(PrioritizedSplitRunner split)
     {
-        checkState(!destroyed, "Cannot add split to destroyed task handle");
+        if (destroyed) {
+            return false;
+        }
         runningIntermediateSplits.add(split);
+        return true;
     }
 
     synchronized int getRunningLeafSplits()

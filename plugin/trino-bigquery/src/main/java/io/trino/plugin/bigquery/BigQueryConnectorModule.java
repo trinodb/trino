@@ -20,6 +20,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.logging.FormatInterpolator;
+import io.trino.plugin.base.logging.SessionInterpolatedValues;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
@@ -59,7 +61,8 @@ public class BigQueryConnectorModule
 
             // Connector implementation
             binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);
-            binder.bind(BigQueryMetadata.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryMetadataFactory.class).to(DefaultBigQueryMetadataFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryTransactionManager.class).in(Scopes.SINGLETON);
             binder.bind(BigQuerySplitManager.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSourceProvider.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryPageSinkProvider.class).in(Scopes.SINGLETON);
@@ -80,17 +83,19 @@ public class BigQueryConnectorModule
             return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
         }
 
+        @Provides
+        @Singleton
+        public static BigQueryLabelFactory labelFactory(BigQueryConfig config)
+        {
+            return new BigQueryLabelFactory(config.getQueryLabelName(), new FormatInterpolator<>(config.getQueryLabelFormat(), SessionInterpolatedValues.values()));
+        }
+
         /**
-         * Apache Arrow requires reflective access to certain Java internals prohibited in Java 17.
+         * Apache Arrow requires reflective access to certain Java internals prohibited since Java 17.
          * Adds an error to the {@code binder} if required --add-opens is not passed to the JVM.
          */
         private static void verifyPackageAccessAllowed(Binder binder)
         {
-            if (Runtime.version().compareToIgnoreOptional(Runtime.Version.parse("17")) < 0) {
-                // No need to modify access before Java 17
-                return;
-            }
-
             // Match an --add-opens argument that opens a package to unnamed modules.
             // The first group is the opened package.
             Pattern argPattern = Pattern.compile(
@@ -108,7 +113,7 @@ public class BigQueryConnectorModule
 
             if (!openedModules.contains("java.base/java.nio")) {
                 binder.addError(
-                        "BigQuery connector requires additional JVM arguments to run on Java 17 when '" + EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
+                        "BigQuery connector requires additional JVM arguments to run when '" + EXPERIMENTAL_ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
                                 "Please add '--add-opens=java.base/java.nio=ALL-UNNAMED' to the JVM configuration.");
             }
         }

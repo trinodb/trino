@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -69,7 +70,7 @@ public class QuerySessionSupplier
     }
 
     @Override
-    public Session createSession(QueryId queryId, SessionContext context)
+    public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
     {
         Identity identity = context.getIdentity();
         accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
@@ -90,6 +91,7 @@ public class QuerySessionSupplier
 
         SessionBuilder sessionBuilder = Session.builder(sessionPropertyManager)
                 .setQueryId(queryId)
+                .setQuerySpan(querySpan)
                 .setIdentity(identity)
                 .setPath(context.getPath().or(() -> defaultPath).map(SqlPath::new))
                 .setSource(context.getSource())

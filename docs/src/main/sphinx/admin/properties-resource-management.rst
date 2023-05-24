@@ -32,7 +32,7 @@ it is killed.
 
    The sum of :ref:`prop-resource-query-max-memory-per-node` and
    :ref:`prop-resource-memory-heap-headroom-per-node` must be less than the
-   maximum heap size in the JVM on the node. See :ref:`jvm_config`.
+   maximum heap size in the JVM on the node. See :ref:`jvm-config`.
 
 .. note::
 
@@ -99,7 +99,7 @@ for allocations that are not tracked by Trino.
 
    The sum of :ref:`prop-resource-query-max-memory-per-node` and
    :ref:`prop-resource-memory-heap-headroom-per-node` must be less than the
-   maximum heap size in the JVM on the node. See :ref:`jvm_config`.
+   maximum heap size in the JVM on the node. See :ref:`jvm-config`.
 
 .. _prop-resource-exchange-deduplication-buffer-size:
 

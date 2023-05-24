@@ -27,9 +27,8 @@ The connector can query a ClickHouse server. Create a catalog properties file
 that specifies the ClickHouse connector by setting the ``connector.name`` to
 ``clickhouse``.
 
-For example, to access a server as ``clickhouse``, create the file
-``etc/catalog/clickhouse.properties``. Replace the connection properties as
-appropriate for your setup:
+For example, create the file ``etc/catalog/example.properties``. Replace the
+connection properties as appropriate for your setup:
 
 .. code-block:: none
 
@@ -41,21 +40,12 @@ appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the ClickHouse JDBC driver. The supported parameters for the URL are
 available in the `ClickHouse JDBC driver configuration
-<https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-jdbc#Configuration>`_.
+<https://clickhouse.com/docs/en/integrations/java#configuration>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
 use :doc:`secrets </security/secrets>` to avoid actual values in the catalog
 properties files.
-
-.. note::
-
-    Trino uses the new ClickHouse driver(``com.clickhouse.jdbc.ClickHouseDriver``)
-    by default, but the new driver only supports ClickHouse server with version >= 20.7.
-
-    For compatibility with ClickHouse server versions < 20.7,
-    you can temporarily continue to use the old ClickHouse driver(``ru.yandex.clickhouse.ClickHouseDriver``)
-    by adding the following catalog property: ``clickhouse.legacy-driver=true``.
 
 .. _clickhouse-tls:
 
@@ -109,27 +99,27 @@ Querying ClickHouse
 The ClickHouse connector provides a schema for every ClickHouse *database*.
 Run ``SHOW SCHEMAS`` to see the available ClickHouse databases::
 
-    SHOW SCHEMAS FROM myclickhouse;
+    SHOW SCHEMAS FROM example;
 
 If you have a ClickHouse database named ``web``, run ``SHOW TABLES`` to view the
 tables in this database::
 
-    SHOW TABLES FROM myclickhouse.web;
+    SHOW TABLES FROM example.web;
 
 Run ``DESCRIBE`` or ``SHOW COLUMNS`` to list the columns in the ``clicks`` table
 in the ``web`` databases::
 
-    DESCRIBE myclickhouse.web.clicks;
-    SHOW COLUMNS FROM clickhouse.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Run ``SELECT`` to access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM myclickhouse.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 .. note::
 
     If you used a different name for your catalog properties file, use
-    that catalog name instead of ``myclickhouse`` in the above examples.
+    that catalog name instead of ``example`` in the above examples.
 
 Table properties
 ----------------

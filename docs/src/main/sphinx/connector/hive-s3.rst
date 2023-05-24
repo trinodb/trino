@@ -10,6 +10,8 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
+.. _hive-s3-configuration:
+
 S3 configuration properties
 ---------------------------
 
@@ -284,6 +286,8 @@ Property name                                           Description
                                                         value that is not used in any of your IAM ARNs.
 ======================================================= =================================================================
 
+.. _hive-s3-tuning-configuration:
+
 Tuning properties
 -----------------
 
@@ -292,9 +296,9 @@ used by the Trino S3 filesystem when communicating with S3.
 Most of these parameters affect settings on the ``ClientConfiguration``
 object associated with the ``AmazonS3Client``.
 
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 Property name                         Description                                                 Default
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
 ``hive.s3.max-error-retries``         Maximum number of error retries, set on the S3 client.      ``10``
 
 ``hive.s3.max-client-retries``        Maximum number of read attempts to retry.                   ``5``
@@ -306,6 +310,8 @@ Property name                         Description                               
 
 ``hive.s3.connect-timeout``           TCP connect timeout.                                        ``5 seconds``
 
+``hive.s3.connect-ttl``               TCP connect TTL, which affects connection reusage.          Connections do not expire.
+
 ``hive.s3.socket-timeout``            TCP socket read timeout.                                    ``5 seconds``
 
 ``hive.s3.max-connections``           Maximum number of simultaneous open connections to S3.      ``500``
@@ -313,11 +319,12 @@ Property name                         Description                               
 ``hive.s3.multipart.min-file-size``   Minimum file size before multi-part upload to S3 is used.   ``16 MB``
 
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
-===================================== =========================================================== ===============
+===================================== =========================================================== ==========================
+
+.. _hive-s3-data-encryption:
 
 S3 data encryption
 ------------------
-
 
 Trino supports reading and writing encrypted data in S3 using both
 server-side encryption with S3 managed keys and client-side encryption using

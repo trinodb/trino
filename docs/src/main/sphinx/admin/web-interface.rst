@@ -5,7 +5,7 @@ Web UI
 Trino provides a web-based user interface (UI) for monitoring a Trino cluster
 and managing queries. The Web UI is accessible on the coordinator via
 HTTP or HTTPS, using the corresponding port number specified in the coordinator
-:ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
+:ref:`config-properties`. It can be configured with :doc:`/admin/properties-web-interface`.
 
 The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
 
@@ -20,7 +20,7 @@ allowed. Typically, users login with the same username that they use for
 running queries.
 
 If no system access control is installed, then all users are able to view and kill
-any query. This can be restricted by using :ref:`query rules <query_rules>` with the
+any query. This can be restricted by using :ref:`query rules <query-rules>` with the
 :doc:`/security/built-in-system-access-control`. Users always have permission to view
 or kill their own queries.
 

@@ -38,11 +38,6 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-    }
-
-    @Override
     public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
     }
@@ -347,6 +342,12 @@ public class AllowAllAccessControl
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
@@ -25,8 +27,7 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
+import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
@@ -39,6 +40,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
@@ -61,13 +63,13 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private static final int MESSAGE_COUNT = 100;
     private static final Schema INITIAL_SCHEMA = SchemaBuilder.record(RECORD_NAME)
             .fields()
-            .name("col_1").type().longType().noDefault()
-            .name("col_2").type().stringType().noDefault()
+            .name("col_1").type().nullable().longType().noDefault()
+            .name("col_2").type().nullable().stringType().noDefault()
             .endRecord();
     private static final Schema EVOLVED_SCHEMA = SchemaBuilder.record(RECORD_NAME)
             .fields()
-            .name("col_1").type().longType().noDefault()
-            .name("col_2").type().stringType().noDefault()
+            .name("col_1").type().nullable().longType().noDefault()
+            .name("col_2").type().nullable().stringType().noDefault()
             .name("col_3").type().optional().doubleType()
             .endRecord();
 
@@ -111,6 +113,65 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
                         .buildOrThrow());
+    }
+
+    @Test
+    public void testTopicWithTombstone()
+    {
+        String topicName = "topic-tombstone-" + randomNameSuffix();
+
+        assertNotExists(topicName);
+
+        Map<String, String> producerConfig = schemaRegistryAwareProducer(testingKafka)
+                .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                .buildOrThrow();
+
+        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, 2, true);
+        testingKafka.sendMessages(messages.stream(), producerConfig);
+
+        // sending tombstone message (null value) for existing key,
+        // to be differentiated from simple null value message by message corrupted field
+        testingKafka.sendMessages(LongStream.of(1).mapToObj(id -> new ProducerRecord<>(topicName, id, null)), producerConfig);
+
+        waitUntilTableExists(topicName);
+
+        // tombstone message should have message corrupt field - true
+        QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
+        queryAssertions.query(format("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s", topicName, toDoubleQuoted(topicName)))
+                .assertThat()
+                .containsAll("VALUES (CAST(0 as bigint), CAST(0 as bigint), VARCHAR 'string-0', false), (CAST(1 as bigint), CAST(100 as bigint), VARCHAR 'string-1', false), (CAST(1 as bigint), null, null, true)");
+    }
+
+    @Test
+    public void testTopicWithAllNullValues()
+    {
+        String topicName = "topic-tombstone-" + randomNameSuffix();
+
+        assertNotExists(topicName);
+
+        Map<String, String> producerConfig = schemaRegistryAwareProducer(testingKafka)
+                .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                .buildOrThrow();
+
+        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, 2, true);
+        testingKafka.sendMessages(messages.stream(), producerConfig);
+
+        // sending all null values for existing key,
+        // to be differentiated from tombstone by message corrupted field
+        testingKafka.sendMessages(LongStream.of(1).mapToObj(id -> new ProducerRecord<>(topicName, id, new GenericRecordBuilder(INITIAL_SCHEMA)
+                .set("col_1", null)
+                .set("col_2", null)
+                .build())), producerConfig);
+
+        waitUntilTableExists(topicName);
+
+        // simple all null values message should have message corrupt field - false
+        QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
+        queryAssertions.query(format("SELECT \"%s-key\", col_1, col_2, _message_corrupt FROM %s", topicName, toDoubleQuoted(topicName)))
+                .assertThat()
+                .containsAll("VALUES (CAST(0 as bigint), CAST(0 as bigint), VARCHAR 'string-0', false), (CAST(1 as bigint), CAST(100 as bigint), VARCHAR 'string-1', false), (CAST(1 as bigint), null, null, false)");
     }
 
     @Test
@@ -254,7 +315,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private static void addExpectedColumns(Schema schema, GenericRecord record, ImmutableList.Builder<String> columnsBuilder)
     {
         for (Schema.Field field : schema.getFields()) {
-            Object value = record.get(field.name());
+            Object value = getValue(record, field.name());
             if (value == null && field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.NULL))) {
                 if (field.schema().getTypes().contains(Schema.create(Schema.Type.DOUBLE))) {
                     columnsBuilder.add("CAST(null AS double)");
@@ -263,15 +324,31 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                     throw new IllegalArgumentException("Unsupported field: " + field);
                 }
             }
-            else if (field.schema().getType().equals(Schema.Type.STRING)) {
+            else if (field.schema().getType().equals(Schema.Type.STRING)
+                    || (field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.STRING)))) {
                 columnsBuilder.add(format("VARCHAR '%s'", value));
             }
-            else if (field.schema().getType().equals(Schema.Type.LONG)) {
+            else if (field.schema().getType().equals(Schema.Type.LONG)
+                    || (field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.LONG)))) {
                 columnsBuilder.add(format("CAST(%s AS bigint)", value));
             }
             else {
                 throw new IllegalArgumentException("Unsupported field: " + field);
             }
+        }
+    }
+
+    public static Object getValue(GenericRecord record, String columnName)
+    {
+        try {
+            return record.get(columnName);
+        }
+        catch (AvroRuntimeException e) {
+            if (e.getMessage().contains("Not a valid schema field")) {
+                return null;
+            }
+
+            throw e;
         }
     }
 
@@ -285,14 +362,16 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     private void waitUntilTableExists(String tableName)
     {
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxAttempts(10)
-                        .withDelay(Duration.ofMillis(100)))
+                        .withDelay(Duration.ofMillis(100))
+                        .build())
                 .run(() -> assertTrue(schemaExists()));
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxAttempts(10)
-                        .withDelay(Duration.ofMillis(100)))
+                        .withDelay(Duration.ofMillis(100))
+                        .build())
                 .run(() -> assertTrue(tableExists(tableName)));
     }
 

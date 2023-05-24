@@ -16,6 +16,8 @@ package io.trino.tests.product.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreClient;
@@ -25,8 +27,6 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -66,8 +66,8 @@ import static io.trino.tests.product.hive.TestHiveTransactionalTable.CompactionM
 import static io.trino.tests.product.hive.TransactionalTableType.ACID;
 import static io.trino.tests.product.hive.TransactionalTableType.INSERT_ONLY;
 import static io.trino.tests.product.hive.util.TableLocationUtils.getTablePath;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -325,7 +325,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUpdateFullAcidWithOriginalFilesTrinoInserting(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
@@ -375,7 +375,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUpdateFullAcidWithOriginalFilesTrinoInsertingAndDeleting(boolean isPartitioned, BucketingType bucketingType)
     {
         withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
@@ -813,7 +813,7 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testBucketedPartitionedDelete(Engine inserter, Engine deleter)
     {
         withTemporaryTable("bucketed_partitioned_delete", true, true, NONE, tableName -> {
@@ -1611,7 +1611,7 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testInsertDeleteUpdateWithTrinoAndHive()
     {
@@ -1951,7 +1951,7 @@ public class TestHiveTransactionalTable
         onTrino().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName))
                 .column(1)
                 .forEach(path -> verify(path.toString().endsWith(tableName.toLowerCase(ENGLISH)),
-                        "files in %s are not directly under table location"));
+                        "files in %s are not directly under table location", path));
     }
 
     @Test
@@ -2019,6 +2019,73 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testLargePartitionedDelete()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+        withTemporaryTable("large_delete_" + "stage1", false, false, NONE, tableStage1 -> {
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 9001), SEQUENCE(1, 9001)) AS t(a, b)".formatted(tableStage1));
+            withTemporaryTable("large_delete_" + "stage2", false, false, NONE, tableStage2 -> {
+                onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 100), SEQUENCE(1, 100)) AS t(a, b)".formatted(tableStage2));
+                withTemporaryTable("large_delete_" + "new", true, true, NONE, tableNew -> {
+                    onTrino().executeQuery("""
+                            CREATE TABLE %s WITH (transactional=true, partitioned_by=ARRAY['d'])
+                            AS (SELECT stage1.a as a, stage1.b as b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d)
+                            """.formatted(tableNew, tableStage1, tableStage2));
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(900100));
+                    onTrino().executeQuery("DELETE FROM %s WHERE d = 20220101".formatted(tableNew));
+
+                    // Verify no rows
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(0));
+
+                    onTrino().executeQuery("INSERT INTO %s SELECT stage1.a AS a, stage1.b AS b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d".formatted(tableNew, tableStage1, tableStage2));
+
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(900100));
+                    onTrino().executeQuery("DELETE FROM %s WHERE d = 20220101".formatted(tableNew));
+
+                    // Verify no rows
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(0));
+                });
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testLargePartitionedUpdate()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+        withTemporaryTable("large_update_" + "stage1", false, false, NONE, tableStage1 -> {
+            onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 9001), SEQUENCE(1, 9001)) AS t(a, b)".formatted(tableStage1));
+            withTemporaryTable("large_update_" + "stage2", false, false, NONE, tableStage2 -> {
+                onTrino().executeQuery("CREATE TABLE %s AS SELECT a, b, 20220101 AS d FROM UNNEST(SEQUENCE(1, 100), SEQUENCE(1, 100)) AS t(a, b)".formatted(tableStage2));
+                withTemporaryTable("large_update_" + "new", true, true, NONE, tableNew -> {
+                    onTrino().executeQuery("""
+                            CREATE TABLE %s WITH (transactional=true, partitioned_by=ARRAY['d'])
+                            AS (SELECT stage1.a as a, stage1.b as b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d)
+                            """.formatted(tableNew, tableStage1, tableStage2));
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(900100));
+                    onTrino().executeQuery("UPDATE %s SET a = 0 WHERE d = 20220101".formatted(tableNew));
+
+                    // Verify all rows updated
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE a = 0".formatted(tableNew), row(900100));
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(900100));
+
+                    onTrino().executeQuery("INSERT INTO %s SELECT stage1.a AS a, stage1.b AS b, stage1.d AS d FROM %s stage1, %s stage2 WHERE stage1.d = stage2.d".formatted(tableNew, tableStage1, tableStage2));
+
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE d IS NOT NULL".formatted(tableNew), row(1800200));
+                    onTrino().executeQuery("UPDATE %s SET a = 0 WHERE d = 20220101".formatted(tableNew));
+
+                    // Verify all matching rows updated
+                    verifySelectForTrinoAndHive("SELECT count(1) FROM %s WHERE a = 0".formatted(tableNew), row(1800200));
+                });
+            });
+        });
+    }
+
     private void hdfsDeleteAll(String directory)
     {
         if (!hdfsClient.exist(directory)) {
@@ -2079,11 +2146,12 @@ public class TestHiveTransactionalTable
         log.info("Running %s compaction on %s", compactMode, tableName);
 
         Failsafe.with(
-                new RetryPolicy<>()
+                RetryPolicy.builder()
                         .withMaxDuration(java.time.Duration.ofMillis(timeout.toMillis()))
-                        .withMaxAttempts(Integer.MAX_VALUE))  // limited by MaxDuration
+                        .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                        .build())
                 .onFailure(event -> {
-                    throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getFailure());
+                    throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getException());
                 })
                 .onSuccess(event -> log.info("Finished %s compaction on %s in %s (%d tries)", compactMode, tableName, event.getElapsedTime(), event.getAttemptCount()))
                 .run(() -> tryCompactingTable(compactMode, tableName, partitionString, new Duration(2, MINUTES)));

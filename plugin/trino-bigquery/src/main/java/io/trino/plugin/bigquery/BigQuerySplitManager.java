@@ -45,13 +45,11 @@ import java.util.OptionalInt;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
-import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static io.trino.plugin.bigquery.BigQuerySessionProperties.isSkipViewMaterialization;
 import static io.trino.plugin.bigquery.BigQueryUtil.isWildcardTable;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -107,7 +105,7 @@ public class BigQuerySplitManager
 
         if (!bigQueryTableHandle.isNamedRelation()) {
             List<BigQueryColumnHandle> columns = bigQueryTableHandle.getProjectedColumns().orElse(ImmutableList.of());
-            return new FixedSplitSource(ImmutableList.of(BigQuerySplit.forViewStream(columns, filter)));
+            return new FixedSplitSource(BigQuerySplit.forViewStream(columns, filter));
         }
 
         TableId remoteTableId = bigQueryTableHandle.asPlainTable().getRemoteTableName().toTableId();
@@ -160,7 +158,7 @@ public class BigQuerySplitManager
             if (filter.isPresent()) {
                 // count the rows based on the filter
                 String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
+                TableResult result = client.executeQuery(session, sql);
                 numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
             }
             else {
@@ -168,9 +166,9 @@ public class BigQuerySplitManager
                         .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(remoteTableId.getDataset(), remoteTableId.getTable())));
                 // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
                 // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
-                if (tableInfo.getDefinition().getType() == TABLE || tableInfo.getDefinition().getType() == VIEW) {
+                if (TABLE_TYPES.contains(tableInfo.getDefinition().getType())) {
                     String sql = client.selectSql(remoteTableId, "COUNT(*)");
-                    TableResult result = client.query(sql, isQueryResultsCacheEnabled(session), createDisposition(session));
+                    TableResult result = client.executeQuery(session, sql);
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
                 }
                 else {

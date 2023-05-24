@@ -18,6 +18,10 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.operator.BlockedReason;
@@ -29,13 +33,14 @@ import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
-import io.trino.util.Optionals;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +51,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongFunction;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -80,6 +86,7 @@ public class StageStateMachine
 
     private final StateMachine<StageState> stageState;
     private final StateMachine<Optional<StageInfo>> finalStageInfo;
+    private final Span stageSpan;
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
@@ -96,6 +103,8 @@ public class StageStateMachine
             PlanFragment fragment,
             Map<PlanNodeId, TableInfo> tables,
             Executor executor,
+            Tracer tracer,
+            Span querySpan,
             SplitSchedulerStats schedulerStats)
     {
         this.stageId = requireNonNull(stageId, "stageId is null");
@@ -107,6 +116,20 @@ public class StageStateMachine
         stageState.addStateChangeListener(state -> log.debug("Stage %s is %s", stageId, state));
 
         finalStageInfo = new StateMachine<>("final stage " + stageId, executor, Optional.empty());
+
+        stageSpan = tracer.spanBuilder("stage")
+                .setParent(Context.current().with(querySpan))
+                .setAttribute(TrinoAttributes.QUERY_ID, stageId.getQueryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, stageId.toString())
+                .startSpan();
+
+        stageState.addStateChangeListener(state -> {
+            stageSpan.addEvent("stage_state", Attributes.of(
+                    TrinoAttributes.EVENT_STATE, state.toString()));
+            if (state.isDone()) {
+                stageSpan.end();
+            }
+        });
     }
 
     public StageId getStageId()
@@ -122,6 +145,11 @@ public class StageStateMachine
     public PlanFragment getFragment()
     {
         return fragment;
+    }
+
+    public Span getStageSpan()
+    {
+        return stageSpan;
     }
 
     /**
@@ -272,7 +300,9 @@ public class StageStateMachine
             TaskState taskState = taskInfo.getTaskStatus().getState();
             TaskStats taskStats = taskInfo.getStats();
 
-            if (taskState == TaskState.FAILED) {
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
+
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -282,7 +312,7 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
@@ -293,7 +323,7 @@ public class StageStateMachine
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -318,6 +348,10 @@ public class StageStateMachine
         OptionalDouble progressPercentage = OptionalDouble.empty();
         if (isScheduled && totalDrivers != 0) {
             progressPercentage = OptionalDouble.of(min(100, (completedDrivers * 100.0) / totalDrivers));
+        }
+        OptionalDouble runningPercentage = OptionalDouble.empty();
+        if (isScheduled && totalDrivers != 0) {
+            runningPercentage = OptionalDouble.of(min(100, (runningDrivers * 100.0) / totalDrivers));
         }
 
         return new BasicStageStats(
@@ -353,7 +387,8 @@ public class StageStateMachine
                 fullyBlocked,
                 blockedReasons,
 
-                progressPercentage);
+                progressPercentage,
+                runningPercentage);
     }
 
     public StageInfo getStageInfo(Supplier<Iterable<TaskInfo>> taskInfosSupplier)
@@ -422,7 +457,7 @@ public class StageStateMachine
         long failedInputBlockedTime = 0;
 
         long bufferedDataSize = 0;
-        Optional<TDigestHistogram> outputBufferUtilization = Optional.empty();
+        ImmutableList.Builder<TDigestHistogram> bufferUtilizationHistograms = ImmutableList.builderWithExpectedSize(taskInfos.size());
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
@@ -443,7 +478,7 @@ public class StageStateMachine
         boolean fullyBlocked = true;
         Set<BlockedReason> blockedReasons = new HashSet<>();
 
-        Map<String, OperatorStats> operatorToStats = new HashMap<>();
+        int maxTaskOperatorSummaries = 0;
         for (TaskInfo taskInfo : taskInfos) {
             TaskState taskState = taskInfo.getTaskStatus().getState();
             if (taskState.isDone()) {
@@ -452,8 +487,9 @@ public class StageStateMachine
             else {
                 runningTasks++;
             }
+            boolean taskFailedOrFailing = taskState == TaskState.FAILED || taskState == TaskState.FAILING;
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedTasks++;
             }
 
@@ -466,14 +502,14 @@ public class StageStateMachine
             completedDrivers += taskStats.getCompletedDrivers();
 
             cumulativeUserMemory += taskStats.getCumulativeUserMemory();
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             totalBlockedTime += taskStats.getTotalBlockedTime().roundTo(NANOSECONDS);
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
                 failedCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
             }
@@ -498,7 +534,7 @@ public class StageStateMachine
             inputBlockedTime += taskStats.getInputBlockedTime().roundTo(NANOSECONDS);
 
             bufferedDataSize += taskInfo.getOutputBuffers().getTotalBufferedBytes();
-            outputBufferUtilization = Optionals.combine(outputBufferUtilization, taskInfo.getOutputBuffers().getUtilization(), TDigestHistogram::mergeWith);
+            taskInfo.getOutputBuffers().getUtilization().ifPresent(bufferUtilizationHistograms::add);
             outputDataSize += taskStats.getOutputDataSize().toBytes();
             outputPositions += taskStats.getOutputPositions();
 
@@ -506,7 +542,7 @@ public class StageStateMachine
 
             physicalWrittenDataSize += taskStats.getPhysicalWrittenDataSize().toBytes();
 
-            if (taskState == TaskState.FAILED) {
+            if (taskFailedOrFailing) {
                 failedPhysicalInputDataSize += taskStats.getPhysicalInputDataSize().toBytes();
                 failedPhysicalInputPositions += taskStats.getPhysicalInputPositions();
                 failedPhysicalInputReadTime += taskStats.getPhysicalInputReadTime().roundTo(NANOSECONDS);
@@ -538,13 +574,16 @@ public class StageStateMachine
             minFullGcSec = min(minFullGcSec, gcSec);
             maxFullGcSec = max(maxFullGcSec, gcSec);
 
+            // Count and record the maximum number of pipeline / operators across all task infos
+            int taskOperatorSummaries = 0;
             for (PipelineStats pipeline : taskStats.getPipelines()) {
-                for (OperatorStats operatorStats : pipeline.getOperatorSummaries()) {
-                    String id = pipeline.getPipelineId() + "." + operatorStats.getOperatorId();
-                    operatorToStats.compute(id, (k, v) -> v == null ? operatorStats : v.add(operatorStats));
-                }
+                taskOperatorSummaries += pipeline.getOperatorSummaries().size();
             }
+            maxTaskOperatorSummaries = max(taskOperatorSummaries, maxTaskOperatorSummaries);
         }
+
+        // Create merged operatorStats list if any operator summaries are present. Summarized task stats have empty operator summary lists
+        List<OperatorStats> operatorStats = maxTaskOperatorSummaries == 0 ? ImmutableList.of() : combineTaskOperatorSummaries(taskInfos, maxTaskOperatorSummaries);
 
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
@@ -600,7 +639,7 @@ public class StageStateMachine
                 succinctDuration(inputBlockedTime, NANOSECONDS),
                 succinctDuration(failedInputBlockedTime, NANOSECONDS),
                 succinctBytes(bufferedDataSize),
-                outputBufferUtilization,
+                TDigestHistogram.merge(bufferUtilizationHistograms.build()),
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
@@ -619,7 +658,7 @@ public class StageStateMachine
                         totalFullGcSec,
                         (int) (1.0 * totalFullGcSec / fullGcCount)),
 
-                ImmutableList.copyOf(operatorToStats.values()));
+                operatorStats);
 
         ExecutionFailureInfo failureInfo = null;
         if (state == FAILED) {
@@ -636,6 +675,36 @@ public class StageStateMachine
                 ImmutableList.of(),
                 tables,
                 failureInfo);
+    }
+
+    private static List<OperatorStats> combineTaskOperatorSummaries(List<TaskInfo> taskInfos, int maxTaskOperatorSummaries)
+    {
+        // Group each unique pipelineId + operatorId combination into lists
+        Long2ObjectOpenHashMap<List<OperatorStats>> pipelineAndOperatorToStats = new Long2ObjectOpenHashMap<>(maxTaskOperatorSummaries);
+        // Expect to have one operator stats entry for each taskInfo
+        int taskInfoCount = taskInfos.size();
+        LongFunction<List<OperatorStats>> statsListCreator = key -> new ArrayList<>(taskInfoCount);
+        for (TaskInfo taskInfo : taskInfos) {
+            for (PipelineStats pipeline : taskInfo.getStats().getPipelines()) {
+                // Place the pipelineId in the high bits of the combinedKey mask
+                long pipelineKeyMask = Integer.toUnsignedLong(pipeline.getPipelineId()) << 32;
+                for (OperatorStats operator : pipeline.getOperatorSummaries()) {
+                    // Place the operatorId into the low bits of the combined key
+                    long combinedKey = pipelineKeyMask | Integer.toUnsignedLong(operator.getOperatorId());
+                    pipelineAndOperatorToStats.computeIfAbsent(combinedKey, statsListCreator).add(operator);
+                }
+            }
+        }
+        // Merge the list of operator stats from each pipelineId + operatorId into a single entry
+        ImmutableList.Builder<OperatorStats> operatorStatsBuilder = ImmutableList.builderWithExpectedSize(pipelineAndOperatorToStats.size());
+        for (List<OperatorStats> operators : pipelineAndOperatorToStats.values()) {
+            OperatorStats stats = operators.get(0);
+            if (operators.size() > 1) {
+                stats = stats.add(operators.subList(1, operators.size()));
+            }
+            operatorStatsBuilder.add(stats);
+        }
+        return operatorStatsBuilder.build();
     }
 
     public void recordGetSplitTime(long startNanos)

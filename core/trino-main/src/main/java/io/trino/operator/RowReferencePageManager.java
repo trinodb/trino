@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -29,16 +28,17 @@ import java.util.Arrays;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * Page buffering manager that enables access to individual rows via stable row IDs. This allows computation to be
  * built against these row IDs, while still enabling bulk memory optimizations such as compaction and lazy loading
  * behind the scenes. Callers are responsible for explicitly de-referencing any rows that are no longer needed.
  */
-public class RowReferencePageManager
+public final class RowReferencePageManager
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowReferencePageManager.class).instanceSize();
-    private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = ClassLayout.parseClass(PageAccounting.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(RowReferencePageManager.class);
+    private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = instanceSize(PageAccounting.class);
     private static final int RESERVED_ROW_ID_FOR_CURSOR = -1;
 
     private final IdRegistry<PageAccounting> pages = new IdRegistry<>();
@@ -51,13 +51,18 @@ public class RowReferencePageManager
 
     public LoadCursor add(Page page)
     {
-        checkState(currentCursor == null, "Cursor still active");
+        return add(page, 0);
+    }
 
-        int pageId = pages.allocateId(id -> new PageAccounting(id, page));
-        PageAccounting pageAccounting = pages.get(pageId);
+    public LoadCursor add(Page page, int startingPosition)
+    {
+        checkState(currentCursor == null, "Cursor still active");
+        checkArgument(startingPosition >= 0 && startingPosition <= page.getPositionCount(), "invalid startingPosition: %s", startingPosition);
+
+        PageAccounting pageAccounting = pages.allocateId(id -> new PageAccounting(id, page));
 
         pageAccounting.lockPage();
-        currentCursor = new LoadCursor(pageAccounting, () -> {
+        currentCursor = new LoadCursor(pageAccounting, startingPosition, () -> {
             // Initiate additional actions on close
             checkState(currentCursor != null);
             pageAccounting.unlockPage();
@@ -157,17 +162,18 @@ public class RowReferencePageManager
      * be preserved with a stable row ID. Row ID generation can be expensive in tight loops, so this allows callers to
      * quickly skip positions that won't be needed.
      */
-    public static class LoadCursor
+    public static final class LoadCursor
             implements RowReference, AutoCloseable
     {
         private final PageAccounting pageAccounting;
         private final Runnable closeCallback;
 
-        private int currentPosition = -1;
+        private int currentPosition;
 
-        private LoadCursor(PageAccounting pageAccounting, Runnable closeCallback)
+        private LoadCursor(PageAccounting pageAccounting, int startingPosition, Runnable closeCallback)
         {
             this.pageAccounting = pageAccounting;
+            this.currentPosition = startingPosition - 1;
             this.closeCallback = closeCallback;
         }
 
@@ -226,7 +232,7 @@ public class RowReferencePageManager
         }
     }
 
-    private class PageAccounting
+    private final class PageAccounting
     {
         private static final int COMPACTION_MIN_FILL_MULTIPLIER = 2;
 
@@ -331,19 +337,19 @@ public class RowReferencePageManager
             int newIndex = 0;
             int[] positionsToKeep = new int[activePositions];
             long[] newRowIds = new long[activePositions];
-            for (int i = 0; i < page.getPositionCount(); i++) {
+            for (int i = 0; i < page.getPositionCount() && newIndex < positionsToKeep.length; i++) {
                 long rowId = rowIds[i];
-                if (rowId != RowIdBuffer.UNKNOWN_ID) {
-                    positionsToKeep[newIndex] = i;
-                    newRowIds[newIndex] = rowId;
-                    rowIdBuffer.setPosition(rowId, newIndex);
-                    newIndex++;
-                }
+                positionsToKeep[newIndex] = i;
+                newRowIds[newIndex] = rowId;
+                newIndex += rowId == RowIdBuffer.UNKNOWN_ID ? 0 : 1;
             }
             verify(newIndex == activePositions);
+            for (int i = 0; i < newRowIds.length; i++) {
+                rowIdBuffer.setPosition(newRowIds[i], i);
+            }
 
             // Compact page
-            page = page.copyPositions(positionsToKeep, 0, activePositions);
+            page = page.copyPositions(positionsToKeep, 0, positionsToKeep.length);
             rowIds = newRowIds;
         }
 
@@ -361,7 +367,7 @@ public class RowReferencePageManager
     private static class RowIdBuffer
     {
         public static final long UNKNOWN_ID = -1;
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowIdBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(RowIdBuffer.class);
 
         /*
          *  Memory layout:
@@ -432,7 +438,7 @@ public class RowReferencePageManager
     private static class IntHashSet
             extends IntOpenHashSet
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntHashSet.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(IntHashSet.class);
 
         public long sizeOf()
         {

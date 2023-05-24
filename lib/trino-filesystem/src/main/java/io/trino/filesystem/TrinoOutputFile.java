@@ -19,13 +19,27 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+
 public interface TrinoOutputFile
 {
+    default OutputStream create()
+            throws IOException
+    {
+        return create(newSimpleAggregatedMemoryContext());
+    }
+
+    default OutputStream createOrOverwrite()
+            throws IOException
+    {
+        return createOrOverwrite(newSimpleAggregatedMemoryContext());
+    }
+
     OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException;
 
     OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
 
-    String location();
+    Location location();
 }

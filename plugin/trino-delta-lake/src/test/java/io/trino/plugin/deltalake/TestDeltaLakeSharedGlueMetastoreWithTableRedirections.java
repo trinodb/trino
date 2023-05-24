@@ -59,21 +59,21 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
         queryRunner.installPlugin(new DeltaLakePlugin());
         queryRunner.createCatalog(
                 "delta_with_redirections",
-                "delta-lake",
+                "delta_lake",
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "glue")
-                        .put("hive.metastore.glue.default-warehouse-dir", dataDirectory.toString())
+                        .put("hive.metastore.glue.default-warehouse-dir", dataDirectory.toUri().toString())
                         .put("delta.hive-catalog-name", "hive_with_redirections")
                         .buildOrThrow());
 
-        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory.toString());
+        this.glueMetastore = createTestingGlueHiveMetastore(dataDirectory);
         queryRunner.installPlugin(new TestingHivePlugin(glueMetastore));
         queryRunner.createCatalog(
                 "hive_with_redirections",
                 "hive",
                 ImmutableMap.of("hive.delta-lake-catalog-name", "delta_with_redirections"));
 
-        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toString() + "')");
+        queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = '" + dataDirectory.toUri() + "')");
         queryRunner.execute("CREATE TABLE hive_with_redirections." + schema + ".hive_table (a_integer) WITH (format='PARQUET') AS VALUES 1, 2, 3");
         queryRunner.execute("CREATE TABLE delta_with_redirections." + schema + ".delta_table (a_varchar) AS VALUES 'a', 'b', 'c'");
 
@@ -102,7 +102,7 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "   location = '%s'\n" +
                 ")";
 
-        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory);
+        return format(expectedHiveCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 
     @Override
@@ -112,6 +112,6 @@ public class TestDeltaLakeSharedGlueMetastoreWithTableRedirections
                 "WITH (\n" +
                 "   location = '%s'\n" +
                 ")";
-        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory, schema);
+        return format(expectedDeltaLakeCreateSchema, catalogName, schema, dataDirectory.toUri().toString().replaceFirst("/$", ""));
     }
 }

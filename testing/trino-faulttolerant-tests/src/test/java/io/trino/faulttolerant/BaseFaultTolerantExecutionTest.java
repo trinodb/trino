@@ -66,7 +66,7 @@ public abstract class BaseFaultTolerantExecutionTest
     {
         @Language("SQL") String createTableSql = """
                 CREATE TABLE test_execute_skew_mitigation WITH (%s = ARRAY['returnflag']) AS
-                SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment, returnflag
+                SELECT orderkey, partkey, suppkey, linenumber, quantity, extendedprice, discount, tax, linestatus, shipdate, commitdate, receiptdate, shipinstruct, shipmode, returnflag
                 FROM tpch.sf1.lineitem
                 WHERE returnflag = 'N'
                 LIMIT 1000000""".formatted(partitioningTablePropertyName);
@@ -110,7 +110,12 @@ public abstract class BaseFaultTolerantExecutionTest
     private static Session withUnlimitedTargetTaskInputSize(Session session)
     {
         return Session.builder(session)
-                .setSystemProperty("fault_tolerant_execution_target_task_input_size", "1PB")
+                .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_min", "1PB")
+                .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_compute_task_target_size_max", "1PB")
+                .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_write_task_target_size_min", "1PB")
+                .setSystemProperty("fault_tolerant_execution_arbitrary_distribution_write_task_target_size_max", "1PB")
+                .setSystemProperty("fault_tolerant_execution_hash_distribution_compute_task_target_size", "1PB")
+                .setSystemProperty("fault_tolerant_execution_hash_distribution_write_task_target_size", "1PB")
                 .build();
     }
 

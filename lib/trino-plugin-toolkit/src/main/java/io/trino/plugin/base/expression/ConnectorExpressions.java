@@ -38,8 +38,7 @@ public final class ConnectorExpressions
 
     private static void extractConjuncts(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> resultBuilder)
     {
-        if (expression instanceof Call) {
-            Call call = (Call) expression;
+        if (expression instanceof Call call) {
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
                 for (ConnectorExpression argument : call.getArguments()) {
                     extractConjuncts(argument, resultBuilder);

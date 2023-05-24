@@ -28,6 +28,7 @@ public class DeltaLakeTransactionLogEntry
     private final MetadataEntry metaData;
     private final ProtocolEntry protocol;
     private final CommitInfoEntry commitInfo;
+    private final CdcEntry cdcEntry;
 
     private DeltaLakeTransactionLogEntry(
             TransactionEntry txn,
@@ -35,7 +36,8 @@ public class DeltaLakeTransactionLogEntry
             RemoveFileEntry remove,
             MetadataEntry metaData,
             ProtocolEntry protocol,
-            CommitInfoEntry commitInfo)
+            CommitInfoEntry commitInfo,
+            CdcEntry cdcEntry)
     {
         this.txn = txn;
         this.add = add;
@@ -43,6 +45,7 @@ public class DeltaLakeTransactionLogEntry
         this.metaData = metaData;
         this.protocol = protocol;
         this.commitInfo = commitInfo;
+        this.cdcEntry = cdcEntry;
     }
 
     @JsonCreator
@@ -52,45 +55,52 @@ public class DeltaLakeTransactionLogEntry
             @JsonProperty("remove") RemoveFileEntry remove,
             @JsonProperty("metaData") MetadataEntry metaData,
             @JsonProperty("protocol") ProtocolEntry protocol,
-            @JsonProperty("commitInfo") CommitInfoEntry commitInfo)
+            @JsonProperty("commitInfo") CommitInfoEntry commitInfo,
+            @JsonProperty("cdc") CdcEntry cdcEntry)
     {
-        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo);
+        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 
     public static DeltaLakeTransactionLogEntry transactionEntry(TransactionEntry transaction)
     {
         requireNonNull(transaction, "transaction is null");
-        return new DeltaLakeTransactionLogEntry(transaction, null, null, null, null, null);
+        return new DeltaLakeTransactionLogEntry(transaction, null, null, null, null, null, null);
     }
 
     public static DeltaLakeTransactionLogEntry commitInfoEntry(CommitInfoEntry commitInfo)
     {
         requireNonNull(commitInfo, "commitInfo is null");
-        return new DeltaLakeTransactionLogEntry(null, null, null, null, null, commitInfo);
+        return new DeltaLakeTransactionLogEntry(null, null, null, null, null, commitInfo, null);
     }
 
     public static DeltaLakeTransactionLogEntry protocolEntry(ProtocolEntry protocolEntry)
     {
         requireNonNull(protocolEntry, "protocolEntry is null");
-        return new DeltaLakeTransactionLogEntry(null, null, null, null, protocolEntry, null);
+        return new DeltaLakeTransactionLogEntry(null, null, null, null, protocolEntry, null, null);
     }
 
     public static DeltaLakeTransactionLogEntry metadataEntry(MetadataEntry metadataEntry)
     {
         requireNonNull(metadataEntry, "metadataEntry is null");
-        return new DeltaLakeTransactionLogEntry(null, null, null, metadataEntry, null, null);
+        return new DeltaLakeTransactionLogEntry(null, null, null, metadataEntry, null, null, null);
     }
 
     public static DeltaLakeTransactionLogEntry addFileEntry(AddFileEntry addFileEntry)
     {
         requireNonNull(addFileEntry, "addFileEntry is null");
-        return new DeltaLakeTransactionLogEntry(null, addFileEntry, null, null, null, null);
+        return new DeltaLakeTransactionLogEntry(null, addFileEntry, null, null, null, null, null);
     }
 
     public static DeltaLakeTransactionLogEntry removeFileEntry(RemoveFileEntry removeFileEntry)
     {
         requireNonNull(removeFileEntry, "removeFileEntry is null");
-        return new DeltaLakeTransactionLogEntry(null, null, removeFileEntry, null, null, null);
+        return new DeltaLakeTransactionLogEntry(null, null, removeFileEntry, null, null, null, null);
+    }
+
+    public static DeltaLakeTransactionLogEntry cdcEntry(CdcEntry cdcEntry)
+    {
+        requireNonNull(cdcEntry, "cdcEntry is null");
+        return new DeltaLakeTransactionLogEntry(null, null, null, null, null, null, cdcEntry);
     }
 
     @Nullable
@@ -135,9 +145,21 @@ public class DeltaLakeTransactionLogEntry
         return commitInfo;
     }
 
+    @Nullable
+    @JsonProperty
+    public CdcEntry getCDC()
+    {
+        return cdcEntry;
+    }
+
+    public DeltaLakeTransactionLogEntry withCommitInfo(CommitInfoEntry commitInfo)
+    {
+        return new DeltaLakeTransactionLogEntry(txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
+    }
+
     @Override
     public String toString()
     {
-        return String.format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo);
+        return String.format("DeltaLakeTransactionLogEntry{%s, %s, %s, %s, %s, %s, %s}", txn, add, remove, metaData, protocol, commitInfo, cdcEntry);
     }
 }

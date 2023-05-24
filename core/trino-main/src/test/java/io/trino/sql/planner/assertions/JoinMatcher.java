@@ -15,6 +15,7 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -82,11 +83,10 @@ public final class JoinMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof JoinNode)) {
+        if (!(node instanceof JoinNode joinNode)) {
             return false;
         }
 
-        JoinNode joinNode = (JoinNode) node;
         return joinNode.getType() == joinType;
     }
 
@@ -210,6 +210,7 @@ public final class JoinMatcher
             this.joinType = joinType;
         }
 
+        @CanIgnoreReturnValue
         public Builder equiCriteria(List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria)
         {
             this.equiCriteria = Optional.of(expectedEquiCriteria);
@@ -217,6 +218,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder equiCriteria(String left, String right)
         {
             this.equiCriteria = Optional.of(ImmutableList.of(equiJoinClause(left, right)));
@@ -224,6 +226,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder filter(String expectedFilter)
         {
             this.filter = Optional.of(expectedFilter);
@@ -231,6 +234,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder dynamicFilter(Map<String, String> expectedDynamicFilter)
         {
             this.dynamicFilter = Optional.of(expectedDynamicFilter.entrySet().stream()
@@ -240,6 +244,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder dynamicFilter(String key, String value)
         {
             this.dynamicFilter = Optional.of(ImmutableList.of(new PlanMatchPattern.DynamicFilterPattern(key, EQUAL, value)));
@@ -247,6 +252,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder dynamicFilter(List<PlanMatchPattern.DynamicFilterPattern> expectedDynamicFilter)
         {
             this.dynamicFilter = Optional.of(expectedDynamicFilter);
@@ -254,6 +260,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder distributionType(DistributionType expectedDistributionType)
         {
             this.distributionType = Optional.of(expectedDistributionType);
@@ -261,6 +268,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder spillable(Boolean expectedSpillable)
         {
             this.expectedSpillable = Optional.of(expectedSpillable);
@@ -268,6 +276,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder left(PlanMatchPattern left)
         {
             this.left = left;
@@ -275,6 +284,7 @@ public final class JoinMatcher
             return this;
         }
 
+        @CanIgnoreReturnValue
         public Builder right(PlanMatchPattern right)
         {
             this.right = right;

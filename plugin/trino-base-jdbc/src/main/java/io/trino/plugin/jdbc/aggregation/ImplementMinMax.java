@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.CharType;
@@ -39,7 +40,7 @@ import static java.lang.String.format;
  * Implements {@code min(x)}, {@code max(x)}.
  */
 public class ImplementMinMax
-        implements AggregateFunctionRule<JdbcExpression, String>
+        implements AggregateFunctionRule<JdbcExpression, ParameterizedExpression>
 {
     private static final Capture<Variable> ARGUMENT = newCapture();
 
@@ -59,7 +60,7 @@ public class ImplementMinMax
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<String> context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         Variable argument = captures.get(ARGUMENT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(argument.getName());
@@ -70,8 +71,10 @@ public class ImplementMinMax
             return Optional.empty();
         }
 
+        ParameterizedExpression rewrittenArgument = context.rewriteExpression(argument).orElseThrow();
         return Optional.of(new JdbcExpression(
-                format("%s(%s)", aggregateFunction.getFunctionName(), context.rewriteExpression(argument).orElseThrow()),
+                format("%s(%s)", aggregateFunction.getFunctionName(), rewrittenArgument.expression()),
+                rewrittenArgument.parameters(),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

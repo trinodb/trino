@@ -13,15 +13,18 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.Session;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest
@@ -65,12 +68,28 @@ public class TestIcebergParquetConnectorTest
     }
 
     @Override
-    protected Session withSmallRowGroups(Session session)
+    protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        return Session.builder(session)
-                .setCatalogSessionProperty("iceberg", "parquet_writer_page_size", "100B")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_block_size", "100B")
-                .setCatalogSessionProperty("iceberg", "parquet_writer_batch_size", "10")
-                .build();
+        switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
+            case "row(x integer) -> row(y integer)":
+                // TODO https://github.com/trinodb/trino/issues/15822 The connector returns incorrect NULL when a field in row type doesn't exist in Parquet files
+                return Optional.of(setup.withNewValueLiteral("NULL"));
+        }
+        return super.filterSetColumnTypesDataProvider(setup);
+    }
+
+    @Override
+    public void testDropAmbiguousRowFieldCaseSensitivity()
+    {
+        // TODO https://github.com/trinodb/trino/issues/16273 The connector can't read row types having ambiguous field names in Parquet files. e.g. row(X int, x int)
+        assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
+                .hasMessageContaining("Error opening Iceberg split")
+                .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Override
+    protected boolean isFileSorted(String path, String sortColumnName)
+    {
+        return checkParquetFileSorting(path, sortColumnName);
     }
 }

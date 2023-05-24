@@ -15,24 +15,27 @@ package io.trino.operator.scalar.interval;
 
 import io.trino.sql.query.QueryAssertions;
 import io.trino.type.SqlIntervalDayTime;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestIntervalDayTime
 {
     protected QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void init()
     {
         assertions = new QueryAssertions();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -133,19 +136,19 @@ public class TestIntervalDayTime
                 .isEqualTo(interval(0, 0, 0, 32, 0));
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12X' DAY").evaluate())
-                .hasMessage("line 1:12: '12X' is not a valid interval literal");
+                .hasMessage("line 1:12: '12X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 10' DAY").evaluate())
-                .hasMessage("line 1:12: '12 10' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 10' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 X' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 X' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '12 -10' is not a valid interval literal");
+                .hasMessage("line 1:12: '12 -10' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '--12 -10' DAY TO HOUR").evaluate())
-                .hasMessage("line 1:12: '--12 -10' is not a valid interval literal");
+                .hasMessage("line 1:12: '--12 -10' is not a valid INTERVAL literal");
     }
 
     private static SqlIntervalDayTime interval(int day, int hour, int minute, int second, int milliseconds)

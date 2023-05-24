@@ -13,20 +13,47 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestIntervalDayTime
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void testObject()
     {
@@ -43,186 +70,455 @@ public class TestIntervalDayTime
     @Test
     public void testAdd()
     {
-        assertFunction("INTERVAL '3' SECOND + INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(6 * 1000));
-        assertFunction("INTERVAL '6' DAY + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
-        assertFunction("INTERVAL '3' SECOND + INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((6 * 24 * 60 * 60 * 1000) + (3 * 1000)));
+        assertThat(assertions.operator(ADD, "INTERVAL '3' SECOND", "INTERVAL '3' SECOND"))
+                .matches("INTERVAL '6' SECOND");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '6' DAY", "INTERVAL '6' DAY"))
+                .matches("INTERVAL '12' DAY");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' SECOND", "INTERVAL '6' DAY"))
+                .matches("INTERVAL '6 00:00:03.000' DAY TO SECOND");
     }
 
     @Test
     public void testSubtract()
     {
-        assertFunction("INTERVAL '6' SECOND - INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(3 * 1000));
-        assertFunction("INTERVAL '9' DAY - INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(3 * 24 * 60 * 60 * 1000));
-        assertFunction("INTERVAL '3' SECOND - INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((3 * 1000) - (6 * 24 * 60 * 60 * 1000)));
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '6' SECOND", "INTERVAL '3' SECOND"))
+                .matches("INTERVAL '3' SECOND");
+
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '9' DAY", "INTERVAL '6' DAY"))
+                .matches("INTERVAL '3' DAY");
+
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '3' SECOND", "INTERVAL '6' DAY"))
+                .matches("INTERVAL '-5 23:59:57.000' DAY TO SECOND");
     }
 
     @Test
     public void testMultiply()
     {
-        assertFunction("INTERVAL '6' SECOND * 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 1000));
-        assertFunction("2 * INTERVAL '6' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 1000));
-        assertFunction("INTERVAL '1' SECOND * 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime(2500));
-        assertFunction("2.5 * INTERVAL '1' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(2500));
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '6' SECOND", "2"))
+                .matches("INTERVAL '12' SECOND");
 
-        assertFunction("INTERVAL '6' DAY * 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
-        assertFunction("2 * INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(12 * 24 * 60 * 60 * 1000));
-        assertFunction("INTERVAL '1' DAY * 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
-        assertFunction("2.5 * INTERVAL '1' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (2.5 * 24 * 60 * 60 * 1000)));
+        assertThat(assertions.operator(MULTIPLY, "2", "INTERVAL '6' SECOND"))
+                .matches("INTERVAL '12' SECOND");
 
-        assertInvalidFunction("INTERVAL '6' SECOND * nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("nan() * INTERVAL '6' DAY", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '1' SECOND", "2.5"))
+                .matches("INTERVAL '2.5' SECOND");
+
+        assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '1' SECOND"))
+                .matches("INTERVAL '2.5' SECOND");
+
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '6' DAY", "2"))
+                .matches("INTERVAL '12' DAY");
+
+        assertThat(assertions.operator(MULTIPLY, "2", "INTERVAL '6' DAY"))
+                .matches("INTERVAL '12' DAY");
+
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '1' DAY", "2.5"))
+                .matches("INTERVAL '2 12:00:00.000' DAY TO SECOND");
+
+        assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '1' DAY"))
+                .matches("INTERVAL '2 12:00:00.000' DAY TO SECOND");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "INTERVAL '6' SECOND", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' DAY").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testDivide()
     {
-        assertFunction("INTERVAL '3' SECOND / 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime(1500));
-        assertFunction("INTERVAL '6' SECOND / 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime(2400));
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '3' SECOND", "2"))
+                .matches("INTERVAL '1.5' SECOND");
 
-        assertFunction("INTERVAL '3' DAY / 2", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.5 * 24 * 60 * 60 * 1000)));
-        assertFunction("INTERVAL '4' DAY / 2.5", INTERVAL_DAY_TIME, new SqlIntervalDayTime((long) (1.6 * 24 * 60 * 60 * 1000)));
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "2.5"))
+                .matches("INTERVAL '2.4' SECOND");
 
-        assertInvalidFunction("INTERVAL '6' SECOND / nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' DAY / nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' SECOND / 0E0", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' DAY / 0", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '3' DAY", "2"))
+                .matches("INTERVAL '1 12:00:00.000' DAY TO SECOND");
+
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '4' DAY", "2.5"))
+                .matches("INTERVAL '1 14:24:00.000' DAY TO SECOND");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' DAY", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' SECOND", "0E0").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' DAY", "0").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testNegation()
     {
-        assertFunction("- INTERVAL '3' SECOND", INTERVAL_DAY_TIME, new SqlIntervalDayTime(-3 * 1000));
-        assertFunction("- INTERVAL '6' DAY", INTERVAL_DAY_TIME, new SqlIntervalDayTime(-6 * 24 * 60 * 60 * 1000));
+        assertThat(assertions.operator(NEGATION, "INTERVAL '3' SECOND"))
+                .matches("INTERVAL '-3' SECOND");
+
+        assertThat(assertions.operator(NEGATION, "INTERVAL '6' DAY"))
+                .matches("INTERVAL '-6' DAY");
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("INTERVAL '3' SECOND = INTERVAL '3' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY = INTERVAL '6' DAY", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "INTERVAL '3' SECOND", "INTERVAL '3' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND = INTERVAL '4' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '7' DAY = INTERVAL '6' DAY", BOOLEAN, false);
+        assertThat(assertions.operator(EQUAL, "INTERVAL '6' DAY", "INTERVAL '6' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "INTERVAL '3' SECOND", "INTERVAL '4' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "INTERVAL '7' DAY", "INTERVAL '6' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("INTERVAL '3' SECOND <> INTERVAL '4' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY <> INTERVAL '7' DAY", BOOLEAN, true);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '4' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND <> INTERVAL '3' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY <> INTERVAL '6' DAY", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '7' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '3' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '6' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("INTERVAL '3' SECOND < INTERVAL '4' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY < INTERVAL '7' DAY", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' SECOND", "INTERVAL '4' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND < INTERVAL '3' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '3' SECOND < INTERVAL '2' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY < INTERVAL '6' DAY", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY < INTERVAL '5' DAY", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' DAY", "INTERVAL '7' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' SECOND", "INTERVAL '3' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' SECOND", "INTERVAL '2' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' DAY", "INTERVAL '6' DAY"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' DAY", "INTERVAL '5' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("INTERVAL '3' SECOND <= INTERVAL '4' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '3' SECOND <= INTERVAL '3' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY <= INTERVAL '6' DAY", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY <= INTERVAL '7' DAY", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' SECOND", "INTERVAL '4' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND <= INTERVAL '2' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY <= INTERVAL '5' DAY", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' SECOND", "INTERVAL '3' SECOND"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' DAY", "INTERVAL '6' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' DAY", "INTERVAL '7' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' SECOND", "INTERVAL '2' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' DAY", "INTERVAL '5' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("INTERVAL '3' SECOND > INTERVAL '2' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY > INTERVAL '5' DAY", BOOLEAN, true);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '2' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND > INTERVAL '3' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '3' SECOND > INTERVAL '4' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY > INTERVAL '6' DAY", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY > INTERVAL '7' DAY", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '5' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '3' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '4' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '6' DAY"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '7' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("INTERVAL '3' SECOND >= INTERVAL '2' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '3' SECOND >= INTERVAL '3' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY >= INTERVAL '5' DAY", BOOLEAN, true);
-        assertFunction("INTERVAL '6' DAY >= INTERVAL '6' DAY", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '2' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND >= INTERVAL '4' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '6' DAY >= INTERVAL '7' DAY", BOOLEAN, false);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '3' SECOND"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '5' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '6' DAY"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' SECOND")
+                .binding("b", "INTERVAL '4' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' DAY")
+                .binding("b", "INTERVAL '7' DAY"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '2' SECOND and INTERVAL '4' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '3' SECOND and INTERVAL '4' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '2' SECOND and INTERVAL '3' SECOND", BOOLEAN, true);
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '3' SECOND and INTERVAL '3' SECOND", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '2' SECOND")
+                .binding("high", "INTERVAL '4' SECOND"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '4' SECOND and INTERVAL '5' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '1' SECOND and INTERVAL '2' SECOND", BOOLEAN, false);
-        assertFunction("INTERVAL '3' SECOND between INTERVAL '4' SECOND and INTERVAL '2' SECOND", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '3' SECOND")
+                .binding("high", "INTERVAL '4' SECOND"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '2' SECOND")
+                .binding("high", "INTERVAL '3' SECOND"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '3' SECOND")
+                .binding("high", "INTERVAL '3' SECOND"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '4' SECOND")
+                .binding("high", "INTERVAL '5' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '1' SECOND")
+                .binding("high", "INTERVAL '2' SECOND"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' SECOND")
+                .binding("low", "INTERVAL '4' SECOND")
+                .binding("high", "INTERVAL '2' SECOND"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, "12 10:45:32.123");
-        assertFunction("cast(INTERVAL '12 10:45:32.123' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 32, 123).toString());
-        assertFunction("cast(INTERVAL '12 10:45:32.12' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 32, 120).toString());
-        assertFunction("cast(INTERVAL '12 10:45:32' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 32, 0).toString());
-        assertFunction("cast(INTERVAL '12 10:45' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 0, 0).toString());
-        assertFunction("cast(INTERVAL '12 10' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 0, 0, 0).toString());
-        assertFunction("cast(INTERVAL '12' DAY TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(12, 0, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45:32.123' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:32.123");
 
-        assertFunction("cast(INTERVAL '12 10:45' DAY TO MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 45, 0, 0).toString());
-        assertFunction("cast(INTERVAL '12 10' DAY TO MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 0, 0, 0).toString());
-        assertFunction("cast(INTERVAL '12' DAY TO MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(12, 0, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45:32.123' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:32.123");
 
-        assertFunction("cast(INTERVAL '12 10' DAY TO HOUR as varchar)", VARCHAR, new SqlIntervalDayTime(12, 10, 0, 0, 0).toString());
-        assertFunction("cast(INTERVAL '12' DAY TO HOUR as varchar)", VARCHAR, new SqlIntervalDayTime(12, 0, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45:32.12' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:32.120");
 
-        assertFunction("cast(INTERVAL '12' DAY as varchar)", VARCHAR, new SqlIntervalDayTime(12, 0, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45:32' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:32.000");
 
-        assertFunction("cast(INTERVAL '10:45:32.123' HOUR TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 45, 32, 123).toString());
-        assertFunction("cast(INTERVAL '10:45:32.12' HOUR TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 45, 32, 120).toString());
-        assertFunction("cast(INTERVAL '10:45:32' HOUR TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 45, 32, 0).toString());
-        assertFunction("cast(INTERVAL '10:45' HOUR TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 45, 0, 0).toString());
-        assertFunction("cast(INTERVAL '10' HOUR TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:00.000");
 
-        assertFunction("cast(INTERVAL '10:45' HOUR TO MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 45, 0, 0).toString());
-        assertFunction("cast(INTERVAL '10' HOUR TO MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:00:00.000");
 
-        assertFunction("cast(INTERVAL '10' HOUR as varchar)", VARCHAR, new SqlIntervalDayTime(0, 10, 0, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12' DAY TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 00:00:00.000");
 
-        assertFunction("cast(INTERVAL '45:32.123' MINUTE TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 45, 32, 123).toString());
-        assertFunction("cast(INTERVAL '45:32.12' MINUTE TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 45, 32, 120).toString());
-        assertFunction("cast(INTERVAL '45:32' MINUTE TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 45, 32, 0).toString());
-        assertFunction("cast(INTERVAL '45' MINUTE TO SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 45, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10:45' DAY TO MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:45:00.000");
 
-        assertFunction("cast(INTERVAL '45' MINUTE as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 45, 0, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10' DAY TO MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:00:00.000");
 
-        assertFunction("cast(INTERVAL '32.123' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 123).toString());
-        assertFunction("cast(INTERVAL '32.12' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 120).toString());
-        assertFunction("cast(INTERVAL '32' SECOND as varchar)", VARCHAR, new SqlIntervalDayTime(0, 0, 0, 32, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12' DAY TO MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 00:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12 10' DAY TO HOUR"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 10:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12' DAY TO HOUR"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 00:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '12' DAY"))
+                .hasType(VARCHAR)
+                .isEqualTo("12 00:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10:45:32.123' HOUR TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:45:32.123");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10:45:32.12' HOUR TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:45:32.120");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10:45:32' HOUR TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:45:32.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10:45' HOUR TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:45:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10' HOUR TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10:45' HOUR TO MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:45:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10' HOUR TO MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '10' HOUR"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 10:00:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '45:32.123' MINUTE TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:45:32.123");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '45:32.12' MINUTE TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:45:32.120");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '45:32' MINUTE TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:45:32.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '45' MINUTE TO SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:45:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '45' MINUTE"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:45:00.000");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '32.123' SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:00:32.123");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '32.12' SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:00:32.120");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '32' SECOND"))
+                .hasType(VARCHAR)
+                .isEqualTo("0 00:00:32.000");
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as INTERVAL DAY TO SECOND)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "INTERVAL '45' MINUTE TO SECOND", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "CAST(NULL AS INTERVAL DAY TO SECOND)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "INTERVAL '45' MINUTE TO SECOND"))
+                .isEqualTo(false);
     }
 }

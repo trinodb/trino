@@ -41,7 +41,6 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -102,11 +101,10 @@ public class RaptorSplitManager
         RaptorTableHandle table = (RaptorTableHandle) handle;
         long tableId = table.getTableId();
         boolean bucketed = table.getBucketCount().isPresent();
-        boolean merged = bucketed && !table.isDelete() && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
-        OptionalLong transactionId = table.getTransactionId();
+        boolean merged = bucketed && (table.getBucketCount().getAsInt() >= getOneSplitPerBucketThreshold(session));
         Optional<List<String>> bucketToNode = table.getBucketAssignments();
         verify(bucketed == bucketToNode.isPresent(), "mismatched bucketCount and bucketToNode presence");
-        return new RaptorSplitSource(tableId, merged, table.getConstraint(), transactionId, bucketToNode);
+        return new RaptorSplitSource(tableId, merged, table.getConstraint(), bucketToNode);
     }
 
     private static List<HostAddress> getAddressesForNodes(Map<String, Node> nodeMap, Iterable<String> nodeIdentifiers)
@@ -132,7 +130,6 @@ public class RaptorSplitManager
     {
         private final Map<String, Node> nodesById = uniqueIndex(nodeSupplier.getWorkerNodes(), Node::getNodeIdentifier);
         private final long tableId;
-        private final OptionalLong transactionId;
         private final Optional<List<String>> bucketToNode;
         private final ResultIterator<BucketShards> iterator;
 
@@ -143,11 +140,9 @@ public class RaptorSplitManager
                 long tableId,
                 boolean merged,
                 TupleDomain<RaptorColumnHandle> effectivePredicate,
-                OptionalLong transactionId,
                 Optional<List<String>> bucketToNode)
         {
             this.tableId = tableId;
-            this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
 
             ResultIterator<BucketShards> iterator;
@@ -229,7 +224,7 @@ public class RaptorSplitManager
                 addresses = ImmutableList.of(node.getHostAndPort());
             }
 
-            return new RaptorSplit(shardId, addresses, transactionId);
+            return new RaptorSplit(shardId, addresses);
         }
 
         private ConnectorSplit createBucketSplit(int bucketNumber, Set<ShardNodes> shards)
@@ -248,7 +243,7 @@ public class RaptorSplitManager
                     .collect(toSet());
             HostAddress address = node.getHostAndPort();
 
-            return new RaptorSplit(shardUuids, bucketNumber, address, transactionId);
+            return new RaptorSplit(shardUuids, bucketNumber, address);
         }
     }
 }

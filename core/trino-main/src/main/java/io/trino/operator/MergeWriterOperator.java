@@ -13,26 +13,41 @@
  */
 package io.trino.operator;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.type.Type;
 import io.trino.split.PageSinkId;
 import io.trino.split.PageSinkManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 
 public class MergeWriterOperator
-        extends AbstractRowChangeOperator
+        implements Operator
 {
+    private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARBINARY);
+
     public static class MergeWriterOperatorFactory
             implements OperatorFactory
     {
@@ -77,15 +92,43 @@ public class MergeWriterOperator
         }
     }
 
-    private final ConnectorMergeSink mergeSink;
+    private enum State
+    {
+        RUNNING, FINISHING, FINISHED
+    }
 
+    private final OperatorContext operatorContext;
+    private State state = State.RUNNING;
+    private final ConnectorMergeSink mergeSink;
     private final Function<Page, Page> pagePreprocessor;
+    private ListenableFuture<Collection<Slice>> finishFuture;
+    private ListenableFuture<Void> blockedFutureView;
+    private long rowCount;
+    private boolean closed;
 
     public MergeWriterOperator(OperatorContext operatorContext, ConnectorMergeSink mergeSink, Function<Page, Page> pagePreprocessor)
     {
-        super(operatorContext);
+        this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.mergeSink = requireNonNull(mergeSink, "mergeSink is null");
         this.pagePreprocessor = requireNonNull(pagePreprocessor, "pagePreprocessor is null");
+    }
+
+    @Override
+    public OperatorContext getOperatorContext()
+    {
+        return operatorContext;
+    }
+
+    @Override
+    public boolean isFinished()
+    {
+        return state == State.FINISHED;
+    }
+
+    @Override
+    public boolean needsInput()
+    {
+        return state == State.RUNNING;
     }
 
     @Override
@@ -109,9 +152,40 @@ public class MergeWriterOperator
         long insertsFromUpdates = 0;
         int positionCount = page.getPositionCount();
         for (int position = 0; position < positionCount; position++) {
-            insertsFromUpdates += TINYINT.getLong(insertFromUpdateColumn, position);
+            insertsFromUpdates += TINYINT.getByte(insertFromUpdateColumn, position);
         }
         rowCount += positionCount - insertsFromUpdates;
+    }
+
+    @Override
+    public Page getOutput()
+    {
+        if ((state != State.FINISHING) || !finishFuture.isDone()) {
+            return null;
+        }
+        state = State.FINISHED;
+
+        Collection<Slice> fragments = getFutureValue(finishFuture);
+
+        // output page will only be constructed once,
+        // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
+        PageBuilder page = new PageBuilder(fragments.size() + 1, TYPES);
+        BlockBuilder rowsBuilder = page.getBlockBuilder(0);
+        BlockBuilder fragmentBuilder = page.getBlockBuilder(1);
+
+        // write row count
+        page.declarePosition();
+        BIGINT.writeLong(rowsBuilder, rowCount);
+        fragmentBuilder.appendNull();
+
+        // write fragments
+        for (Slice fragment : fragments) {
+            page.declarePosition();
+            rowsBuilder.appendNull();
+            VARBINARY.writeSlice(fragmentBuilder, fragment);
+        }
+
+        return page.build();
     }
 
     @Override
@@ -120,12 +194,32 @@ public class MergeWriterOperator
         if (state == State.RUNNING) {
             state = State.FINISHING;
             finishFuture = toListenableFuture(mergeSink.finish());
+            blockedFutureView = asVoid(finishFuture);
         }
     }
 
-    @Override
-    protected void abort()
+    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
     {
-        mergeSink.abort();
+        return Futures.transform(future, v -> null, directExecutor());
+    }
+
+    @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        if (blockedFutureView == null) {
+            return NOT_BLOCKED;
+        }
+        return blockedFutureView;
+    }
+
+    @Override
+    public void close()
+    {
+        if (!closed) {
+            closed = true;
+            if (finishFuture != null) {
+                finishFuture.cancel(true);
+            }
+        }
     }
 }

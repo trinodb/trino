@@ -63,6 +63,11 @@ public final class RealType
         if (block.isNull(position)) {
             return null;
         }
+        return getFloat(block, position);
+    }
+
+    public float getFloat(Block block, int position)
+    {
         return intBitsToFloat(block.getInt(position, 0));
     }
 

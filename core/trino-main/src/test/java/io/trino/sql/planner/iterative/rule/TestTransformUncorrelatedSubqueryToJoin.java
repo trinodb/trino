@@ -16,11 +16,11 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
@@ -120,8 +120,8 @@ public class TestTransformUncorrelatedSubqueryToJoin
                 .matches(
                         project(
                                 ImmutableMap.of(
-                                        "a", new ExpressionMatcher("if(b > a, a, null)"),
-                                        "b", new ExpressionMatcher("b")),
+                                        "a", expression("if(b > a, a, null)"),
+                                        "b", expression("b")),
                                 join(Type.INNER, builder -> builder
                                         .left(values("a"))
                                         .right(values("b")))));

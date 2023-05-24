@@ -131,6 +131,16 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalog)
+    {
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalog)
+    {
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         return catalogs;
@@ -138,11 +148,6 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
-    {
-    }
-
-    @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
     }
 
@@ -464,6 +469,12 @@ public class AllowAllSystemAccessControl
     public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
     {
         return emptyList();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

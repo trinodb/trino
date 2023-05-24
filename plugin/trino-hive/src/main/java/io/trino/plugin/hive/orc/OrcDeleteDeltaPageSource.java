@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
@@ -29,10 +30,7 @@ import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.BlockMissingException;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
@@ -40,15 +38,14 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_BUCKET;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_ROW_ID;
@@ -77,20 +74,16 @@ public class OrcDeleteDeltaPageSource
             FileFormatDataSourceStats stats)
     {
         OrcDataSource orcDataSource;
-        String path = inputFile.location();
+        Location path = inputFile.location();
         try {
             orcDataSource = new HdfsOrcDataSource(
-                    new OrcDataSourceId(inputFile.location()),
+                    new OrcDataSourceId(path.toString()),
                     inputFile.length(),
                     options,
                     inputFile,
                     stats);
         }
         catch (Exception e) {
-            if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
-                    e instanceof FileNotFoundException) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
-            }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
         }
 
@@ -111,16 +104,15 @@ public class OrcDeleteDeltaPageSource
             if (e instanceof TrinoException) {
                 throw (TrinoException) e;
             }
-            String message = openError(e, path);
-            if (e instanceof BlockMissingException) {
-                throw new TrinoException(HIVE_MISSING_DATA, message, e);
+            if (e instanceof OrcCorruptionException) {
+                throw new TrinoException(HIVE_BAD_DATA, e);
             }
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
         }
     }
 
     private OrcDeleteDeltaPageSource(
-            String path,
+            Location path,
             long fileSize,
             OrcReader reader,
             OrcDataSource orcDataSource,
@@ -130,7 +122,7 @@ public class OrcDeleteDeltaPageSource
         this.stats = requireNonNull(stats, "stats is null");
         this.orcDataSource = requireNonNull(orcDataSource, "orcDataSource is null");
 
-        verifyAcidSchema(reader, new Path(path));
+        verifyAcidSchema(reader, path);
         Map<String, OrcColumn> acidColumns = uniqueIndex(
                 reader.getRootColumn().getNestedColumns(),
                 orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
@@ -219,7 +211,7 @@ public class OrcDeleteDeltaPageSource
         return memoryContext.getBytes();
     }
 
-    private static String openError(Throwable t, String path)
+    private static String openError(Throwable t, Location path)
     {
         return format("Error opening Hive delete delta file %s: %s", path, t.getMessage());
     }

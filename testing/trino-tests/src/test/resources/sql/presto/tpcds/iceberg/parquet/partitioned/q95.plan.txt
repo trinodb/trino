@@ -9,29 +9,35 @@ final aggregation over ()
                                 join (INNER, PARTITIONED, can skip output duplicates):
                                     join (INNER, PARTITIONED, can skip output duplicates):
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_100"])
-                                            scan web_sales
+                                            dynamic filter (["ws_order_number_100", "ws_order_number_100", "ws_order_number_100"])
+                                                scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["wr_order_number"])
-                                                scan web_returns
+                                                dynamic filter (["wr_order_number", "wr_order_number"])
+                                                    scan web_returns
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_136"])
-                                            scan web_sales
+                                            dynamic filter (["ws_order_number_136"])
+                                                scan web_sales
                     join (INNER, PARTITIONED):
                         final aggregation over (ws_order_number_22)
                             local exchange (GATHER, SINGLE, [])
                                 partial aggregation over (ws_order_number_22)
                                     join (INNER, PARTITIONED, can skip output duplicates):
                                         remote exchange (REPARTITION, HASH, ["ws_order_number_22"])
-                                            scan web_sales
+                                            dynamic filter (["ws_order_number_22", "ws_order_number_22"])
+                                                scan web_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["ws_order_number_58"])
-                                                scan web_sales
+                                                dynamic filter (["ws_order_number_58"])
+                                                    scan web_sales
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["ws_order_number"])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan web_sales
+                                            dynamic filter (["ws_ship_addr_sk", "ws_ship_date_sk", "ws_web_site_sk"])
+                                                scan web_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan customer_address

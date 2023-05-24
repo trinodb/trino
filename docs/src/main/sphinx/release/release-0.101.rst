@@ -15,7 +15,7 @@ General
 * Fix excessive memory usage in :func:`map_agg`.
 * Fix excessive memory usage in queries that perform partitioned top-N operations
   with :func:`row_number`.
-* Optimize :ref:`array_type` comparison operators.
+* Optimize :ref:`array-type` comparison operators.
 * Fix analysis of ``UNION`` queries for tables with hidden columns.
 * Fix ``JOIN`` associativity to be left-associative instead of right-associative.
 * Add ``source`` column to ``runtime.queries`` table in :doc:`/connector/system`.

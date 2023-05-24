@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.QueryState.FINISHED;
+import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static org.testng.Assert.assertEquals;
 
 public class TestQueryInfo
@@ -42,7 +43,7 @@ public class TestQueryInfo
     @Test
     public void testQueryInfoRoundTrip()
     {
-        JsonCodec<QueryInfo> codec = JsonCodec.jsonCodec(QueryInfo.class);
+        JsonCodec<QueryInfo> codec = tracingJsonCodecFactory().jsonCodec(QueryInfo.class);
         QueryInfo expected = createQueryInfo();
         QueryInfo actual = codec.fromJson(codec.toJsonBytes(expected));
 
@@ -50,6 +51,8 @@ public class TestQueryInfo
         // Note: SessionRepresentation.equals?
         assertEquals(actual.getState(), expected.getState());
         assertEquals(actual.isScheduled(), expected.isScheduled());
+        assertEquals(actual.getProgressPercentage(), expected.getProgressPercentage());
+        assertEquals(actual.getRunningPercentage(), expected.getRunningPercentage());
 
         assertEquals(actual.getSelf(), expected.getSelf());
         assertEquals(actual.getFieldNames(), expected.getFieldNames());

@@ -9,7 +9,7 @@ using tools like `kind <https://kind.sigs.k8s.io>`_, to running on a managed
 Kubernetes service on cloud services like
 `Amazon Elastic Kubernetes Service <https://aws.amazon.com/eks>`_,
 `Google Kubernetes Engine <https://cloud.google.com/kubernetes-engine>`_,
-`Azure Kubernetes Service <https://azure.microsoft.com/en-us/services/kubernetes-service>`_,
+`Azure Kubernetes Service <https://azure.microsoft.com/services/kubernetes-service>`_,
 and others.
 
 The fastest way to run Trino on Kubernetes is to use the
@@ -258,10 +258,10 @@ deployed in this cluster and the size of the cluster nodes.
    workers, in this case, a coordinator and three worker nodes are deployed.
 #. ``.coordinator.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the coordinator. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 #. ``.worker.jvm.maxHeapSize`` is set to ``8GB``.
    This sets the maximum heap size in the JVM of the worker. See
-   :ref:`jvm_config`.
+   :ref:`jvm-config`.
 
 .. warning::
 

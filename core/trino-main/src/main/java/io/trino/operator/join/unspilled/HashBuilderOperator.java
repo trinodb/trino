@@ -15,7 +15,6 @@ package io.trino.operator.join.unspilled;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
@@ -33,7 +32,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -43,6 +41,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * Like {@link io.trino.operator.join.HashBuilderOperator} but simplified,
+ * without spill support.
+ */
 @ThreadSafe
 public class HashBuilderOperator
         implements Operator
@@ -169,11 +171,11 @@ public class HashBuilderOperator
     private final Optional<JoinFilterFunctionFactory> filterFunctionFactory;
     private final Optional<Integer> sortChannel;
     private final List<JoinFilterFunctionFactory> searchFunctionFactories;
-
-    private final PagesIndex index;
     private final HashArraySizeSupplier hashArraySizeSupplier;
 
     private State state = State.CONSUMING_INPUT;
+    @Nullable
+    private PagesIndex index;
     private Optional<ListenableFuture<Void>> lookupSourceNotNeeded = Optional.empty();
     @Nullable
     private LookupSourceSupplier lookupSourceSupplier;
@@ -258,6 +260,8 @@ public class HashBuilderOperator
 
     private void updateIndex(Page page)
     {
+        checkState(index != null, "index is null");
+
         index.addPage(page);
 
         if (!localUserMemoryContext.trySetBytes(index.getEstimatedSize().toBytes())) {
@@ -306,10 +310,20 @@ public class HashBuilderOperator
             return;
         }
 
+        checkState(index != null, "index is null");
+        ListenableFuture<Void> reserved = localUserMemoryContext.setBytes(index.getEstimatedMemoryRequiredToCreateLookupSource(
+                hashArraySizeSupplier,
+                sortChannel,
+                hashChannels));
+        if (!reserved.isDone()) {
+            // Yield when not enough memory is available to proceed, finish is expected to be called again when some memory is freed
+            return;
+        }
         LookupSourceSupplier partition = buildLookupSource();
         localUserMemoryContext.setBytes(partition.get().getInMemorySizeInBytes());
         lookupSourceNotNeeded = Optional.of(lookupSourceFactory.lendPartitionLookupSource(partitionIndex, partition));
 
+        index = null;
         state = State.LOOKUP_SOURCE_BUILT;
     }
 
@@ -321,14 +335,12 @@ public class HashBuilderOperator
             return;
         }
 
-        index.clear();
-        localUserMemoryContext.setBytes(index.getEstimatedSize().toBytes());
-        lookupSourceSupplier = null;
         close();
     }
 
     private LookupSourceSupplier buildLookupSource()
     {
+        checkState(index != null, "index is null");
         LookupSourceSupplier partition = index.createLookupSourceSupplier(operatorContext.getSession(), hashChannels, preComputedHashChannel, filterFunctionFactory, sortChannel, searchFunctionFactories, Optional.of(outputChannels), hashArraySizeSupplier);
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
@@ -356,14 +368,14 @@ public class HashBuilderOperator
         // close() can be called in any state, due for example to query failure, and must clean resource up unconditionally
 
         lookupSourceSupplier = null;
+        index = null;
+        localUserMemoryContext.setBytes(0);
         state = State.CLOSED;
+    }
 
-        try (Closer closer = Closer.create()) {
-            closer.register(index::clear);
-            closer.register(() -> localUserMemoryContext.setBytes(0));
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    @VisibleForTesting
+    State getState()
+    {
+        return state;
     }
 }

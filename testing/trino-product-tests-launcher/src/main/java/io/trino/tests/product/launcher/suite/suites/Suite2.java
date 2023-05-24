@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
-import io.trino.tests.product.launcher.env.environment.EnvSinglenode;
+import io.trino.tests.product.launcher.env.environment.EnvMultinode;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsImpersonation;
 import io.trino.tests.product.launcher.env.environment.EnvSinglenodeKerberosHdfsNoImpersonation;
@@ -34,11 +34,11 @@ public class Suite2
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                testOnEnvironment(EnvSinglenode.class)
+                testOnEnvironment(EnvMultinode.class)
                         .withGroups("configured_features", "hdfs_no_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
+                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation", "hive_kerberos")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveNoImpersonationWithCredentialCache.class)
                         .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
@@ -47,7 +47,7 @@ public class Suite2
                         .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header")
+                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header", "hive_kerberos")
                         .build());
     }
 }

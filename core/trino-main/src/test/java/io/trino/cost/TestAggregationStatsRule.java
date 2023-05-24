@@ -14,7 +14,9 @@
 package io.trino.cost;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
@@ -61,13 +63,15 @@ public class TestAggregationStatsRule
         Consumer<PlanNodeStatsAssertion> outputRowsCountAndZStatsAreNotFullyCalculated = check -> check
                 .outputRowsCountUnknown()
                 .symbolStats("z", symbolStatsAssertion -> symbolStatsAssertion
-                        .unknownRange()
+                        .lowValue(10)
+                        .highValue(15)
                         .distinctValuesCountUnknown()
                         .nullsFractionUnknown())
                 .symbolStats("y", symbolStatsAssertion -> symbolStatsAssertion
-                        .unknownRange()
-                        .nullsFractionUnknown()
-                        .distinctValuesCountUnknown());
+                        .lowValue(0)
+                        .highValue(3)
+                        .distinctValuesCount(3)
+                        .nullsFraction(0));
 
         testAggregation(
                 SymbolStatsEstimate.builder()
@@ -147,5 +151,35 @@ public class TestAggregationStatsRule
                         .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testAggregationWithGlobalGrouping()
+    {
+        tester().assertStatsFor(pb -> pb
+                        .aggregation(ab -> ab
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
+                                .globalGrouping()
+                                .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.unknown())
+                .check(check -> check.outputRowsCount(1));
+    }
+
+    @Test
+    public void testAggregationWithMoreGroupingSets()
+    {
+        tester().assertStatsFor(pb -> pb
+                        .aggregation(ab -> ab
+                                .addAggregation(pb.symbol("count_on_x", BIGINT), expression("count(x)"), ImmutableList.of(BIGINT))
+                                .addAggregation(pb.symbol("sum", BIGINT), expression("sum(x)"), ImmutableList.of(BIGINT))
+                                .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableList.of(pb.symbol("y"), pb.symbol("z")), 3, ImmutableSet.of(0)))
+                                .source(pb.values(pb.symbol("x", BIGINT), pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addSymbolStatistics(new Symbol("y"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .addSymbolStatistics(new Symbol("z"), SymbolStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .build())
+                .check(check -> check.outputRowsCountUnknown());
     }
 }

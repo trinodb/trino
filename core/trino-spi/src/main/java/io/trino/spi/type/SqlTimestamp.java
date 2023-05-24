@@ -26,8 +26,10 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.formatTimestamp;
 import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
+import static java.lang.Math.addExact;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
 public final class SqlTimestamp
@@ -39,6 +41,14 @@ public final class SqlTimestamp
     public static SqlTimestamp fromMillis(int precision, long millis)
     {
         return newInstanceWithRounding(precision, millis * 1000, 0);
+    }
+
+    public static SqlTimestamp fromSeconds(int precision, long seconds, long nanosOfSecond)
+    {
+        long fractionInPicos = nanosOfSecond * PICOSECONDS_PER_NANOSECOND;
+        long epochMicros = addExact(multiplyExact(seconds, MICROSECONDS_PER_SECOND), fractionInPicos / PICOSECONDS_PER_MICROSECOND);
+        int picosOfMicro = (int) (fractionInPicos % PICOSECONDS_PER_MICROSECOND);
+        return newInstanceWithRounding(precision, epochMicros, picosOfMicro);
     }
 
     public static SqlTimestamp newInstance(int precision, long epochMicros, int picosOfMicro)

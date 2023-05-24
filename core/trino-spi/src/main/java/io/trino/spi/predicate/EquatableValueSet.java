@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;
@@ -36,13 +35,13 @@ import java.util.stream.Collector;
 import java.util.stream.Stream;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -58,7 +57,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class EquatableValueSet
         implements ValueSet
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(EquatableValueSet.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(EquatableValueSet.class);
 
     private final Type type;
     private final boolean inclusive;
@@ -434,7 +433,7 @@ public class EquatableValueSet
 
     public static class ValueEntry
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ValueEntry.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ValueEntry.class);
 
         private final Type type;
         private final Block block;
@@ -452,7 +451,7 @@ public class EquatableValueSet
             if (block.getPositionCount() != 1) {
                 throw new IllegalArgumentException("Block should only have one position");
             }
-            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
             this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         }
 
@@ -503,14 +502,14 @@ public class EquatableValueSet
                 return false;
             }
 
-            Boolean result;
+            boolean result;
             try {
-                result = (Boolean) equalOperator.invokeExact(this.block, 0, other.block, 0);
+                result = (boolean) equalOperator.invokeExact(this.block, 0, other.block, 0);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
             }
-            return Boolean.TRUE.equals(result);
+            return result;
         }
 
         public long getRetainedSizeInBytes()

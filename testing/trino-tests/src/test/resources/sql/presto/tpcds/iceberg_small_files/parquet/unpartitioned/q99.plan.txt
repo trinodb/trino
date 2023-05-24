@@ -1,0 +1,24 @@
+local exchange (GATHER, SINGLE, [])
+    remote exchange (GATHER, SINGLE, [])
+        final aggregation over (cc_name, sm_type, substr$gid)
+            local exchange (GATHER, SINGLE, [])
+                remote exchange (REPARTITION, HASH, ["cc_name", "sm_type", "substr$gid"])
+                    partial aggregation over (cc_name, sm_type, substr$gid)
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                join (INNER, REPLICATED):
+                                    join (INNER, REPLICATED):
+                                        dynamic filter (["cs_call_center_sk", "cs_ship_date_sk", "cs_ship_mode_sk", "cs_warehouse_sk"])
+                                            scan catalog_sales
+                                        local exchange (GATHER, SINGLE, [])
+                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                scan warehouse
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPLICATE, BROADCAST, [])
+                                            scan ship_mode
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan call_center
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan date_dim

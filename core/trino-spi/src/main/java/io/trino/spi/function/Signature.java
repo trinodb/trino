@@ -286,6 +286,7 @@ public class Signature
 
     /**
      * This method is only visible for JSON deserialization.
+     *
      * @deprecated use builder
      */
     @Deprecated

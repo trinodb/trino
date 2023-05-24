@@ -77,10 +77,23 @@ public final class SimpleSliceInputStream
         return bytes;
     }
 
+    public void readBytes(byte[] output, int outputOffset, int length)
+    {
+        slice.getBytes(offset, output, outputOffset, length);
+        offset += length;
+    }
+
     public void readBytes(Slice destination, int destinationIndex, int length)
     {
         slice.getBytes(offset, destination, destinationIndex, length);
         offset += length;
+    }
+
+    public Slice readSlice(int length)
+    {
+        Slice result = slice.slice(offset, length);
+        offset += length;
+        return result;
     }
 
     public void skip(int n)

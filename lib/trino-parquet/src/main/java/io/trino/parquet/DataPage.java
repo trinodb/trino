@@ -15,8 +15,9 @@ package io.trino.parquet;
 
 import java.util.OptionalLong;
 
-public abstract class DataPage
+public abstract sealed class DataPage
         extends Page
+        permits DataPageV1, DataPageV2
 {
     protected final int valueCount;
     private final OptionalLong firstRowIndex;

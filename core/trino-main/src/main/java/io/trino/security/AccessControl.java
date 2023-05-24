@@ -100,6 +100,20 @@ public interface AccessControl
     void checkCanKillQueryOwnedBy(Identity identity, Identity queryOwner);
 
     /**
+     * Check if identity is allowed to create the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanCreateCatalog(SecurityContext context, String catalog);
+
+    /**
+     * Check if identity is allowed to drop the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanDropCatalog(SecurityContext context, String catalog);
+
+    /**
      * Filter the list of catalogs to those visible to the identity.
      */
     Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs);
@@ -566,8 +580,8 @@ public interface AccessControl
         return ImmutableList.of();
     }
 
-    default List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    default Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
-        return ImmutableList.of();
+        return Optional.empty();
     }
 }

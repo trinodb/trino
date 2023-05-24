@@ -153,9 +153,34 @@ public class SingleStoreClient
     private final Type jsonType;
 
     @Inject
-    public SingleStoreClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
+    public SingleStoreClient(
+            BaseJdbcConfig config,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            TypeManager typeManager,
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        this(
+                config,
+                connectionFactory,
+                queryBuilder,
+                typeManager,
+                identifierMapping,
+                queryModifier,
+                false);
+    }
+
+    protected SingleStoreClient(
+            BaseJdbcConfig config,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            TypeManager typeManager,
+            IdentifierMapping identifierMapping,
+            RemoteQueryModifier queryModifier,
+            boolean supportsRetries)
+    {
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, supportsRetries);
         requireNonNull(typeManager, "typeManager is null");
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
@@ -346,6 +371,12 @@ public class SingleStoreClient
                 quoted(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
                 quoted(remoteColumnName),
                 quoted(newRemoteColumnName)));
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     @Override

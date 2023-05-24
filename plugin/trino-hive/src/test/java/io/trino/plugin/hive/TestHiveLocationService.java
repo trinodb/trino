@@ -14,11 +14,11 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
@@ -32,21 +32,21 @@ public class TestHiveLocationService
     public void testGetTableWriteInfoAppend()
     {
         assertThat(locationHandle(STAGE_AND_MOVE_TO_TARGET_DIRECTORY), false)
-                .producesWriteInfo(new WriteInfo(
-                        new Path("/target"),
-                        new Path("/write"),
+                .producesWriteInfo(writeInfo(
+                        "/target",
+                        "/write",
                         STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
 
         assertThat(locationHandle(DIRECT_TO_TARGET_EXISTING_DIRECTORY, "/target", "/target"), false)
-                .producesWriteInfo(new WriteInfo(
-                        new Path("/target"),
-                        new Path("/target"),
+                .producesWriteInfo(writeInfo(
+                        "/target",
+                        "/target",
                         DIRECT_TO_TARGET_EXISTING_DIRECTORY));
 
         assertThat(locationHandle(DIRECT_TO_TARGET_NEW_DIRECTORY, "/target", "/target"), false)
-                .producesWriteInfo(new WriteInfo(
-                        new Path("/target"),
-                        new Path("/target"),
+                .producesWriteInfo(writeInfo(
+                        "/target",
+                        "/target",
                         DIRECT_TO_TARGET_NEW_DIRECTORY));
     }
 
@@ -54,10 +54,7 @@ public class TestHiveLocationService
     public void testGetTableWriteInfoOverwriteSuccess()
     {
         assertThat(locationHandle(STAGE_AND_MOVE_TO_TARGET_DIRECTORY), true)
-                .producesWriteInfo(new WriteInfo(
-                        new Path("/target"),
-                        new Path("/write"),
-                        STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
+                .producesWriteInfo(writeInfo("/target", "/write", STAGE_AND_MOVE_TO_TARGET_DIRECTORY));
     }
 
     @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Overwriting unpartitioned table not supported when writing directly to target directory")
@@ -84,15 +81,15 @@ public class TestHiveLocationService
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
             HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
-            LocationService service = new HiveLocationService(hdfsEnvironment);
+            LocationService service = new HiveLocationService(hdfsEnvironment, new HiveConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 
         public void producesWriteInfo(WriteInfo expected)
         {
-            assertEquals(actual.getWritePath(), expected.getWritePath());
-            assertEquals(actual.getTargetPath(), expected.getTargetPath());
-            assertEquals(actual.getWriteMode(), expected.getWriteMode());
+            assertEquals(actual.writePath(), expected.writePath());
+            assertEquals(actual.targetPath(), expected.targetPath());
+            assertEquals(actual.writeMode(), expected.writeMode());
         }
     }
 
@@ -103,6 +100,11 @@ public class TestHiveLocationService
 
     private static LocationHandle locationHandle(LocationHandle.WriteMode writeMode, String targetPath, String writePath)
     {
-        return new LocationHandle(new Path(targetPath), new Path(writePath), writeMode);
+        return new LocationHandle(Location.of(targetPath), Location.of(writePath), writeMode);
+    }
+
+    private static WriteInfo writeInfo(String targetPath, String writePath, LocationHandle.WriteMode writeMode)
+    {
+        return new WriteInfo(Location.of(targetPath), Location.of(writePath), writeMode);
     }
 }

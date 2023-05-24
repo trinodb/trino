@@ -17,12 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TDigest;
 import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
@@ -42,7 +41,6 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
 public class TestTDigestAggregationFunction
-        extends AbstractTestFunctions
 {
     private static final BiFunction<Object, Object, Boolean> TDIGEST_EQUALITY = (actualBinary, expectedBinary) -> {
         if (actualBinary == null && expectedBinary == null) {

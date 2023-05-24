@@ -35,7 +35,7 @@ public class RaptorPlugin
 
     public RaptorPlugin()
     {
-        this("raptor-legacy", new DatabaseMetadataModule(), ImmutableMap.of());
+        this("raptor_legacy", new DatabaseMetadataModule(), ImmutableMap.of());
     }
 
     public RaptorPlugin(String name, Module metadataModule, Map<String, Module> backupProviders)

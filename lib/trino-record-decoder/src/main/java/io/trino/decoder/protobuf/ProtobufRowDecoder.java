@@ -17,6 +17,7 @@ import com.google.protobuf.DynamicMessage;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,13 +35,13 @@ public class ProtobufRowDecoder
     private final DynamicMessageProvider dynamicMessageProvider;
     private final Map<DecoderColumnHandle, ProtobufColumnDecoder> columnDecoders;
 
-    public ProtobufRowDecoder(DynamicMessageProvider dynamicMessageProvider, Set<DecoderColumnHandle> columns)
+    public ProtobufRowDecoder(DynamicMessageProvider dynamicMessageProvider, Set<DecoderColumnHandle> columns, TypeManager typeManager)
     {
         this.dynamicMessageProvider = requireNonNull(dynamicMessageProvider, "dynamicMessageSupplier is null");
         this.columnDecoders = columns.stream()
                 .collect(toImmutableMap(
                         identity(),
-                        ProtobufColumnDecoder::new));
+                        column -> new ProtobufColumnDecoder(column, typeManager)));
     }
 
     @Override

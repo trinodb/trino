@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
@@ -44,6 +45,7 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
@@ -139,12 +141,6 @@ public class FileBasedAccessControl
 
     @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
-    {
-        checkCanCreateSchema(context, schemaName);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
         if (!isSchemaOwner(context, schemaName)) {
             denyCreateSchema(schemaName);
@@ -651,7 +647,7 @@ public class FileBasedAccessControl
         ConnectorIdentity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(catalogName, tableName.getSchemaName()))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -660,21 +656,33 @@ public class FileBasedAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         ConnectorIdentity identity = context.getIdentity();
-        return tableRules.stream()
+        List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledSystemRoles(), identity.getGroups(), tableName))
-                .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(catalogName, tableName.getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .collect(toImmutableList());
+                .toList();
+
+        if (masks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", tableName, columnName));
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)

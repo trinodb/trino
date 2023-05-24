@@ -394,8 +394,7 @@ public class LogicalIndexExtractor
             ImmutableList.Builder<Symbol> inputSymbols = ImmutableList.builder();
 
             for (ValuePointer valuePointer : valuePointers) {
-                if (valuePointer instanceof ScalarValuePointer) {
-                    ScalarValuePointer pointer = (ScalarValuePointer) valuePointer;
+                if (valuePointer instanceof ScalarValuePointer pointer) {
                     Symbol symbol = pointer.getInputSymbol();
                     if (!classifierSymbols.contains(symbol) && !matchNumberSymbols.contains(symbol)) {
                         inputSymbols.add(symbol);

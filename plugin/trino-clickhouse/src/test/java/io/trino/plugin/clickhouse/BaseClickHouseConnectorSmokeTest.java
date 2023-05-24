@@ -28,6 +28,8 @@ public abstract class BaseClickHouseConnectorSmokeTest
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
                 return false;
+            case SUPPORTS_TRUNCATE:
+                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);

@@ -49,11 +49,18 @@ public class ConnectorTablePartitioning
 {
     private final ConnectorPartitioningHandle partitioningHandle;
     private final List<ColumnHandle> partitioningColumns;
+    private final boolean singleSplitPerPartition;
 
     public ConnectorTablePartitioning(ConnectorPartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
     {
+        this(partitioningHandle, partitioningColumns, false);
+    }
+
+    public ConnectorTablePartitioning(ConnectorPartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns, boolean singleSplitPerPartition)
+    {
         this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
         this.partitioningColumns = List.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
+        this.singleSplitPerPartition = singleSplitPerPartition;
     }
 
     /**
@@ -76,6 +83,11 @@ public class ConnectorTablePartitioning
         return partitioningColumns;
     }
 
+    public boolean isSingleSplitPerPartition()
+    {
+        return singleSplitPerPartition;
+    }
+
     @Override
     public boolean equals(Object o)
     {
@@ -86,13 +98,14 @@ public class ConnectorTablePartitioning
             return false;
         }
         ConnectorTablePartitioning that = (ConnectorTablePartitioning) o;
-        return Objects.equals(partitioningHandle, that.partitioningHandle) &&
+        return singleSplitPerPartition == that.singleSplitPerPartition &&
+                Objects.equals(partitioningHandle, that.partitioningHandle) &&
                 Objects.equals(partitioningColumns, that.partitioningColumns);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(partitioningHandle, partitioningColumns);
+        return Objects.hash(partitioningHandle, partitioningColumns, singleSplitPerPartition);
     }
 }

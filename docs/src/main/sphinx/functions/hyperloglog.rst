@@ -3,7 +3,7 @@ HyperLogLog functions
 =====================
 
 Trino implements the :func:`approx_distinct` function using the
-`HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_ data structure.
+`HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_ data structure.
 
 Data structures
 ---------------
@@ -15,7 +15,7 @@ structure starts as the sparse representation, switching to dense when it is
 more efficient. The P4HyperLogLog structure is initialized densely and
 remains dense for its lifetime.
 
-:ref:`hyperloglog_type` implicitly casts to :ref:`p4hyperloglog_type`,
+:ref:`hyperloglog-type` implicitly casts to :ref:`p4hyperloglog-type`,
 while one can explicitly cast ``HyperLogLog`` to ``P4HyperLogLog``::
 
     cast(hll AS P4HyperLogLog)

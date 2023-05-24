@@ -54,15 +54,12 @@ public class UnwrapRowSubscript
             Expression base = treeRewriter.rewrite(node.getBase(), context);
 
             Deque<Coercion> coercions = new ArrayDeque<>();
-            while (base instanceof Cast) {
-                Cast cast = (Cast) base;
-
-                if (!(cast.getType() instanceof RowDataType)) {
+            while (base instanceof Cast cast) {
+                if (!(cast.getType() instanceof RowDataType rowType)) {
                     break;
                 }
 
                 int index = (int) ((LongLiteral) node.getIndex()).getValue();
-                RowDataType rowType = (RowDataType) cast.getType();
                 DataType type = rowType.getFields().get(index - 1).getType();
                 if (!(type instanceof GenericDataType) || !((GenericDataType) type).getName().getValue().equalsIgnoreCase(UnknownType.NAME)) {
                     coercions.push(new Coercion(type, cast.isTypeOnly(), cast.isSafe()));
@@ -71,8 +68,7 @@ public class UnwrapRowSubscript
                 base = cast.getExpression();
             }
 
-            if (base instanceof Row) {
-                Row row = (Row) base;
+            if (base instanceof Row row) {
                 int index = (int) ((LongLiteral) node.getIndex()).getValue();
                 Expression result = row.getItems().get(index - 1);
 

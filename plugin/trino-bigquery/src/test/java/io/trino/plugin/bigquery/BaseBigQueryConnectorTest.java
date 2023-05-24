@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.cloud.bigquery.TableDefinition;
+import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.spi.QueryId;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testing.sql.TestView;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
@@ -26,31 +29,49 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
+import java.util.function.Function;
 
+import static com.google.cloud.bigquery.TableDefinition.Type.EXTERNAL;
+import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
+import static com.google.cloud.bigquery.TableDefinition.Type.SNAPSHOT;
+import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
+import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
+import static io.trino.plugin.bigquery.BigQueryQueryRunner.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
+    private String gcpStorageBucket;
 
     @BeforeClass(alwaysRun = true)
-    public void initBigQueryExecutor()
+    @Parameters("testing.gcp-storage-bucket")
+    public void initBigQueryExecutor(String gcpStorageBucket)
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
+        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
+        this.gcpStorageBucket = gcpStorageBucket;
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -58,6 +79,13 @@ public abstract class BaseBigQueryConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -69,13 +97,15 @@ public abstract class BaseBigQueryConnectorTest
 
             case SUPPORTS_ADD_COLUMN:
             case SUPPORTS_RENAME_COLUMN:
+            case SUPPORTS_SET_COLUMN_TYPE:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_TRUNCATE:
-                return true;
 
             case SUPPORTS_NEGATIVE_DATE:
                 return false;
@@ -89,28 +119,14 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     public void testShowColumns()
     {
-        // shippriority column is bigint (not integer) in BigQuery connector
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "bigint", "", "")
-                .row("comment", "varchar", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
+        assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
     @Override
-    public void testDescribeTable()
+    protected MaterializedResult getDescribeOrdersResult()
     {
-        MaterializedResult expectedColumns = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        // shippriority column is bigint (not integer) in BigQuery connector
+        return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "bigint", "", "")
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
@@ -121,8 +137,6 @@ public abstract class BaseBigQueryConnectorTest
                 .row("shippriority", "bigint", "", "")
                 .row("comment", "varchar", "", "")
                 .build();
-        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        assertEquals(actualColumns, expectedColumns);
     }
 
     @Test(dataProvider = "createTableSupportedTypes")
@@ -204,16 +218,38 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test
-    public void testEmptyProjection()
+    @Test(dataProvider = "emptyProjectionSetupDataProvider")
+    public void testEmptyProjection(TableDefinition.Type tableType, String createSql, String dropSql)
     {
-        // Regression test for https://github.com/trinodb/trino/issues/14981
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
-                "test_emtpy_projection",
-                " AS SELECT * FROM region")) {
-            assertQuery("SELECT count(*) FROM " + table.getName(), "VALUES 5");
+        // Regression test for https://github.com/trinodb/trino/issues/14981, https://github.com/trinodb/trino/issues/5635 and https://github.com/trinodb/trino/issues/6696
+        String name = TEST_SCHEMA + ".test_empty_projection_" + tableType.name().toLowerCase(ENGLISH) + randomNameSuffix();
+        onBigQuery(createSql.formatted(name));
+        try {
+            assertQuery("SELECT count(*) FROM " + name, "VALUES 5");
+            assertQuery("SELECT count(*) FROM " + name, "VALUES 5"); // repeated query to cover https://github.com/trinodb/trino/issues/6696
+            assertQuery("SELECT count(*) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
+            assertQuery("SELECT count(name) FROM " + name + " WHERE regionkey = 1", "VALUES 1");
         }
+        finally {
+            onBigQuery(dropSql.formatted(name));
+        }
+    }
+
+    @DataProvider
+    public Object[][] emptyProjectionSetupDataProvider()
+    {
+        Object[][] testCases = new Object[][] {
+                {TABLE, "CREATE TABLE %s AS SELECT * FROM tpch.region", "DROP TABLE %s"},
+                {VIEW, "CREATE VIEW %s AS SELECT * FROM tpch.region", "DROP VIEW %s"},
+                {MATERIALIZED_VIEW, "CREATE MATERIALIZED VIEW %s AS SELECT * FROM tpch.region", "DROP MATERIALIZED VIEW %s"},
+                {EXTERNAL, "CREATE EXTERNAL TABLE %s OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])", "DROP EXTERNAL TABLE %s"},
+                {SNAPSHOT, "CREATE SNAPSHOT TABLE %s CLONE tpch.region", "DROP SNAPSHOT TABLE %s"},
+        };
+        Set<TableDefinition.Type> testedTableTypes = Arrays.stream(testCases)
+                .map(array -> (TableDefinition.Type) array[0])
+                .collect(toImmutableSet());
+        verify(testedTableTypes.containsAll(TABLE_TYPES));
+        return testCases;
     }
 
     @Override
@@ -222,8 +258,6 @@ public abstract class BaseBigQueryConnectorTest
         switch (dataMappingTestSetup.getTrinoTypeName()) {
             case "real":
             case "char(3)":
-            case "decimal(5,3)":
-            case "decimal(15,3)":
             case "time":
             case "time(3)":
             case "time(6)":
@@ -247,9 +281,23 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
+    public void testNoDataSystemTable()
+    {
+        // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
+        assertThatThrownBy(super::testNoDataSystemTable)
+                .hasMessageFindingMatch("\\Q" +
+                        "Expecting message:\n" +
+                        "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
+                        "to match regex:\n" +
+                        "  \"line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist\"\n" +
+                        "but did not.");
+        throw new SkipException("TODO");
+    }
+
+    @Override
     protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        return nullToEmpty(exception.getMessage()).matches(".*(Fields must contain only letters, numbers, and underscores, start with a letter or underscore, and be at most 300 characters long).*");
+        return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
     @Test
@@ -268,7 +316,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_date\" = DATE '2159-12-31'", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
@@ -287,7 +335,7 @@ public abstract class BaseBigQueryConnectorTest
             assertQuery(format("SELECT value FROM %s WHERE \"$partition_time\" = CAST('2159-12-31 23:00:00 UTC' AS TIMESTAMP(6) WITH TIME ZONE)", table.getName()), "VALUES 2");
 
             // Verify DESCRIBE result doesn't have hidden columns
-            assertThat(query("DESCRIBE " + table.getName())).projected(0).skippingTypesCheck().matches("VALUES 'value'");
+            assertThat(query("DESCRIBE " + table.getName())).projected("Column").skippingTypesCheck().matches("VALUES 'value'");
         }
     }
 
@@ -386,33 +434,6 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5635")
-    public void testCountAggregationView()
-    {
-        try (TestTable table = new TestTable(
-                bigQuerySqlExecutor,
-                "test.count_aggregation_table",
-                "(a INT64, b INT64, c INT64)",
-                List.of("1, 2, 3", "4, 5, 6"));
-                TestView view = new TestView(bigQuerySqlExecutor, "test.count_aggregation_view", "SELECT * FROM " + table.getName())) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (2)");
-            assertQuery("SELECT count(*) FROM " + view.getName() + " WHERE a = 1", "VALUES (1)");
-            assertQuery("SELECT count(a) FROM " + view.getName() + " WHERE b = 2", "VALUES (1)");
-        }
-    }
-
-    /**
-     * regression test for https://github.com/trinodb/trino/issues/6696
-     */
-    @Test
-    public void testRepeatCountAggregationView()
-    {
-        try (TestView view = new TestView(bigQuerySqlExecutor, "test.repeat_count_aggregation_view", "SELECT 1 AS col1")) {
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
-            assertQuery("SELECT count(*) FROM " + view.getName(), "VALUES (1)");
-        }
-    }
-
     /**
      * https://github.com/trinodb/trino/issues/8183
      */
@@ -435,10 +456,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " FILTER USING (true)");
-            assertEventually(() -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
+            assertEventually(new Duration(1, MINUTES), () -> assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName()));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
         }
     }
 
@@ -451,10 +472,10 @@ public abstract class BaseBigQueryConnectorTest
 
             // Use assertEventually because there's delay until new row access policies become effective
             onBigQuery("CREATE ROW ACCESS POLICY " + policyName + " ON " + table.getName() + " GRANT TO (\"allAuthenticatedUsers\") FILTER USING (col = 1)");
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES 1"));
 
             onBigQuery("DROP ALL ROW ACCESS POLICIES ON " + table.getName());
-            assertEventually(() -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
+            assertEventually(new Duration(1, MINUTES), () -> assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2)"));
         }
     }
 
@@ -570,10 +591,8 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    @Parameters("testing.gcp-storage-bucket")
-    public void testBigQueryExternalTable(String gcpStorageBucket)
+    public void testBigQueryExternalTable()
     {
-        // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
         String externalTable = "test_external" + randomNameSuffix();
         try {
             onBigQuery("CREATE EXTERNAL TABLE test." + externalTable + " OPTIONS (format = 'CSV', uris = ['gs://" + gcpStorageBucket + "/tpch/tiny/region.csv'])");
@@ -588,6 +607,50 @@ public abstract class BaseBigQueryConnectorTest
         finally {
             onBigQuery("DROP EXTERNAL TABLE IF EXISTS test." + externalTable);
         }
+    }
+
+    @Test
+    public void testQueryLabeling()
+    {
+        Function<String, Session> sessionWithToken = token -> Session.builder(getSession())
+                .setTraceToken(Optional.of(token))
+                .build();
+
+        String materializedView = "test_query_label" + randomNameSuffix();
+        try {
+            onBigQuery("CREATE MATERIALIZED VIEW test." + materializedView + " AS SELECT count(1) AS cnt FROM tpch.region");
+
+            @Language("SQL")
+            String query = "SELECT * FROM test." + materializedView;
+
+            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("first_token"), query);
+            assertLabelForTable(materializedView, result.getQueryId(), "first_token");
+
+            MaterializedResultWithQueryId result2 = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("second_token"), query);
+            assertLabelForTable(materializedView, result2.getQueryId(), "second_token");
+
+            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("InvalidToken"), query))
+                    .hasMessageContaining("BigQuery label value can contain only lowercase letters, numeric characters, underscores, and dashes");
+        }
+        finally {
+            onBigQuery("DROP MATERIALIZED VIEW IF EXISTS test." + materializedView);
+        }
+    }
+
+    private void assertLabelForTable(String expectedView, QueryId queryId, String traceToken)
+    {
+        String expectedLabel = "q_" + queryId.toString() + "__t_" + traceToken;
+
+        @Language("SQL")
+        String checkForLabelQuery = """
+                    SELECT * FROM region-us.INFORMATION_SCHEMA.JOBS_BY_USER WHERE EXISTS(
+                        SELECT * FROM UNNEST(labels) AS label WHERE label.key = 'trino_query' AND label.value = '%s'
+                    )""".formatted(expectedLabel);
+
+        assertThat(bigQuerySqlExecutor.executeQuery(checkForLabelQuery).getValues())
+                .extracting(values -> values.get("query").getStringValue())
+                .singleElement()
+                .matches(statement -> statement.contains(expectedView));
     }
 
     @Test
@@ -709,6 +772,35 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
+    public void testNativeQuerySelectForCaseSensitiveColumnNames()
+    {
+        assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1 AS lower, 2 AS UPPER, 3 AS miXED'))").getColumnNames())
+                .containsExactly("lower", "UPPER", "miXED");
+
+        assertThat(computeActual("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1 AS duplicated, 2 AS duplicated'))").getColumnNames())
+                .containsExactly("duplicated", "duplicated_1");
+
+        String tableName = "test.test_non_lowercase" + randomNameSuffix();
+        onBigQuery("CREATE TABLE " + tableName + " AS SELECT 1 AS lower, 2 AS UPPER, 3 AS miXED");
+        try {
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES (1, 2, 3)");
+            assertQuery(
+                    "SELECT \"lower\", \"UPPER\", \"miXED\" FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                    "VALUES (1, 2, 3)");
+            assertQuery(
+                    "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE \"UPPER\" = 2",
+                    "VALUES (1, 2, 3)");
+            assertQueryReturnsEmptyResult("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE \"UPPER\" = 100");
+            assertQueryReturnsEmptyResult("SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT * FROM " + tableName + "')) WHERE upper = 100");
+        }
+        finally {
+            onBigQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testNativeQuerySelectFromNation()
     {
         assertQuery(
@@ -717,6 +809,24 @@ public abstract class BaseBigQueryConnectorTest
         assertQuery(
                 "SELECT name FROM TABLE(bigquery.system.query(query => 'SELECT * FROM tpch.nation')) WHERE nationkey = 0",
                 "VALUES 'ALGERIA'");
+    }
+
+    @Test
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0'))"))
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'name' cannot be resolved");
+        assertQueryFails(
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'column_not_found' cannot be resolved");
     }
 
     @Test
@@ -803,6 +913,13 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
+    public void testInsertRowConcurrently()
+    {
+        // TODO https://github.com/trinodb/trino/issues/15158 Enable this test after switching to storage write API
+        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+    }
+
+    @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
         return format(".*Invalid date: '%s'.*", date);
@@ -817,7 +934,14 @@ public abstract class BaseBigQueryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("BigQuery connector does not support column default values");
+        return new TestTable(
+                this::onBigQuery,
+                "test.test_table",
+                "(col_required INT64 NOT NULL," +
+                        "col_nullable INT64," +
+                        "col_default INT64 DEFAULT 43," +
+                        "col_nonnull_default INT64 DEFAULT 42 NOT NULL," +
+                        "col_required2 INT64 NOT NULL)");
     }
 
     @Override

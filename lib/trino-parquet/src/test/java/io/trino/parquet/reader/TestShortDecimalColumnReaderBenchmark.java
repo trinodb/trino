@@ -13,9 +13,14 @@
  */
 package io.trino.parquet.reader;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetEncoding;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static io.trino.parquet.ParquetEncoding.PLAIN;
 
 public class TestShortDecimalColumnReaderBenchmark
 {
@@ -24,10 +29,13 @@ public class TestShortDecimalColumnReaderBenchmark
             throws IOException
     {
         for (int typeLength = 1; typeLength <= 8; typeLength++) {
-            BenchmarkShortDecimalColumnReader benchmark = new BenchmarkShortDecimalColumnReader();
-            benchmark.byteArrayLength = typeLength;
-            benchmark.setup();
-            benchmark.read();
+            for (ParquetEncoding encoding : ImmutableList.of(PLAIN, DELTA_BYTE_ARRAY)) {
+                BenchmarkShortDecimalColumnReader benchmark = new BenchmarkShortDecimalColumnReader();
+                benchmark.byteArrayLength = typeLength;
+                benchmark.encoding = encoding;
+                benchmark.setup();
+                benchmark.read();
+            }
         }
     }
 }

@@ -46,6 +46,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,7 @@ import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
@@ -221,6 +223,18 @@ public interface ConnectorMetadata
      *
      * @throws RuntimeException if table handle is no longer valid
      */
+    default SchemaTableName getTableName(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return getSchemaTableName(session, table);
+    }
+
+    /**
+     * Return schema table name for the specified table handle.
+     * This method is useful when requiring only {@link SchemaTableName} without other objects.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    @Deprecated // replaced with getTableName
     default SchemaTableName getSchemaTableName(ConnectorSession session, ConnectorTableHandle table)
     {
         return getTableSchema(session, table).getTable();
@@ -255,6 +269,9 @@ public interface ConnectorMetadata
     /**
      * List table, view and materialized view names, possibly filtered by schema. An empty list is returned if none match.
      * An empty list is returned also when schema name does not refer to an existing schema.
+     *
+     * @see #listViews(ConnectorSession, Optional)
+     * @see #listMaterializedViews(ConnectorSession, Optional)
      */
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
@@ -465,6 +482,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop the specified field, potentially nested, from a row.
+     *
+     * @param fieldPath path to a field within the column, without leading column name.
+     */
+    @Experimental(eta = "2023-05-01") // TODO add support for rows inside arrays and maps and for anonymous row fields
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping fields");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
@@ -633,84 +661,6 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Get the column handle that will generate row IDs for the delete operation.
-     * These IDs will be passed to the {@code deleteRows()} method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
-     */
-    default ColumnHandle getDeleteRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Get the column handle that will generate row IDs for the update operation.
-     * These IDs will be passed to the {@code updateRows() method of the
-     * {@link io.trino.spi.connector.UpdatablePageSource} that created them.
-     */
-    default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Begin delete query.
-     *
-     * <p/>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     */
-    default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Finish delete query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
-     */
-    default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
-    }
-
-    /**
-     * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
-     * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
-     *
-     * <p/>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
-     * @param session The session in which to start the update operation.
-     * @param tableHandle A ConnectorTableHandle for the table to be updated.
-     * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE
-     * operation, in table column order.
-     * @return a ConnectorTableHandle that will be passed to split generation, and to the
-     * {@link #finishUpdate} method.
-     */
-    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
-     * Finish an update query
-     *
-     * @param fragments all fragments returned by {@link io.trino.spi.connector.UpdatablePageSource#finish()}
-     */
-    default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
-    }
-
-    /**
      * Return the row change paradigm supported by the connector on the table.
      */
     default RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -749,12 +699,13 @@ public interface ConnectorMetadata
 
     /**
      * Finish a merge query
+     *
      * @param session The session
-     * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
-     * @param fragments All fragments returned by {@link UpdatablePageSource#finish()}
+     * @param mergeTableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param fragments All fragments returned by the merge plan
      * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
      */
-    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
@@ -793,8 +744,10 @@ public interface ConnectorMetadata
     }
 
     /**
-     * List view names, possibly filtered by schema. An empty list is returned if none match.
+     * List view names (but not materialized views), possibly filtered by schema. An empty list is returned if none match.
      * An empty list is returned also when schema name does not refer to an existing schema.
+     *
+     * @see #listMaterializedViews(ConnectorSession, Optional)
      */
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
     {
@@ -802,7 +755,7 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Gets the definitions of views, possibly filtered by schema.
+     * Gets the definitions of views (but not materialized views), possibly filtered by schema.
      * This optional method may be implemented by connectors that can support fetching
      * view data in bulk. It is used to implement {@code information_schema.views}.
      */
@@ -829,18 +782,40 @@ public interface ConnectorMetadata
 
     /**
      * Gets the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaProperties(ConnectorSession, String)}
      */
+    @Deprecated(forRemoval = true)
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Map.of();
     }
 
     /**
-     * Get the schema properties for the specified schema.
+     * Gets the schema properties for the specified schema.
      */
+    default Map<String, Object> getSchemaProperties(ConnectorSession session, String schemaName)
+    {
+        return getSchemaProperties(session, new CatalogSchemaName("invalid", schemaName));
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     *
+     * @deprecated use {@link #getSchemaOwner(ConnectorSession, String)}
+     */
+    @Deprecated(forRemoval = true)
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Optional.empty();
+    }
+
+    /**
+     * Get the schema properties for the specified schema.
+     */
+    default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
+    {
+        return getSchemaOwner(session, new CatalogSchemaName("invalid", schemaName));
     }
 
     /**
@@ -1093,8 +1068,14 @@ public interface ConnectorMetadata
      */
     default Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
-        if (constraint.getSummary().getDomains().isEmpty()) {
+        // applyFilter is expected not to be invoked with a "false" constraint
+        if (constraint.getSummary().isNone()) {
             throw new IllegalArgumentException("constraint summary is NONE");
+        }
+        if (FALSE.equals(constraint.getExpression())) {
+            // DomainTranslator translates FALSE expressions into TupleDomain.none() (via Visitor#visitBooleanLiteral)
+            // so the remaining expression shouldn't be FALSE and therefore the translated connectorExpression shouldn't be FALSE either.
+            throw new IllegalArgumentException("constraint expression is FALSE");
         }
         return Optional.empty();
     }
@@ -1498,5 +1479,10 @@ public interface ConnectorMetadata
     default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         return false;
+    }
+
+    default OptionalInt getMaxWriterTasks(ConnectorSession session)
+    {
+        return OptionalInt.empty();
     }
 }

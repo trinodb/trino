@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.amazonaws.services.glue.AWSGlueAsync;
+import com.amazonaws.services.glue.model.AlreadyExistsException;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateTableRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
@@ -40,10 +41,11 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
@@ -82,8 +84,8 @@ public class GlueIcebergTableOperations
         Table table = getTable();
         glueVersionId = table.getVersionId();
 
-        Map<String, String> parameters = firstNonNull(table.getParameters(), ImmutableMap.of());
-        if (isPrestoView(parameters) && isHiveOrPrestoView(table.getTableType())) {
+        Map<String, String> parameters = getTableParameters(table);
+        if (isPrestoView(parameters) && isHiveOrPrestoView(getTableType(table))) {
             // this is a Presto Hive view, hence not a table
             throw new TableNotFoundException(getSchemaTableName());
         }
@@ -108,7 +110,17 @@ public class GlueIcebergTableOperations
         CreateTableRequest createTableRequest = new CreateTableRequest()
                 .withDatabaseName(database)
                 .withTableInput(tableInput);
-        stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+        try {
+            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+        }
+        catch (AlreadyExistsException
+               | EntityNotFoundException
+               | InvalidInputException
+               | ResourceNumberLimitExceededException e) {
+            // clean up metadata files corresponding to the current transaction
+            fileIo.deleteFile(newMetadataLocation);
+            throw e;
+        }
         shouldRefresh = true;
     }
 

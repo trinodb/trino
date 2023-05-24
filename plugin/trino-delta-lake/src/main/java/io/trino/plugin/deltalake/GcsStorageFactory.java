@@ -24,7 +24,7 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HttpT
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.RetryHttpInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
@@ -39,7 +39,7 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.plugin.hive.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
+import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -70,10 +70,10 @@ public class GcsStorageFactory
         }
     }
 
-    public Storage create(ConnectorSession session, Path path)
+    public Storage create(ConnectorSession session, String path)
     {
         try {
-            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), path)).build();
+            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(path))).build();
             HttpTransport httpTransport = HttpTransportFactory.createHttpTransport(
                     gcsOptions.getTransportType(),
                     gcsOptions.getProxyAddress(),

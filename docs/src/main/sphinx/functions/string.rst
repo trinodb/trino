@@ -8,7 +8,7 @@ String operators
 The ``||`` operator performs concatenation.
 
 The ``LIKE`` statement can be used for pattern matching and is documented in
-:ref:`like_operator`.
+:ref:`like-operator`.
 
 String functions
 ----------------
@@ -98,7 +98,7 @@ String functions
 .. function:: luhn_check(string) -> boolean
 
     Tests whether a ``string`` of digits is valid according to the
-    `Luhn algorithm <https://en.wikipedia.org/wiki/Luhn_algorithm>`_.
+    `Luhn algorithm <https://wikipedia.org/wiki/Luhn_algorithm>`_.
 
     This checksum function, also known as ``modulo 10`` or ``mod 10``, is
     widely applied on credit card numbers and government identification numbers

@@ -24,7 +24,9 @@ import io.airlift.stats.TDigest;
 import io.trino.spi.metrics.Distribution;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -57,7 +59,7 @@ public class TDigestHistogram
     }
 
     @JsonProperty
-    public TDigest getDigest()
+    public synchronized TDigest getDigest()
     {
         return TDigest.copyOf(digest);
     }
@@ -65,14 +67,33 @@ public class TDigestHistogram
     @Override
     public TDigestHistogram mergeWith(TDigestHistogram other)
     {
-        TDigest result = TDigest.copyOf(digest);
-        result.mergeWith(other.getDigest());
+        TDigest result = getDigest();
+        other.mergeTo(result);
         return new TDigestHistogram(result);
     }
 
     @Override
+    public TDigestHistogram mergeWith(List<TDigestHistogram> others)
+    {
+        if (others.isEmpty()) {
+            return this;
+        }
+
+        TDigest result = getDigest();
+        for (TDigestHistogram other : others) {
+            other.mergeTo(result);
+        }
+        return new TDigestHistogram(result);
+    }
+
+    private synchronized void mergeTo(TDigest digest)
+    {
+        digest.mergeWith(this.digest);
+    }
+
+    @Override
     @JsonProperty
-    public long getTotal()
+    public synchronized long getTotal()
     {
         return (long) digest.getCount();
     }
@@ -146,7 +167,7 @@ public class TDigestHistogram
     }
 
     @Override
-    public double getPercentile(double percentile)
+    public synchronized double getPercentile(double percentile)
     {
         return digest.valueAt(percentile / 100.0);
     }
@@ -155,7 +176,7 @@ public class TDigestHistogram
     public String toString()
     {
         ToStringHelper helper = toStringHelper("")
-                .add("count", formatDouble(digest.getCount()))
+                .add("count", getTotal())
                 .add("p01", formatDouble(getP01()))
                 .add("p05", formatDouble(getP05()))
                 .add("p10", formatDouble(getP10()))
@@ -168,6 +189,15 @@ public class TDigestHistogram
                 .add("min", formatDouble(getMin()))
                 .add("max", formatDouble(getMax()));
         return helper.toString();
+    }
+
+    public static Optional<TDigestHistogram> merge(List<TDigestHistogram> histograms)
+    {
+        if (histograms.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(histograms.get(0).mergeWith(histograms.subList(1, histograms.size())));
     }
 
     private static String formatDouble(double value)

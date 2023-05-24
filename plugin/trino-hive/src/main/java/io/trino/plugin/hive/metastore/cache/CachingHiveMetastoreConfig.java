@@ -26,9 +26,15 @@ import java.util.concurrent.TimeUnit;
 public class CachingHiveMetastoreConfig
 {
     private Duration metastoreCacheTtl = new Duration(0, TimeUnit.SECONDS);
+    // Use 5 mins for stats cache TTL by default. 5 mins will be sufficient to help
+    // significantly when there is high number of concurrent queries.
+    // 5 mins will also prevent stats from being stalled for a long time since
+    // time window where table data can be altered is limited.
+    private Duration statsCacheTtl = new Duration(5, TimeUnit.MINUTES);
     private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 10;
+    private boolean cacheMissing = true;
     private boolean partitionCacheEnabled = true;
 
     @NotNull
@@ -41,6 +47,19 @@ public class CachingHiveMetastoreConfig
     public CachingHiveMetastoreConfig setMetastoreCacheTtl(Duration metastoreCacheTtl)
     {
         this.metastoreCacheTtl = metastoreCacheTtl;
+        return this;
+    }
+
+    @NotNull
+    public Duration getStatsCacheTtl()
+    {
+        return statsCacheTtl;
+    }
+
+    @Config("hive.metastore-stats-cache-ttl")
+    public CachingHiveMetastoreConfig setStatsCacheTtl(Duration statsCacheTtl)
+    {
+        this.statsCacheTtl = statsCacheTtl;
         return this;
     }
 
@@ -80,6 +99,18 @@ public class CachingHiveMetastoreConfig
     public CachingHiveMetastoreConfig setMaxMetastoreRefreshThreads(int maxMetastoreRefreshThreads)
     {
         this.maxMetastoreRefreshThreads = maxMetastoreRefreshThreads;
+        return this;
+    }
+
+    public boolean isCacheMissing()
+    {
+        return cacheMissing;
+    }
+
+    @Config("hive.metastore-cache.cache-missing")
+    public CachingHiveMetastoreConfig setCacheMissing(boolean cacheMissing)
+    {
+        this.cacheMissing = cacheMissing;
         return this;
     }
 

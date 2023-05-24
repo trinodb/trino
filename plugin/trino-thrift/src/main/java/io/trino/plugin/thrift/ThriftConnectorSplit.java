@@ -19,20 +19,19 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
-import static java.lang.Math.toIntExact;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class ThriftConnectorSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ThriftConnectorSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ThriftConnectorSplit.class);
 
     private final TrinoThriftId splitId;
     private final List<HostAddress> addresses;

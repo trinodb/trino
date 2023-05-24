@@ -42,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -241,14 +242,14 @@ public class PipelineContext
         taskContext.start();
     }
 
-    public void failed(Throwable cause)
+    public void driverFailed(Throwable cause)
     {
         taskContext.failed(cause);
     }
 
-    public boolean isDone()
+    public boolean isTerminatingOrDone()
     {
-        return taskContext.isDone();
+        return taskContext.isTerminatingOrDone();
     }
 
     public synchronized ListenableFuture<Void> reserveSpill(long bytes)
@@ -391,7 +392,8 @@ public class PipelineContext
         boolean unfinishedDriversFullyBlocked = true;
 
         TreeMap<Integer, OperatorStats> operatorSummaries = new TreeMap<>(this.operatorSummaries);
-        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create();
+        // Expect the same number of operators as existing summaries, with one operator per driver context in the resulting multimap
+        ListMultimap<Integer, OperatorStats> runningOperators = ArrayListMultimap.create(operatorSummaries.size(), driverContexts.size());
         ImmutableList.Builder<DriverStats> drivers = ImmutableList.builderWithExpectedSize(driverContexts.size());
         for (DriverContext driverContext : driverContexts) {
             DriverStats driverStats = driverContext.getDriverStats();
@@ -438,24 +440,25 @@ public class PipelineContext
             physicalWrittenDataSize += driverStats.getPhysicalWrittenDataSize().toBytes();
         }
 
-        // merge the running operator stats into the operator summary
-        for (Integer operatorId : runningOperators.keySet()) {
+        // Computes the combined stats from existing completed operators and those still running
+        BiFunction<Integer, OperatorStats, OperatorStats> combineOperatorStats = (operatorId, current) -> {
             List<OperatorStats> runningStats = runningOperators.get(operatorId);
             if (runningStats.isEmpty()) {
-                continue;
+                return current;
             }
-            OperatorStats current = operatorSummaries.get(operatorId);
-            OperatorStats combined;
             if (current != null) {
-                combined = current.add(runningStats);
+                return current.add(runningStats);
             }
             else {
-                combined = runningStats.get(0);
+                OperatorStats combined = runningStats.get(0);
                 if (runningStats.size() > 1) {
                     combined = combined.add(runningStats.subList(1, runningStats.size()));
                 }
+                return combined;
             }
-            operatorSummaries.put(operatorId, combined);
+        };
+        for (Integer operatorId : runningOperators.keySet()) {
+            operatorSummaries.compute(operatorId, combineOperatorStats);
         }
 
         PipelineStatus pipelineStatus = pipelineStatusBuilder.build();

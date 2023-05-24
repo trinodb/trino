@@ -20,6 +20,7 @@ import io.trino.spi.type.VarcharType;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
+import org.apache.parquet.column.values.deltalengthbytearray.DeltaLengthByteArrayValuesWriter;
 import org.apache.parquet.column.values.deltastrings.DeltaByteArrayWriter;
 import org.apache.parquet.column.values.plain.PlainValuesWriter;
 import org.apache.parquet.io.api.Binary;
@@ -94,6 +95,13 @@ public class BenchmarkBinaryColumnReader
             ValuesWriter getWriter(int bufferSize)
             {
                 return new DeltaByteArrayWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
+            }
+        },
+        DELTA_LENGTH_BYTE_ARRAY {
+            @Override
+            ValuesWriter getWriter(int bufferSize)
+            {
+                return new DeltaLengthByteArrayValuesWriter(bufferSize, bufferSize, HeapByteBufferAllocator.getInstance());
             }
         };
 

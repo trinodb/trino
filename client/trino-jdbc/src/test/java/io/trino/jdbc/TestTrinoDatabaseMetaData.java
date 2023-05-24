@@ -813,7 +813,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.TIME, 15L, null, 6L, null, createTimeType(6));
                 assertColumnSpec(rs, Types.TIME, 18L, null, 9L, null, createTimeType(9));
                 assertColumnSpec(rs, Types.TIME, 21L, null, 12L, null, createTimeType(12));
-                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
+                assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, TimeWithTimeZoneType.TIME_TZ_MILLIS);
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 14L, null, 0L, null, createTimeWithTimeZoneType(0));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, 3L, null, createTimeWithTimeZoneType(3));
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 21L, null, 6L, null, createTimeWithTimeZoneType(6));
@@ -1292,8 +1292,8 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 new MetadataCallsCount()
-                        .withListSchemasCount(2)
-                        .withListTablesCount(3)
+                        .withListSchemasCount(1)
+                        .withListTablesCount(2)
                         .withGetColumnsCount(1));
 
         // LIKE predicate on schema name and table name, but no predicate on catalog name
@@ -1306,8 +1306,8 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar"))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(2)
-                        .withListTablesCount(3)
+                        .withListSchemasCount(1)
+                        .withListTablesCount(2)
                         .withGetColumnsCount(1));
 
         // LIKE predicate on schema name, but no predicate on catalog name and table name
@@ -1322,7 +1322,7 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table" + tableIndex, "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(2)
+                        .withListSchemasCount(4)
                         .withListTablesCount(1)
                         .withGetColumnsCount(1000));
 
@@ -1338,9 +1338,9 @@ public class TestTrinoDatabaseMetaData
                                         .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema" + schemaIndex, "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 new MetadataCallsCount()
-                        .withListSchemasCount(3)
-                        .withListTablesCount(8)
-                        .withGetTableHandleCount(2)
+                        .withListSchemasCount(5)
+                        .withListTablesCount(4)
+                        .withGetTableHandleCount(8)
                         .withGetColumnsCount(2));
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
@@ -1383,7 +1383,7 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 new MetadataCallsCount()
-                        .withListSchemasCount(2)
+                        .withListSchemasCount(1)
                         .withListTablesCount(0)
                         .withGetColumnsCount(0));
 

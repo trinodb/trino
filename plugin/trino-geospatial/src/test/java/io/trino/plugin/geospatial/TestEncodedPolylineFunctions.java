@@ -13,54 +13,89 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestEncodedPolylineFunctions
-        extends AbstractTestFunctions
 {
-    @BeforeClass
-    public void registerFunctions()
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
     {
-        functionAssertions.installPlugin(new GeoPlugin());
+        assertions = new QueryAssertions();
+        assertions.addPlugin(new GeoPlugin());
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
     }
 
     @Test
     public void testFromEncodedPolyline()
     {
-        assertFromEncodedPolyline("", "LINESTRING EMPTY");
-        assertFromEncodedPolyline("iiqeFjs_jV", "LINESTRING EMPTY");
-        assertFromEncodedPolyline("_p~iF~ps|U_ulLnnqC_mqNvxq`@", "LINESTRING (-120.2 38.5, -120.95 40.7, -126.45300000000002 43.252)");
-    }
+        assertThat(assertions.function("from_encoded_polyline", "''"))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING EMPTY')");
 
-    private void assertFromEncodedPolyline(String polyline, String wkt)
-    {
-        assertFunction(format("ST_AsText(from_encoded_polyline('%s'))", polyline), VARCHAR, wkt);
+        assertThat(assertions.function("from_encoded_polyline", "'iiqeFjs_jV'"))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING EMPTY')");
+
+        assertThat(assertions.function("from_encoded_polyline", "'_p~iF~ps|U_ulLnnqC_mqNvxq`@'"))
+                .hasType(GEOMETRY)
+                .matches("ST_GeometryFromText('LINESTRING (-120.2 38.5, -120.95 40.7, -126.45300000000002 43.252)')");
     }
 
     @Test
     public void testToEncodedPolyline()
     {
-        assertToEncodedPolyline("LINESTRING EMPTY", "");
-        assertToEncodedPolyline("LINESTRING (-120.2 38.5, -120.95 40.7, -126.453 43.252)", "_p~iF~ps|U_ulLnnqC_mqNvxq`@");
-        assertToEncodedPolyline("LINESTRING (-120.2 38.5, -120.95 40.7, -126.453 43.252, -128.318 46.102)", "_p~iF~ps|U_ulLnnqC_mqNvxq`@oskPfgkJ");
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('LINESTRING EMPTY')"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
 
-        assertToEncodedPolyline("MULTIPOINT EMPTY", "");
-        assertToEncodedPolyline("MULTIPOINT (-120.2 38.5)", "_p~iF~ps|U");
-        assertToEncodedPolyline("MULTIPOINT (-120.2 38.5, -120.95 40.7, -126.453 43.252)", "_p~iF~ps|U_ulLnnqC_mqNvxq`@");
-        assertToEncodedPolyline("MULTIPOINT (-120.2 38.5, -120.95 40.7, -126.453 43.252, -128.318 46.102)", "_p~iF~ps|U_ulLnnqC_mqNvxq`@oskPfgkJ");
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('LINESTRING (-120.2 38.5, -120.95 40.7, -126.453 43.252)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
 
-        assertInvalidFunction("to_encoded_polyline(ST_GeometryFromText('POINT (-120.2 38.5)'))", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("to_encoded_polyline(ST_GeometryFromText('MULTILINESTRING ((-122.39174 37.77701))'))", INVALID_FUNCTION_ARGUMENT);
-    }
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('LINESTRING (-120.2 38.5, -120.95 40.7, -126.453 43.252, -128.318 46.102)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@oskPfgkJ");
 
-    private void assertToEncodedPolyline(String wkt, String polyline)
-    {
-        assertFunction(format("to_encoded_polyline(ST_GeometryFromText('%s'))", wkt), VARCHAR, polyline);
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('MULTIPOINT EMPTY')"))
+                .hasType(VARCHAR)
+                .isEqualTo("");
+
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('MULTIPOINT (-120.2 38.5)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U");
+
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('MULTIPOINT (-120.2 38.5, -120.95 40.7, -126.453 43.252)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
+
+        assertThat(assertions.function("to_encoded_polyline", "ST_GeometryFromText('MULTIPOINT (-120.2 38.5, -120.95 40.7, -126.453 43.252, -128.318 46.102)')"))
+                .hasType(VARCHAR)
+                .isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@oskPfgkJ");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("to_encoded_polyline(ST_GeometryFromText('POINT (-120.2 38.5)'))").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("to_encoded_polyline(ST_GeometryFromText('MULTILINESTRING ((-122.39174 37.77701))'))").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

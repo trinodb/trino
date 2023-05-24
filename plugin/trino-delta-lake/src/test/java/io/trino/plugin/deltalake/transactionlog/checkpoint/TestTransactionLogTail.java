@@ -16,16 +16,15 @@ package io.trino.plugin.deltalake.transactionlog.checkpoint;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -36,7 +35,7 @@ public class TestTransactionLogTail
     public void testTail(String dataSource)
             throws Exception
     {
-        String tableLocation = format("%s/person", dataSource);
+        String tableLocation = getClass().getClassLoader().getResource(format("%s/person", dataSource)).toURI().toString();
         assertEquals(readJsonTransactionLogTails(tableLocation).size(), 7);
         assertEquals(updateJsonTransactionLogTails(tableLocation).size(), 7);
     }
@@ -53,11 +52,9 @@ public class TestTransactionLogTail
     private List<DeltaLakeTransactionLogEntry> updateJsonTransactionLogTails(String tableLocation)
             throws Exception
     {
-        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
-        Path tablePath = new Path(resource);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tablePath, Optional.of(10L), Optional.of(12L));
-        Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tablePath);
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L), Optional.of(12L));
+        Optional<TransactionLogTail> updatedLogTail = transactionLogTail.getUpdatedTail(fileSystem, tableLocation);
         assertTrue(updatedLogTail.isPresent());
         return updatedLogTail.get().getFileEntries();
     }
@@ -65,10 +62,8 @@ public class TestTransactionLogTail
     private List<DeltaLakeTransactionLogEntry> readJsonTransactionLogTails(String tableLocation)
             throws Exception
     {
-        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(SESSION);
-        URI resource = getClass().getClassLoader().getResource(tableLocation).toURI();
-        Path tablePath = new Path(resource);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tablePath, Optional.of(10L));
+        TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, Optional.of(10L));
         return transactionLogTail.getFileEntries();
     }
 }

@@ -14,11 +14,11 @@
 package io.trino.tests.product.launcher.env;
 
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import dev.failsafe.Failsafe;
+import dev.failsafe.FailsafeExecutor;
+import dev.failsafe.Timeout;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.util.ConsoleTable;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.FailsafeExecutor;
-import net.jodah.failsafe.Timeout;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -38,8 +38,13 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public interface EnvironmentListener
+        extends ContainerListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
+
+    EnvironmentListener NOOP = new EnvironmentListener()
+    {
+    };
 
     default void environmentStarting(Environment environment)
     {
@@ -54,22 +59,6 @@ public interface EnvironmentListener
     }
 
     default void environmentStopping(Environment environment)
-    {
-    }
-
-    default void containerStarting(DockerContainer container, InspectContainerResponse response)
-    {
-    }
-
-    default void containerStarted(DockerContainer container, InspectContainerResponse containerInfo)
-    {
-    }
-
-    default void containerStopping(DockerContainer container, InspectContainerResponse response)
-    {
-    }
-
-    default void containerStopped(DockerContainer container, InspectContainerResponse response)
     {
     }
 
@@ -94,7 +83,7 @@ public interface EnvironmentListener
         return new EnvironmentListener()
         {
             private FailsafeExecutor<?> executor = Failsafe
-                    .with(Timeout.of(ofMinutes(5)).withCancel(true))
+                    .with(Timeout.builder(ofMinutes(5)).withInterrupt().build())
                     .with(newCachedThreadPool(daemonThreadsNamed("environment-listener-%d")));
 
             @Override

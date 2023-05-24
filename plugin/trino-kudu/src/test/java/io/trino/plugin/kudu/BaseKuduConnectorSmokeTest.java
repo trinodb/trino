@@ -16,7 +16,6 @@ package io.trino.plugin.kudu;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -30,8 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseKuduConnectorSmokeTest
         extends BaseConnectorSmokeTest
 {
-    private TestingKuduServer kuduServer;
-
     protected abstract String getKuduServerVersion();
 
     protected abstract Optional<String> getKuduSchemaEmulationPrefix();
@@ -40,15 +37,9 @@ public abstract class BaseKuduConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        kuduServer = new TestingKuduServer(getKuduServerVersion());
-        return createKuduQueryRunnerTpch(kuduServer, getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        kuduServer.close();
-        kuduServer = null;
+        return createKuduQueryRunnerTpch(
+                closeAfterClass(new TestingKuduServer(getKuduServerVersion())),
+                getKuduSchemaEmulationPrefix(), REQUIRED_TPCH_TABLES);
     }
 
     @SuppressWarnings("DuplicateBranchesInSwitch")
@@ -56,6 +47,9 @@ public abstract class BaseKuduConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TRUNCATE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -69,12 +63,12 @@ public abstract class BaseKuduConnectorSmokeTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
-            case SUPPORTS_DELETE:
-            case SUPPORTS_MERGE:
-                return true;
+            case SUPPORTS_NOT_NULL_CONSTRAINT:
+                return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:

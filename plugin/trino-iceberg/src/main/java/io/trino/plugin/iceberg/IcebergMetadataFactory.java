@@ -48,6 +48,11 @@ public class IcebergMetadataFactory
 
     public IcebergMetadata create(ConnectorIdentity identity)
     {
-        return new IcebergMetadata(typeManager, commitTaskCodec, catalogFactory.create(identity), fileSystemFactory, tableStatisticsWriter);
+        return new IcebergMetadata(
+                typeManager,
+                commitTaskCodec,
+                catalogFactory.create(identity),
+                fileSystemFactory,
+                tableStatisticsWriter);
     }
 }

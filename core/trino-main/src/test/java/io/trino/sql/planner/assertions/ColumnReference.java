@@ -16,7 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -48,13 +48,11 @@ public class ColumnReference
         TableHandle tableHandle;
         Map<Symbol, ColumnHandle> assignments;
 
-        if (node instanceof TableScanNode) {
-            TableScanNode tableScanNode = (TableScanNode) node;
+        if (node instanceof TableScanNode tableScanNode) {
             tableHandle = tableScanNode.getTable();
             assignments = tableScanNode.getAssignments();
         }
-        else if (node instanceof IndexSourceNode) {
-            IndexSourceNode indexSourceNode = (IndexSourceNode) node;
+        else if (node instanceof IndexSourceNode indexSourceNode) {
             tableHandle = indexSourceNode.getTableHandle();
             assignments = indexSourceNode.getAssignments();
         }
@@ -62,8 +60,8 @@ public class ColumnReference
             return Optional.empty();
         }
 
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
-        String actualTableName = tableMetadata.getTable().getTableName();
+        CatalogSchemaTableName fullTableName = metadata.getTableName(session, tableHandle);
+        String actualTableName = fullTableName.getSchemaTableName().getTableName();
 
         // Wrong table -> doesn't match.
         if (!tableName.equalsIgnoreCase(actualTableName)) {

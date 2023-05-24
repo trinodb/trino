@@ -13,18 +13,44 @@
  */
 package io.trino.parquet.reader.decoders;
 
+import io.airlift.slice.Slice;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.flat.BinaryBuffer;
+import io.trino.spi.TrinoException;
+import io.trino.spi.type.DecimalConversions;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.io.ParquetDecodingException;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96Decoder;
+import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
+import static io.trino.parquet.ParquetReaderUtils.toByteExact;
+import static io.trino.parquet.ParquetReaderUtils.toShortExact;
+import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
+import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
+import static io.trino.parquet.reader.decoders.DeltaByteArrayDecoders.BinaryDeltaByteArrayDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getBinaryDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getInt32Decoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getInt96TimestampDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecimalDecoder;
 import static io.trino.parquet.reader.decoders.ValueDecoders.getLongDecoder;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getRealDecoder;
+import static io.trino.parquet.reader.decoders.ValueDecoders.getShortDecimalDecoder;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
+import static io.trino.spi.block.Fixed12Block.decodeFixed12Second;
+import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
@@ -36,7 +62,10 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 
 /**
  * {@link io.trino.parquet.reader.decoders.ValueDecoder} implementations which build on top of implementations from {@link io.trino.parquet.reader.decoders.ValueDecoders}.
@@ -65,7 +94,7 @@ public class TransformingValueDecoders
                 "Trino type %s is not a short timestamp",
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
-        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field);
+        ValueDecoder<int[]> delegate = getInt96TimestampDecoder(encoding, field);
         return new ValueDecoder<>()
         {
             @Override
@@ -77,10 +106,10 @@ public class TransformingValueDecoders
             @Override
             public void read(long[] values, int offset, int length)
             {
-                Int96Buffer int96Buffer = new Int96Buffer(length);
+                int[] int96Buffer = new int[length * 3];
                 delegate.read(int96Buffer, 0, length);
                 for (int i = 0; i < length; i++) {
-                    long epochSeconds = int96Buffer.longs[i];
+                    long epochSeconds = decodeFixed12First(int96Buffer, i);
                     long epochMicros;
                     if (timeZone == DateTimeZone.UTC) {
                         epochMicros = epochSeconds * MICROSECONDS_PER_SECOND;
@@ -88,7 +117,7 @@ public class TransformingValueDecoders
                     else {
                         epochMicros = timeZone.convertUTCToLocal(epochSeconds * MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
                     }
-                    int nanosOfSecond = (int) round(int96Buffer.ints[i], 9 - precision);
+                    int nanosOfSecond = (int) round(decodeFixed12Second(int96Buffer, i), 9 - precision);
                     values[offset + i] = epochMicros + nanosOfSecond / NANOSECONDS_PER_MICROSECOND;
                 }
             }
@@ -101,7 +130,7 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, DateTimeZone timeZone)
+    public static ValueDecoder<int[]> getInt96ToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field, DateTimeZone timeZone)
     {
         checkArgument(
                 field.getType() instanceof TimestampType timestampType && !timestampType.isShort(),
@@ -109,11 +138,11 @@ public class TransformingValueDecoders
                 field.getType());
         int precision = ((TimestampType) field.getType()).getPrecision();
         return new InlineTransformDecoder<>(
-                getInt96Decoder(encoding, field),
+                getInt96TimestampDecoder(encoding, field),
                 (values, offset, length) -> {
                     for (int i = offset; i < offset + length; i++) {
-                        long epochSeconds = values.longs[i];
-                        long nanosOfSecond = values.ints[i];
+                        long epochSeconds = decodeFixed12First(values, i);
+                        long nanosOfSecond = decodeFixed12Second(values, i);
                         if (timeZone != DateTimeZone.UTC) {
                             epochSeconds = timeZone.convertUTCToLocal(epochSeconds * MILLISECONDS_PER_SECOND) / MILLISECONDS_PER_SECOND;
                         }
@@ -121,9 +150,11 @@ public class TransformingValueDecoders
                             nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);
                         }
                         // epochMicros
-                        values.longs[i] = epochSeconds * MICROSECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MICROSECOND);
-                        // picosOfMicro
-                        values.ints[i] = (int) ((nanosOfSecond * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_MICROSECOND);
+                        encodeFixed12(
+                                epochSeconds * MICROSECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MICROSECOND),
+                                (int) ((nanosOfSecond * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_MICROSECOND),
+                                values,
+                                i);
                     }
                 });
     }
@@ -134,8 +165,9 @@ public class TransformingValueDecoders
                 field.getType() instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.isShort(),
                 "Trino type %s is not a short timestamp with timezone",
                 field.getType());
-        ValueDecoder<Int96Buffer> delegate = getInt96Decoder(encoding, field);
-        return new ValueDecoder<>() {
+        ValueDecoder<int[]> delegate = getInt96TimestampDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
             @Override
             public void init(SimpleSliceInputStream input)
             {
@@ -145,11 +177,11 @@ public class TransformingValueDecoders
             @Override
             public void read(long[] values, int offset, int length)
             {
-                Int96Buffer int96Buffer = new Int96Buffer(length);
+                int[] int96Buffer = new int[length * 3];
                 delegate.read(int96Buffer, 0, length);
                 for (int i = 0; i < length; i++) {
-                    long epochSeconds = int96Buffer.longs[i];
-                    int nanosOfSecond = int96Buffer.ints[i];
+                    long epochSeconds = decodeFixed12First(int96Buffer, i);
+                    int nanosOfSecond = decodeFixed12Second(int96Buffer, i);
                     long utcMillis = epochSeconds * MILLISECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MILLISECOND);
                     values[offset + i] = packDateTimeWithZone(utcMillis, UTC_KEY);
                 }
@@ -274,7 +306,7 @@ public class TransformingValueDecoders
                 });
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMillisToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
+    public static ValueDecoder<int[]> getInt64TimestampMillisToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
@@ -286,12 +318,13 @@ public class TransformingValueDecoders
             }
 
             @Override
-            public void read(Int96Buffer values, int offset, int length)
+            public void read(int[] values, int offset, int length)
             {
-                delegate.read(values.longs, offset, length);
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
                 // decoded values are epochMillis, convert to epochMicros
-                for (int i = offset; i < offset + length; i++) {
-                    values.longs[i] = values.longs[i] * MICROSECONDS_PER_MILLISECOND;
+                for (int i = 0; i < length; i++) {
+                    encodeFixed12(buffer[i] * MICROSECONDS_PER_MILLISECOND, 0, values, i + offset);
                 }
             }
 
@@ -303,7 +336,7 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
+    public static ValueDecoder<int[]> getInt64TimestampMicrosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
@@ -315,10 +348,14 @@ public class TransformingValueDecoders
             }
 
             @Override
-            public void read(Int96Buffer values, int offset, int length)
+            public void read(int[] values, int offset, int length)
             {
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
                 // decoded values are epochMicros
-                delegate.read(values.longs, offset, length);
+                for (int i = 0; i < length; i++) {
+                    encodeFixed12(buffer[i], 0, values, i + offset);
+                }
             }
 
             @Override
@@ -329,7 +366,7 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
+    public static ValueDecoder<int[]> getInt64TimestampMicrosToLongTimestampWithTimeZoneDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
@@ -341,14 +378,18 @@ public class TransformingValueDecoders
             }
 
             @Override
-            public void read(Int96Buffer values, int offset, int length)
+            public void read(int[] values, int offset, int length)
             {
-                delegate.read(values.longs, offset, length);
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
                 // decoded values are epochMicros, convert to (packed epochMillisUtc, picosOfMilli)
-                for (int i = offset; i < offset + length; i++) {
-                    long epochMicros = values.longs[i];
-                    values.longs[i] = packDateTimeWithZone(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), UTC_KEY);
-                    values.ints[i] = floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND;
+                for (int i = 0; i < length; i++) {
+                    long epochMicros = buffer[i];
+                    encodeFixed12(
+                            packDateTimeWithZone(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), UTC_KEY),
+                            floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MICROSECOND,
+                            values,
+                            i + offset);
                 }
             }
 
@@ -360,7 +401,7 @@ public class TransformingValueDecoders
         };
     }
 
-    public static ValueDecoder<Int96Buffer> getInt64TimestampNanosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
+    public static ValueDecoder<int[]> getInt64TimestampNanosToLongTimestampDecoder(ParquetEncoding encoding, PrimitiveField field)
     {
         ValueDecoder<long[]> delegate = getLongDecoder(encoding, field);
         return new ValueDecoder<>()
@@ -372,14 +413,18 @@ public class TransformingValueDecoders
             }
 
             @Override
-            public void read(Int96Buffer values, int offset, int length)
+            public void read(int[] values, int offset, int length)
             {
-                delegate.read(values.longs, offset, length);
+                long[] buffer = new long[length];
+                delegate.read(buffer, 0, length);
                 // decoded values are epochNanos, convert to (epochMicros, picosOfMicro)
-                for (int i = offset; i < offset + length; i++) {
-                    long epochNanos = values.longs[i];
-                    values.longs[i] = floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND);
-                    values.ints[i] = floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+                for (int i = 0; i < length; i++) {
+                    long epochNanos = buffer[i];
+                    encodeFixed12(
+                            floorDiv(epochNanos, NANOSECONDS_PER_MICROSECOND),
+                            floorMod(epochNanos, NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND,
+                            values,
+                            i + offset);
                 }
             }
 
@@ -389,6 +434,522 @@ public class TransformingValueDecoders
                 delegate.skip(n);
             }
         };
+    }
+
+    public static ValueDecoder<long[]> getFloatToDoubleDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<int[]> delegate = getRealDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = Double.doubleToLongBits(Float.intBitsToFloat(buffer[i]));
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getBinaryLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new BinaryToLongDecimalTransformDecoder(getBinaryDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<long[]> getDeltaFixedWidthLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ColumnDescriptor descriptor = field.getDescriptor();
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        checkArgument(
+                logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation
+                        && decimalAnnotation.getPrecision() > Decimals.MAX_SHORT_PRECISION,
+                "Column %s is not a long decimal",
+                descriptor);
+        return new BinaryToLongDecimalTransformDecoder(new BinaryDeltaByteArrayDecoder());
+    }
+
+    public static ValueDecoder<long[]> getBinaryShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<BinaryBuffer> delegate = getBinaryDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+                int[] offsets = buffer.getOffsets();
+                byte[] inputBytes = buffer.asSlice().byteArray();
+
+                for (int i = 0; i < length; i++) {
+                    int positionOffset = offsets[i];
+                    int positionLength = offsets[i + 1] - positionOffset;
+                    if (positionLength > 8) {
+                        throw new ParquetDecodingException("Unable to read BINARY type decimal of size " + positionLength + " as a short decimal");
+                    }
+                    // No need for checkBytesFitInShortDecimal as the standard requires variable binary decimals
+                    // to be stored in minimum possible number of bytes
+                    values[offset + i] = getShortDecimalValue(inputBytes, positionOffset, positionLength);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getDeltaFixedWidthShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ColumnDescriptor descriptor = field.getDescriptor();
+        LogicalTypeAnnotation logicalTypeAnnotation = descriptor.getPrimitiveType().getLogicalTypeAnnotation();
+        checkArgument(
+                logicalTypeAnnotation instanceof DecimalLogicalTypeAnnotation decimalAnnotation
+                        && decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION,
+                "Column %s is not a short decimal",
+                descriptor);
+        int typeLength = descriptor.getPrimitiveType().getTypeLength();
+        checkArgument(typeLength > 0 && typeLength <= 16, "Expected column %s to have type length in range (1-16)", descriptor);
+        return new ValueDecoder<>()
+        {
+            private final ValueDecoder<BinaryBuffer> delegate = new BinaryDeltaByteArrayDecoder();
+
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+
+                // Each position in FIXED_LEN_BYTE_ARRAY has fixed length
+                int bytesOffset = 0;
+                int bytesLength = typeLength;
+                if (typeLength > Long.BYTES) {
+                    bytesOffset = typeLength - Long.BYTES;
+                    bytesLength = Long.BYTES;
+                }
+
+                byte[] inputBytes = buffer.asSlice().byteArray();
+                int[] offsets = buffer.getOffsets();
+                for (int i = 0; i < length; i++) {
+                    int inputOffset = offsets[i];
+                    checkBytesFitInShortDecimal(inputBytes, inputOffset, bytesOffset, descriptor);
+                    values[offset + i] = getShortDecimalValue(inputBytes, inputOffset + bytesOffset, bytesLength);
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getRescaledLongDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
+        if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+            ValueDecoder<long[]> delegate = getShortDecimalDecoder(encoding, field);
+            return new ValueDecoder<>()
+            {
+                @Override
+                public void init(SimpleSliceInputStream input)
+                {
+                    delegate.init(input);
+                }
+
+                @Override
+                public void read(long[] values, int offset, int length)
+                {
+                    long[] buffer = new long[length];
+                    delegate.read(buffer, 0, length);
+                    for (int i = 0; i < length; i++) {
+                        Int128 rescaled = DecimalConversions.shortToLongCast(
+                                buffer[i],
+                                decimalAnnotation.getPrecision(),
+                                decimalAnnotation.getScale(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale());
+
+                        values[2 * (offset + i)] = rescaled.getHigh();
+                        values[2 * (offset + i) + 1] = rescaled.getLow();
+                    }
+                }
+
+                @Override
+                public void skip(int n)
+                {
+                    delegate.skip(n);
+                }
+            };
+        }
+        return new InlineTransformDecoder<>(
+                getLongDecimalDecoder(encoding, field),
+                (values, offset, length) -> {
+                    int endOffset = (offset + length) * 2;
+                    for (int currentOffset = offset * 2; currentOffset < endOffset; currentOffset += 2) {
+                        Int128 rescaled = DecimalConversions.longToLongCast(
+                                Int128.valueOf(values[currentOffset], values[currentOffset + 1]),
+                                decimalAnnotation.getPrecision(),
+                                decimalAnnotation.getScale(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale());
+
+                        values[currentOffset] = rescaled.getHigh();
+                        values[currentOffset + 1] = rescaled.getLow();
+                    }
+                });
+    }
+
+    public static ValueDecoder<long[]> getRescaledShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        DecimalLogicalTypeAnnotation decimalAnnotation = (DecimalLogicalTypeAnnotation) field.getDescriptor().getPrimitiveType().getLogicalTypeAnnotation();
+        if (decimalAnnotation.getPrecision() <= Decimals.MAX_SHORT_PRECISION) {
+            long rescale = longTenToNth(Math.abs(decimalType.getScale() - decimalAnnotation.getScale()));
+            return new InlineTransformDecoder<>(
+                    getShortDecimalDecoder(encoding, field),
+                    (values, offset, length) -> {
+                        for (int i = offset; i < offset + length; i++) {
+                            values[i] = DecimalConversions.shortToShortCast(
+                                    values[i],
+                                    decimalAnnotation.getPrecision(),
+                                    decimalAnnotation.getScale(),
+                                    decimalType.getPrecision(),
+                                    decimalType.getScale(),
+                                    rescale,
+                                    rescale / 2);
+                        }
+                    });
+        }
+        ValueDecoder<long[]> delegate = getLongDecimalDecoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                long[] buffer = new long[2 * length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[offset + i] = DecimalConversions.longToShortCast(
+                            Int128.valueOf(buffer[2 * i], buffer[2 * i + 1]),
+                            decimalAnnotation.getPrecision(),
+                            decimalAnnotation.getScale(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale());
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getInt32ToShortDecimalDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        DecimalType decimalType = (DecimalType) field.getType();
+        ValueDecoder<int[]> delegate = getInt32Decoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    if (overflows(buffer[i], decimalType.getPrecision())) {
+                        throw new TrinoException(
+                                INVALID_CAST_ARGUMENT,
+                                format("Cannot read parquet INT32 value '%s' as DECIMAL(%s, %s)", buffer[i], decimalType.getPrecision(), decimalType.getScale()));
+                    }
+                    values[i + offset] = buffer[i];
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<long[]> getInt32ToLongDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        ValueDecoder<int[]> delegate = getInt32Decoder(encoding, field);
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                int[] buffer = new int[length];
+                delegate.read(buffer, 0, length);
+                for (int i = 0; i < length; i++) {
+                    values[i + offset] = buffer[i];
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    public static ValueDecoder<int[]> getInt64ToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToIntTransformDecoder(getLongDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<int[]> getShortDecimalToIntDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToIntTransformDecoder(getShortDecimalDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<short[]> getInt64ToShortDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToShortTransformDecoder(getLongDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<short[]> getShortDecimalToShortDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToShortTransformDecoder(getShortDecimalDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<byte[]> getInt64ToByteDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToByteTransformDecoder(getLongDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<byte[]> getShortDecimalToByteDecoder(ParquetEncoding encoding, PrimitiveField field)
+    {
+        return new LongToByteTransformDecoder(getShortDecimalDecoder(encoding, field));
+    }
+
+    public static ValueDecoder<long[]> getDeltaUuidDecoder(ParquetEncoding encoding)
+    {
+        checkArgument(encoding.equals(DELTA_BYTE_ARRAY), "encoding %s is not DELTA_BYTE_ARRAY", encoding);
+        ValueDecoder<BinaryBuffer> delegate = new BinaryDeltaByteArrayDecoder();
+        return new ValueDecoder<>()
+        {
+            @Override
+            public void init(SimpleSliceInputStream input)
+            {
+                delegate.init(input);
+            }
+
+            @Override
+            public void read(long[] values, int offset, int length)
+            {
+                BinaryBuffer buffer = new BinaryBuffer(length);
+                delegate.read(buffer, 0, length);
+                SimpleSliceInputStream binaryInput = new SimpleSliceInputStream(buffer.asSlice());
+
+                int endOffset = (offset + length) * 2;
+                for (int outputOffset = offset * 2; outputOffset < endOffset; outputOffset += 2) {
+                    values[outputOffset] = binaryInput.readLong();
+                    values[outputOffset + 1] = binaryInput.readLong();
+                }
+            }
+
+            @Override
+            public void skip(int n)
+            {
+                delegate.skip(n);
+            }
+        };
+    }
+
+    private static class LongToIntTransformDecoder
+            implements ValueDecoder<int[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToIntTransformDecoder(ValueDecoder<long[]> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(int[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toIntExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class LongToShortTransformDecoder
+            implements ValueDecoder<short[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToShortTransformDecoder(ValueDecoder<long[]> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(short[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toShortExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class LongToByteTransformDecoder
+            implements ValueDecoder<byte[]>
+    {
+        private final ValueDecoder<long[]> delegate;
+
+        private LongToByteTransformDecoder(ValueDecoder<long[]> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(byte[] values, int offset, int length)
+        {
+            long[] buffer = new long[length];
+            delegate.read(buffer, 0, length);
+            for (int i = 0; i < length; i++) {
+                values[offset + i] = toByteExact(buffer[i]);
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
+    }
+
+    private static class BinaryToLongDecimalTransformDecoder
+            implements ValueDecoder<long[]>
+    {
+        private final ValueDecoder<BinaryBuffer> delegate;
+
+        private BinaryToLongDecimalTransformDecoder(ValueDecoder<BinaryBuffer> delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void init(SimpleSliceInputStream input)
+        {
+            delegate.init(input);
+        }
+
+        @Override
+        public void read(long[] values, int offset, int length)
+        {
+            BinaryBuffer buffer = new BinaryBuffer(length);
+            delegate.read(buffer, 0, length);
+            int[] offsets = buffer.getOffsets();
+            Slice binaryInput = buffer.asSlice();
+
+            for (int i = 0; i < length; i++) {
+                int positionOffset = offsets[i];
+                int positionLength = offsets[i + 1] - positionOffset;
+                Int128 value = Int128.fromBigEndian(binaryInput.getBytes(positionOffset, positionLength));
+                values[2 * (offset + i)] = value.getHigh();
+                values[2 * (offset + i) + 1] = value.getLow();
+            }
+        }
+
+        @Override
+        public void skip(int n)
+        {
+            delegate.skip(n);
+        }
     }
 
     private static class InlineTransformDecoder<T>

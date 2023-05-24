@@ -135,7 +135,7 @@ class PathPredicateEvaluationVisitor
     {
         List<Object> leftSequence;
         try {
-            leftSequence = pathVisitor.process(node.getLeft(), context);
+            leftSequence = pathVisitor.process(node.left(), context);
         }
         catch (PathEvaluationError e) {
             return null;
@@ -143,7 +143,7 @@ class PathPredicateEvaluationVisitor
 
         List<Object> rightSequence;
         try {
-            rightSequence = pathVisitor.process(node.getRight(), context);
+            rightSequence = pathVisitor.process(node.right(), context);
         }
         catch (PathEvaluationError e) {
             return null;
@@ -208,10 +208,10 @@ class PathPredicateEvaluationVisitor
         boolean found = false;
 
         // try to find a quick null-based answer for == and <> operators
-        if (node.getOperator() == EQUAL && leftHasJsonNull && rightHasJsonNull) {
+        if (node.operator() == EQUAL && leftHasJsonNull && rightHasJsonNull) {
             found = true;
         }
-        if (node.getOperator() == NOT_EQUAL) {
+        if (node.operator() == NOT_EQUAL) {
             if (leftHasJsonNull && (rightHasScalar || rightHasNonScalar) ||
                     rightHasJsonNull && (leftHasScalar || leftHasNonScalar)) {
                 found = true;
@@ -253,7 +253,7 @@ class PathPredicateEvaluationVisitor
 
     private Boolean compare(IrComparisonPredicate node, TypedValue left, TypedValue right)
     {
-        IrComparisonPredicate.Operator comparisonOperator = node.getOperator();
+        IrComparisonPredicate.Operator comparisonOperator = node.operator();
         ComparisonExpression.Operator operator;
         Type firstType = left.getType();
         Object firstValue = left.getValueAsObject();
@@ -328,11 +328,11 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrConjunctionPredicate(IrConjunctionPredicate node, PathEvaluationContext context)
     {
-        Boolean left = process(node.getLeft(), context);
+        Boolean left = process(node.left(), context);
         if (FALSE.equals(left)) {
             return FALSE;
         }
-        Boolean right = process(node.getRight(), context);
+        Boolean right = process(node.right(), context);
         if (FALSE.equals(right)) {
             return FALSE;
         }
@@ -345,11 +345,11 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrDisjunctionPredicate(IrDisjunctionPredicate node, PathEvaluationContext context)
     {
-        Boolean left = process(node.getLeft(), context);
+        Boolean left = process(node.left(), context);
         if (TRUE.equals(left)) {
             return TRUE;
         }
-        Boolean right = process(node.getRight(), context);
+        Boolean right = process(node.right(), context);
         if (TRUE.equals(right)) {
             return TRUE;
         }
@@ -364,7 +364,7 @@ class PathPredicateEvaluationVisitor
     {
         List<Object> sequence;
         try {
-            sequence = pathVisitor.process(node.getPath(), context);
+            sequence = pathVisitor.process(node.path(), context);
         }
         catch (PathEvaluationError e) {
             return null;
@@ -376,7 +376,7 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrIsUnknownPredicate(IrIsUnknownPredicate node, PathEvaluationContext context)
     {
-        Boolean predicateResult = process(node.getPredicate(), context);
+        Boolean predicateResult = process(node.predicate(), context);
 
         return predicateResult == null;
     }
@@ -384,7 +384,7 @@ class PathPredicateEvaluationVisitor
     @Override
     protected Boolean visitIrNegationPredicate(IrNegationPredicate node, PathEvaluationContext context)
     {
-        Boolean predicateResult = process(node.getPredicate(), context);
+        Boolean predicateResult = process(node.predicate(), context);
 
         return predicateResult == null ? null : !predicateResult;
     }
@@ -394,7 +394,7 @@ class PathPredicateEvaluationVisitor
     {
         List<Object> valueSequence;
         try {
-            valueSequence = pathVisitor.process(node.getValue(), context);
+            valueSequence = pathVisitor.process(node.value(), context);
         }
         catch (PathEvaluationError e) {
             return null;
@@ -402,7 +402,7 @@ class PathPredicateEvaluationVisitor
 
         List<Object> prefixSequence;
         try {
-            prefixSequence = pathVisitor.process(node.getPrefix(), context);
+            prefixSequence = pathVisitor.process(node.prefix(), context);
         }
         catch (PathEvaluationError e) {
             return null;
@@ -469,8 +469,7 @@ class PathPredicateEvaluationVisitor
 
     private static Slice getText(Object object)
     {
-        if (object instanceof TypedValue) {
-            TypedValue typedValue = (TypedValue) object;
+        if (object instanceof TypedValue typedValue) {
             if (isCharacterStringType(typedValue.getType())) {
                 if (typedValue.getType() instanceof CharType) {
                     return padSpaces((Slice) typedValue.getObjectValue(), (CharType) typedValue.getType());

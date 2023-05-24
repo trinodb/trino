@@ -640,12 +640,11 @@ public class ReorderJoins
                 }
 
                 // (limit - 2) because you need to account for adding left and right side
-                if (!(resolved instanceof JoinNode) || (sources.size() > (limit - 2))) {
+                if (!(resolved instanceof JoinNode joinNode) || (sources.size() > (limit - 2))) {
                     sources.add(node);
                     return;
                 }
 
-                JoinNode joinNode = (JoinNode) resolved;
                 if (joinNode.getType() != INNER || !isDeterministic(joinNode.getFilter().orElse(TRUE_LITERAL), plannerContext.getMetadata()) || joinNode.getDistributionType().isPresent()) {
                     sources.add(node);
                     return;

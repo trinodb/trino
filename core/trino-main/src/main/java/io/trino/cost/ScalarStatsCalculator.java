@@ -224,6 +224,9 @@ public class ScalarStatsCalculator
             requireNonNull(node, "node is null");
             SymbolStatsEstimate left = process(node.getLeft());
             SymbolStatsEstimate right = process(node.getRight());
+            if (left.isUnknown() || right.isUnknown()) {
+                return SymbolStatsEstimate.unknown();
+            }
 
             SymbolStatsEstimate.Builder result = SymbolStatsEstimate.builder()
                     .setAverageRowSize(Math.max(left.getAverageRowSize(), right.getAverageRowSize()))

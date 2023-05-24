@@ -1,0 +1,197 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "3911cc2d-fc02-4124-ab37-02591db73097",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/catalog_returns",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866267770,
+  "last-column-id" : 27,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "cr_returned_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "cr_returned_time_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 3,
+      "name" : "cr_item_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 4,
+      "name" : "cr_refunded_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 5,
+      "name" : "cr_refunded_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "cr_refunded_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "cr_refunded_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 8,
+      "name" : "cr_returning_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "cr_returning_cdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 10,
+      "name" : "cr_returning_hdemo_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 11,
+      "name" : "cr_returning_addr_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 12,
+      "name" : "cr_call_center_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 13,
+      "name" : "cr_catalog_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 14,
+      "name" : "cr_ship_mode_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 15,
+      "name" : "cr_warehouse_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 16,
+      "name" : "cr_reason_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 17,
+      "name" : "cr_order_number",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 18,
+      "name" : "cr_return_quantity",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 19,
+      "name" : "cr_return_amount",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 20,
+      "name" : "cr_return_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 21,
+      "name" : "cr_return_amt_inc_tax",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 22,
+      "name" : "cr_fee",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 23,
+      "name" : "cr_return_ship_cost",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 24,
+      "name" : "cr_refunded_cash",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 25,
+      "name" : "cr_reversed_charge",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 26,
+      "name" : "cr_store_credit",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    }, {
+      "id" : 27,
+      "name" : "cr_net_loss",
+      "required" : false,
+      "type" : "decimal(7, 2)"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 8292219806794635592,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 8292219806794635592,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 8292219806794635592,
+    "timestamp-ms" : 1678866267770,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074322_00071_9f4mz",
+      "added-data-files" : "183",
+      "added-records" : "143996756",
+      "added-files-size" : "8397738857",
+      "changed-partition-count" : "1",
+      "total-records" : "143996756",
+      "total-files-size" : "8397738857",
+      "total-data-files" : "183",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/catalog_returns/metadata/snap-8292219806794635592-1-1b002ed6-2a22-4402-8b13-0b9b85931824.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866267770,
+    "snapshot-id" : 8292219806794635592
+  } ],
+  "metadata-log" : [ ]
+}

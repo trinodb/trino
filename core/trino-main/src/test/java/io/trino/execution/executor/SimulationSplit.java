@@ -16,6 +16,7 @@ package io.trino.execution.executor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.SplitRunner;
 
 import java.util.concurrent.RejectedExecutionException;
@@ -109,6 +110,18 @@ abstract class SimulationSplit
         waitNanos.addAndGet(System.nanoTime() - lastReadyTime.get());
         killed.set(true);
         task.setKilled();
+    }
+
+    @Override
+    public int getPipelineId()
+    {
+        return 0;
+    }
+
+    @Override
+    public Span getPipelineSpan()
+    {
+        return Span.getInvalid();
     }
 
     @Override

@@ -37,13 +37,13 @@ import java.util.concurrent.TimeUnit;
 
 import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.SystemSessionProperties.QUERY_MAX_EXECUTION_TIME;
+import static io.trino.execution.QueryRunnerUtil.cancelQuery;
+import static io.trino.execution.QueryRunnerUtil.createQuery;
+import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
-import static io.trino.execution.TestQueryRunnerUtil.cancelQuery;
-import static io.trino.execution.TestQueryRunnerUtil.createQuery;
-import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;

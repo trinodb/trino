@@ -77,8 +77,7 @@ public final class TypeSignatureParameter
         }
 
         String valueJson;
-        if (value instanceof TypeSignature) {
-            TypeSignature typeSignature = (TypeSignature) value;
+        if (value instanceof TypeSignature typeSignature) {
             valueJson = typeSignature.jsonValue();
         }
         else {

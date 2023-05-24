@@ -84,6 +84,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.ptf.Query.parseFilter;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -116,7 +117,8 @@ import static java.util.stream.Collectors.toSet;
 public class MongoSession
 {
     private static final Logger log = Logger.get(MongoSession.class);
-    private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version");
+    private static final Set<String> SYSTEM_DATABASES = Set.of("admin", "local", "config");
+    private static final List<String> SYSTEM_TABLES = Arrays.asList("system.indexes", "system.users", "system.version", "system.views");
 
     private static final String TABLE_NAME_KEY = "table";
     private static final String COMMENT_KEY = "comment";
@@ -187,7 +189,10 @@ public class MongoSession
 
     public List<String> getAllSchemas()
     {
-        return ImmutableList.copyOf(listDatabaseNames().map(name -> name.toLowerCase(ENGLISH)));
+        return Streams.stream(listDatabaseNames())
+                .filter(schema -> !SYSTEM_DATABASES.contains(schema))
+                .map(schema -> schema.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
     }
 
     public void createSchema(String schemaName)
@@ -198,7 +203,7 @@ public class MongoSession
 
     public void dropSchema(String schemaName)
     {
-        client.getDatabase(schemaName).drop();
+        client.getDatabase(toRemoteSchemaName(schemaName)).drop();
     }
 
     public Set<String> getAllTables(String schema)
@@ -353,6 +358,31 @@ public class MongoSession
         tableCache.invalidate(table.getSchemaTableName());
     }
 
+    public void setColumnType(MongoTableHandle table, String columnName, Type type)
+    {
+        String remoteSchemaName = table.getRemoteTableName().getDatabaseName();
+        String remoteTableName = table.getRemoteTableName().getCollectionName();
+
+        Document metadata = getTableMetadata(remoteSchemaName, remoteTableName);
+
+        List<Document> columns = getColumnMetadata(metadata).stream()
+                .map(document -> {
+                    if (document.getString(FIELDS_NAME_KEY).equals(columnName)) {
+                        document.put(FIELDS_TYPE_KEY, type.getTypeSignature().toString());
+                        return document;
+                    }
+                    return document;
+                })
+                .collect(toImmutableList());
+
+        metadata.replace(FIELDS_KEY, columns);
+
+        client.getDatabase(remoteSchemaName).getCollection(schemaCollection)
+                .findOneAndReplace(new Document(TABLE_NAME_KEY, remoteTableName), metadata);
+
+        tableCache.invalidate(table.getSchemaTableName());
+    }
+
     private MongoTable loadTableSchema(SchemaTableName schemaTableName)
             throws TableNotFoundException
     {
@@ -445,7 +475,7 @@ public class MongoSession
     {
         // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
         ImmutableList.Builder<Document> filter = ImmutableList.builder();
-        table.getFilter().ifPresent(filter::add);
+        table.getFilter().ifPresent(json -> filter.add(parseFilter(json)));
         filter.add(buildQuery(table.getConstraint()));
         return andPredicate(filter.build());
     }
@@ -838,6 +868,9 @@ public class MongoSession
     {
         verify(schemaName.equals(schemaName.toLowerCase(ENGLISH)), "schemaName not in lower-case: %s", schemaName);
         if (!caseInsensitiveNameMatching) {
+            return schemaName;
+        }
+        if (SYSTEM_DATABASES.contains(schemaName)) {
             return schemaName;
         }
         for (String remoteSchemaName : listDatabaseNames()) {

@@ -36,7 +36,6 @@ public class TestFeaturesConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(FeaturesConfig.class)
-                .setLegacyUpdateDeleteImplementation(false)
                 .setLegacyCatalogRoles(false)
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
@@ -63,6 +62,7 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(false)
                 .setLegacyCatalogRoles(false)
                 .setIncrementalHashArrayLoadFactorEnabled(true)
+                .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setAllowSetViewAuthorization(false)
                 .setForceSpillingJoin(false)
@@ -73,7 +73,6 @@ public class TestFeaturesConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("deprecated.legacy-update-delete-implementation", "true")
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
                 .put("writer-min-size", "42GB")
@@ -99,6 +98,7 @@ public class TestFeaturesConfig
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("deprecated.legacy-catalog-roles", "true")
                 .put("incremental-hash-array-load-factor.enabled", "false")
+                .put("legacy.materialized-view-grace-period", "true")
                 .put("hide-inaccessible-columns", "true")
                 .put("legacy.allow-set-view-authorization", "true")
                 .put("force-spilling-join-operator", "true")
@@ -106,7 +106,6 @@ public class TestFeaturesConfig
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
-                .setLegacyUpdateDeleteImplementation(true)
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
                 .setWriterMinSize(DataSize.of(42, GIGABYTE))
@@ -132,6 +131,7 @@ public class TestFeaturesConfig
                 .setOmitDateTimeTypePrecision(true)
                 .setLegacyCatalogRoles(true)
                 .setIncrementalHashArrayLoadFactorEnabled(false)
+                .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setAllowSetViewAuthorization(true)
                 .setForceSpillingJoin(true)

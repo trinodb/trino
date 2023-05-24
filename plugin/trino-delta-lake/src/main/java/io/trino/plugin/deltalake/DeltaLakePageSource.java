@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake;
 
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
+import io.trino.plugin.hive.ReaderProjectionsAdapter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -61,13 +62,15 @@ public class DeltaLakePageSource
     private final Block pathBlock;
     private final Block partitionsBlock;
     private final ConnectorPageSource delegate;
+    private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     public DeltaLakePageSource(
             List<DeltaLakeColumnHandle> columns,
             Set<String> missingColumnNames,
             Map<String, Optional<String>> partitionKeys,
-            List<String> partitionValues,
+            Optional<List<String>> partitionValues,
             ConnectorPageSource delegate,
+            Optional<ReaderProjectionsAdapter> projectionsAdapter,
             String path,
             long fileSize,
             long fileModifiedTime)
@@ -75,6 +78,7 @@ public class DeltaLakePageSource
         int size = columns.size();
         requireNonNull(partitionKeys, "partitionKeys is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.projectionsAdapter = requireNonNull(projectionsAdapter, "projectionsAdapter is null");
 
         this.prefilledBlocks = new Block[size];
         this.delegateIndexes = new int[size];
@@ -87,34 +91,34 @@ public class DeltaLakePageSource
         Block partitionsBlock = null;
 
         for (DeltaLakeColumnHandle column : columns) {
-            if (partitionKeys.containsKey(column.getPhysicalName())) {
-                Type type = column.getType();
-                Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.getPhysicalName()));
+            if (column.isBaseColumn() && partitionKeys.containsKey(column.getBasePhysicalColumnName())) {
+                Type type = column.getBaseType();
+                Object prefilledValue = deserializePartitionValue(column, partitionKeys.get(column.getBasePhysicalColumnName()));
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(type, prefilledValue);
                 delegateIndexes[outputIndex] = -1;
             }
-            else if (column.getName().equals(PATH_COLUMN_NAME)) {
+            else if (column.getBaseColumnName().equals(PATH_COLUMN_NAME)) {
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(PATH_TYPE, utf8Slice(path));
                 delegateIndexes[outputIndex] = -1;
             }
-            else if (column.getName().equals(FILE_SIZE_COLUMN_NAME)) {
+            else if (column.getBaseColumnName().equals(FILE_SIZE_COLUMN_NAME)) {
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(FILE_SIZE_TYPE, fileSize);
                 delegateIndexes[outputIndex] = -1;
             }
-            else if (column.getName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
+            else if (column.getBaseColumnName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
                 long packedTimestamp = packDateTimeWithZone(fileModifiedTime, UTC_KEY);
                 prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(FILE_MODIFIED_TIME_TYPE, packedTimestamp);
                 delegateIndexes[outputIndex] = -1;
             }
-            else if (column.getName().equals(ROW_ID_COLUMN_NAME)) {
+            else if (column.getBaseColumnName().equals(ROW_ID_COLUMN_NAME)) {
                 rowIdIndex = outputIndex;
                 pathBlock = Utils.nativeValueToBlock(VARCHAR, utf8Slice(path));
-                partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues)));
+                partitionsBlock = Utils.nativeValueToBlock(VARCHAR, wrappedBuffer(PARTITIONS_CODEC.toJsonBytes(partitionValues.orElseThrow(() -> new IllegalStateException("partitionValues not provided")))));
                 delegateIndexes[outputIndex] = delegateIndex;
                 delegateIndex++;
             }
-            else if (missingColumnNames.contains(column.getName())) {
-                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(column.getType(), null);
+            else if (missingColumnNames.contains(column.getBaseColumnName())) {
+                prefilledBlocks[outputIndex] = Utils.nativeValueToBlock(column.getBaseType(), null);
                 delegateIndexes[outputIndex] = -1;
             }
             else {
@@ -160,6 +164,9 @@ public class DeltaLakePageSource
             Page dataPage = delegate.getNextPage();
             if (dataPage == null) {
                 return null;
+            }
+            if (projectionsAdapter.isPresent()) {
+                dataPage = projectionsAdapter.get().adaptPage(dataPage);
             }
             int batchSize = dataPage.getPositionCount();
             Block[] blocks = new Block[prefilledBlocks.length];

@@ -31,7 +31,6 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
-import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.SchemaBuilder.FieldAssembler;
@@ -75,6 +74,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -165,7 +165,7 @@ public class TestAvroDecoder
     {
         RowDecoder rowDecoder = DECODER_FACTORY.create(dataParams, columns);
         return rowDecoder.decodeRow(avroData)
-                .orElseThrow(AssertionError::new);
+                .orElseThrow(() -> new IllegalStateException("Problems during decode phase"));
     }
 
     private static byte[] buildAvroData(Schema schema, String name, Object value)
@@ -363,10 +363,8 @@ public class TestAvroDecoder
                 .toString();
 
         assertThatThrownBy(() -> decodeRow(originalIntData, ImmutableSet.of(stringColumnReadingIntData), ImmutableMap.of(DATA_SCHEMA, changedTypeSchema)))
-                .isInstanceOf(TrinoException.class)
-                .hasCauseExactlyInstanceOf(AvroTypeException.class)
-                .hasStackTraceContaining("Found int, expecting string")
-                .hasMessageMatching("Decoding Avro record failed.");
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageMatching("Problems during decode phase");
     }
 
     @Test
@@ -415,21 +413,12 @@ public class TestAvroDecoder
     }
 
     @Test
-    public void testFloatDecodedAsDouble()
-    {
-        DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", DOUBLE, "float_field", null, null, false, false, false);
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
-
-        checkValue(decodedRow, row, 10.2);
-    }
-
-    @Test
     public void testFloatDecodedAsReal()
     {
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", REAL, "float_field", null, null, false, false, false);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "float_field", "\"float\"", 10.2f);
 
-        checkValue(decodedRow, row, 10.2);
+        checkValue(decodedRow, row, floatToIntBits(10.2f));
     }
 
     @Test

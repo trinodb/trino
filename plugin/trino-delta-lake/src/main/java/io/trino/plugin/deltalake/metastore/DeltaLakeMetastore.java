@@ -13,18 +13,11 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
-import io.trino.plugin.deltalake.DeltaLakeTableHandle;
-import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
-import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.hive.metastore.Database;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.statistics.TableStatistics;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +30,9 @@ public interface DeltaLakeMetastore
 
     List<String> getAllTables(String databaseName);
 
-    Optional<Table> getTable(String databaseName, String tableName);
+    Optional<Table> getRawMetastoreTable(String databaseName, String tableName);
+
+    Optional<DeltaMetastoreTable> getTable(String databaseName, String tableName);
 
     void createDatabase(Database database);
 
@@ -45,21 +40,7 @@ public interface DeltaLakeMetastore
 
     void createTable(ConnectorSession session, Table table, PrincipalPrivileges principalPrivileges);
 
-    void dropTable(ConnectorSession session, String databaseName, String tableName, boolean externalTable);
+    void dropTable(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation, boolean deleteData);
 
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
-
-    Optional<MetadataEntry> getMetadata(TableSnapshot tableSnapshot, ConnectorSession session);
-
-    ProtocolEntry getProtocol(ConnectorSession session, TableSnapshot table);
-
-    String getTableLocation(SchemaTableName table, ConnectorSession session);
-
-    TableSnapshot getSnapshot(SchemaTableName table, ConnectorSession session);
-
-    List<AddFileEntry> getValidDataFiles(SchemaTableName table, ConnectorSession session);
-
-    TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle);
-
-    HiveMetastore getHiveMetastore();
 }

@@ -13,72 +13,22 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrComparisonPredicate
-        extends IrPredicate
+public record IrComparisonPredicate(Operator operator, IrPathNode left, IrPathNode right)
+        implements IrPredicate
 {
-    private final Operator operator;
-    private final IrPathNode left;
-    private final IrPathNode right;
-
-    @JsonCreator
-    public IrComparisonPredicate(@JsonProperty("operator") Operator operator, @JsonProperty("left") IrPathNode left, @JsonProperty("right") IrPathNode right)
+    public IrComparisonPredicate
     {
-        super();
-        this.operator = requireNonNull(operator, "operator is null");
-        this.left = requireNonNull(left, "left is null");
-        this.right = requireNonNull(right, "right is null");
+        requireNonNull(operator, "operator is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrComparisonPredicate(this, context);
-    }
-
-    @JsonProperty
-    public Operator getOperator()
-    {
-        return operator;
-    }
-
-    @JsonProperty
-    public IrPathNode getLeft()
-    {
-        return left;
-    }
-
-    @JsonProperty
-    public IrPathNode getRight()
-    {
-        return right;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrComparisonPredicate other = (IrComparisonPredicate) obj;
-        return this.operator == other.operator &&
-                Objects.equals(this.left, other.left) &&
-                Objects.equals(this.right, other.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
     }
 
     public enum Operator

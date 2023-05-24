@@ -161,8 +161,7 @@ public class TestNodeLocalDynamicSplitPruning
                 hiveConfig,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig),
-                Optional.empty());
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, hiveConfig));
 
         return provider.createPageSource(
                 transaction,
@@ -208,7 +207,13 @@ public class TestNodeLocalDynamicSplitPruning
     private static TestingConnectorSession getSession(HiveConfig config)
     {
         return TestingConnectorSession.builder()
-                .setPropertyMetadata(new HiveSessionProperties(config, new OrcReaderConfig(), new OrcWriterConfig(), new ParquetReaderConfig(), new ParquetWriterConfig()).getSessionProperties())
+                .setPropertyMetadata(new HiveSessionProperties(
+                        config,
+                        new HiveFormatsConfig(),
+                        new OrcReaderConfig(),
+                        new OrcWriterConfig(),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig()).getSessionProperties())
                 .build();
     }
 

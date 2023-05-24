@@ -60,6 +60,7 @@ import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.execution.QueryState.STARTING;
 import static io.trino.execution.QueryState.WAITING_FOR_RESOURCES;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.USER_CANCELED;
@@ -79,7 +80,6 @@ public class TestQueryStateMachine
 {
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
-    private static final SQLException FAILED_CAUSE = new SQLException("FAILED");
     private static final List<Input> INPUTS = ImmutableList.of(new Input(
             "connector",
             "schema",
@@ -178,7 +178,7 @@ public class TestQueryStateMachine
             tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         });
 
-        assertAllTimeSpentInQueueing(FAILED, stateMachine -> stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertAllTimeSpentInQueueing(FAILED, stateMachine -> stateMachine.transitionToFailed(newFailedCause()));
     }
 
     private void assertAllTimeSpentInQueueing(QueryState expectedState, Consumer<QueryStateMachine> stateTransition)
@@ -229,8 +229,8 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToPlanning();
-        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED, FAILED_CAUSE);
+        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertState(stateMachine, FAILED, newFailedCause());
     }
 
     @Test
@@ -261,8 +261,8 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToStarting();
-        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED, FAILED_CAUSE);
+        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertState(stateMachine, FAILED, newFailedCause());
     }
 
     @Test
@@ -291,8 +291,8 @@ public class TestQueryStateMachine
 
         stateMachine = createQueryStateMachine();
         stateMachine.transitionToRunning();
-        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertState(stateMachine, FAILED, FAILED_CAUSE);
+        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertState(stateMachine, FAILED, newFailedCause());
     }
 
     @Test
@@ -310,8 +310,8 @@ public class TestQueryStateMachine
     public void testFailed()
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
-        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
-        assertFinalState(stateMachine, FAILED, FAILED_CAUSE);
+        assertTrue(stateMachine.transitionToFailed(newFailedCause()));
+        assertFinalState(stateMachine, FAILED, newFailedCause());
     }
 
     @Test
@@ -430,7 +430,7 @@ public class TestQueryStateMachine
         assertFalse(stateMachine.transitionToFinishing());
         assertState(stateMachine, expectedState, expectedException);
 
-        assertFalse(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertFalse(stateMachine.transitionToFailed(newFailedCause()));
         assertState(stateMachine, expectedState, expectedException);
 
         // attempt to fail with another exception, which will fail
@@ -469,6 +469,7 @@ public class TestQueryStateMachine
         assertNotNull(queryStats.getDispatchingTime());
         assertNotNull(queryStats.getExecutionTime());
         assertNotNull(queryStats.getPlanningTime());
+        assertNotNull(queryStats.getPlanningCpuTime());
         assertNotNull(queryStats.getFinishingTime());
 
         assertNotNull(queryStats.getCreateTime());
@@ -535,6 +536,7 @@ public class TestQueryStateMachine
                 ticker,
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 QUERY_TYPE,
                 true,
                 new NodeVersion("test"));
@@ -563,5 +565,10 @@ public class TestQueryStateMachine
         assertEquals(actual.getStart(), expected.getStart());
         assertEquals(actual.getSystemProperties(), expected.getSystemProperties());
         assertEquals(actual.getCatalogProperties(), expected.getCatalogProperties());
+    }
+
+    private static SQLException newFailedCause()
+    {
+        return new SQLException("FAILED");
     }
 }

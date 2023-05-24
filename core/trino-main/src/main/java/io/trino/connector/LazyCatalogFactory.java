@@ -46,7 +46,7 @@ public class LazyCatalogFactory
     }
 
     @Override
-    public CatalogConnector createCatalog(CatalogHandle catalogHandle, String connectorName, Connector connector)
+    public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
     {
         return getDelegate().createCatalog(catalogHandle, connectorName, connector);
     }

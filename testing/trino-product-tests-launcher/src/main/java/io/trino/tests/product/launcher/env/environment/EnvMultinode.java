@@ -30,7 +30,6 @@ import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_TIMESTAMP_NANOS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_ICEBERG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_JVM_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -39,8 +38,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvMultinode
         extends EnvironmentProvider
 {
-    public static final String CONTAINER_TRINO_HIVE_ACCESS_CONTROL = CONTAINER_TRINO_ETC + "/catalog/hive.properties";
-
     private final DockerFiles dockerFiles;
     private final DockerFiles.ResourceProvider configDir;
 

@@ -16,18 +16,19 @@ package io.trino.operator;
 import io.airlift.slice.SizeOf;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.function.IntFunction;
+
+import static io.airlift.slice.SizeOf.instanceSize;
 
 /**
  * Object registration system that allows looking up objects via stable IDs.
  * <p>
  * This class may recycle deallocated IDs for new allocations.
  */
-public class IdRegistry<T>
+public final class IdRegistry<T>
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IdRegistry.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(IdRegistry.class);
 
     private final ObjectList<T> objects = new ObjectList<>();
     private final IntFIFOQueue emptySlots = new IntFIFOQueue();
@@ -37,18 +38,19 @@ public class IdRegistry<T>
      *
      * @return ID referencing the provided object
      */
-    public int allocateId(IntFunction<T> factory)
+    public T allocateId(IntFunction<T> factory)
     {
-        int newId;
+        T result;
         if (!emptySlots.isEmpty()) {
-            newId = emptySlots.dequeueInt();
-            objects.set(newId, factory.apply(newId));
+            int id = emptySlots.dequeueInt();
+            result = factory.apply(id);
+            objects.set(id, result);
         }
         else {
-            newId = objects.size();
-            objects.add(factory.apply(newId));
+            result = factory.apply(objects.size());
+            objects.add(result);
         }
-        return newId;
+        return result;
     }
 
     public void deallocate(int id)
@@ -73,7 +75,7 @@ public class IdRegistry<T>
     private static class IntFIFOQueue
             extends IntArrayFIFOQueue
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntFIFOQueue.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(IntFIFOQueue.class);
 
         public long sizeOf()
         {
@@ -84,7 +86,7 @@ public class IdRegistry<T>
     private static class ObjectList<T>
             extends ObjectArrayList<T>
     {
-        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ObjectList.class).instanceSize();
+        private static final long INSTANCE_SIZE = instanceSize(ObjectList.class);
 
         public long sizeOf()
         {

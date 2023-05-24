@@ -16,11 +16,11 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.hive.thrift.metastore.StorageDescriptor;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +30,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class HiveBucketProperty
@@ -70,7 +71,11 @@ public class HiveBucketProperty
                     .collect(toImmutableList());
         }
         BucketingVersion bucketingVersion = HiveBucketing.getBucketingVersion(tableParameters);
-        return Optional.of(new HiveBucketProperty(storageDescriptor.getBucketCols(), bucketingVersion, storageDescriptor.getNumBuckets(), sortedBy));
+        List<String> bucketColumnNames = storageDescriptor.getBucketCols().stream()
+                // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableList());
+        return Optional.of(new HiveBucketProperty(bucketColumnNames, bucketingVersion, storageDescriptor.getNumBuckets(), sortedBy));
     }
 
     @JsonProperty

@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -106,5 +107,14 @@ public class BinaryBuffer
     public int getValueCount()
     {
         return offsets.length - 1;
+    }
+
+    public long getRetainedSize()
+    {
+        long chunksSizeInBytes = 0;
+        for (Slice slice : chunks) {
+            chunksSizeInBytes += slice.getRetainedSize();
+        }
+        return sizeOf(offsets) + chunksSizeInBytes;
     }
 }

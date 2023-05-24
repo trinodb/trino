@@ -23,9 +23,9 @@ import io.trino.plugin.pinot.PinotSplit;
 import io.trino.plugin.pinot.query.PinotProxyGrpcRequestBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.datatable.DataTableFactory;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
-import org.apache.pinot.core.common.datatable.DataTableFactory;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.MetadataKeys;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.ResponseType;
 

@@ -39,8 +39,8 @@ Configuration
 -------------
 
 To configure the Kafka connector, create a catalog properties file
-``etc/catalog/kafka.properties`` with the following content,
-replacing the properties as appropriate.
+``etc/catalog/example.properties`` with the following content, replacing the
+properties as appropriate.
 
 In some cases, such as when using specialized authentication methods, it is necessary to specify
 additional Kafka client properties in order to access your Kafka cluster. To do so,
@@ -418,6 +418,7 @@ table description supplier are:
 * New tables can be defined without a cluster restart.
 * Schema updates are detected automatically.
 * There is no need to define tables manually.
+* Some Protobuf specific types like ``oneof`` are supported and mapped to JSON.
 
 Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to use the
 schema registry. You must also configure the additional properties in the following table:
@@ -478,6 +479,45 @@ optional. If neither is specified, then the default ``TopicNameStrategy`` is
 used to resolve the subject name via the topic name. Note that a case
 insensitive match must be done, as identifiers cannot contain upper case
 characters.
+
+Protobuf-specific type handling in Confluent table description supplier
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+When using the Confluent table description supplier, the following Protobuf
+specific types are supported in addition to the :ref:`normally supported types
+<kafka-protobuf-decoding>`:
+
+oneof
++++++
+
+Protobuf schemas containing ``oneof`` fields are mapped to a ``JSON`` field in
+Trino.
+
+For example, given the following Protobuf schema:
+
+.. code-block:: text
+
+    syntax = "proto3";
+
+    message schema {
+        oneof test_oneof_column {
+            string string_column = 1;
+            uint32 integer_column = 2;
+            uint64 long_column = 3;
+            double double_column = 4;
+            float float_column = 5;
+            bool boolean_column = 6;
+        }
+    }
+
+The corresponding Trino row is a ``JSON`` field ``test_oneof_column``
+containing a JSON object with a single key. The value of the key matches
+the name of the ``oneof`` type that is present.
+
+In the above example, if the Protobuf message has the
+``test_oneof_column`` containing ``string_column`` set to a value ``Trino``
+then the corresponding Trino row includes a column named
+``test_oneof_column`` with the value ``JSON '{"string_column": "Trino"}'``.
 
 .. _kafka-sql-inserts:
 
@@ -627,9 +667,9 @@ for a Kafka message:
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "raw",
@@ -717,9 +757,9 @@ The following is an example CSV field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "csv",
@@ -836,9 +876,9 @@ The following is an example JSON field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message": {
         "dataFormat": "json",
@@ -922,9 +962,9 @@ The following example shows an Avro field definition in a `table definition file
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message":
       {
@@ -1046,9 +1086,9 @@ file <#table-definition-files>`__ for a Kafka message:
 .. code-block:: json
 
     {
-      "tableName": "your-table-name",
-      "schemaName": "your-schema-name",
-      "topicName": "your-topic-name",
+      "tableName": "example_table_name",
+      "schemaName": "example_schema_name",
+      "topicName": "example_topic_name",
       "key": { "..." },
       "message":
       {
@@ -1349,6 +1389,8 @@ The schema evolution behavior is as follows:
 * Changing type of column in the new schema:
   If the type coercion is supported by Avro, then the conversion happens. An
   error is thrown for incompatible types.
+
+.. _kafka-protobuf-decoding:
 
 Protobuf decoder
 """"""""""""""""

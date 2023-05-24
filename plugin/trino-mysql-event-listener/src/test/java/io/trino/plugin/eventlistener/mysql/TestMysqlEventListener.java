@@ -89,11 +89,13 @@ public class TestMysqlEventListener
             Optional.of(ofMillis(107)),
             Optional.of(ofMillis(108)),
             Optional.of(ofMillis(109)),
+            Optional.of(ofMillis(1091)),
             Optional.of(ofMillis(110)),
             Optional.of(ofMillis(111)),
             Optional.of(ofMillis(112)),
             Optional.of(ofMillis(113)),
             Optional.of(ofMillis(114)),
+            Optional.of(ofMillis(115)),
             115L,
             116L,
             117L,
@@ -109,6 +111,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
@@ -119,6 +122,8 @@ public class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
             // not stored
@@ -240,6 +245,8 @@ public class TestMysqlEventListener
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
             115L,
             116L,
             117L,
@@ -255,6 +262,7 @@ public class TestMysqlEventListener
             125L,
             126L,
             127L,
+            1271L,
             128.0,
             129.0,
             // not stored
@@ -265,7 +273,7 @@ public class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
-            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             // not stored
             Optional.empty());
@@ -397,11 +405,13 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getLong("waiting_time_millis"), 107);
                     assertEquals(resultSet.getLong("analysis_time_millis"), 108);
                     assertEquals(resultSet.getLong("planning_time_millis"), 109);
+                    assertEquals(resultSet.getLong("planning_cpu_time_millis"), 1091);
                     assertEquals(resultSet.getLong("execution_time_millis"), 110);
                     assertEquals(resultSet.getLong("input_blocked_time_millis"), 111);
                     assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 112);
                     assertEquals(resultSet.getLong("output_blocked_time_millis"), 113);
                     assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 114);
+                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 115);
                     assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
                     assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
                     assertEquals(resultSet.getLong("physical_input_bytes"), 118);
@@ -418,6 +428,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
                     assertEquals(resultSet.getLong("completed_splits"), 130);
                     assertEquals(resultSet.getString("retry_policy"), "TASK");
+                    assertEquals(resultSet.getString("operator_summaries_json"), "[{operator: \"operator1\"},{operator: \"operator2\"}]");
                     assertFalse(resultSet.next());
                 }
             }
@@ -483,6 +494,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getLong("failed_input_blocked_time_millis"), 0);
                     assertEquals(resultSet.getLong("output_blocked_time_millis"), 0);
                     assertEquals(resultSet.getLong("failed_output_blocked_time_millis"), 0);
+                    assertEquals(resultSet.getLong("physical_input_read_time_millis"), 0);
                     assertEquals(resultSet.getLong("peak_memory_bytes"), 115);
                     assertEquals(resultSet.getLong("peak_task_memory_bytes"), 117);
                     assertEquals(resultSet.getLong("physical_input_bytes"), 118);
@@ -499,6 +511,7 @@ public class TestMysqlEventListener
                     assertEquals(resultSet.getDouble("failed_cumulative_memory"), 129.0);
                     assertEquals(resultSet.getLong("completed_splits"), 130);
                     assertEquals(resultSet.getString("retry_policy"), "NONE");
+                    assertEquals(resultSet.getString("operator_summaries_json"), "[]");
                     assertFalse(resultSet.next());
                 }
             }

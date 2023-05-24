@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.Constraint;
@@ -28,7 +29,6 @@ import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -60,13 +60,13 @@ import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Expression;
@@ -101,13 +101,13 @@ public class SplitSourceFactory
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
 
-    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, PlanFragment fragment)
+    public Map<PlanNodeId, SplitSource> createSplitSources(Session session, Span stageSpan, PlanFragment fragment)
     {
         ImmutableList.Builder<SplitSource> allSplitSources = ImmutableList.builder();
         try {
             // get splits for this fragment, this is lazy so split assignments aren't actually calculated here
             return fragment.getRoot().accept(
-                    new Visitor(session, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
+                    new Visitor(session, stageSpan, TypeProvider.copyOf(fragment.getSymbols()), allSplitSources),
                     null);
         }
         catch (Throwable t) {
@@ -130,15 +130,18 @@ public class SplitSourceFactory
             extends PlanVisitor<Map<PlanNodeId, SplitSource>, Void>
     {
         private final Session session;
+        private final Span stageSpan;
         private final TypeProvider typeProvider;
         private final ImmutableList.Builder<SplitSource> splitSources;
 
         private Visitor(
                 Session session,
+                Span stageSpan,
                 TypeProvider typeProvider,
                 ImmutableList.Builder<SplitSource> allSplitSources)
         {
             this.session = session;
+            this.stageSpan = stageSpan;
             this.typeProvider = typeProvider;
             this.splitSources = allSplitSources;
         }
@@ -180,6 +183,7 @@ public class SplitSourceFactory
             // get dataSource for table
             SplitSource splitSource = splitManager.getSplits(
                     session,
+                    stageSpan,
                     node.getTable(),
                     dynamicFilter,
                     constraint);
@@ -251,8 +255,7 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
-            if (node.getSource() instanceof TableScanNode) {
-                TableScanNode scan = (TableScanNode) node.getSource();
+            if (node.getSource() instanceof TableScanNode scan) {
                 return visitScanAndFilter(scan, Optional.of(node));
             }
 
@@ -306,6 +309,20 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitPatternRecognition(PatternRecognitionNode node, Void context)
         {
             return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                // this is a source node, so produce splits
+                SplitSource splitSource = splitManager.getSplits(session, stageSpan, node.getHandle());
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(node.getId(), splitSource);
+            }
+
+            return node.getSource().orElseThrow().accept(this, context);
         }
 
         @Override
@@ -395,18 +412,6 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitStatisticsWriterNode(StatisticsWriterNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Void context)
-        {
-            return node.getSource().accept(this, context);
-        }
-
-        @Override
-        public Map<PlanNodeId, SplitSource> visitUpdate(UpdateNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

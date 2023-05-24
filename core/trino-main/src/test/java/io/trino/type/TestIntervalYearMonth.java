@@ -13,20 +13,47 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestIntervalYearMonth
-        extends AbstractTestFunctions
 {
     private static final int MAX_SHORT = Short.MAX_VALUE;
+
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
 
     @Test
     public void testObject()
@@ -44,155 +71,335 @@ public class TestIntervalYearMonth
     @Test
     public void testAdd()
     {
-        assertFunction("INTERVAL '3' MONTH + INTERVAL '3' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(6));
-        assertFunction("INTERVAL '6' YEAR + INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
-        assertFunction("INTERVAL '3' MONTH + INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((6 * 12) + (3)));
+        assertThat(assertions.operator(ADD, "INTERVAL '3' MONTH", "INTERVAL '3' MONTH"))
+                .matches("INTERVAL '6' MONTH");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '6' YEAR", "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '12' YEAR");
+
+        assertThat(assertions.operator(ADD, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '6-3' YEAR TO MONTH");
     }
 
     @Test
     public void testSubtract()
     {
-        assertFunction("INTERVAL '6' MONTH - INTERVAL '3' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(3));
-        assertFunction("INTERVAL '9' YEAR - INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(3 * 12));
-        assertFunction("INTERVAL '3' MONTH - INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((3) - (6 * 12)));
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '6' MONTH", "INTERVAL '3' MONTH"))
+                .matches("INTERVAL '3' MONTH");
+
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '9' YEAR", "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '3' YEAR");
+
+        assertThat(assertions.operator(SUBTRACT, "INTERVAL '3' MONTH", "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '-5-9' YEAR TO MONTH");
     }
 
     @Test
     public void testMultiply()
     {
-        assertFunction("INTERVAL '6' MONTH * 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12));
-        assertFunction("2 * INTERVAL '6' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12));
-        assertFunction("INTERVAL '10' MONTH * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(25));
-        assertFunction("2.5 * INTERVAL '10' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(25));
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '6' MONTH", "2"))
+                .matches("INTERVAL '12' MONTH");
 
-        assertFunction("INTERVAL '6' YEAR * 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
-        assertFunction("2 * INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(12 * 12));
-        assertFunction("INTERVAL '1' YEAR * 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
-        assertFunction("2.5 * INTERVAL '1' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth((int) (2.5 * 12)));
+        assertThat(assertions.operator(MULTIPLY, "2", "INTERVAL '6' MONTH"))
+                .matches("INTERVAL '12' MONTH");
 
-        assertInvalidFunction("INTERVAL '6' MONTH * nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("nan() * INTERVAL '6' YEAR", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '10' MONTH", "2.5"))
+                .matches("INTERVAL '25' MONTH");
+
+        assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '10' MONTH"))
+                .matches("INTERVAL '25' MONTH");
+
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '6' YEAR", "2"))
+                .matches("INTERVAL '12' YEAR");
+
+        assertThat(assertions.operator(MULTIPLY, "2", "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '12' YEAR");
+
+        assertThat(assertions.operator(MULTIPLY, "INTERVAL '1' YEAR", "2.5"))
+                .matches("INTERVAL '2-6' YEAR TO MONTH");
+
+        assertThat(assertions.operator(MULTIPLY, "2.5", "INTERVAL '1' YEAR"))
+                .matches("INTERVAL '2-6' YEAR TO MONTH");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "INTERVAL '6' MONTH", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(MULTIPLY, "nan()", "INTERVAL '6' YEAR").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testDivide()
     {
-        assertFunction("INTERVAL '30' MONTH / 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(15));
-        assertFunction("INTERVAL '60' MONTH / 2.5", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(24));
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '30' MONTH", "2"))
+                .matches("INTERVAL '15' MONTH");
 
-        assertFunction("INTERVAL '3' YEAR / 2", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(18));
-        assertFunction("INTERVAL '4' YEAR / 4.8", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(10));
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '60' MONTH", "2.5"))
+                .matches("INTERVAL '24' MONTH");
 
-        assertInvalidFunction("INTERVAL '6' MONTH / nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' YEAR / nan()", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' MONTH / 0E0", INVALID_FUNCTION_ARGUMENT);
-        assertInvalidFunction("INTERVAL '6' YEAR / 0", INVALID_FUNCTION_ARGUMENT);
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '3' YEAR", "2"))
+                .matches("INTERVAL '18' MONTH");
+
+        assertThat(assertions.operator(DIVIDE, "INTERVAL '4' YEAR", "4.8"))
+                .matches("INTERVAL '10' MONTH");
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "nan()").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' MONTH", "0E0").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(() -> assertions.operator(DIVIDE, "INTERVAL '6' YEAR", "0").evaluate())
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
     @Test
     public void testNegation()
     {
-        assertFunction("- INTERVAL '3' MONTH", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(-3));
-        assertFunction("- INTERVAL '6' YEAR", INTERVAL_YEAR_MONTH, new SqlIntervalYearMonth(-72));
+        assertThat(assertions.operator(NEGATION, "INTERVAL '3' MONTH"))
+                .matches("INTERVAL '-3' MONTH");
+
+        assertThat(assertions.operator(NEGATION, "INTERVAL '6' YEAR"))
+                .matches("INTERVAL '-72' MONTH");
     }
 
     @Test
     public void testEqual()
     {
-        assertFunction("INTERVAL '3' MONTH = INTERVAL '3' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR = INTERVAL '6' YEAR", BOOLEAN, true);
+        assertThat(assertions.operator(EQUAL, "INTERVAL '3' MONTH", "INTERVAL '3' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH = INTERVAL '4' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '7' YEAR = INTERVAL '6' YEAR", BOOLEAN, false);
+        assertThat(assertions.operator(EQUAL, "INTERVAL '6' YEAR", "INTERVAL '6' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(EQUAL, "INTERVAL '3' MONTH", "INTERVAL '4' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(EQUAL, "INTERVAL '7' YEAR", "INTERVAL '6' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testNotEqual()
     {
-        assertFunction("INTERVAL '3' MONTH <> INTERVAL '4' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR <> INTERVAL '7' YEAR", BOOLEAN, true);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '4' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH <> INTERVAL '3' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR <> INTERVAL '6' YEAR", BOOLEAN, false);
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '7' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '3' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a <> b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '6' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThan()
     {
-        assertFunction("INTERVAL '3' MONTH < INTERVAL '4' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR < INTERVAL '7' YEAR", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' MONTH", "INTERVAL '4' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH < INTERVAL '3' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '3' MONTH < INTERVAL '2' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR < INTERVAL '6' YEAR", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR < INTERVAL '5' YEAR", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' YEAR", "INTERVAL '7' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' MONTH", "INTERVAL '3' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '3' MONTH", "INTERVAL '2' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' YEAR", "INTERVAL '6' YEAR"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN, "INTERVAL '6' YEAR", "INTERVAL '5' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testLessThanOrEqual()
     {
-        assertFunction("INTERVAL '3' MONTH <= INTERVAL '4' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '3' MONTH <= INTERVAL '3' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR <= INTERVAL '6' YEAR", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR <= INTERVAL '7' YEAR", BOOLEAN, true);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' MONTH", "INTERVAL '4' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH <= INTERVAL '2' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR <= INTERVAL '5' YEAR", BOOLEAN, false);
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' MONTH", "INTERVAL '3' MONTH"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' YEAR", "INTERVAL '6' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' YEAR", "INTERVAL '7' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '3' MONTH", "INTERVAL '2' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.operator(LESS_THAN_OR_EQUAL, "INTERVAL '6' YEAR", "INTERVAL '5' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThan()
     {
-        assertFunction("INTERVAL '3' MONTH > INTERVAL '2' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR > INTERVAL '5' YEAR", BOOLEAN, true);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '2' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH > INTERVAL '3' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '3' MONTH > INTERVAL '4' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR > INTERVAL '6' YEAR", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR > INTERVAL '7' YEAR", BOOLEAN, false);
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '5' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '3' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '4' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '6' YEAR"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a > b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '7' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testGreaterThanOrEqual()
     {
-        assertFunction("INTERVAL '3' MONTH >= INTERVAL '2' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '3' MONTH >= INTERVAL '3' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR >= INTERVAL '5' YEAR", BOOLEAN, true);
-        assertFunction("INTERVAL '6' YEAR >= INTERVAL '6' YEAR", BOOLEAN, true);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '2' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH >= INTERVAL '4' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '6' YEAR >= INTERVAL '7' YEAR", BOOLEAN, false);
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '3' MONTH"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '5' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '6' YEAR"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '3' MONTH")
+                .binding("b", "INTERVAL '4' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("a >= b")
+                .binding("a", "INTERVAL '6' YEAR")
+                .binding("b", "INTERVAL '7' YEAR"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testBetween()
     {
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '2' MONTH and INTERVAL '4' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '3' MONTH and INTERVAL '4' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '2' MONTH and INTERVAL '3' MONTH", BOOLEAN, true);
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '3' MONTH and INTERVAL '3' MONTH", BOOLEAN, true);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '2' MONTH")
+                .binding("high", "INTERVAL '4' MONTH"))
+                .isEqualTo(true);
 
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '4' MONTH and INTERVAL '5' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '1' MONTH and INTERVAL '2' MONTH", BOOLEAN, false);
-        assertFunction("INTERVAL '3' MONTH between INTERVAL '4' MONTH and INTERVAL '2' MONTH", BOOLEAN, false);
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '3' MONTH")
+                .binding("high", "INTERVAL '4' MONTH"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '2' MONTH")
+                .binding("high", "INTERVAL '3' MONTH"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '3' MONTH")
+                .binding("high", "INTERVAL '3' MONTH"))
+                .isEqualTo(true);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '4' MONTH")
+                .binding("high", "INTERVAL '5' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '1' MONTH")
+                .binding("high", "INTERVAL '2' MONTH"))
+                .isEqualTo(false);
+
+        assertThat(assertions.expression("value BETWEEN low AND high")
+                .binding("value", "INTERVAL '3' MONTH")
+                .binding("low", "INTERVAL '4' MONTH")
+                .binding("high", "INTERVAL '2' MONTH"))
+                .isEqualTo(false);
     }
 
     @Test
     public void testCastToVarchar()
     {
-        assertFunction("cast(INTERVAL '124-30' YEAR TO MONTH as varchar)", VARCHAR, "126-6");
-        assertFunction("cast(INTERVAL '124-30' YEAR TO MONTH as varchar)", VARCHAR, new SqlIntervalYearMonth(124, 30).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '124-30' YEAR TO MONTH"))
+                .hasType(VARCHAR)
+                .isEqualTo("126-6");
 
-        assertFunction("cast(INTERVAL '124' YEAR TO MONTH as varchar)", VARCHAR, new SqlIntervalYearMonth(124, 0).toString());
-        assertFunction("cast(INTERVAL '124' YEAR as varchar)", VARCHAR, new SqlIntervalYearMonth(124, 0).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '124-30' YEAR TO MONTH"))
+                .hasType(VARCHAR)
+                .isEqualTo("126-6");
 
-        assertFunction("cast(INTERVAL '30' MONTH as varchar)", VARCHAR, new SqlIntervalYearMonth(0, 30).toString());
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '124' YEAR TO MONTH"))
+                .hasType(VARCHAR)
+                .isEqualTo("124-0");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '124' YEAR"))
+                .hasType(VARCHAR)
+                .isEqualTo("124-0");
+
+        assertThat(assertions.expression("CAST(a AS varchar)")
+                .binding("a", "INTERVAL '30' MONTH"))
+                .hasType(VARCHAR)
+                .isEqualTo("2-6");
     }
 
     @Test
     public void testIndeterminate()
     {
-        assertOperator(INDETERMINATE, "cast(null as INTERVAL YEAR TO MONTH)", BOOLEAN, true);
-        assertOperator(INDETERMINATE, "INTERVAL '124' YEAR TO MONTH", BOOLEAN, false);
+        assertThat(assertions.operator(INDETERMINATE, "cast(null as INTERVAL YEAR TO MONTH)"))
+                .isEqualTo(true);
+
+        assertThat(assertions.operator(INDETERMINATE, "INTERVAL '124' YEAR TO MONTH"))
+                .isEqualTo(false);
     }
 }

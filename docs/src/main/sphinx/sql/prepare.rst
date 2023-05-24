@@ -39,4 +39,4 @@ Prepare an insert query::
 See also
 --------
 
-:doc:`execute`, :doc:`deallocate-prepare`, :doc:`describe-input`, :doc:`describe-output`
+:doc:`execute`, :doc:`deallocate-prepare`, :doc:`execute-immediate`, :doc:`describe-input`, :doc:`describe-output`

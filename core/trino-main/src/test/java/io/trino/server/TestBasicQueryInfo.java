@@ -68,6 +68,7 @@ public class TestBasicQueryInfo
                                 new Duration(44, MINUTES),
                                 new Duration(9, MINUTES),
                                 new Duration(99, SECONDS),
+                                new Duration(1, SECONDS),
                                 new Duration(12, MINUTES),
                                 13,
                                 14,
@@ -90,6 +91,8 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("30GB"),
                                 DataSize.valueOf("31GB"),
                                 true,
+                                OptionalDouble.of(100),
+                                OptionalDouble.of(0),
                                 new Duration(32, MINUTES),
                                 new Duration(33, MINUTES),
                                 new Duration(34, MINUTES),
@@ -134,6 +137,7 @@ public class TestBasicQueryInfo
                                         106,
                                         107)),
                                 DynamicFiltersStats.EMPTY,
+                                ImmutableList.of(),
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
@@ -191,6 +195,7 @@ public class TestBasicQueryInfo
         assertEquals(basicInfo.getQueryStats().getBlockedReasons(), ImmutableSet.of(BlockedReason.WAITING_FOR_MEMORY));
 
         assertEquals(basicInfo.getQueryStats().getProgressPercentage(), OptionalDouble.of(100));
+        assertEquals(basicInfo.getQueryStats().getRunningPercentage(), OptionalDouble.of(0));
 
         assertEquals(basicInfo.getErrorCode(), StandardErrorCode.ABANDONED_QUERY.toErrorCode());
         assertEquals(basicInfo.getErrorType(), StandardErrorCode.ABANDONED_QUERY.toErrorCode().getType());

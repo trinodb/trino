@@ -26,7 +26,6 @@ import io.trino.sql.planner.PartitioningHandle;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -65,12 +64,8 @@ public class TableProperties
                                 Optional.of(catalogHandle),
                                 Optional.of(transaction),
                                 nodePartitioning.getPartitioningHandle()),
-                        nodePartitioning.getPartitioningColumns()));
-    }
-
-    public Optional<Set<ColumnHandle>> getStreamPartitioningColumns()
-    {
-        return tableProperties.getStreamPartitioningColumns();
+                        nodePartitioning.getPartitioningColumns(),
+                        nodePartitioning.isSingleSplitPerPartition()));
     }
 
     public Optional<DiscretePredicates> getDiscretePredicates()
@@ -82,11 +77,13 @@ public class TableProperties
     {
         private final PartitioningHandle partitioningHandle;
         private final List<ColumnHandle> partitioningColumns;
+        private final boolean singleSplitPerPartition;
 
-        public TablePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns)
+        public TablePartitioning(PartitioningHandle partitioningHandle, List<ColumnHandle> partitioningColumns, boolean singleSplitPerPartition)
         {
             this.partitioningHandle = requireNonNull(partitioningHandle, "partitioningHandle is null");
             this.partitioningColumns = ImmutableList.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
+            this.singleSplitPerPartition = singleSplitPerPartition;
         }
 
         public PartitioningHandle getPartitioningHandle()
@@ -99,6 +96,11 @@ public class TableProperties
             return partitioningColumns;
         }
 
+        public boolean isSingleSplitPerPartition()
+        {
+            return singleSplitPerPartition;
+        }
+
         @Override
         public boolean equals(Object o)
         {
@@ -109,14 +111,15 @@ public class TableProperties
                 return false;
             }
             TablePartitioning that = (TablePartitioning) o;
-            return Objects.equals(partitioningHandle, that.partitioningHandle) &&
+            return singleSplitPerPartition == that.singleSplitPerPartition &&
+                    Objects.equals(partitioningHandle, that.partitioningHandle) &&
                     Objects.equals(partitioningColumns, that.partitioningColumns);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(partitioningHandle, partitioningColumns);
+            return Objects.hash(partitioningHandle, partitioningColumns, singleSplitPerPartition);
         }
     }
 }

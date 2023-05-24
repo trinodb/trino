@@ -2,7 +2,7 @@
     "tableName": "hybrid",
     "tableType": "REALTIME",
     "segmentsConfig": {
-        "timeColumnName": "updatedAtSeconds",
+        "timeColumnName": "updatedAt",
         "retentionTimeUnit": "DAYS",
         "retentionTimeValue": "365",
         "segmentPushType": "APPEND",
@@ -18,7 +18,6 @@
         "loadMode": "MMAP",
         "invertedIndexColumns": ["stringCol"],
         "noDictionaryColumns": ["longCol"],
-        "sortedColumn": ["updatedAtSeconds"],
         "starTreeIndexConfigs": [
             {
                 "dimensionsSplitOrder": ["stringCol"],

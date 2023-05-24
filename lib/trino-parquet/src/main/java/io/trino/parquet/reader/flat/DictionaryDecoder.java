@@ -14,12 +14,11 @@
 package io.trino.parquet.reader.flat;
 
 import io.trino.parquet.reader.SimpleSliceInputStream;
+import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
-import org.apache.parquet.bytes.ByteBufferInputStream;
-import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
-import org.apache.parquet.io.ParquetDecodingException;
+import io.trino.spi.block.Block;
 
-import java.io.IOException;
+import javax.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 
@@ -28,47 +27,72 @@ public final class DictionaryDecoder<T>
 {
     private final T dictionary;
     private final ColumnAdapter<T> columnAdapter;
+    private final int dictionarySize;
+    private final boolean isNonNull;
+    private final long retainedSizeInBytes;
 
-    private RunLengthBitPackingHybridDecoder dictionaryIdsReader;
+    private ValueDecoder<int[]> dictionaryIdsReader;
+    @Nullable
+    private Block dictionaryBlock;
 
-    public DictionaryDecoder(T dictionary, ColumnAdapter<T> columnAdapter)
+    public DictionaryDecoder(T dictionary, ColumnAdapter<T> columnAdapter, int dictionarySize, boolean isNonNull)
     {
         this.columnAdapter = requireNonNull(columnAdapter, "columnAdapter is null");
         this.dictionary = requireNonNull(dictionary, "dictionary is null");
+        this.dictionarySize = dictionarySize;
+        this.isNonNull = isNonNull;
+        this.retainedSizeInBytes = columnAdapter.getSizeInBytes(dictionary);
     }
 
     @Override
     public void init(SimpleSliceInputStream input)
     {
         int bitWidth = input.readByte();
-        this.dictionaryIdsReader = new RunLengthBitPackingHybridDecoder(bitWidth, ByteBufferInputStream.wrap(input.asSlice().toByteBuffer()));
+        dictionaryIdsReader = new RleBitPackingHybridDecoder(bitWidth);
+        dictionaryIdsReader.init(input);
     }
 
     @Override
     public void read(T values, int offset, int length)
     {
         int[] ids = new int[length];
-        try {
-            for (int i = 0; i < length; i++) {
-                ids[i] = dictionaryIdsReader.readInt();
-            }
-        }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        dictionaryIdsReader.read(ids, 0, length);
         columnAdapter.decodeDictionaryIds(values, offset, length, ids, dictionary);
     }
 
     @Override
     public void skip(int n)
     {
-        try {
-            for (int i = 0; i < n; i++) {
-                dictionaryIdsReader.readInt();
+        dictionaryIdsReader.skip(n);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return retainedSizeInBytes;
+    }
+
+    public void readDictionaryIds(int[] ids, int offset, int length)
+    {
+        dictionaryIdsReader.read(ids, offset, length);
+    }
+
+    public Block getDictionaryBlock()
+    {
+        if (dictionaryBlock == null) {
+            if (isNonNull) {
+                dictionaryBlock = columnAdapter.createNonNullBlock(dictionary);
+            }
+            else {
+                dictionaryBlock = columnAdapter.createNullableDictionaryBlock(dictionary, dictionarySize);
             }
         }
-        catch (IOException e) {
-            throw new ParquetDecodingException(e);
-        }
+        // Avoid creation of new Block objects for dictionary, since the engine currently
+        // uses identity equality to test if dictionaries are the same
+        return dictionaryBlock;
+    }
+
+    public int getDictionarySize()
+    {
+        return dictionarySize;
     }
 }

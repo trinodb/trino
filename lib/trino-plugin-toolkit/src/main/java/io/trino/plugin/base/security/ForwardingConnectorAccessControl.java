@@ -56,12 +56,6 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-        delegate().checkCanCreateSchema(context, schemaName);
-    }
-
-    @Override
     public void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
         delegate().checkCanDropSchema(context, schemaName);
@@ -421,6 +415,12 @@ public abstract class ForwardingConnectorAccessControl
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return delegate().getRowFilters(context, tableName);
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return delegate().getColumnMask(context, tableName, columnName, type);
     }
 
     @Override

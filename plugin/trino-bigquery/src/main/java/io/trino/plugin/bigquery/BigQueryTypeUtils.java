@@ -14,11 +14,10 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -38,6 +37,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.readBigDecimal;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -48,7 +48,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Collections.unmodifiableMap;
 
@@ -66,37 +65,40 @@ public final class BigQueryTypeUtils
             return null;
         }
 
-        // TODO https://github.com/trinodb/trino/issues/13741 Add support for decimal, time, timestamp with time zone, geography, map type
+        // TODO https://github.com/trinodb/trino/issues/13741 Add support for time, timestamp with time zone, geography, map type
         if (type.equals(BOOLEAN)) {
-            return type.getBoolean(block, position);
+            return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(TINYINT)) {
-            return SignedBytes.checkedCast(type.getLong(block, position));
+            return TINYINT.getByte(block, position);
         }
         if (type.equals(SMALLINT)) {
-            return Shorts.checkedCast(type.getLong(block, position));
+            return SMALLINT.getShort(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(type.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(BIGINT)) {
-            return type.getLong(block, position);
+            return BIGINT.getLong(block, position);
         }
         if (type.equals(DOUBLE)) {
-            return type.getDouble(block, position);
+            return DOUBLE.getDouble(block, position);
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof DecimalType) {
+            return readBigDecimal((DecimalType) type, block, position).toString();
+        }
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
         if (type.equals(VARBINARY)) {
-            return Base64.getEncoder().encodeToString(type.getSlice(block, position).getBytes());
+            return Base64.getEncoder().encodeToString(VARBINARY.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long days = type.getLong(block, position);
+            int days = DATE.getInt(block, position);
             return DATE_FORMATTER.format(LocalDate.ofEpochDay(days));
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            long epochMicros = type.getLong(block, position);
+            long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
             long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
             int nanoAdjustment = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
             return DATETIME_FORMATTER.format(toZonedDateTime(epochSeconds, nanoAdjustment, UTC));
@@ -116,7 +118,7 @@ public final class BigQueryTypeUtils
         if (type instanceof RowType rowType) {
             Block rowBlock = block.getObject(position, Block.class);
 
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getTypeParameters();
             if (fieldTypes.size() != rowBlock.getPositionCount()) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }

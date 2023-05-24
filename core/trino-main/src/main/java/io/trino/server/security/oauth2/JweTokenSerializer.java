@@ -165,7 +165,7 @@ public class JweTokenSerializer
         return signingKey;
     }
 
-    private static CompressionCodec resolveCompressionCodec(Header header)
+    private static CompressionCodec resolveCompressionCodec(Header<?> header)
             throws CompressionException
     {
         if (header.getCompressionAlgorithm() != null) {

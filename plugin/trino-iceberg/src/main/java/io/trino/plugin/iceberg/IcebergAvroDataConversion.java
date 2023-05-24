@@ -74,8 +74,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.types.Type.TypeID.FIXED;
 import static org.apache.iceberg.util.DateTimeUtil.microsFromTimestamp;
@@ -145,42 +143,42 @@ public final class IcebergAvroDataConversion
             return null;
         }
         if (type.equals(BOOLEAN)) {
-            return type.getBoolean(block, position);
+            return BOOLEAN.getBoolean(block, position);
         }
         if (type.equals(INTEGER)) {
-            return toIntExact(type.getLong(block, position));
+            return INTEGER.getInt(block, position);
         }
         if (type.equals(BIGINT)) {
-            return type.getLong(block, position);
+            return BIGINT.getLong(block, position);
         }
         if (type.equals(REAL)) {
-            return intBitsToFloat((int) type.getLong(block, position));
+            return REAL.getFloat(block, position);
         }
         if (type.equals(DOUBLE)) {
-            return type.getDouble(block, position);
+            return DOUBLE.getDouble(block, position);
         }
         if (type instanceof DecimalType decimalType) {
             return Decimals.readBigDecimal(decimalType, block, position);
         }
-        if (type instanceof VarcharType) {
-            return type.getSlice(block, position).toStringUtf8();
+        if (type instanceof VarcharType varcharType) {
+            return varcharType.getSlice(block, position).toStringUtf8();
         }
-        if (type instanceof VarbinaryType) {
+        if (type instanceof VarbinaryType varbinaryType) {
             if (icebergType.typeId().equals(FIXED)) {
-                return type.getSlice(block, position).getBytes();
+                return varbinaryType.getSlice(block, position).getBytes();
             }
-            return ByteBuffer.wrap(type.getSlice(block, position).getBytes());
+            return ByteBuffer.wrap(varbinaryType.getSlice(block, position).getBytes());
         }
         if (type.equals(DATE)) {
-            long epochDays = type.getLong(block, position);
+            int epochDays = DATE.getInt(block, position);
             return LocalDate.ofEpochDay(epochDays);
         }
         if (type.equals(TIME_MICROS)) {
-            long microsOfDay = type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
+            long microsOfDay = TIME_MICROS.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
             return timeFromMicros(microsOfDay);
         }
         if (type.equals(TIMESTAMP_MICROS)) {
-            long epochMicros = type.getLong(block, position);
+            long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
             return timestampFromMicros(epochMicros);
         }
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
@@ -188,10 +186,10 @@ public final class IcebergAvroDataConversion
             return timestamptzFromMicros(epochUtcMicros);
         }
         if (type.equals(UUID)) {
-            return trinoUuidToJavaUuid(type.getSlice(block, position));
+            return trinoUuidToJavaUuid(UUID.getSlice(block, position));
         }
-        if (type instanceof ArrayType) {
-            Type elementType = type.getTypeParameters().get(0);
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             org.apache.iceberg.types.Type elementIcebergType = icebergType.asListType().elementType();
 
             Block arrayBlock = block.getObject(position, Block.class);
@@ -204,9 +202,9 @@ public final class IcebergAvroDataConversion
 
             return Collections.unmodifiableList(list);
         }
-        if (type instanceof MapType) {
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
+        if (type instanceof MapType mapType) {
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
 
@@ -220,10 +218,10 @@ public final class IcebergAvroDataConversion
 
             return Collections.unmodifiableMap(map);
         }
-        if (type instanceof RowType) {
+        if (type instanceof RowType rowType) {
             Block rowBlock = block.getObject(position, Block.class);
 
-            List<Type> fieldTypes = type.getTypeParameters();
+            List<Type> fieldTypes = rowType.getTypeParameters();
             checkArgument(fieldTypes.size() == rowBlock.getPositionCount(), "Expected row value field count does not match type field count");
             List<Types.NestedField> icebergFields = icebergType.asStructType().fields();
 

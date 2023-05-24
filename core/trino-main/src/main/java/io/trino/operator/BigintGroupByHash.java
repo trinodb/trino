@@ -26,7 +26,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 public class BigintGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(BigintGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(BigintGroupByHash.class);
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
@@ -153,11 +153,11 @@ public class BigintGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new AddRunLengthEncodedPageWork((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new AddRunLengthEncodedPageWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new AddDictionaryPageWork((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new AddDictionaryPageWork(dictionaryBlock);
         }
 
         return new AddPageWork(block);
@@ -168,14 +168,14 @@ public class BigintGroupByHash
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(hashChannel);
-        if (block instanceof RunLengthEncodedBlock) {
-            return new GetRunLengthEncodedGroupIdsWork((RunLengthEncodedBlock) block);
+        if (block instanceof RunLengthEncodedBlock rleBlock) {
+            return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }
-        if (block instanceof DictionaryBlock) {
-            return new GetDictionaryGroupIdsWork((DictionaryBlock) block);
+        if (block instanceof DictionaryBlock dictionaryBlock) {
+            return new GetDictionaryGroupIdsWork(dictionaryBlock);
         }
 
-        return new GetGroupIdsWork(page.getBlock(hashChannel));
+        return new GetGroupIdsWork(block);
     }
 
     @Override
@@ -275,12 +275,11 @@ public class BigintGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for values, groupIds, and valuesByGroupId as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Long.BYTES + Integer.BYTES) + (long) (calculateMaxFill(newCapacity) - maxFill) * Long.BYTES + currentPageSizeInBytes;
+        preallocatedMemoryInBytes = newCapacity * (long) (Long.BYTES + Integer.BYTES) + ((long) calculateMaxFill(newCapacity)) * Long.BYTES + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
         }
-        preallocatedMemoryInBytes = 0;
 
         int newMask = newCapacity - 1;
         long[] newValues = new long[newCapacity];
@@ -312,6 +311,10 @@ public class BigintGroupByHash
         groupIds = newGroupIds;
 
         this.valuesByGroupId = Arrays.copyOf(valuesByGroupId, maxFill);
+
+        preallocatedMemoryInBytes = 0;
+        // release temporary memory reservation
+        updateMemory.update();
         return true;
     }
 

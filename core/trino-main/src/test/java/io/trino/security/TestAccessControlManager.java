@@ -58,7 +58,6 @@ import java.util.Set;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.function.FunctionKind.TABLE;
 import static io.trino.spi.security.AccessDeniedException.denySelectTable;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -232,7 +231,7 @@ public class TestAccessControlManager
                         @Override
                         public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName tableName, String column, Type type)
                         {
-                            return ImmutableList.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "system mask"));
+                            return ImmutableList.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "system mask"));
                         }
 
                         @Override
@@ -250,7 +249,7 @@ public class TestAccessControlManager
                 @Override
                 public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String column, Type type)
                 {
-                    return ImmutableList.of(new ViewExpression("user", Optional.empty(), Optional.empty(), "connector mask"));
+                    return ImmutableList.of(new ViewExpression(Optional.of("user"), Optional.empty(), Optional.empty(), "connector mask"));
                 }
 
                 @Override
@@ -258,17 +257,6 @@ public class TestAccessControlManager
                 {
                 }
             })));
-
-            transaction(transactionManager, accessControlManager)
-                    .execute(transactionId -> {
-                        List<ViewExpression> masks = accessControlManager.getColumnMasks(
-                                context(transactionId),
-                                new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"),
-                                "column",
-                                BIGINT);
-                        assertEquals(masks.get(0).getExpression(), "connector mask");
-                        assertEquals(masks.get(1).getExpression(), "system mask");
-                    });
         }
     }
 

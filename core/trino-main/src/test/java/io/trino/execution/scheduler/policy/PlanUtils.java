@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler.policy;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import io.trino.cost.StatsAndCosts;
 import io.trino.operator.RetryPolicy;
@@ -30,13 +29,10 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.UnionNode;
 import io.trino.testing.TestingMetadata;
 
 import java.util.Optional;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
@@ -52,34 +48,6 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 final class PlanUtils
 {
     private PlanUtils() {}
-
-    static PlanFragment createExchangePlanFragment(String name, PlanFragment... fragments)
-    {
-        PlanNode planNode = new RemoteSourceNode(
-                new PlanNodeId(name + "_id"),
-                Stream.of(fragments)
-                        .map(PlanFragment::getId)
-                        .collect(toImmutableList()),
-                fragments[0].getPartitioningScheme().getOutputLayout(),
-                Optional.empty(),
-                REPARTITION,
-                RetryPolicy.NONE);
-
-        return createFragment(planNode);
-    }
-
-    static PlanFragment createUnionPlanFragment(String name, PlanFragment... fragments)
-    {
-        PlanNode planNode = new UnionNode(
-                new PlanNodeId(name + "_id"),
-                Stream.of(fragments)
-                        .map(fragment -> new RemoteSourceNode(new PlanNodeId(fragment.getId().toString()), fragment.getId(), fragment.getPartitioningScheme().getOutputLayout(), Optional.empty(), REPARTITION, RetryPolicy.NONE))
-                        .collect(toImmutableList()),
-                ImmutableListMultimap.of(),
-                ImmutableList.of());
-
-        return createFragment(planNode);
-    }
 
     static PlanFragment createAggregationFragment(String name, PlanFragment sourceFragment)
     {
@@ -227,6 +195,7 @@ final class PlanUtils
                 planNode,
                 types.buildOrThrow(),
                 SOURCE_DISTRIBUTION,
+                Optional.empty(),
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),

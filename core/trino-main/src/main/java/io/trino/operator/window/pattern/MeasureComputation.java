@@ -89,8 +89,7 @@ public class MeasureComputation
         Block[] blocks = new Block[expectedLayout.size()];
         for (int i = 0; i < expectedLayout.size(); i++) {
             PhysicalValueAccessor accessor = expectedLayout.get(i);
-            if (accessor instanceof PhysicalValuePointer) {
-                PhysicalValuePointer pointer = (PhysicalValuePointer) accessor;
+            if (accessor instanceof PhysicalValuePointer pointer) {
                 if (pointer.getSourceChannel() == MATCH_NUMBER) {
                     blocks[i] = nativeValueToBlock(BIGINT, matchNumber);
                 }
@@ -138,8 +137,7 @@ public class MeasureComputation
         Block[] blocks = new Block[expectedLayout.size()];
         for (int i = 0; i < expectedLayout.size(); i++) {
             PhysicalValueAccessor accessor = expectedLayout.get(i);
-            if (accessor instanceof PhysicalValuePointer) {
-                PhysicalValuePointer pointer = (PhysicalValuePointer) accessor;
+            if (accessor instanceof PhysicalValuePointer pointer) {
                 int channel = pointer.getSourceChannel();
                 if (channel == MATCH_NUMBER) {
                     blocks[i] = nativeValueToBlock(BIGINT, matchNumber);

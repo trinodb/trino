@@ -207,8 +207,7 @@ public class DecorrelateUnnest
         // Here, any underlying projection that was a source of the correlated UnnestNode, is appended as a source of the rewritten UnnestNode.
         // If the projection is not necessary for UnnestNode (i.e. it does not produce any unnest symbols), it should be pruned afterwards.
         PlanNode unnestSource = context.getLookup().resolve(unnestNode.getSource());
-        if (unnestSource instanceof ProjectNode) {
-            ProjectNode sourceProjection = (ProjectNode) unnestSource;
+        if (unnestSource instanceof ProjectNode sourceProjection) {
             input = new ProjectNode(
                     sourceProjection.getId(),
                     input,
@@ -289,11 +288,10 @@ public class DecorrelateUnnest
      */
     private static boolean isSupportedUnnest(PlanNode node, List<Symbol> correlation, Lookup lookup)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return false;
         }
 
-        UnnestNode unnestNode = (UnnestNode) node;
         List<Symbol> unnestSymbols = unnestNode.getMappings().stream()
                 .map(UnnestNode.Mapping::getInput)
                 .collect(toImmutableList());

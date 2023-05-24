@@ -54,11 +54,10 @@ final class UnnestMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return false;
         }
 
-        UnnestNode unnestNode = (UnnestNode) node;
         return unnestNode.getJoinType() == type;
     }
 

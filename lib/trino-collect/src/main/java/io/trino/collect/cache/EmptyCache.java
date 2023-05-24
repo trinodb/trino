@@ -15,7 +15,9 @@ package io.trino.collect.cache;
 
 import com.google.common.cache.AbstractLoadingCache;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import com.google.common.cache.CacheStats;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 
@@ -57,6 +59,33 @@ class EmptyCache<K, V>
             throws ExecutionException
     {
         return get(key, () -> loader.load(key));
+    }
+
+    @Override
+    public ImmutableMap<K, V> getAll(Iterable<? extends K> keys)
+            throws ExecutionException
+    {
+        try {
+            Set<K> keySet = ImmutableSet.copyOf(keys);
+            statsCounter.recordMisses(keySet.size());
+            @SuppressWarnings("unchecked") // safe since all keys extend K
+            ImmutableMap<K, V> result = (ImmutableMap<K, V>) loader.loadAll(keySet);
+            for (K key : keySet) {
+                if (!result.containsKey(key)) {
+                    throw new InvalidCacheLoadException("loadAll failed to return a value for " + key);
+                }
+            }
+            statsCounter.recordLoadSuccess(1);
+            return result;
+        }
+        catch (RuntimeException e) {
+            statsCounter.recordLoadException(1);
+            throw new UncheckedExecutionException(e);
+        }
+        catch (Exception e) {
+            statsCounter.recordLoadException(1);
+            throw new ExecutionException(e);
+        }
     }
 
     @Override

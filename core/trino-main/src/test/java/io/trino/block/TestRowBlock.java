@@ -108,8 +108,8 @@ public class TestRowBlock
         Block emptyBlock = new ByteArrayBlock(0, Optional.empty(), new byte[0]);
         Block compactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
         Block compactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(5).getBytes());
-        Block incompactFiledBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
-        Block incompactFiledBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        Block incompactFieldBlock1 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
+        Block incompactFieldBlock2 = new ByteArrayBlock(5, Optional.empty(), createExpectedValue(6).getBytes());
         boolean[] rowIsNull = {false, true, false, false, false, false};
 
         assertCompact(fromFieldBlocks(0, Optional.empty(), new Block[] {emptyBlock, emptyBlock}));
@@ -117,8 +117,8 @@ public class TestRowBlock
         // TODO: add test case for a sliced RowBlock
 
         // underlying field blocks are not compact
-        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
-        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFiledBlock1, incompactFiledBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFieldBlock1, incompactFieldBlock2}));
+        testIncompactBlock(fromFieldBlocks(rowIsNull.length, Optional.of(rowIsNull), new Block[] {incompactFieldBlock1, incompactFieldBlock2}));
     }
 
     private void testWith(List<Type> fieldTypes, List<Object>[] expectedValues)

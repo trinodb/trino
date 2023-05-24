@@ -122,9 +122,7 @@ public class ScopeAware<T extends Node>
      */
     private Boolean scopeAwareComparison(Node left, Node right)
     {
-        if (left instanceof Expression && right instanceof Expression) {
-            Expression leftExpression = (Expression) left;
-            Expression rightExpression = (Expression) right;
+        if (left instanceof Expression leftExpression && right instanceof Expression rightExpression) {
             if (analysis.isColumnReference(leftExpression) && analysis.isColumnReference(rightExpression)) {
                 ResolvedField leftField = analysis.getResolvedField(leftExpression);
                 ResolvedField rightField = analysis.getResolvedField(rightExpression);
@@ -158,8 +156,7 @@ public class ScopeAware<T extends Node>
 
     private OptionalInt scopeAwareHash(Node node)
     {
-        if (node instanceof Expression) {
-            Expression expression = (Expression) node;
+        if (node instanceof Expression expression) {
             if (analysis.isColumnReference(expression)) {
                 ResolvedField field = analysis.getResolvedField(expression);
 

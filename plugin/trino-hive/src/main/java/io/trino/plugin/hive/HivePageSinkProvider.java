@@ -78,6 +78,8 @@ public class HivePageSinkProvider
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
     private final DateTimeZone parquetTimeZone;
+    private final boolean temporaryStagingDirectoryDirectoryEnabled;
+    private final String temporaryStagingDirectoryPath;
 
     @Inject
     public HivePageSinkProvider(
@@ -89,6 +91,7 @@ public class HivePageSinkProvider
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HiveConfig config,
+            SortingFileWriterConfig sortingFileWriterConfig,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             NodeManager nodeManager,
@@ -104,8 +107,8 @@ public class HivePageSinkProvider
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
-        this.maxOpenSortFiles = config.getMaxOpenSortFiles();
-        this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
+        this.maxOpenSortFiles = sortingFileWriterConfig.getMaxOpenSortFiles();
+        this.writerSortBufferSize = requireNonNull(sortingFileWriterConfig.getWriterSortBufferSize(), "writerSortBufferSize is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -115,6 +118,8 @@ public class HivePageSinkProvider
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
         this.parquetTimeZone = config.getParquetDateTimeZone();
+        this.temporaryStagingDirectoryDirectoryEnabled = config.isTemporaryStagingDirectoryEnabled();
+        this.temporaryStagingDirectoryPath = config.getTemporaryStagingDirectoryPath();
     }
 
     @Override
@@ -186,7 +191,9 @@ public class HivePageSinkProvider
                 nodeManager,
                 eventClient,
                 hiveSessionProperties,
-                hiveWriterStats);
+                hiveWriterStats,
+                temporaryStagingDirectoryDirectoryEnabled,
+                temporaryStagingDirectoryPath);
 
         return new HivePageSink(
                 handle,

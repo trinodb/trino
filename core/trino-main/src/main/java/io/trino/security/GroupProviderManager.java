@@ -77,7 +77,8 @@ public class GroupProviderManager
         setConfiguredGroupProvider(groupProviderName, properties);
     }
 
-    private void setConfiguredGroupProvider(String name, Map<String, String> properties)
+    @VisibleForTesting
+    protected void setConfiguredGroupProvider(String name, Map<String, String> properties)
     {
         requireNonNull(name, "name is null");
         requireNonNull(properties, "properties is null");
@@ -92,9 +93,15 @@ public class GroupProviderManager
             groupProvider = factory.create(ImmutableMap.copyOf(properties));
         }
 
-        checkState(configuredGroupProvider.compareAndSet(Optional.empty(), Optional.of(groupProvider)), "groupProvider is already set");
+        setConfiguredGroupProvider(groupProvider);
 
         log.info("-- Loaded group provider %s --", name);
+    }
+
+    @VisibleForTesting
+    protected void setConfiguredGroupProvider(GroupProvider groupProvider)
+    {
+        checkState(configuredGroupProvider.compareAndSet(Optional.empty(), Optional.of(groupProvider)), "groupProvider is already set");
     }
 
     @Override

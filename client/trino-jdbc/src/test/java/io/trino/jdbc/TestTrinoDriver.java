@@ -13,6 +13,7 @@
  */
 package io.trino.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
@@ -28,6 +29,8 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.Date;
@@ -1084,6 +1087,23 @@ public class TestTrinoDriver
         }
     }
 
+    @Test
+    public void testCustomDnsResolver()
+            throws Exception
+    {
+        Properties properties = new Properties();
+        properties.setProperty("dnsResolver", TestingDnsResolver.class.getName());
+        properties.setProperty("dnsResolverContext", server.getAddress().getHost());
+        properties.setProperty("user", "test");
+
+        String url = "jdbc:trino://mycustomaddress:" + server.getAddress().getPort();
+        try (Connection connection = DriverManager.getConnection(url, properties)) {
+            try (Statement statement = connection.createStatement()) {
+                assertTrue(statement.execute("SELECT 1"));
+            }
+        }
+    }
+
     private QueryState getQueryState(String queryId)
             throws SQLException
     {
@@ -1143,5 +1163,26 @@ public class TestTrinoDriver
         Properties properties = new Properties();
         map.forEach(properties::setProperty);
         return properties;
+    }
+
+    public static class TestingDnsResolver
+            implements DnsResolver
+    {
+        private final String context;
+
+        public TestingDnsResolver(String context)
+        {
+            this.context = requireNonNull(context, "context is null");
+        }
+
+        @Override
+        public List<InetAddress> lookup(String hostname)
+                throws UnknownHostException
+        {
+            if ("mycustomaddress".equals(hostname)) {
+                return ImmutableList.of(InetAddress.getByName(context));
+            }
+            throw new UnknownHostException("Cannot resolve host: " + hostname);
+        }
     }
 }

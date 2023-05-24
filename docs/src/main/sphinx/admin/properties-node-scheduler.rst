@@ -2,6 +2,18 @@
 Node scheduler properties
 =========================
 
+``node-scheduler.include-coordinator``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``false``
+
+Allows scheduling work on the coordinator so that a single machine can function
+as both coordinator and worker. For large clusters, processing work on the
+coordinator can negatively impact query performance because the machine's
+resources are not available for the critical coordinator tasks of scheduling,
+managing, and monitoring query execution.
+
 Splits
 ------
 
@@ -47,7 +59,7 @@ and has similar drawbacks if set too high.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Default value:** ``500``
+* **Default value:** ``2000``
 
 The maximum number of outstanding splits with the standard split weight guaranteed to be scheduled on a node (even when the node
 is already at the limit for total number of splits) for a single task given the task has remaining splits to process.
@@ -60,6 +72,17 @@ if set too high.
 .. note::
 
     Only applies for ``uniform`` :ref:`scheduler policy <node-scheduler-policy>`.
+
+``node-scheduler.max-unacknowledged-splits-per-task``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-integer`
+* **Default value:** ``2000``
+
+Maximum number of splits that are either queued on the coordinator, but not yet sent or confirmed to have been received by
+the worker. This limit enforcement takes precedence over other existing split limit configurations
+like ``node-scheduler.max-splits-per-node`` or ``node-scheduler.max-adjusted-pending-splits-per-task``
+and is designed to prevent large task update requests that might cause a query to fail.
 
 ``node-scheduler.min-candidates``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

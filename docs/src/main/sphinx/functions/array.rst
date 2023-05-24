@@ -2,7 +2,7 @@
 Array functions and operators
 =============================
 
-.. _subscript_operator:
+.. _subscript-operator:
 
 Subscript operator: []
 ----------------------
@@ -11,7 +11,7 @@ The ``[]`` operator is used to access an element of an array and is indexed star
 
     SELECT my_array[1] AS first_element
 
-.. _concatenation_operator:
+.. _concatenation-operator:
 
 Concatenation operator: ||
 --------------------------
@@ -59,6 +59,20 @@ Array functions
 .. function:: array_except(x, y) -> array
 
     Returns an array of elements in ``x`` but not in ``y``, without duplicates.
+
+.. function:: array_histogram(x) -> map<K, bigint>
+
+    Returns a map where the keys are the unique elements in the input array
+    ``x`` and the values are the number of times that each element appears in
+    ``x``. Null values are ignored. ::
+
+        SELECT array_histogram(ARRAY[42, 7, 42, NULL]);
+        -- {42=2, 7=1}
+
+    Returns an empty map if the input array has no non-null elements. ::
+
+        SELECT array_histogram(ARRAY[NULL, NULL]);
+        -- {}
 
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 

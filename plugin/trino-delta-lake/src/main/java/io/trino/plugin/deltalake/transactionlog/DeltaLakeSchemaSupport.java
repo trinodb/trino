@@ -21,6 +21,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Enums;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -80,6 +83,12 @@ public final class DeltaLakeSchemaSupport
 
     public static final String APPEND_ONLY_CONFIGURATION_KEY = "delta.appendOnly";
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
+
+    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
+    // TODO: Add support for 'deletionVectors' and 'timestampNTZ' reader features
+    private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
+            .add("columnMapping")
+            .build();
 
     public enum ColumnMappingMode
     {
@@ -128,7 +137,7 @@ public final class DeltaLakeSchemaSupport
         }
         return schema.stream()
                 .filter(entry -> canonicalPartitionColumns.contains(entry.getName()))
-                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY))
+                .map(entry -> new DeltaLakeColumnHandle(entry.getName(), entry.getType(), OptionalInt.empty(), entry.getPhysicalName(), entry.getPhysicalColumnType(), PARTITION_KEY, Optional.empty()))
                 .collect(toImmutableList());
     }
 
@@ -152,27 +161,33 @@ public final class DeltaLakeSchemaSupport
             Map<String, Boolean> columnNullability,
             Map<String, Map<String, Object>> columnMetadata)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-type
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
+        schema.put("type", "struct");
         schema.put("fields", columns.stream()
                 .map(column -> {
-                    String columnName = column.getName();
+                    String columnName = column.getColumnName();
                     return serializeStructField(
-                            column.getName(),
-                            column.getType(),
+                            columnName,
+                            column.getBaseType(),
                             columnComments.get(columnName),
                             columnNullability.get(columnName),
                             columnMetadata.get(columnName));
                 })
                 .collect(toImmutableList()));
-        schema.put("type", "struct");
 
         return schema.buildOrThrow();
     }
 
     private static Map<String, Object> serializeStructField(String name, Type type, @Nullable String comment, @Nullable Boolean nullable, @Nullable Map<String, Object> metadata)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
+
+        fieldContents.put("name", name);
+        fieldContents.put("type", serializeColumnType(type));
+        fieldContents.put("nullable", nullable != null ? nullable : true);
 
         ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
         if (comment != null) {
@@ -183,11 +198,7 @@ public final class DeltaLakeSchemaSupport
                     .filter(entry -> !entry.getKey().equals("comment"))
                     .forEach(entry -> columnMetadata.put(entry.getKey(), entry.getValue()));
         }
-
         fieldContents.put("metadata", columnMetadata.buildOrThrow());
-        fieldContents.put("name", name);
-        fieldContents.put("nullable", nullable != null ? nullable : true);
-        fieldContents.put("type", serializeColumnType(type));
 
         return fieldContents.buildOrThrow();
     }
@@ -208,23 +219,25 @@ public final class DeltaLakeSchemaSupport
 
     private static Map<String, Object> serializeArrayType(ArrayType arrayType)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#array-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "array");
-        fields.put("containsNull", true);
         fields.put("elementType", serializeColumnType(arrayType.getElementType()));
+        fields.put("containsNull", true);
 
         return fields.buildOrThrow();
     }
 
     private static Map<String, Object> serializeMapType(MapType mapType)
     {
+        // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#map-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
-        fields.put("keyType", serializeColumnType(mapType.getKeyType()));
         fields.put("type", "map");
-        fields.put("valueContainsNull", true);
+        fields.put("keyType", serializeColumnType(mapType.getKeyType()));
         fields.put("valueType", serializeColumnType(mapType.getValueType()));
+        fields.put("valueContainsNull", true);
 
         return fields.buildOrThrow();
     }
@@ -267,12 +280,6 @@ public final class DeltaLakeSchemaSupport
 
     private static void validateType(Optional<Type> rootType, Type type)
     {
-        rootType.ifPresent(root -> {
-            if (type instanceof TimestampWithTimeZoneType) {
-                throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Nested TIMESTAMP types are not supported, invalid type: " + root);
-            }
-        });
-
         if (HiveUtil.isStructuralType(type)) {
             validateStructuralType(Optional.of(rootType.orElse(type)), type);
         }
@@ -410,7 +417,17 @@ public final class DeltaLakeSchemaSupport
     private static String getInvariants(JsonNode node)
     {
         JsonNode invariants = node.get("metadata").get("delta.invariants");
-        return invariants == null ? null : invariants.asText();
+        return invariants == null ? null : extractInvariantsExpression(invariants.asText());
+    }
+
+    private static String extractInvariantsExpression(String invariants)
+    {
+        try {
+            return OBJECT_MAPPER.readTree(invariants).get("expression").get("expression").asText();
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse invariants expression: " + invariants, e);
+        }
     }
 
     public static Map<String, String> getGeneratedColumnExpressions(MetadataEntry metadataEntry)
@@ -421,8 +438,8 @@ public final class DeltaLakeSchemaSupport
     @Nullable
     private static String getGeneratedColumnExpressions(JsonNode node)
     {
-        JsonNode invariants = node.get("metadata").get("delta.generationExpression");
-        return invariants == null ? null : invariants.asText();
+        JsonNode generationExpression = node.get("metadata").get("delta.generationExpression");
+        return generationExpression == null ? null : generationExpression.asText();
     }
 
     public static Map<String, String> getCheckConstraints(MetadataEntry metadataEntry)
@@ -461,6 +478,11 @@ public final class DeltaLakeSchemaSupport
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + json, e);
         }
+    }
+
+    public static Set<String> unsupportedReaderFeatures(Set<String> features)
+    {
+        return Sets.difference(features, SUPPORTED_READER_FEATURES);
     }
 
     private static Type buildType(TypeManager typeManager, JsonNode typeNode, boolean usePhysicalName)

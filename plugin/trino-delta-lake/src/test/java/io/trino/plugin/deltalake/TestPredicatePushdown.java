@@ -138,6 +138,7 @@ public class TestPredicatePushdown
 
     /**
      * Assert on the number of rows read and updated by a read operation
+     *
      * @param actual The query to test
      * @param expected The expected results as an SQL expression
      * @param countProcessed The number of rows expected to be processed
@@ -171,6 +172,7 @@ public class TestPredicatePushdown
 
     /**
      * Assert on the number of rows read and updated by a write operation.
+     *
      * @param sql The query to test
      * @param count The number of rows expected to be modified (query result)
      * @param countProcessed The number of rows expected to be processed
@@ -220,6 +222,7 @@ public class TestPredicatePushdown
 
         /**
          * Register a table in the metastore using the described resource and the given name prefix.
+         *
          * @return The name of the registered table.
          */
         String register(String namePrefix)

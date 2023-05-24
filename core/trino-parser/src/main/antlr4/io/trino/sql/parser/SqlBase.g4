@@ -42,6 +42,13 @@ statement
     : query                                                            #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
+    | CREATE CATALOG (IF NOT EXISTS)? catalog=identifier
+         USING connectorName=identifier
+         (COMMENT string)?
+         (AUTHORIZATION principal)?
+         (WITH properties)?                                            #createCatalog
+    | DROP CATALOG (IF EXISTS)? catalog=identifier
+         (CASCADE | RESTRICT)?                                         #dropCatalog
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
@@ -164,6 +171,7 @@ statement
     | PREPARE identifier FROM statement                                #prepare
     | DEALLOCATE PREPARE identifier                                    #deallocate
     | EXECUTE identifier (USING expression (',' expression)*)?         #execute
+    | EXECUTE IMMEDIATE string (USING expression (',' expression)*)?   #executeImmediate
     | DESCRIBE INPUT identifier                                        #describeInput
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
@@ -264,8 +272,8 @@ groupBy
 
 groupingElement
     : groupingSet                                            #singleGroupingSet
-    | ROLLUP '(' (expression (',' expression)*)? ')'         #rollup
-    | CUBE '(' (expression (',' expression)*)? ')'           #cube
+    | ROLLUP '(' (groupingSet (',' groupingSet)*)? ')'       #rollup
+    | CUBE '(' (groupingSet (',' groupingSet)*)? ')'         #cube
     | GROUPING SETS '(' groupingSet (',' groupingSet)* ')'   #multipleGroupingSets
     ;
 
@@ -564,6 +572,7 @@ primaryExpression
 
 jsonPathInvocation
     : jsonValueExpression ',' path=string
+        (AS pathName=identifier)?
         (PASSING jsonArgument (',' jsonArgument)*)?
     ;
 
@@ -833,13 +842,13 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BERNOULLI | BOTH
-    | CALL | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | CALL | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DISTRIBUTED | DOUBLE
     | EMPTY | ENCODING | ERROR | EXCLUDING | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
-    | IF | IGNORE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
+    | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY | KEYS
     | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOCAL | LOGICAL
@@ -881,6 +890,7 @@ CALL: 'CALL';
 CASCADE: 'CASCADE';
 CASE: 'CASE';
 CAST: 'CAST';
+CATALOG: 'CATALOG';
 CATALOGS: 'CATALOGS';
 COLUMN: 'COLUMN';
 COLUMNS: 'COLUMNS';
@@ -954,6 +964,7 @@ HAVING: 'HAVING';
 HOUR: 'HOUR';
 IF: 'IF';
 IGNORE: 'IGNORE';
+IMMEDIATE: 'IMMEDIATE';
 IN: 'IN';
 INCLUDING: 'INCLUDING';
 INITIAL: 'INITIAL';

@@ -18,12 +18,14 @@ import io.trino.parquet.DataPageV2;
 import io.trino.parquet.DictionaryPage;
 import io.trino.parquet.Page;
 import io.trino.parquet.ParquetCorruptionException;
+import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.DataPageHeader;
 import org.apache.parquet.format.DataPageHeaderV2;
 import org.apache.parquet.format.DictionaryPageHeader;
 import org.apache.parquet.format.PageHeader;
 import org.apache.parquet.format.Util;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import javax.annotation.Nullable;
@@ -33,7 +35,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static java.util.Objects.requireNonNull;
 
@@ -41,41 +43,38 @@ public final class ParquetColumnChunkIterator
         implements Iterator<Page>
 {
     private final Optional<String> fileCreatedBy;
-    private final ColumnChunkDescriptor descriptor;
+    private final ColumnDescriptor descriptor;
+    private final ColumnChunkMetaData metadata;
     private final ChunkedInputStream input;
     private final OffsetIndex offsetIndex;
 
     private long valueCount;
     private int dataPageCount;
-    private boolean dictionaryWasRead;
 
     public ParquetColumnChunkIterator(
             Optional<String> fileCreatedBy,
-            ColumnChunkDescriptor descriptor,
+            ColumnDescriptor descriptor,
+            ColumnChunkMetaData metadata,
             ChunkedInputStream input,
             @Nullable OffsetIndex offsetIndex)
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
         this.input = requireNonNull(input, "input is null");
         this.offsetIndex = offsetIndex;
-    }
-
-    public boolean hasDictionaryPage()
-    {
-        return descriptor.getColumnChunkMetaData().hasDictionaryPage();
     }
 
     @Override
     public boolean hasNext()
     {
-        return hasMorePages(valueCount, dataPageCount) || (hasDictionaryPage() && !dictionaryWasRead);
+        return hasMorePages(valueCount, dataPageCount);
     }
 
     @Override
     public Page next()
     {
-        checkArgument(hasNext());
+        checkState(hasNext(), "No more data left to read in column (%s), metadata (%s), valueCount %s, dataPageCount %s", descriptor, metadata, valueCount, dataPageCount);
 
         try {
             PageHeader pageHeader = readPageHeader();
@@ -85,10 +84,9 @@ public final class ParquetColumnChunkIterator
             switch (pageHeader.type) {
                 case DICTIONARY_PAGE:
                     if (dataPageCount != 0) {
-                        throw new ParquetCorruptionException("%s has dictionary page at not first position in column chunk", descriptor.getColumnDescriptor());
+                        throw new ParquetCorruptionException("Column (%s) has a dictionary page after the first position in column chunk", descriptor);
                     }
                     result = readDictionaryPage(pageHeader, pageHeader.getUncompressed_page_size(), pageHeader.getCompressed_page_size());
-                    dictionaryWasRead = true;
                     break;
                 case DATA_PAGE:
                     result = readDataPageV1(pageHeader, uncompressedPageSize, compressedPageSize, getFirstRowIndex(dataPageCount, offsetIndex));
@@ -118,7 +116,7 @@ public final class ParquetColumnChunkIterator
     private boolean hasMorePages(long valuesCountReadSoFar, int dataPageCountReadSoFar)
     {
         if (offsetIndex == null) {
-            return valuesCountReadSoFar < descriptor.getColumnChunkMetaData().getValueCount();
+            return valuesCountReadSoFar < metadata.getValueCount();
         }
         return dataPageCountReadSoFar < offsetIndex.getPageCount();
     }
@@ -176,7 +174,7 @@ public final class ParquetColumnChunkIterator
                 MetadataReader.readStats(
                         fileCreatedBy,
                         Optional.ofNullable(dataHeaderV2.getStatistics()),
-                        descriptor.getColumnDescriptor().getPrimitiveType()),
+                        descriptor.getPrimitiveType()),
                 dataHeaderV2.isIs_compressed());
     }
 

@@ -25,6 +25,7 @@ import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableSchema;
@@ -108,7 +109,11 @@ public class Query
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
@@ -120,8 +125,10 @@ public class Query
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
             RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(new SchemaTableName(database, collection));
+            // Don't store Document object to MongoTableHandle for avoiding serialization issue
+            parseFilter(filter);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(parseFilter(filter)));
+            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
@@ -144,13 +151,13 @@ public class Query
         }
     }
 
-    private static Document parseFilter(String filter)
+    public static Document parseFilter(String filter)
     {
         try {
             return Document.parse(filter);
         }
         catch (JsonParseException e) {
-            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Can't parse 'filter' argument as json", e);
         }
     }
 

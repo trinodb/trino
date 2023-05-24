@@ -344,11 +344,10 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitInPredicate(InPredicate node, Void context)
         {
-            if (!(node.getValueList() instanceof InListExpression)) {
+            if (!(node.getValueList() instanceof InListExpression inList)) {
                 return PlanNodeStatsEstimate.unknown();
             }
 
-            InListExpression inList = (InListExpression) node.getValueList();
             ImmutableList<PlanNodeStatsEstimate> equalityEstimates = inList.getValues().stream()
                     .map(inValue -> process(new ComparisonExpression(EQUAL, node.getValue(), inValue)))
                     .collect(toImmutableList());

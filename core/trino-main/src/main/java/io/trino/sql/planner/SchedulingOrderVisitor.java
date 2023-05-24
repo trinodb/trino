@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
@@ -85,6 +86,18 @@ public final class SchedulingOrderVisitor
         public Void visitTableScan(TableScanNode node, Void context)
         {
             schedulingOrder.accept(node.getId());
+            return null;
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Void context)
+        {
+            if (node.getSource().isEmpty()) {
+                schedulingOrder.accept(node.getId());
+            }
+            else {
+                node.getSource().orElseThrow().accept(this, context);
+            }
             return null;
         }
     }

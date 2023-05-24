@@ -53,7 +53,7 @@ Binary functions
     negative starting position is interpreted as being relative to the end of
     the string.
 
-.. _function_reverse_varbinary:
+.. _function-reverse-varbinary:
 
 .. function:: reverse(binary) -> varbinary
     :noindex:
@@ -180,7 +180,7 @@ Hashing functions
 
 .. function:: murmur3(binary) -> varbinary
 
-    Computes the 128-bit `MurmurHash3 <https://en.wikipedia.org/wiki/MurmurHash>`_
+    Computes the 128-bit `MurmurHash3 <https://wikipedia.org/wiki/MurmurHash>`_
     hash of ``binary``.
 
         SELECT murmur3(from_base64('aaaaaa'));

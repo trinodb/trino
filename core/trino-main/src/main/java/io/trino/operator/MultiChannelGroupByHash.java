@@ -27,7 +27,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +38,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
@@ -55,7 +55,7 @@ import static java.util.Objects.requireNonNull;
 public class MultiChannelGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MultiChannelGroupByHash.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(MultiChannelGroupByHash.class);
     private static final float FILL_RATIO = 0.75f;
     private static final int BATCH_SIZE = 1024;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
@@ -357,13 +357,12 @@ public class MultiChannelGroupByHash
 
         // An estimate of how much extra memory is needed before we can go ahead and expand the hash table.
         // This includes the new capacity for rawHashByHashPosition, groupIdsByHash as well as the size of the current page
-        preallocatedMemoryInBytes = (newCapacity - hashCapacity) * (long) (Integer.BYTES + Byte.BYTES)
+        preallocatedMemoryInBytes = newCapacity * (long) (Integer.BYTES + Byte.BYTES)
                 + currentPageSizeInBytes;
         if (!updateMemory.update()) {
             // reserved memory but has exceeded the limit
             return false;
         }
-        preallocatedMemoryInBytes = 0;
 
         int newMask = newCapacity - 1;
         byte[] rawHashes = new byte[newCapacity];
@@ -394,6 +393,10 @@ public class MultiChannelGroupByHash
         this.maxFill = calculateMaxFill(newCapacity);
         this.rawHashByHashPosition = rawHashes;
         this.groupIdsByHash = newGroupIdByHash;
+
+        preallocatedMemoryInBytes = 0;
+        // release temporary memory reservation
+        updateMemory.update();
         return true;
     }
 
@@ -525,7 +528,7 @@ public class MultiChannelGroupByHash
 
     private static final class DictionaryLookBack
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DictionaryLookBack.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(DictionaryLookBack.class);
         private final Block dictionary;
         private final int[] processed;
 

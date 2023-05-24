@@ -283,6 +283,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testTableCreationWithTrailingSpaceInLocation()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testTableCreationIgnoreExisting()
     {
         // Alluxio metastore does not support create operations

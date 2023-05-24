@@ -2,7 +2,7 @@
 Connectors
 **********
 
-This chapter describes the connectors available in Trino to access data
+This section describes the connectors available in Trino to access data
 from different data sources.
 
 .. toctree::
@@ -21,6 +21,7 @@ from different data sources.
     Hive            <connector/hive>
     Hudi            <connector/hudi>
     Iceberg         <connector/iceberg>
+    Ignite          <connector/ignite>
     JMX             <connector/jmx>
     Kafka           <connector/kafka>
     Kinesis         <connector/kinesis>
@@ -37,7 +38,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
-    SingleStore (MemSQL)          <connector/memsql>
+    SingleStore     <connector/singlestore>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>

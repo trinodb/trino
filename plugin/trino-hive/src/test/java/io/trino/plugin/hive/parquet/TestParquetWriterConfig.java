@@ -32,7 +32,7 @@ public class TestParquetWriterConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ParquetWriterConfig.class)
-                .setParquetOptimizedWriterEnabled(false)
+                .setParquetOptimizedWriterEnabled(true)
                 .setBlockSize(DataSize.ofBytes(ParquetWriter.DEFAULT_BLOCK_SIZE))
                 .setPageSize(DataSize.ofBytes(ParquetWriter.DEFAULT_PAGE_SIZE))
                 .setBatchSize(ParquetWriterOptions.DEFAULT_BATCH_SIZE)
@@ -46,32 +46,32 @@ public class TestParquetWriterConfig
                 ParquetWriterConfig.class,
                 Map.of(
                         "parquet.optimized-writer.enabled", "true",
-                        "parquet.writer.block-size", "2PB",
-                        "parquet.writer.page-size", "3PB"),
+                        "parquet.writer.block-size", "33MB",
+                        "parquet.writer.page-size", "7MB"),
                 Map.of(
                         "parquet.experimental-optimized-writer.enabled", "true",
-                        "hive.parquet.writer.block-size", "2PB",
-                        "hive.parquet.writer.page-size", "3PB"),
+                        "hive.parquet.writer.block-size", "33MB",
+                        "hive.parquet.writer.page-size", "7MB"),
                 Map.of(
                         "hive.parquet.optimized-writer.enabled", "true",
-                        "hive.parquet.writer.block-size", "2PB",
-                        "hive.parquet.writer.page-size", "3PB"));
+                        "hive.parquet.writer.block-size", "33MB",
+                        "hive.parquet.writer.page-size", "7MB"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = Map.of(
-                "parquet.optimized-writer.enabled", "true",
+                "parquet.optimized-writer.enabled", "false",
                 "parquet.writer.block-size", "234MB",
-                "parquet.writer.page-size", "11MB",
+                "parquet.writer.page-size", "6MB",
                 "parquet.writer.batch-size", "100",
                 "parquet.optimized-writer.validation-percentage", "10");
 
         ParquetWriterConfig expected = new ParquetWriterConfig()
-                .setParquetOptimizedWriterEnabled(true)
+                .setParquetOptimizedWriterEnabled(false)
                 .setBlockSize(DataSize.of(234, MEGABYTE))
-                .setPageSize(DataSize.of(11, MEGABYTE))
+                .setPageSize(DataSize.of(6, MEGABYTE))
                 .setBatchSize(100)
                 .setValidationPercentage(10);
 

@@ -109,7 +109,7 @@ public final class EnvironmentUp
             implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
-        private final boolean withoutTrinoMaster;
+        private final boolean withoutCoordinator;
         private final boolean background;
         private final String environment;
         private final EnvironmentConfig environmentConfig;
@@ -122,7 +122,7 @@ public final class EnvironmentUp
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
-            this.withoutTrinoMaster = options.withoutTrinoMaster;
+            this.withoutCoordinator = options.withoutCoordinator;
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.outputMode = requireNonNull(options.output, "options.output is null");
@@ -139,7 +139,7 @@ public final class EnvironmentUp
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
 
-            if (withoutTrinoMaster) {
+            if (withoutCoordinator) {
                 builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));
             }
 

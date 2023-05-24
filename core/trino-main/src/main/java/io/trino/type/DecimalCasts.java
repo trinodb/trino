@@ -65,6 +65,7 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
 import static io.trino.util.JsonUtil.currentTokenAsLongDecimal;
 import static io.trino.util.JsonUtil.currentTokenAsShortDecimal;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -467,13 +468,15 @@ public final class DecimalCasts
     @UsedByGeneratedCode
     public static long realToShortDecimal(long value, long precision, long scale, long tenToScale)
     {
-        return DecimalConversions.realToShortDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToShortDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode
     public static Int128 realToLongDecimal(long value, long precision, long scale, Int128 tenToScale)
     {
-        return DecimalConversions.realToLongDecimal(value, precision, scale);
+        float floatValue = intBitsToFloat((int) value);
+        return DecimalConversions.realToLongDecimal(floatValue, precision, scale);
     }
 
     @UsedByGeneratedCode

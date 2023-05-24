@@ -16,7 +16,7 @@ Configuration
 -------------
 
 To configure the JMX connector, create a catalog properties file
-``etc/catalog/jmx.properties`` with the following contents:
+``etc/catalog/example.properties`` with the following contents:
 
 .. code-block:: text
 
@@ -62,14 +62,14 @@ The JMX connector provides two schemas.
 The first one is ``current`` that contains every MBean from every node in the Trino
 cluster. You can see all of the available MBeans by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM jmx.current;
+    SHOW TABLES FROM example.current;
 
 MBean names map to non-standard table names, and must be quoted with
 double quotes when referencing them in a query. For example, the
 following query shows the JVM version of every node::
 
     SELECT node, vmname, vmversion
-    FROM jmx.current."java.lang:type=runtime";
+    FROM example.current."java.lang:type=runtime";
 
 .. code-block:: text
 
@@ -82,7 +82,7 @@ The following query shows the open and maximum file descriptor counts
 for each node::
 
     SELECT openfiledescriptorcount, maxfiledescriptorcount
-    FROM jmx.current."java.lang:type=operatingsystem";
+    FROM example.current."java.lang:type=operatingsystem";
 
 .. code-block:: text
 
@@ -96,7 +96,7 @@ This allows matching several MBean objects within a single query. The following 
 returns information from the different Trino memory pools on each node::
 
     SELECT freebytes, node, object_name
-    FROM jmx.current."trino.memory:*type=memorypool*";
+    FROM example.current."trino.memory:*type=memorypool*";
 
 .. code-block:: text
 
@@ -111,7 +111,7 @@ The ``history`` schema contains the list of tables configured in the connector p
 The tables have the same columns as those in the current schema, but with an additional
 timestamp column that stores the time at which the snapshot was taken::
 
-    SELECT "timestamp", "uptime" FROM jmx.history."java.lang:type=runtime";
+    SELECT "timestamp", "uptime" FROM example.history."java.lang:type=runtime";
 
 .. code-block:: text
 

@@ -145,7 +145,8 @@ public final class HttpPageBufferClient
     private boolean completed;
     @GuardedBy("this")
     private String taskInstanceId;
-
+    private volatile long lastRequestStartNanos;
+    private volatile long lastRequestDurationMillis;
     // it is synchronized on `this` for update
     private volatile long averageRequestSizeInBytes;
 
@@ -161,6 +162,7 @@ public final class HttpPageBufferClient
     private final AtomicInteger requestsFailed = new AtomicInteger();
 
     private final Executor pageBufferClientCallbackExecutor;
+    private final Ticker ticker;
 
     public HttpPageBufferClient(
             String selfAddress,
@@ -217,6 +219,7 @@ public final class HttpPageBufferClient
         requireNonNull(maxErrorDuration, "maxErrorDuration is null");
         requireNonNull(ticker, "ticker is null");
         this.backoff = new Backoff(maxErrorDuration, ticker);
+        this.ticker = ticker;
     }
 
     public synchronized PageBufferClientStatus getStatus()
@@ -327,6 +330,11 @@ public final class HttpPageBufferClient
         requestsScheduled.incrementAndGet();
     }
 
+    public long getLastRequestDurationMillis()
+    {
+        return lastRequestDurationMillis;
+    }
+
     private synchronized void initiateRequest()
     {
         scheduled = false;
@@ -347,6 +355,7 @@ public final class HttpPageBufferClient
     private synchronized void sendGetResults()
     {
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
+        lastRequestStartNanos = ticker.read();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
@@ -360,7 +369,7 @@ public final class HttpPageBufferClient
             public void onSuccess(PagesResponse result)
             {
                 assertNotHoldsLock(this);
-
+                lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
                 backoff.success();
 
                 List<Slice> pages;
@@ -466,6 +475,8 @@ public final class HttpPageBufferClient
             {
                 log.debug("Request to %s failed %s", uri, t);
                 assertNotHoldsLock(this);
+
+                lastRequestDurationMillis = (ticker.read() - lastRequestStartNanos) / 1_000_000;
 
                 if (t instanceof ChecksumVerificationException) {
                     switch (dataIntegrityVerification) {

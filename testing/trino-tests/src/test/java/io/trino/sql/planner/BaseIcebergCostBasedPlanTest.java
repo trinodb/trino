@@ -21,13 +21,13 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.iceberg.IcebergConnectorFactory;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -92,6 +92,11 @@ public abstract class BaseIcebergCostBasedPlanTest
     protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned)
     {
         super(schemaName, Optional.of(fileFormatName), partitioned);
+    }
+
+    protected BaseIcebergCostBasedPlanTest(String schemaName, String fileFormatName, boolean partitioned, boolean smallFiles)
+    {
+        super(schemaName, Optional.of(fileFormatName), partitioned, smallFiles);
     }
 
     @Override

@@ -50,18 +50,7 @@ public class OAuth2ServiceModule
                 .in(Scopes.SINGLETON);
         install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableDiscovery, this::bindOidcDiscovery, this::bindStaticConfiguration));
         install(conditionalModule(OAuth2Config.class, OAuth2Config::isEnableRefreshTokens, this::enableRefreshTokens, this::disableRefreshTokens));
-        httpClientBinder(binder)
-                .bindHttpClient("oauth2-jwk", ForOAuth2.class)
-                // Reset to defaults to override InternalCommunicationModule changes to this client default configuration.
-                // Setting a keystore and/or a truststore for internal communication changes the default SSL configuration
-                // for all clients in this guice context. This does not make sense for this client which will very rarely
-                // use the same SSL configuration, so using the system default truststore makes more sense.
-                .withConfigDefaults(config -> config
-                        .setKeyStorePath(null)
-                        .setKeyStorePassword(null)
-                        .setTrustStorePath(null)
-                        .setTrustStorePassword(null)
-                        .setAutomaticHttpsSharedSecret(null));
+        httpClientBinder(binder).bindHttpClient("oauth2-jwk", ForOAuth2.class);
     }
 
     private void enableRefreshTokens(Binder binder)

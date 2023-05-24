@@ -30,6 +30,7 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
@@ -42,6 +43,7 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static com.google.cloud.bigquery.BigQuery.DatasetDeleteOption.deleteContents;
 import static com.google.cloud.bigquery.BigQuery.DatasetListOption.labelFilter;
@@ -66,10 +68,23 @@ public final class BigQueryQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createQueryRunner(extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .setAdditionalSetup(moreSetup)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

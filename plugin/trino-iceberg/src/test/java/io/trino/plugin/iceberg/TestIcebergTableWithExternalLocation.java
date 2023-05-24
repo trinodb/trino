@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -31,7 +31,7 @@ import java.nio.file.Files;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -78,17 +78,18 @@ public class TestIcebergTableWithExternalLocation
 
         Table table = metastore.getTable("tpch", tableName).orElseThrow();
         assertThat(table.getTableType()).isEqualTo(TableType.EXTERNAL_TABLE.name());
-        Path tableLocation = new Path(table.getStorage().getLocation());
+        Location tableLocation = Location.of(table.getStorage().getLocation());
         TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
-        assertTrue(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the table storage location should exist");
+        assertTrue(fileSystem.newInputFile(tableLocation).exists(), "The directory corresponding to the table storage location should exist");
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_table_external_create_and_drop$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
         DataFileRecord dataFile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
-        assertTrue(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should exist");
+        Location dataFileLocation = Location.of(dataFile.getFilePath());
+        assertTrue(fileSystem.newInputFile(dataFileLocation).exists(), "The data file should exist");
 
         assertQuerySucceeds(format("DROP TABLE %s", tableName));
         assertThat(metastore.getTable("tpch", tableName)).as("Table should be dropped").isEmpty();
-        assertFalse(fileSystem.newInputFile(new Path(dataFile.getFilePath()).toString()).exists(), "The data file should have been removed");
-        assertFalse(fileSystem.newInputFile(tableLocation.toString()).exists(), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
+        assertFalse(fileSystem.newInputFile(dataFileLocation).exists(), "The data file should have been removed");
+        assertFalse(fileSystem.newInputFile(tableLocation).exists(), "The directory corresponding to the dropped Iceberg table should be removed as we don't allow shared locations.");
     }
 }

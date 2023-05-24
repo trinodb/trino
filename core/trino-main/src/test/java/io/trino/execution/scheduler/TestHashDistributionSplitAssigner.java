@@ -347,6 +347,7 @@ public class TestHashDistributionSplitAssigner
                 .withMergeAllowed(true)
                 .withExpectedTaskCount(1)
                 .run();
+
         // multiple sources
         testAssigner()
                 .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
@@ -392,6 +393,24 @@ public class TestHashDistributionSplitAssigner
                 .withSplittableSources(PARTITIONED_2)
                 .withMergeAllowed(true)
                 .withExpectedTaskCount(1)
+                .run();
+
+        // targetPartitionSizeInBytes re-adjustment based on taskTargetMaxCount
+        testAssigner()
+                .withPartitionedSources(PARTITIONED_1, PARTITIONED_2)
+                .withSplits(
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(0, 0), createSplit(1, 0)), false),
+                        new SplitBatch(PARTITIONED_1, createSplitMap(createSplit(2, 0), createSplit(3, 0)), true),
+                        new SplitBatch(PARTITIONED_2, createSplitMap(createSplit(4, 0), createSplit(5, 1)), true))
+                .withSplitPartitionCount(3)
+                .withTargetPartitionSizeInBytes(30)
+                .withTaskTargetMaxCount(10)
+                .withOutputDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1000, 1, 1)),
+                        PARTITIONED_2, new OutputDataSizeEstimate(ImmutableLongArray.of(2, 1, 1))))
+                .withSplittableSources(PARTITIONED_1, PARTITIONED_2)
+                .withMergeAllowed(true)
+                .withExpectedTaskCount(12)
                 .run();
     }
 
@@ -524,6 +543,7 @@ public class TestHashDistributionSplitAssigner
         private int splitPartitionCount;
         private Optional<List<InternalNode>> partitionToNodeMap = Optional.empty();
         private long targetPartitionSizeInBytes;
+        private int taskTargetMaxCount = Integer.MAX_VALUE;
         private Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates = ImmutableMap.of();
         private Set<PlanNodeId> splittableSources = ImmutableSet.of();
         private boolean mergeAllowed;
@@ -565,6 +585,12 @@ public class TestHashDistributionSplitAssigner
             return this;
         }
 
+        public AssignerTester withTaskTargetMaxCount(int taskTargetMaxCount)
+        {
+            this.taskTargetMaxCount = taskTargetMaxCount;
+            return this;
+        }
+
         public AssignerTester withOutputDataSizeEstimates(Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
         {
             this.outputDataSizeEstimates = outputDataSizeEstimates;
@@ -597,6 +623,7 @@ public class TestHashDistributionSplitAssigner
                     partitionedSources,
                     outputDataSizeEstimates,
                     targetPartitionSizeInBytes,
+                    taskTargetMaxCount,
                     splittableSources::contains,
                     mergeAllowed);
             HashDistributionSplitAssigner assigner = new HashDistributionSplitAssigner(
@@ -605,13 +632,13 @@ public class TestHashDistributionSplitAssigner
                     replicatedSources,
                     partitioningScheme,
                     outputPartitionToTaskPartition);
-            TestingTaskSourceCallback callback = new TestingTaskSourceCallback();
+            SplitAssignerTester tester = new SplitAssignerTester();
             Map<Integer, ListMultimap<PlanNodeId, Integer>> partitionedSplitIds = new HashMap<>();
             Set<Integer> replicatedSplitIds = new HashSet<>();
             for (SplitBatch batch : splits) {
-                assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()).update(callback);
+                tester.update(assigner.assign(batch.getPlanNodeId(), batch.getSplits(), batch.isNoMoreSplits()));
                 boolean replicated = replicatedSources.contains(batch.getPlanNodeId());
-                callback.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
+                tester.checkContainsSplits(batch.getPlanNodeId(), batch.getSplits().values(), replicated);
                 for (Map.Entry<Integer, Split> entry : batch.getSplits().entries()) {
                     int splitId = TestingConnectorSplit.getSplitId(entry.getValue());
                     if (replicated) {
@@ -623,8 +650,8 @@ public class TestHashDistributionSplitAssigner
                     }
                 }
             }
-            assigner.finish().update(callback);
-            Map<Integer, TaskDescriptor> taskDescriptors = callback.getTaskDescriptors().stream()
+            tester.update(assigner.finish());
+            Map<Integer, TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow().stream()
                     .collect(toImmutableMap(TaskDescriptor::getPartitionId, Function.identity()));
             assertThat(taskDescriptors).hasSize(expectedTaskCount);
 
@@ -744,6 +771,7 @@ public class TestHashDistributionSplitAssigner
                     partitionedSources,
                     outputDataSizeEstimates,
                     targetPartitionSizeInBytes,
+                    Integer.MAX_VALUE,
                     splittableSources::contains,
                     mergeAllowed);
             Set<PartitionMapping> actualGroups = extractMappings(actual);

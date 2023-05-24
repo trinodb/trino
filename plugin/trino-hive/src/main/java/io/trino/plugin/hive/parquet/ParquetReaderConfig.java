@@ -130,6 +130,32 @@ public class ParquetReaderConfig
         return options.useBatchColumnReaders();
     }
 
+    @Config("parquet.optimized-nested-reader.enabled")
+    @ConfigDescription("Use optimized Parquet reader for nested columns")
+    public ParquetReaderConfig setOptimizedNestedReaderEnabled(boolean optimizedNestedReaderEnabled)
+    {
+        options = options.withBatchNestedColumnReaders(optimizedNestedReaderEnabled);
+        return this;
+    }
+
+    public boolean isOptimizedNestedReaderEnabled()
+    {
+        return options.useBatchNestedColumnReaders();
+    }
+
+    @Config("parquet.use-bloom-filter")
+    @ConfigDescription("Use Parquet Bloom filters")
+    public ParquetReaderConfig setUseBloomFilter(boolean useBloomFilter)
+    {
+        options = options.withBloomFilter(useBloomFilter);
+        return this;
+    }
+
+    public boolean isUseBloomFilter()
+    {
+        return options.useBloomFilter();
+    }
+
     public ParquetReaderOptions toParquetReaderOptions()
     {
         return options;

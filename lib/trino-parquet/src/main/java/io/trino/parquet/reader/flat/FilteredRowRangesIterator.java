@@ -78,6 +78,15 @@ public class FilteredRowRangesIterator
 
     /**
      * @return Size of the next read within current range, bounded by chunkSize.
+     */
+    @Override
+    public int getRowsLeftInCurrentRange()
+    {
+        return toIntExact(currentRange.end() - pageFirstRowIndex) - pageValuesConsumed + 1;
+    }
+
+    /**
+     * @return Size of the next read within current range, bounded by chunkSize.
      * When all the rows of the current range have been read, advance to the next range.
      */
     @Override
@@ -109,6 +118,7 @@ public class FilteredRowRangesIterator
     /**
      * Seek forward in the page by chunkSize.
      * Advance rowRanges if we seek beyond currentRange.
+     *
      * @return number of values skipped within rowRanges
      */
     @Override

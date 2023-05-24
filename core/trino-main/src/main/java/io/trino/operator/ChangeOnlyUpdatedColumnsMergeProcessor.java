@@ -86,7 +86,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
 
         int defaultCaseCount = 0;
         for (int position = 0; position < positionCount; position++) {
-            if (TINYINT.getLong(operationChannelBlock, position) == DEFAULT_CASE_OPERATION_NUMBER) {
+            if (TINYINT.getByte(operationChannelBlock, position) == DEFAULT_CASE_OPERATION_NUMBER) {
                 defaultCaseCount++;
             }
         }
@@ -97,7 +97,7 @@ public class ChangeOnlyUpdatedColumnsMergeProcessor
         int usedCases = 0;
         int[] positions = new int[positionCount - defaultCaseCount];
         for (int position = 0; position < positionCount; position++) {
-            if (TINYINT.getLong(operationChannelBlock, position) != DEFAULT_CASE_OPERATION_NUMBER) {
+            if (TINYINT.getByte(operationChannelBlock, position) != DEFAULT_CASE_OPERATION_NUMBER) {
                 positions[usedCases] = position;
                 usedCases++;
             }

@@ -22,6 +22,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,6 +52,7 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final String nodeId;
+    private final boolean speculative;
 
     private final int queuedPartitionedDrivers;
     private final long queuedPartitionedSplitsWeight;
@@ -59,6 +61,7 @@ public class TaskStatus
     private final OutputBufferStatus outputBufferStatus;
     private final DataSize outputDataSize;
     private final DataSize physicalWrittenDataSize;
+    private final Optional<Integer> maxWriterCount;
     private final DataSize memoryReservation;
     private final DataSize peakMemoryReservation;
     private final DataSize revocableMemoryReservation;
@@ -78,12 +81,14 @@ public class TaskStatus
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("nodeId") String nodeId,
+            @JsonProperty("speculative") boolean speculative,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
+            @JsonProperty("writerCount") Optional<Integer> maxWriterCount,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("peakMemoryReservation") DataSize peakMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
@@ -101,6 +106,7 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.speculative = speculative;
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
@@ -116,6 +122,7 @@ public class TaskStatus
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
+        this.maxWriterCount = requireNonNull(maxWriterCount, "maxWriterCount is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
         this.peakMemoryReservation = requireNonNull(peakMemoryReservation, "peakMemoryReservation is null");
@@ -166,6 +173,12 @@ public class TaskStatus
     }
 
     @JsonProperty
+    public boolean isSpeculative()
+    {
+        return speculative;
+    }
+
+    @JsonProperty
     public List<ExecutionFailureInfo> getFailures()
     {
         return failures;
@@ -187,6 +200,12 @@ public class TaskStatus
     public DataSize getPhysicalWrittenDataSize()
     {
         return physicalWrittenDataSize;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getMaxWriterCount()
+    {
+        return maxWriterCount;
     }
 
     @JsonProperty
@@ -258,7 +277,7 @@ public class TaskStatus
                 .toString();
     }
 
-    public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId)
+    public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId, boolean speculative)
     {
         return new TaskStatus(
                 taskId,
@@ -267,12 +286,14 @@ public class TaskStatus
                 PLANNED,
                 location,
                 nodeId,
+                speculative,
                 ImmutableList.of(),
                 0,
                 0,
                 OutputBufferStatus.initial(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                Optional.empty(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -292,12 +313,14 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getNodeId(),
+                false,
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
                 taskStatus.getOutputBufferStatus(),
                 taskStatus.getOutputDataSize(),
                 taskStatus.getPhysicalWrittenDataSize(),
+                taskStatus.getMaxWriterCount(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getPeakMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),

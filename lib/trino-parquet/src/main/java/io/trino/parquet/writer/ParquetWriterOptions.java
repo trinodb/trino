@@ -13,10 +13,9 @@
  */
 package io.trino.parquet.writer;
 
+import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import org.apache.parquet.hadoop.ParquetWriter;
-
-import static java.lang.Math.toIntExact;
 
 public class ParquetWriterOptions
 {
@@ -35,12 +34,12 @@ public class ParquetWriterOptions
 
     private ParquetWriterOptions(DataSize maxBlockSize, DataSize maxPageSize, int batchSize)
     {
-        this.maxRowGroupSize = toIntExact(maxBlockSize.toBytes());
-        this.maxPageSize = toIntExact(maxPageSize.toBytes());
+        this.maxRowGroupSize = Ints.saturatedCast(maxBlockSize.toBytes());
+        this.maxPageSize = Ints.saturatedCast(maxPageSize.toBytes());
         this.batchSize = batchSize;
     }
 
-    public long getMaxRowGroupSize()
+    public int getMaxRowGroupSize()
     {
         return maxRowGroupSize;
     }

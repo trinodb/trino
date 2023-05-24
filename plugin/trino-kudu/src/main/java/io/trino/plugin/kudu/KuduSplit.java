@@ -19,19 +19,18 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.SchemaTableName;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class KuduSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(KuduSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(KuduSplit.class);
 
     private final SchemaTableName schemaTableName;
     private final int primaryKeyColumnCount;

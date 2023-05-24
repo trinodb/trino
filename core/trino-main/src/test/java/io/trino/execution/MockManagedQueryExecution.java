@@ -145,6 +145,7 @@ public class MockManagedQueryExecution
                         new Duration(23, NANOSECONDS),
                         false,
                         ImmutableSet.of(),
+                        OptionalDouble.empty(),
                         OptionalDouble.empty()),
                 null,
                 null,
@@ -176,6 +177,7 @@ public class MockManagedQueryExecution
                         new Duration(8, NANOSECONDS),
 
                         new Duration(100, NANOSECONDS),
+                        new Duration(150, NANOSECONDS),
                         new Duration(200, NANOSECONDS),
 
                         9,
@@ -202,6 +204,8 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(26),
 
                         !state.isDone(),
+                        state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(8.88),
+                        state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(0),
                         new Duration(20, NANOSECONDS),
                         new Duration(21, NANOSECONDS),
                         new Duration(22, NANOSECONDS),
@@ -248,6 +252,7 @@ public class MockManagedQueryExecution
 
                         ImmutableList.of(),
                         DynamicFiltersStats.EMPTY,
+                        ImmutableList.of(),
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),

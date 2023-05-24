@@ -27,8 +27,9 @@ import java.nio.file.Files;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,8 +37,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeLegacyCreateTableWithExistingLocation
         extends AbstractTestQueryFramework
 {
-    private static final String CATALOG_NAME = "delta_lake";
-
     private File dataDirectory;
     private HiveMetastore metastore;
 
@@ -49,7 +48,7 @@ public class TestDeltaLakeLegacyCreateTableWithExistingLocation
         this.metastore = createTestingFileHiveMetastore(dataDirectory);
 
         return createDeltaLakeQueryRunner(
-                CATALOG_NAME,
+                DELTA_CATALOG,
                 ImmutableMap.of(),
                 ImmutableMap.of(
                         "delta.unique-table-location", "true",
@@ -77,14 +76,14 @@ public class TestDeltaLakeLegacyCreateTableWithExistingLocation
         String tableLocation = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
         metastore.dropTable("tpch", tableName, false);
 
-        assertQueryFails(format("CREATE TABLE %s.%s.%s (dummy int) with (location = '%s')", CATALOG_NAME, "tpch", tableName, tableLocation),
+        assertQueryFails(format("CREATE TABLE %s.%s.%s (dummy int) with (location = '%s')", DELTA_CATALOG, "tpch", tableName, tableLocation),
                 ".*Using CREATE TABLE with an existing table content is deprecated.*");
 
         Session sessionWithLegacyCreateTableEnabled = Session
                 .builder(getSession())
-                .setCatalogSessionProperty(CATALOG_NAME, "legacy_create_table_with_existing_location_enabled", "true")
+                .setCatalogSessionProperty(DELTA_CATALOG, "legacy_create_table_with_existing_location_enabled", "true")
                 .build();
-        assertQuerySucceeds(sessionWithLegacyCreateTableEnabled, format("CREATE TABLE %s.%s.%s (dummy int) with (location = '%s')", CATALOG_NAME, "tpch", tableName, tableLocation));
+        assertQuerySucceeds(sessionWithLegacyCreateTableEnabled, format("CREATE TABLE %s.%s.%s (dummy int) with (location = '%s')", DELTA_CATALOG, "tpch", tableName, tableLocation));
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
 

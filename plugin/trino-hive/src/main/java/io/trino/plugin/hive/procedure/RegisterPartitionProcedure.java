@@ -33,7 +33,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -46,6 +45,7 @@ import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -128,14 +128,14 @@ public class RegisterPartitionProcedure
 
         Optional<Partition> partition = metastore.unsafeGetRawHiveMetastoreClosure().getPartition(schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
-            String partitionName = FileUtils.makePartName(partitionColumns, partitionValues);
+            String partitionName = makePartName(partitionColumns, partitionValues);
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
         }
 
         Path partitionLocation;
 
         if (location == null) {
-            partitionLocation = new Path(table.getStorage().getLocation(), FileUtils.makePartName(partitionColumns, partitionValues));
+            partitionLocation = new Path(table.getStorage().getLocation(), makePartName(partitionColumns, partitionValues));
         }
         else {
             partitionLocation = new Path(location);

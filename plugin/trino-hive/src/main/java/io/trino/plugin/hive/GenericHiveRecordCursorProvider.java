@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
@@ -64,7 +65,7 @@ public class GenericHiveRecordCursorProvider
     public Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location location,
             long start,
             long length,
             long fileSize,
@@ -77,6 +78,7 @@ public class GenericHiveRecordCursorProvider
         configuration.setInt(LineRecordReader.MAX_LINE_LENGTH, textMaxLineLengthBytes);
 
         // make sure the FileSystem is created with the proper Configuration object
+        Path path = new Path(location.toString());
         try {
             this.hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
         }

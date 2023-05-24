@@ -50,6 +50,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
+import org.assertj.core.util.VisibleForTesting;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -90,10 +91,13 @@ public class PushPredicateIntoTableScan
     private final PlannerContext plannerContext;
     private final TypeAnalyzer typeAnalyzer;
 
-    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private final boolean pruneWithPredicateExpression;
+
+    public PushPredicateIntoTableScan(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, boolean pruneWithPredicateExpression)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
+        this.pruneWithPredicateExpression = pruneWithPredicateExpression;
     }
 
     @Override
@@ -116,7 +120,7 @@ public class PushPredicateIntoTableScan
         Optional<PlanNode> rewritten = pushFilterIntoTableScan(
                 filterNode,
                 tableScan,
-                false,
+                pruneWithPredicateExpression,
                 context.getSession(),
                 context.getSymbolAllocator(),
                 plannerContext,
@@ -133,20 +137,17 @@ public class PushPredicateIntoTableScan
 
     private boolean arePlansSame(FilterNode filter, TableScanNode tableScan, PlanNode rewritten)
     {
-        if (!(rewritten instanceof FilterNode)) {
+        if (!(rewritten instanceof FilterNode rewrittenFilter)) {
             return false;
         }
 
-        FilterNode rewrittenFilter = (FilterNode) rewritten;
         if (!Objects.equals(filter.getPredicate(), rewrittenFilter.getPredicate())) {
             return false;
         }
 
-        if (!(rewrittenFilter.getSource() instanceof TableScanNode)) {
+        if (!(rewrittenFilter.getSource() instanceof TableScanNode rewrittenTableScan)) {
             return false;
         }
-
-        TableScanNode rewrittenTableScan = (TableScanNode) rewrittenFilter.getSource();
 
         return Objects.equals(tableScan.getEnforcedConstraint(), rewrittenTableScan.getEnforcedConstraint()) &&
                 Objects.equals(tableScan.getTable(), rewrittenTableScan.getTable());
@@ -417,6 +418,12 @@ public class PushPredicateIntoTableScan
             }
         }
         return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
+    }
+
+    @VisibleForTesting
+    public boolean getPruneWithPredicateExpression()
+    {
+        return pruneWithPredicateExpression;
     }
 
     private static class SplitExpression

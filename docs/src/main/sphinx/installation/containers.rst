@@ -1,9 +1,11 @@
-===================
-Trino in containers
-===================
+===========================
+Trino in a Docker container
+===========================
 
 The Trino project provides the `trinodb/trino <https://hub.docker.com/r/trinodb/trino>`_
-Docker image that includes the Trino server and a default configuration.
+Docker image that includes the Trino server and a default configuration. The
+Docker image is published to Docker Hub and can be used with the Docker runtime,
+among several others.
 
 Running the container
 ---------------------

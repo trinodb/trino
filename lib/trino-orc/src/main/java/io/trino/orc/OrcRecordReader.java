@@ -42,7 +42,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -59,6 +58,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -75,7 +75,7 @@ import static java.util.Objects.requireNonNull;
 public class OrcRecordReader
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(OrcRecordReader.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
 
     private final OrcDataSource orcDataSource;
 
@@ -121,6 +121,9 @@ public class OrcRecordReader
     private final Optional<StatisticsValidation> rowGroupStatisticsValidation;
     private final Optional<StatisticsValidation> stripeStatisticsValidation;
     private final Optional<StatisticsValidation> fileStatisticsValidation;
+
+    private final Optional<Long> startRowPosition;
+    private final Optional<Long> endRowPosition;
 
     public OrcRecordReader(
             List<OrcColumn> readColumns,
@@ -192,6 +195,8 @@ public class OrcRecordReader
         long totalRowCount = 0;
         long fileRowCount = 0;
         long totalDataLength = 0;
+        Optional<Long> startRowPosition = Optional.empty();
+        Optional<Long> endRowPosition = Optional.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
@@ -203,10 +208,19 @@ public class OrcRecordReader
                     stripeFilePositions.add(fileRowCount);
                     totalRowCount += stripe.getNumberOfRows();
                     totalDataLength += stripe.getDataLength();
+
+                    if (startRowPosition.isEmpty()) {
+                        startRowPosition = Optional.of(fileRowCount);
+                    }
+                    endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
         }
+
+        this.startRowPosition = startRowPosition;
+        this.endRowPosition = endRowPosition;
+
         this.totalRowCount = totalRowCount;
         this.totalDataLength = totalDataLength;
         this.stripes = stripes.build();
@@ -350,6 +364,16 @@ public class OrcRecordReader
     public ColumnMetadata<OrcType> getColumnTypes()
     {
         return orcTypes;
+    }
+
+    public Optional<Long> getStartRowPosition()
+    {
+        return startRowPosition;
+    }
+
+    public Optional<Long> getEndRowPosition()
+    {
+        return endRowPosition;
     }
 
     @Override

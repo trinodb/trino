@@ -159,12 +159,11 @@ public final class TypeUtils
             return (long) (int) jdbcObject;
         }
 
-        if (type instanceof ArrayType) {
-            return jdbcObjectArrayToBlock(session, ((ArrayType) type).getElementType(), (Object[]) jdbcObject);
+        if (type instanceof ArrayType arrayType) {
+            return jdbcObjectArrayToBlock(session, arrayType.getElementType(), (Object[]) jdbcObject);
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             BigDecimal value = (BigDecimal) jdbcObject;
             if (decimalType.isShort()) {
                 return encodeShortScaledValue(value, decimalType.getScale());
@@ -205,8 +204,7 @@ public final class TypeUtils
             return object;
         }
 
-        if (type instanceof DecimalType) {
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
             if (decimalType.isShort()) {
                 BigInteger unscaledValue = BigInteger.valueOf((long) object);
                 return new BigDecimal(unscaledValue, decimalType.getScale(), new MathContext(decimalType.getPrecision()));
@@ -241,9 +239,9 @@ public final class TypeUtils
             return ((Slice) object).toStringUtf8();
         }
 
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             // process subarray of multi-dimensional array
-            return getJdbcObjectArray(session, ((ArrayType) type).getElementType(), (Block) object);
+            return getJdbcObjectArray(session, arrayType.getElementType(), (Block) object);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);

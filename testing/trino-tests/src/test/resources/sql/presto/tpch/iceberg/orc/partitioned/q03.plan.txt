@@ -5,12 +5,14 @@ local exchange (GATHER, SINGLE, [])
                 partial aggregation over (orderdate, orderkey_4, shippriority)
                     join (INNER, PARTITIONED):
                         remote exchange (REPARTITION, HASH, ["orderkey_4"])
-                            scan lineitem
+                            dynamic filter (["orderkey_4"])
+                                scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["orderkey"])
                                 join (INNER, PARTITIONED):
                                     remote exchange (REPARTITION, HASH, ["custkey_0"])
-                                        scan orders
+                                        dynamic filter (["custkey_0"])
+                                            scan orders
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["custkey"])
                                             scan customer

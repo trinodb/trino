@@ -48,9 +48,9 @@ public class ScaledWriterScheduler
     private final NodeSelector nodeSelector;
     private final ScheduledExecutorService executor;
     private final long writerMinSizeBytes;
-    private final int maxTaskWriterCount;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
+    private final int maxWriterNodeCount;
     private volatile SettableFuture<Void> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
@@ -60,7 +60,7 @@ public class ScaledWriterScheduler
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
             DataSize writerMinSize,
-            int maxTaskWriterCount)
+            int maxWriterNodeCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
@@ -68,7 +68,7 @@ public class ScaledWriterScheduler
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.writerMinSizeBytes = writerMinSize.toBytes();
-        this.maxTaskWriterCount = maxTaskWriterCount;
+        this.maxWriterNodeCount = maxWriterNodeCount;
     }
 
     public void finish()
@@ -95,19 +95,42 @@ public class ScaledWriterScheduler
             return 1;
         }
 
-        long writtenBytes = writerTasksProvider.get().stream()
-                .map(TaskStatus::getPhysicalWrittenDataSize)
-                .mapToLong(DataSize::toBytes)
-                .sum();
+        Collection<TaskStatus> writerTasks = writerTasksProvider.get();
+        // Do not scale tasks until all existing writer tasks are initialized with maxWriterCount
+        if (writerTasks.size() != scheduledNodes.size()
+                || writerTasks.stream().map(TaskStatus::getMaxWriterCount).anyMatch(Optional::isEmpty)) {
+            return 0;
+        }
 
         // When there is a big data skewness, there could be a bottleneck due to the skewed workers even if most of the workers are not over-utilized.
         // Check both, weighted output buffer over-utilization rate and average output buffer over-utilization rate, in case when there are many over-utilized small tasks
         // due to fewer not-over-utilized big skewed tasks.
-        if ((isWeightedBufferFull() || isAverageBufferFull()) && (writtenBytes >= (writerMinSizeBytes * maxTaskWriterCount * scheduledNodes.size()))) {
+        if (isSourceTasksBufferFull() && isWriteThroughputSufficient() && scheduledNodes.size() < maxWriterNodeCount) {
             return 1;
         }
 
         return 0;
+    }
+
+    private boolean isSourceTasksBufferFull()
+    {
+        return isAverageBufferFull() || isWeightedBufferFull();
+    }
+
+    private boolean isWriteThroughputSufficient()
+    {
+        Collection<TaskStatus> writerTasks = writerTasksProvider.get();
+        long writtenBytes = writerTasks.stream()
+                .map(TaskStatus::getPhysicalWrittenDataSize)
+                .mapToLong(DataSize::toBytes)
+                .sum();
+
+        long minWrittenBytesToScaleUp = writerTasks.stream()
+                .map(TaskStatus::getMaxWriterCount)
+                .map(Optional::get)
+                .mapToLong(writerCount -> writerMinSizeBytes * writerCount)
+                .sum();
+        return writtenBytes >= minWrittenBytesToScaleUp;
     }
 
     private boolean isWeightedBufferFull()
@@ -115,7 +138,7 @@ public class ScaledWriterScheduler
         double totalOutputSize = 0.0;
         double overutilizedOutputSize = 0.0;
         for (TaskStatus task : sourceTasksProvider.get()) {
-            if (!task.getState().isDone()) {
+            if (!task.getState().isTerminatingOrDone()) {
                 long outputDataSize = task.getOutputDataSize().toBytes();
                 totalOutputSize += outputDataSize;
                 if (task.getOutputBufferStatus().isOverutilized()) {
@@ -130,7 +153,7 @@ public class ScaledWriterScheduler
     private boolean isAverageBufferFull()
     {
         return sourceTasksProvider.get().stream()
-                .filter(task -> !task.getState().isDone())
+                .filter(task -> !task.getState().isTerminatingOrDone())
                 .map(TaskStatus::getOutputBufferStatus)
                 .map(OutputBufferStatus::isOverutilized)
                 .mapToDouble(full -> full ? 1.0 : 0.0)

@@ -61,11 +61,10 @@ public final class PushProjectionThroughJoin
         }
 
         PlanNode child = lookup.resolve(projectNode.getSource());
-        if (!(child instanceof JoinNode)) {
+        if (!(child instanceof JoinNode joinNode)) {
             return Optional.empty();
         }
 
-        JoinNode joinNode = (JoinNode) child;
         PlanNode leftChild = joinNode.getLeft();
         PlanNode rightChild = joinNode.getRight();
 
@@ -152,10 +151,9 @@ public final class PushProjectionThroughJoin
             TypeProvider types)
     {
         PlanNode child = lookup.resolve(parentProjection.getSource());
-        if (!(child instanceof ProjectNode)) {
+        if (!(child instanceof ProjectNode childProjection)) {
             return parentProjection;
         }
-        ProjectNode childProjection = (ProjectNode) child;
 
         return InlineProjections.inlineProjections(plannerContext, parentProjection, childProjection, session, typeAnalyzer, types)
                 .map(node -> inlineProjections(plannerContext, node, lookup, session, typeAnalyzer, types))

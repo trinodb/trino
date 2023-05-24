@@ -37,13 +37,16 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  * } finally {
  *     signal.reset();
  * }
- * </pre>
+ * }</pre>
  */
 @ThreadSafe
 public class DriverYieldSignal
 {
     @GuardedBy("this")
     private long runningSequence;
+
+    @GuardedBy("this")
+    private boolean terminationStarted;
 
     @GuardedBy("this")
     private ScheduledFuture<?> yieldFuture;
@@ -54,6 +57,9 @@ public class DriverYieldSignal
     {
         checkState(yieldFuture == null, "there is an ongoing yield");
         checkState(!isSet(), "yield while driver was not running");
+        if (terminationStarted) {
+            return;
+        }
 
         this.runningSequence++;
         long expectedRunningSequence = this.runningSequence;
@@ -68,6 +74,9 @@ public class DriverYieldSignal
 
     public synchronized void reset()
     {
+        if (terminationStarted) {
+            return;
+        }
         checkState(yieldFuture != null, "there is no ongoing yield");
         yield.set(false);
         yieldFuture.cancel(true);
@@ -77,6 +86,21 @@ public class DriverYieldSignal
     public boolean isSet()
     {
         return yield.get();
+    }
+
+    /**
+     * Signals an immediate yield to the driver to improve responsiveness to termination commands that may arrive while drivers are
+     * still running. After calling this method, the driver should not attempt to start another interval of running and attempting
+     * to call {@link DriverYieldSignal#setWithDelay(long, ScheduledExecutorService)} will fail.
+     */
+    public synchronized void yieldImmediatelyForTermination()
+    {
+        terminationStarted = true;
+        yield.set(true);
+        if (yieldFuture != null) {
+            yieldFuture.cancel(true);
+            yieldFuture = null;
+        }
     }
 
     @Override

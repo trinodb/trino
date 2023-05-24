@@ -35,7 +35,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
-import org.apache.hadoop.hive.common.FileUtils;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -47,6 +46,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
+import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -130,7 +130,7 @@ public class CreateEmptyPartitionProcedure
             throw new TrinoException(ALREADY_EXISTS, "Partition already exists");
         }
         HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) hiveMetadata.beginInsert(session, tableHandle, ImmutableList.of(), NO_RETRIES);
-        String partitionName = FileUtils.makePartName(actualPartitionColumnNames, partitionValues);
+        String partitionName = makePartName(actualPartitionColumnNames, partitionValues);
 
         WriteInfo writeInfo = locationService.getPartitionWriteInfo(hiveInsertTableHandle.getLocationHandle(), Optional.empty(), partitionName);
         Slice serializedPartitionUpdate = Slices.wrappedBuffer(
@@ -138,8 +138,8 @@ public class CreateEmptyPartitionProcedure
                         new PartitionUpdate(
                                 partitionName,
                                 UpdateMode.NEW,
-                                writeInfo.getWritePath(),
-                                writeInfo.getTargetPath(),
+                                writeInfo.writePath().toString(),
+                                writeInfo.targetPath().toString(),
                                 ImmutableList.of(),
                                 0,
                                 0,

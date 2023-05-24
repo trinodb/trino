@@ -23,8 +23,8 @@ import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.hdfs.s3.HiveS3Config;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -49,10 +49,11 @@ import java.util.Properties;
 import static com.amazonaws.services.s3.model.ExpressionType.SQL;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.trino.plugin.hive.util.RetryDriver.retry;
+import static io.trino.plugin.hive.util.SerdeConstants.LINE_DELIM;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
@@ -60,7 +61,6 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.hadoop.hive.serde.serdeConstants.LINE_DELIM;
 
 @ThreadSafe
 public abstract class S3SelectLineRecordReader

@@ -284,7 +284,7 @@ public class TestReadWrite
         @Override
         Object extractValue(Block block, int position)
         {
-            return INTEGER.getLong(block, position);
+            return INTEGER.getInt(block, position);
         }
 
         @Override
@@ -392,7 +392,7 @@ public class TestReadWrite
         @Override
         Object extractValue(Block block, int position)
         {
-            return DATE.getLong(block, position);
+            return DATE.getInt(block, position);
         }
 
         @Override

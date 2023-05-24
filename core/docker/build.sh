@@ -8,7 +8,7 @@ Usage: $0 [-h] [-a <ARCHITECTURES>] [-r <VERSION>]
 Builds the Trino Docker image
 
 -h       Display help
--a       Build the specified comma-separated architectures, defaults to amd64,arm64
+-a       Build the specified comma-separated architectures, defaults to amd64,arm64,ppc64le
 -r       Build the specified Trino release version, downloads all required artifacts
 EOF
 }

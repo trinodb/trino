@@ -26,7 +26,6 @@ import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -35,9 +34,6 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 import javax.annotation.concurrent.ThreadSafe;
-
-import java.util.Optional;
-import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -172,15 +168,13 @@ public class ExchangeOperator
     }
 
     @Override
-    public Supplier<Optional<UpdatablePageSource>> addSplit(Split split)
+    public void addSplit(Split split)
     {
         requireNonNull(split, "split is null");
         checkArgument(split.getCatalogHandle().equals(REMOTE_CATALOG_HANDLE), "split is not a remote split");
 
         RemoteSplit remoteSplit = (RemoteSplit) split.getConnectorSplit();
         exchangeDataSource.addInput(remoteSplit.getExchangeInput());
-
-        return Optional::empty;
     }
 
     @Override

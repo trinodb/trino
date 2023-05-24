@@ -8,27 +8,28 @@ final aggregation over ()
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["cr_order_number"])
                                     partial aggregation over (cr_order_number)
-                                        scan catalog_returns
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cs_order_number_23"])
-                                final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_23, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
-                                    local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["ca_state", "cc_county", "cs_call_center_sk", "cs_ext_ship_cost", "cs_net_profit", "cs_order_number_23", "cs_ship_addr_sk", "cs_ship_date_sk", "cs_warehouse_sk", "d_date", "unique"])
-                                            partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_23, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
-                                                join (INNER, REPLICATED, can skip output duplicates):
-                                                    scan catalog_sales
-                                                    local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                        dynamic filter (["cr_order_number"])
+                                            scan catalog_returns
+                        final aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_23, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["cs_order_number_23"])
+                                    partial aggregation over (ca_state, cc_county, cs_call_center_sk, cs_ext_ship_cost, cs_net_profit, cs_order_number_23, cs_ship_addr_sk, cs_ship_date_sk, cs_warehouse_sk, d_date, unique)
+                                        join (INNER, REPLICATED, can skip output duplicates):
+                                            dynamic filter (["cs_order_number_23"])
+                                                scan catalog_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    join (INNER, REPLICATED):
+                                                        join (INNER, REPLICATED):
                                                             join (INNER, REPLICATED):
-                                                                join (INNER, REPLICATED):
-                                                                    join (INNER, REPLICATED):
-                                                                        scan catalog_sales
-                                                                        local exchange (GATHER, SINGLE, [])
-                                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                                scan date_dim
-                                                                    local exchange (GATHER, SINGLE, [])
-                                                                        remote exchange (REPLICATE, BROADCAST, [])
-                                                                            scan customer_address
+                                                                dynamic filter (["cs_call_center_sk", "cs_ship_addr_sk", "cs_ship_date_sk"])
+                                                                    scan catalog_sales
                                                                 local exchange (GATHER, SINGLE, [])
                                                                     remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan call_center
+                                                                        scan date_dim
+                                                            local exchange (GATHER, SINGLE, [])
+                                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                                    scan customer_address
+                                                        local exchange (GATHER, SINGLE, [])
+                                                            remote exchange (REPLICATE, BROADCAST, [])
+                                                                scan call_center

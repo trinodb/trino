@@ -23,7 +23,6 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -37,6 +36,7 @@ import java.security.GeneralSecurityException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.trino.execution.buffer.PagesSerdeUtil.ESTIMATED_AES_CIPHER_RETAINED_SIZE;
@@ -54,7 +54,7 @@ import static javax.crypto.Cipher.DECRYPT_MODE;
 
 public class PageDeserializer
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(PageDeserializer.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(PageDeserializer.class);
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final SerializedPageInput input;
@@ -90,10 +90,10 @@ public class PageDeserializer
     private static class SerializedPageInput
             extends SliceInput
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(SerializedPageInput.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(SerializedPageInput.class);
         // TODO: implement getRetainedSizeInBytes in Lz4Decompressor
-        private static final int DECOMPRESSOR_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(Lz4Decompressor.class).instanceSize());
-        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(ClassLayout.parseClass(SecretKeySpec.class).instanceSize() + sizeOfByteArray(256 / 8));
+        private static final int DECOMPRESSOR_RETAINED_SIZE = instanceSize(Lz4Decompressor.class);
+        private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private final Optional<Lz4Decompressor> decompressor;
         private final Optional<SecretKey> encryptionKey;
@@ -337,7 +337,7 @@ public class PageDeserializer
                         blockSize,
                         sink.getSlice().byteArray(),
                         sink.getSlice().byteArrayOffset() + bytesPreserved,
-                        sink.getSlice().length());
+                        sink.getSlice().length() - bytesPreserved);
             }
             else {
                 System.arraycopy(
@@ -460,7 +460,7 @@ public class PageDeserializer
 
     private static class ReadBuffer
     {
-        private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ReadBuffer.class).instanceSize());
+        private static final int INSTANCE_SIZE = instanceSize(ReadBuffer.class);
 
         private final Slice slice;
         private int position;

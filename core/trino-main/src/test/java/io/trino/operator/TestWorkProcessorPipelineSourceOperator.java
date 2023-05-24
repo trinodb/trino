@@ -25,10 +25,8 @@ import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.operator.WorkProcessorAssertion.Transform;
-import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.LocalExecutionPlanner.OperatorFactoryWithTypes;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -40,7 +38,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -217,8 +214,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(sourceOperatorStats.getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testSourceConnectorClosed", new LongCount(1)));
 
         assertEquals(sourceOperatorStats.getDynamicFilterSplitsProcessed(), 42L);
 
@@ -255,8 +251,7 @@ public class TestWorkProcessorPipelineSourceOperator
                 .containsEntry("testSourceClosed", new LongCount(1));
         assertEquals(operatorSummaries.get(0).getConnectorMetrics().getMetrics(), ImmutableMap.of(
                 "testSourceConnectorMetric", new LongCount(2),
-                "testSourceConnectorClosed", new LongCount(1),
-                "Physical input read time", new DurationTiming(new Duration(7, NANOSECONDS))));
+                "testSourceConnectorClosed", new LongCount(1)));
         assertThat(operatorSummaries.get(1).getMetrics().getMetrics())
                 .hasSize(5)
                 .containsEntry("testOperatorMetric", new LongCount(1));
@@ -383,12 +378,6 @@ public class TestWorkProcessorPipelineSourceOperator
         {
             this.pages = pages;
             this.memoryTrackingContext = memoryTrackingContext;
-        }
-
-        @Override
-        public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-        {
-            return Optional::empty;
         }
 
         @Override

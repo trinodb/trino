@@ -2,7 +2,7 @@
 Mathematical functions and operators
 ====================================
 
-.. _mathematical_operators:
+.. _mathematical-operators:
 
 Mathematical operators
 ----------------------
@@ -185,6 +185,10 @@ See unit conversion functions :func:`degrees` and :func:`radians`.
 .. function:: sin(x) -> double
 
     Returns the sine of ``x``.
+
+.. function:: sinh(x) -> double
+
+    Returns the hyperbolic sine of ``x``.
 
 .. function:: tan(x) -> double
 

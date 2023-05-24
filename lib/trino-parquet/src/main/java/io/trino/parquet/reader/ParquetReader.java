@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import io.airlift.log.Logger;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
 import io.trino.parquet.DiskRange;
@@ -42,10 +43,6 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
-import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
-import it.unimi.dsi.fastutil.booleans.BooleanList;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
@@ -87,6 +84,8 @@ import static java.util.Objects.requireNonNull;
 public class ParquetReader
         implements Closeable
 {
+    private static final Logger log = Logger.get(ParquetReader.class);
+
     private static final int INITIAL_BATCH_SIZE = 1;
     private static final int BATCH_SIZE_GROWTH_FACTOR = 2;
     public static final String PARQUET_CODEC_METRIC_PREFIX = "ParquetReaderCompressionFormat_";
@@ -120,6 +119,7 @@ public class ParquetReader
     private final ParquetReaderOptions options;
     private int maxBatchSize;
 
+    private AggregatedMemoryContext currentRowGroupMemoryContext;
     private final Map<ChunkKey, ChunkedInputStream> chunkReaders;
     private final List<Optional<ColumnIndexStore>> columnIndexStore;
     private final Optional<ParquetWriteValidation> writeValidation;
@@ -170,6 +170,7 @@ public class ParquetReader
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
+        this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
@@ -242,6 +243,10 @@ public class ParquetReader
     public void close()
             throws IOException
     {
+        // Release memory usage from column readers
+        columnReaders.clear();
+        currentRowGroupMemoryContext.close();
+
         for (ChunkedInputStream chunkedInputStream : chunkReaders.values()) {
             chunkedInputStream.close();
         }
@@ -299,6 +304,8 @@ public class ParquetReader
     private boolean advanceToNextRowGroup()
             throws IOException
     {
+        currentRowGroupMemoryContext.close();
+        currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         freeCurrentRowGroupBuffers();
 
         if (currentRowGroup >= 0 && rowGroupStatisticsValidation.isPresent()) {
@@ -315,6 +322,7 @@ public class ParquetReader
         firstRowIndexInGroup = firstRowsOfBlocks.get(currentRowGroup);
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         FilteredRowRanges currentGroupRowRanges = blockRowRanges[currentRowGroup];
+        log.debug("advanceToNextRowGroup dataSource %s, currentRowGroup %d, rowRanges %s, currentBlockMetadata %s", dataSource.getId(), currentRowGroup, currentGroupRowRanges, currentBlockMetadata);
         if (currentGroupRowRanges != null) {
             long rowCount = currentGroupRowRanges.getRowCount();
             columnIndexRowsFiltered += currentGroupRowCount - rowCount;
@@ -349,11 +357,10 @@ public class ParquetReader
         checkArgument(parameters.size() == 1, "Arrays must have a single type parameter, found %s", parameters.size());
         Field elementField = field.getChildren().get(0).get();
         ColumnChunk columnChunk = readColumnChunk(elementField);
-        IntList offsets = new IntArrayList();
-        BooleanList valueIsNull = new BooleanArrayList();
 
-        calculateCollectionOffsets(field, offsets, valueIsNull, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block arrayBlock = ArrayBlock.fromElementBlock(valueIsNull.size(), Optional.of(valueIsNull.toBooleanArray()), offsets.toIntArray(), columnChunk.getBlock());
+        ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        int positionsCount = collectionPositions.offsets().length - 1;
+        Block arrayBlock = ArrayBlock.fromElementBlock(positionsCount, collectionPositions.isNull(), collectionPositions.offsets(), columnChunk.getBlock());
         return new ColumnChunk(arrayBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -367,10 +374,8 @@ public class ParquetReader
         ColumnChunk columnChunk = readColumnChunk(field.getChildren().get(0).get());
         blocks[0] = columnChunk.getBlock();
         blocks[1] = readColumnChunk(field.getChildren().get(1).get()).getBlock();
-        IntList offsets = new IntArrayList();
-        BooleanList valueIsNull = new BooleanArrayList();
-        calculateCollectionOffsets(field, offsets, valueIsNull, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(Optional.of(valueIsNull.toBooleanArray()), offsets.toIntArray(), blocks[0], blocks[1]);
+        ListColumnReader.BlockPositions collectionPositions = calculateCollectionOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        Block mapBlock = ((MapType) field.getType()).createBlockFromKeyValue(collectionPositions.isNull(), collectionPositions.offsets(), blocks[0], blocks[1]);
         return new ColumnChunk(mapBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -393,9 +398,8 @@ public class ParquetReader
                 blocks[i] = RunLengthEncodedBlock.create(field.getType().getTypeParameters().get(i), null, columnChunk.getBlock().getPositionCount());
             }
         }
-        BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
-        boolean[] structIsNullVector = structIsNull.toBooleanArray();
-        Block rowBlock = RowBlock.fromFieldBlocks(structIsNullVector.length, Optional.of(structIsNullVector), blocks);
+        StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        Block rowBlock = RowBlock.fromFieldBlocks(structIsNull.positionsCount(), structIsNull.isNull(), blocks);
         return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
     }
 
@@ -436,7 +440,7 @@ public class ParquetReader
         ColumnChunk columnChunk = columnReader.readPrimitive();
 
         // update max size per primitive column chunk
-        double bytesPerCell = ((double) columnChunk.getBlock().getSizeInBytes()) / batchSize;
+        double bytesPerCell = ((double) columnChunk.getMaxBlockSize()) / batchSize;
         double bytesPerCellDelta = bytesPerCell - maxBytesPerCell.getOrDefault(fieldId, 0.0);
         if (bytesPerCellDelta > 0) {
             // update batch size
@@ -472,7 +476,9 @@ public class ParquetReader
     private void initializeColumnReaders()
     {
         for (PrimitiveField field : primitiveFields) {
-            columnReaders.put(field.getId(), ColumnReaderFactory.create(field, timeZone, options.useBatchColumnReaders()));
+            columnReaders.put(
+                    field.getId(),
+                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options));
         }
     }
 

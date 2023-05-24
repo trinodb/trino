@@ -61,7 +61,6 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.Decimals.encodeShortScaledValue;
-import static io.trino.spi.type.Decimals.isLongDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.LongTimestampWithTimeZone.fromEpochMillisAndFraction;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
@@ -238,9 +237,8 @@ public class BigQueryStorageAvroPageSource
 
     private static void writeObject(BlockBuilder output, Type type, Object value)
     {
-        if (type instanceof DecimalType) {
-            verify(isLongDecimal(type), "The type should be long decimal");
-            DecimalType decimalType = (DecimalType) type;
+        if (type instanceof DecimalType decimalType) {
+            verify(!decimalType.isShort(), "The type should be long decimal");
             BigDecimal decimal = DECIMAL_CONVERTER.convert(decimalType.getPrecision(), decimalType.getScale(), value);
             type.writeObject(output, Decimals.encodeScaledValue(decimal, decimalType.getScale()));
         }
@@ -261,8 +259,7 @@ public class BigQueryStorageAvroPageSource
             output.closeEntry();
             return;
         }
-        if (type instanceof RowType && value instanceof GenericRecord) {
-            GenericRecord record = (GenericRecord) value;
+        if (type instanceof RowType && value instanceof GenericRecord record) {
             BlockBuilder builder = output.beginBlockEntry();
 
             List<String> fieldNames = new ArrayList<>();

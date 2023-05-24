@@ -26,13 +26,12 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrConstantJsonSequence;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrDatetimeMethod;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrFloorMethod;
-import io.trino.json.ir.IrJsonNull;
 import io.trino.json.ir.IrJsonPath;
 import io.trino.json.ir.IrKeyValueMethod;
 import io.trino.json.ir.IrLastIndexVariable;
-import io.trino.json.ir.IrLiteral;
 import io.trino.json.ir.IrMemberAccessor;
 import io.trino.json.ir.IrNamedJsonVariable;
 import io.trino.json.ir.IrNamedValueVariable;
@@ -42,6 +41,9 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
+import org.assertj.core.api.AssertProvider;
+import org.assertj.core.api.RecursiveComparisonAssert;
+import org.assertj.core.api.recursive.comparison.RecursiveComparisonConfiguration;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -53,6 +55,7 @@ import static io.trino.json.ir.IrArithmeticUnary.Sign.MINUS;
 import static io.trino.json.ir.IrArithmeticUnary.Sign.PLUS;
 import static io.trino.json.ir.IrConstantJsonSequence.EMPTY_SEQUENCE;
 import static io.trino.json.ir.IrConstantJsonSequence.singletonSequence;
+import static io.trino.json.ir.IrJsonNull.JSON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -62,29 +65,31 @@ import static io.trino.spi.type.TimeType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.PathNodes.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPath2016TypeSerialization
 {
     private static final Type JSON_PATH_2016 = new JsonPath2016Type(new TypeDeserializer(TESTING_TYPE_MANAGER), new TestingBlockEncodingSerde());
+    private static final RecursiveComparisonConfiguration COMPARISON_CONFIGURATION = RecursiveComparisonConfiguration.builder().withStrictTypeChecking(true).build();
 
     @Test
     public void testJsonPathMode()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrJsonNull()));
-        assertJsonRoundTrip(new IrJsonPath(false, new IrJsonNull()));
+        assertJsonRoundTrip(new IrJsonPath(true, JSON_NULL));
+        assertJsonRoundTrip(new IrJsonPath(false, JSON_NULL));
     }
 
     @Test
     public void testLiterals()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(createDecimalType(2, 1), 1L)));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(DOUBLE, 1e0)));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(INTEGER, 1L)));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(BIGINT, 1000000000000L)));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(VARCHAR, utf8Slice("some_text"))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrLiteral(BOOLEAN, false)));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(createDecimalType(2, 1), 1L)));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(DOUBLE, 1e0)));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(INTEGER, 1L)));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(BIGINT, 1000000000000L)));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(VARCHAR, utf8Slice("some_text"))));
+        assertJsonRoundTrip(new IrJsonPath(true, literal(BOOLEAN, false)));
     }
 
     @Test
@@ -108,34 +113,34 @@ public class TestJsonPath2016TypeSerialization
     @Test
     public void testMethods()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrAbsMethod(new IrLiteral(DOUBLE, 1e0), Optional.of(DOUBLE))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrCeilingMethod(new IrLiteral(DOUBLE, 1e0), Optional.of(DOUBLE))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrDatetimeMethod(new IrLiteral(BIGINT, 1L), Optional.of("some_time_format"), Optional.of(createTimeType(DEFAULT_PRECISION)))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrDoubleMethod(new IrLiteral(BIGINT, 1L), Optional.of(DOUBLE))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrFloorMethod(new IrLiteral(DOUBLE, 1e0), Optional.of(DOUBLE))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrKeyValueMethod(new IrJsonNull())));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrSizeMethod(new IrJsonNull(), Optional.of(INTEGER))));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrTypeMethod(new IrJsonNull(), Optional.of(createVarcharType(7)))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrAbsMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrCeilingMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDatetimeMethod(literal(BIGINT, 1L), Optional.of("some_time_format"), Optional.of(createTimeType(DEFAULT_PRECISION)))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDoubleMethod(literal(BIGINT, 1L), Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrFloorMethod(literal(DOUBLE, 1e0), Optional.of(DOUBLE))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrKeyValueMethod(JSON_NULL)));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrSizeMethod(JSON_NULL, Optional.of(INTEGER))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrTypeMethod(JSON_NULL, Optional.of(createVarcharType(7)))));
     }
 
     @Test
     public void testArrayAccessor()
     {
         // wildcard accessor
-        assertJsonRoundTrip(new IrJsonPath(true, new IrArrayAccessor(new IrJsonNull(), ImmutableList.of(), Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrArrayAccessor(JSON_NULL, ImmutableList.of(), Optional.empty())));
 
         // with subscripts based on literals
         assertJsonRoundTrip(new IrJsonPath(true, new IrArrayAccessor(
-                new IrJsonNull(),
+                JSON_NULL,
                 ImmutableList.of(
-                        new Subscript(new IrLiteral(INTEGER, 0L), Optional.of(new IrLiteral(INTEGER, 1L))),
-                        new Subscript(new IrLiteral(INTEGER, 3L), Optional.of(new IrLiteral(INTEGER, 5L))),
-                        new Subscript(new IrLiteral(INTEGER, 7L), Optional.empty())),
+                        new Subscript(literal(INTEGER, 0L), Optional.of(literal(INTEGER, 1L))),
+                        new Subscript(literal(INTEGER, 3L), Optional.of(literal(INTEGER, 5L))),
+                        new Subscript(literal(INTEGER, 7L), Optional.empty())),
                 Optional.of(VARCHAR))));
 
         // with LAST index variable
         assertJsonRoundTrip(new IrJsonPath(true, new IrArrayAccessor(
-                new IrJsonNull(),
+                JSON_NULL,
                 ImmutableList.of(new Subscript(new IrLastIndexVariable(Optional.of(INTEGER)), Optional.empty())),
                 Optional.empty())));
     }
@@ -144,30 +149,36 @@ public class TestJsonPath2016TypeSerialization
     public void testMemberAccessor()
     {
         // wildcard accessor
-        assertJsonRoundTrip(new IrJsonPath(true, new IrMemberAccessor(new IrJsonNull(), Optional.empty(), Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrMemberAccessor(JSON_NULL, Optional.empty(), Optional.empty())));
 
         // accessor by field name
-        assertJsonRoundTrip(new IrJsonPath(true, new IrMemberAccessor(new IrJsonNull(), Optional.of("some_key"), Optional.of(BIGINT))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrMemberAccessor(JSON_NULL, Optional.of("some_key"), Optional.of(BIGINT))));
+    }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        assertJsonRoundTrip(new IrJsonPath(true, new IrDescendantMemberAccessor(JSON_NULL, "some_key", Optional.empty())));
     }
 
     @Test
     public void testArithmeticBinary()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticBinary(ADD, new IrJsonNull(), new IrJsonNull(), Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticBinary(ADD, JSON_NULL, JSON_NULL, Optional.empty())));
 
         assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticBinary(
                 ADD,
-                new IrLiteral(INTEGER, 1L),
-                new IrLiteral(BIGINT, 2L),
+                literal(INTEGER, 1L),
+                literal(BIGINT, 2L),
                 Optional.of(BIGINT))));
     }
 
     @Test
     public void testArithmeticUnary()
     {
-        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(PLUS, new IrJsonNull(), Optional.empty())));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(MINUS, new IrJsonNull(), Optional.empty())));
-        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(MINUS, new IrLiteral(INTEGER, 1L), Optional.of(INTEGER))));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(PLUS, JSON_NULL, Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(MINUS, JSON_NULL, Optional.empty())));
+        assertJsonRoundTrip(new IrJsonPath(true, new IrArithmeticUnary(MINUS, literal(INTEGER, 1L), Optional.of(INTEGER))));
     }
 
     @Test
@@ -194,7 +205,7 @@ public class TestJsonPath2016TypeSerialization
                 new IrTypeMethod(
                         new IrArithmeticBinary(
                                 MULTIPLY,
-                                new IrArithmeticUnary(MINUS, new IrAbsMethod(new IrFloorMethod(new IrLiteral(INTEGER, 1L), Optional.of(INTEGER)), Optional.of(INTEGER)), Optional.of(INTEGER)),
+                                new IrArithmeticUnary(MINUS, new IrAbsMethod(new IrFloorMethod(literal(INTEGER, 1L), Optional.of(INTEGER)), Optional.of(INTEGER)), Optional.of(INTEGER)),
                                 new IrCeilingMethod(new IrMemberAccessor(new IrContextVariable(Optional.empty()), Optional.of("some_key"), Optional.of(BIGINT)), Optional.of(BIGINT)),
                                 Optional.of(BIGINT)),
                         Optional.of(createVarcharType(7)))));
@@ -206,6 +217,7 @@ public class TestJsonPath2016TypeSerialization
         JSON_PATH_2016.writeObject(blockBuilder, object);
         Block serialized = blockBuilder.build();
         Object deserialized = JSON_PATH_2016.getObject(serialized, 0);
-        assertEquals(deserialized, object);
+        assertThat((AssertProvider<? extends RecursiveComparisonAssert<?>>) () -> new RecursiveComparisonAssert<>(deserialized, COMPARISON_CONFIGURATION))
+                .isEqualTo(object);
     }
 }

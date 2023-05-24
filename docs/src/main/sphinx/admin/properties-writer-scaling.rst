@@ -44,8 +44,7 @@ session property.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** :ref:`prop-type-integer`
-* **Restrictions:** Must be a power of two
-* **Default value:** ``8``
+* **Default value:** The number of physical CPUs of the node with a maximum of 32
 
 Maximum number of concurrent writers per task upto which the task can be scaled when
 ``task.scale-writers.enabled`` is set. Increasing this value may improve the

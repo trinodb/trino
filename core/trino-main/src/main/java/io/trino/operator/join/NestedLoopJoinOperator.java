@@ -279,7 +279,8 @@ public class NestedLoopJoinOperator
     // bi-morphic parent class for the two implementations allowed. Adding a third implementation will make getOutput megamorphic and
     // should be avoided
     @VisibleForTesting
-    abstract static class NestedLoopOutputIterator
+    abstract static sealed class NestedLoopOutputIterator
+            permits PageRepeatingIterator, NestedLoopPageBuilder
     {
         public abstract boolean hasNext();
 

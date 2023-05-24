@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.orc.OrcTester.LocalTrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -216,7 +216,7 @@ public class TestStructColumnReader
         List<String> columnNames = ImmutableList.of(STRUCT_COL_NAME);
         List<Type> types = ImmutableList.of(writerType);
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(tempFile.getFile())),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
                 columnNames,
                 types,
                 OrcType.createRootOrcType(columnNames, types),

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
@@ -39,11 +40,14 @@ import io.trino.operator.WorkProcessorOperator;
 import io.trino.operator.WorkProcessorOperatorFactory;
 import io.trino.operator.join.InternalJoinFilterFunction;
 import io.trino.operator.join.JoinBridgeManager;
+import io.trino.operator.join.JoinOperatorInfo;
 import io.trino.operator.join.unspilled.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.unspilled.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.LazyBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -71,7 +75,11 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
+import static io.trino.operator.OperatorAssertion.dropChannel;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
+import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.OperatorFactories.JoinOperatorType.fullOuterJoin;
 import static io.trino.operator.OperatorFactories.JoinOperatorType.innerJoin;
 import static io.trino.operator.OperatorFactories.JoinOperatorType.probeOuterJoin;
@@ -85,11 +93,14 @@ import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.DataProviders.cartesianProduct;
+import static io.trino.testing.DataProviders.trueFalse;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -191,41 +202,79 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "singleBigintLookupSourceProvider")
-    public void testInnerJoinWithRunLengthEncodedProbe(boolean singleBigintLookupSource)
+    @Test(dataProvider = "hashJoinRleProbeTestValues")
+    public void testInnerJoinWithRunLengthEncodedProbe(boolean withFilter, boolean probeHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
         // build factory
-        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT))
-                .addSequencePage(10, 20)
-                .addSequencePage(10, 21);
+        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT))
+                .row("20", 1L)
+                .row("21", 2L)
+                .row("21", 3L);
         BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, false, taskContext, buildPages, Optional.empty(), singleBigintLookupSource);
         JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
 
         // probe factory
-        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT));
-        List<Page> probeInput = ImmutableList.of(
-                new Page(RunLengthEncodedBlock.create(BIGINT, 20L, 2)),
-                new Page(RunLengthEncodedBlock.create(BIGINT, -1L, 2)),
-                new Page(RunLengthEncodedBlock.create(BIGINT, 21L, 2)));
-        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(operatorFactories, lookupSourceFactory, probePages, false);
+        RowPagesBuilder probePagesBuilder = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR, BIGINT))
+                .addBlocksPage(
+                        RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("20"), 2),
+                        createLongsBlock(42, 43))
+                .addBlocksPage(
+                        RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("-1"), 2),
+                        createLongsBlock(52, 53))
+                .addBlocksPage(
+                        RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("21"), 2),
+                        createLongsBlock(62, 63));
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(operatorFactories, lookupSourceFactory, probePagesBuilder, withFilter);
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
 
-        // expected
-        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePages.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
-                .row(20L, 20L)
-                .row(20L, 20L)
-                .row(21L, 21L)
-                .row(21L, 21L)
-                .row(21L, 21L)
-                .row(21L, 21L)
-                .build();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        List<Page> pages = toPages(joinOperatorFactory, driverContext, probePagesBuilder.build(), true, true);
+        if (probeHashEnabled) {
+            // Drop the hashChannel for all pages
+            pages = dropChannel(pages, getHashChannels(probePagesBuilder, buildPages));
+        }
 
-        assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
+        assertThat(pages.size()).isEqualTo(2);
+        if (withFilter) {
+            assertThat(pages.get(0).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
+            assertThat(pages.get(0).getBlock(3)).isInstanceOf(LongArrayBlock.class);
+        }
+        else {
+            assertThat(pages.get(0).getBlock(2)).isInstanceOf(RunLengthEncodedBlock.class);
+            assertThat(pages.get(0).getBlock(3)).isInstanceOf(RunLengthEncodedBlock.class);
+        }
+        assertThat(pages.get(1).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
+
+        assertThat(getJoinOperatorInfo(driverContext).getRleProbes()).isEqualTo(withFilter ? 0 : 2);
+        assertThat(getJoinOperatorInfo(driverContext).getTotalProbes()).isEqualTo(3);
+
+        // expected
+        MaterializedResult expected = MaterializedResult.resultBuilder(taskContext.getSession(), concat(probePagesBuilder.getTypesWithoutHash(), buildPages.getTypesWithoutHash()))
+                .row("20", 42L, "20", 1L)
+                .row("20", 43L, "20", 1L)
+                .row("21", 62L, "21", 3L)
+                .row("21", 62L, "21", 2L)
+                .row("21", 63L, "21", 3L)
+                .row("21", 63L, "21", 2L)
+                .build();
+        MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    private JoinOperatorInfo getJoinOperatorInfo(DriverContext driverContext)
+    {
+        return (JoinOperatorInfo) getOnlyElement(driverContext.getOperatorStats()).getInfo();
+    }
+
+    @DataProvider(name = "hashJoinRleProbeTestValues")
+    public static Object[][] hashJoinRleProbeTestValuesProvider()
+    {
+        return cartesianProduct(trueFalse(), trueFalse(), trueFalse());
     }
 
     @Test(dataProvider = "singleBigintLookupSourceProvider")

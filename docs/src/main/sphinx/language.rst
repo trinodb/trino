@@ -9,11 +9,11 @@ with any underlying data source.
 Trino validates and translates the received SQL statements into the necessary
 operations on the connected data source.
 
-This chapter provides a reference to the supported SQL data types and other
+This section provides a reference to the supported SQL data types and other
 general characteristics of the SQL support of Trino.
 
 A :doc:`full SQL statement and syntax reference<sql>` is
-available in a separate chapter.
+available in a separate section.
 
 Trino also provides :doc:`numerous SQL functions and operators<functions>`.
 

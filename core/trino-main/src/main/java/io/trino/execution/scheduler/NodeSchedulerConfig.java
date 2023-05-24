@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import static java.util.Locale.ENGLISH;
 
 @DefunctConfig({
+        "node-scheduler.allocator-type",
         "node-scheduler.location-aware-scheduling-enabled",
         "node-scheduler.multiple-tasks-per-node-enabled",
         "node-scheduler.max-fraction-full-nodes-per-query",
@@ -47,13 +48,12 @@ public class NodeSchedulerConfig
     private boolean includeCoordinator = true;
     private int maxSplitsPerNode = 100;
     private int minPendingSplitsPerTask = 10;
-    private int maxAdjustedPendingSplitsWeightPerTask = 500;
+    private int maxAdjustedPendingSplitsWeightPerTask = 2000;
     private NodeSchedulerPolicy nodeSchedulerPolicy = NodeSchedulerPolicy.UNIFORM;
     private boolean optimizedLocalScheduling = true;
     private SplitsBalancingPolicy splitsBalancingPolicy = SplitsBalancingPolicy.STAGE;
-    private int maxUnacknowledgedSplitsPerTask = 500;
+    private int maxUnacknowledgedSplitsPerTask = 2000;
     private Duration allowedNoMatchingNodePeriod = new Duration(2, TimeUnit.MINUTES);
-    private NodeAllocatorType nodeAllocatorType = NodeAllocatorType.BIN_PACKING;
 
     @NotNull
     public NodeSchedulerPolicy getNodeSchedulerPolicy()
@@ -198,35 +198,5 @@ public class NodeSchedulerConfig
     public Duration getAllowedNoMatchingNodePeriod()
     {
         return allowedNoMatchingNodePeriod;
-    }
-
-    public enum NodeAllocatorType
-    {
-        FIXED_COUNT,
-        BIN_PACKING
-    }
-
-    @NotNull
-    public NodeAllocatorType getNodeAllocatorType()
-    {
-        return nodeAllocatorType;
-    }
-
-    @Config("node-scheduler.allocator-type")
-    public NodeSchedulerConfig setNodeAllocatorType(String nodeAllocatorType)
-    {
-        this.nodeAllocatorType = toNodeAllocatorType(nodeAllocatorType);
-        return this;
-    }
-
-    private static NodeAllocatorType toNodeAllocatorType(String nodeAllocatorType)
-    {
-        switch (nodeAllocatorType.toLowerCase(ENGLISH)) {
-            case "fixed_count":
-                return NodeAllocatorType.FIXED_COUNT;
-            case "bin_packing":
-                return NodeAllocatorType.BIN_PACKING;
-        }
-        throw new IllegalArgumentException("Unknown node allocator type: " + nodeAllocatorType);
     }
 }

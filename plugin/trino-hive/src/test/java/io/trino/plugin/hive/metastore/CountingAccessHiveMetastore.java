@@ -21,6 +21,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
@@ -33,31 +34,46 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
+
 @ThreadSafe
 public class CountingAccessHiveMetastore
         implements HiveMetastore
 {
-    public enum Methods
+    public enum Method
     {
         CREATE_DATABASE,
         CREATE_TABLE,
         GET_ALL_DATABASES,
         GET_DATABASE,
         GET_TABLE,
+        GET_ALL_TABLES,
+        GET_ALL_TABLES_FROM_DATABASE,
         GET_TABLE_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
+        GET_ALL_VIEWS,
+        GET_ALL_VIEWS_FROM_DATABASE,
+        UPDATE_TABLE_STATISTICS,
+        ADD_PARTITIONS,
+        GET_PARTITION_NAMES_BY_FILTER,
+        GET_PARTITIONS_BY_NAMES,
+        GET_PARTITION,
+        GET_PARTITION_STATISTICS,
+        UPDATE_PARTITION_STATISTICS,
         REPLACE_TABLE,
+        DROP_TABLE,
     }
 
     private final HiveMetastore delegate;
-    private final ConcurrentHashMultiset<Methods> methodInvocations = ConcurrentHashMultiset.create();
+    private final ConcurrentHashMultiset<Method> methodInvocations = ConcurrentHashMultiset.create();
 
     public CountingAccessHiveMetastore(HiveMetastore delegate)
     {
         this.delegate = delegate;
     }
 
-    public Multiset<Methods> getMethodInvocations()
+    public Multiset<Method> getMethodInvocations()
     {
         return ImmutableMultiset.copyOf(methodInvocations);
     }
@@ -70,47 +86,59 @@ public class CountingAccessHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        methodInvocations.add(Methods.GET_TABLE);
+        methodInvocations.add(Method.GET_TABLE);
         return delegate.getTable(databaseName, tableName);
     }
 
     @Override
     public Set<HiveColumnStatisticType> getSupportedColumnStatistics(Type type)
     {
-        throw new UnsupportedOperationException();
+        // No need to count that, since it's a pure local operation.
+        return delegate.getSupportedColumnStatistics(type);
     }
 
     @Override
     public List<String> getAllDatabases()
     {
-        methodInvocations.add(Methods.GET_ALL_DATABASES);
+        methodInvocations.add(Method.GET_ALL_DATABASES);
         return delegate.getAllDatabases();
     }
 
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        methodInvocations.add(Methods.GET_DATABASE);
+        methodInvocations.add(Method.GET_DATABASE);
         return delegate.getDatabase(databaseName);
     }
 
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        methodInvocations.add(Methods.GET_TABLE_WITH_PARAMETER);
+        methodInvocations.add(Method.GET_TABLE_WITH_PARAMETER);
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_ALL_VIEWS_FROM_DATABASE);
+        return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        Optional<List<SchemaTableName>> allViews = delegate.getAllViews();
+        if (allViews.isPresent()) {
+            methodInvocations.add(GET_ALL_VIEWS);
+        }
+        return allViews;
     }
 
     @Override
     public void createDatabase(Database database)
     {
-        methodInvocations.add(Methods.CREATE_DATABASE);
+        methodInvocations.add(Method.CREATE_DATABASE);
         delegate.createDatabase(database);
     }
 
@@ -135,20 +163,21 @@ public class CountingAccessHiveMetastore
     @Override
     public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        methodInvocations.add(Methods.CREATE_TABLE);
+        methodInvocations.add(Method.CREATE_TABLE);
         delegate.createTable(table, principalPrivileges);
     }
 
     @Override
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.DROP_TABLE);
+        delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override
     public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        methodInvocations.add(Methods.REPLACE_TABLE);
+        methodInvocations.add(Method.REPLACE_TABLE);
         delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
     }
 
@@ -197,7 +226,8 @@ public class CountingAccessHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_PARTITION);
+        return delegate.getPartition(table, partitionValues);
     }
 
     @Override
@@ -206,19 +236,22 @@ public class CountingAccessHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_PARTITION_NAMES_BY_FILTER);
+        return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_PARTITIONS_BY_NAMES);
+        return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     @Override
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.ADD_PARTITIONS);
+        delegate.addPartitions(databaseName, tableName, partitions);
     }
 
     @Override
@@ -296,14 +329,15 @@ public class CountingAccessHiveMetastore
     @Override
     public PartitionStatistics getTableStatistics(Table table)
     {
-        methodInvocations.add(Methods.GET_TABLE_STATISTICS);
+        methodInvocations.add(Method.GET_TABLE_STATISTICS);
         return delegate.getTableStatistics(table);
     }
 
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_PARTITION_STATISTICS);
+        return delegate.getPartitionStatistics(table, partitions);
     }
 
     @Override
@@ -312,18 +346,31 @@ public class CountingAccessHiveMetastore
             AcidTransaction transaction,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.UPDATE_TABLE_STATISTICS);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
     @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.UPDATE_PARTITION_STATISTICS);
+        delegate.updatePartitionStatistics(table, updates);
     }
 
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        throw new UnsupportedOperationException();
+        methodInvocations.add(Method.GET_ALL_TABLES_FROM_DATABASE);
+        return delegate.getAllTables(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        Optional<List<SchemaTableName>> allTables = delegate.getAllTables();
+        if (allTables.isPresent()) {
+            methodInvocations.add(GET_ALL_TABLES);
+        }
+        return allTables;
     }
 }

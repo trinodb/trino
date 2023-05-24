@@ -30,7 +30,7 @@ public class TimeWithTimeZoneParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
-            return TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+            return TimeWithTimeZoneType.TIME_TZ_MILLIS;
         }
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected exactly one parameter for TIME WITH TIME ZONE");

@@ -21,10 +21,9 @@ import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Row;
 
-import java.util.List;
-
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.google.common.collect.Streams.forEachPair;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -44,6 +43,18 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
  *   - Project(A, B, C, A + C)
  *       - (input) plan which produces symbols: [A, B, C]
  * </pre>
+ * It also transforms subquery with single-row values:
+ * <pre>
+ * - CorrelatedJoin (with correlation list: [A, C])
+ *   - (input) plan which produces symbols: [A, B, C]
+ *   - (subquery)
+ *     - single row VALUES(1, A, C * 2)
+ * </pre>
+ * to:
+ * <pre>
+ * - Project(A, B, C, 1, C * 2)
+ *   - (input) plan which produces symbols: [A, B, C]
+ * </pre>
  */
 
 public class TransformCorrelatedSingleRowSubqueryToProject
@@ -61,28 +72,31 @@ public class TransformCorrelatedSingleRowSubqueryToProject
     @Override
     public Result apply(CorrelatedJoinNode parent, Captures captures, Context context)
     {
-        List<ValuesNode> values = searchFrom(parent.getSubquery(), context.getLookup())
-                .recurseOnlyWhen(ProjectNode.class::isInstance)
-                .where(ValuesNode.class::isInstance)
-                .findAll();
+        PlanNode subquery = context.getLookup().resolve(parent.getSubquery());
 
-        if (values.size() != 1 || !isSingleRowValuesWithNoColumns(values.get(0))) {
-            return Result.empty();
+        if (subquery instanceof ProjectNode project) {
+            if (context.getLookup().resolve(project.getSource()) instanceof ValuesNode values && isSingleRowValuesWithNoColumns(values)) {
+                Assignments assignments = Assignments.builder()
+                        .putIdentities(parent.getInput().getOutputSymbols())
+                        .putAll(project.getAssignments())
+                        .build();
+                return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));
+            }
         }
 
-        List<ProjectNode> subqueryProjections = searchFrom(parent.getSubquery(), context.getLookup())
-                .where(node -> node instanceof ProjectNode && !node.getOutputSymbols().equals(parent.getCorrelation()))
-                .findAll();
-
-        if (subqueryProjections.size() == 0) {
-            return Result.ofPlanNode(parent.getInput());
-        }
-        if (subqueryProjections.size() == 1) {
-            Assignments assignments = Assignments.builder()
-                    .putIdentities(parent.getInput().getOutputSymbols())
-                    .putAll(subqueryProjections.get(0).getAssignments())
-                    .build();
-            return Result.ofPlanNode(projectNode(parent.getInput(), assignments, context));
+        if (subquery instanceof ValuesNode values) {
+            if (isSingleRowValuesWithNoColumns(values)) {
+                return Result.ofPlanNode(parent.getInput());
+            }
+            if (values.getRowCount() == 1 && values.getRows().orElseThrow().get(0) instanceof Row row) {
+                Assignments.Builder assignments = Assignments.builder()
+                        .putIdentities(parent.getInput().getOutputSymbols());
+                forEachPair(
+                        values.getOutputSymbols().stream(),
+                        row.getItems().stream(),
+                        assignments::put);
+                return Result.ofPlanNode(projectNode(parent.getInput(), assignments.build(), context));
+            }
         }
 
         return Result.empty();

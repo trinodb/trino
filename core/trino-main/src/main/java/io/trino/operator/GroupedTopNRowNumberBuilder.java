@@ -21,13 +21,13 @@ import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -37,13 +37,14 @@ import static java.util.Objects.requireNonNull;
 public class GroupedTopNRowNumberBuilder
         implements GroupedTopNBuilder
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRowNumberBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(GroupedTopNRowNumberBuilder.class);
 
     private final List<Type> sourceTypes;
     private final boolean produceRowNumber;
     private final GroupByHash groupByHash;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
     private final GroupedTopNRowNumberAccumulator groupedTopNRowNumberAccumulator;
+    private final PageWithPositionComparator comparator;
 
     public GroupedTopNRowNumberBuilder(
             List<Type> sourceTypes,
@@ -57,7 +58,7 @@ public class GroupedTopNRowNumberBuilder
         this.produceRowNumber = produceRowNumber;
         this.groupByHash = requireNonNull(groupByHash, "groupByHash is null");
 
-        requireNonNull(comparator, "comparator is null");
+        this.comparator = requireNonNull(comparator, "comparator is null");
         groupedTopNRowNumberAccumulator = new GroupedTopNRowNumberAccumulator(
                 (leftRowId, rightRowId) -> {
                     Page leftPage = pageManager.getPage(leftRowId);
@@ -98,8 +99,13 @@ public class GroupedTopNRowNumberBuilder
 
     private void processPage(Page newPage, GroupByIdBlock groupIds)
     {
-        try (LoadCursor loadCursor = pageManager.add(newPage)) {
-            for (int position = 0; position < newPage.getPositionCount(); position++) {
+        int firstPositionToAdd = groupedTopNRowNumberAccumulator.findFirstPositionToAdd(newPage, groupIds, comparator, pageManager);
+        if (firstPositionToAdd < 0) {
+            return;
+        }
+
+        try (LoadCursor loadCursor = pageManager.add(newPage, firstPositionToAdd)) {
+            for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
                 long groupId = groupIds.getGroupId(position);
                 loadCursor.advance();
                 groupedTopNRowNumberAccumulator.add(groupId, loadCursor);

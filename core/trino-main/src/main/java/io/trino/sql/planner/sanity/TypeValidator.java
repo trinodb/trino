@@ -117,8 +117,7 @@ public final class TypeValidator
 
             for (Map.Entry<Symbol, Expression> entry : node.getAssignments().entrySet()) {
                 Type expectedType = types.get(entry.getKey());
-                if (entry.getValue() instanceof SymbolReference) {
-                    SymbolReference symbolReference = (SymbolReference) entry.getValue();
+                if (entry.getValue() instanceof SymbolReference symbolReference) {
                     verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
                     continue;
                 }

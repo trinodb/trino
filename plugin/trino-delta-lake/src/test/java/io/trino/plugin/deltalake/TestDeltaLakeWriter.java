@@ -41,10 +41,10 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeWriter
 {
@@ -58,7 +58,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(intType).withMin(getIntByteArray(-100)).withMax(getIntByteArray(250)).withNumNulls(6).build()),
                 createMetaData(columnName, intType, 10,
                         Statistics.getBuilderForReading(intType).withMin(getIntByteArray(-200)).withMax(getIntByteArray(150)).withNumNulls(7).build()));
-        DeltaLakeColumnHandle intColumn = new DeltaLakeColumnHandle(columnName, INTEGER, OptionalInt.empty(), columnName, INTEGER, REGULAR);
+        DeltaLakeColumnHandle intColumn = new DeltaLakeColumnHandle(columnName, INTEGER, OptionalInt.empty(), columnName, INTEGER, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, INTEGER), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
@@ -77,7 +77,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(type).withMin(getFloatByteArray(0.01f)).withMax(getFloatByteArray(1.0f)).withNumNulls(6).build()),
                 createMetaData(columnName, type, 10,
                         Statistics.getBuilderForReading(type).withMin(getFloatByteArray(-2.001f)).withMax(getFloatByteArray(0.0f)).withNumNulls(7).build()));
-        DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR);
+        DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, REAL), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
@@ -98,7 +98,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(type).withMin(getFloatByteArray(Float.NaN)).withMax(getFloatByteArray(1.0f)).withNumNulls(6).build()),
                 createMetaData(columnName, type, 10,
                         Statistics.getBuilderForReading(type).withMin(getFloatByteArray(-2.001f)).withMax(getFloatByteArray(0.0f)).withNumNulls(7).build()));
-        DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR);
+        DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, REAL), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
@@ -119,7 +119,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(type).withMin(getDoubleByteArray(Double.NaN)).withMax(getDoubleByteArray(1.0f)).withNumNulls(6).build()),
                 createMetaData(columnName, type, 10,
                         Statistics.getBuilderForReading(type).withMin(getDoubleByteArray(-2.001f)).withMax(getDoubleByteArray(0.0f)).withNumNulls(7).build()));
-        DeltaLakeColumnHandle doubleColumn = new DeltaLakeColumnHandle(columnName, DOUBLE, OptionalInt.empty(), columnName, DOUBLE, REGULAR);
+        DeltaLakeColumnHandle doubleColumn = new DeltaLakeColumnHandle(columnName, DOUBLE, OptionalInt.empty(), columnName, DOUBLE, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, DOUBLE), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
@@ -138,7 +138,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(type).withMin("aba".getBytes(UTF_8)).withMax("ab⌘".getBytes(UTF_8)).withNumNulls(6).build()),
                 createMetaData(columnName, type, 10,
                         Statistics.getBuilderForReading(type).withMin("aba".getBytes(UTF_8)).withMax("abc".getBytes(UTF_8)).withNumNulls(6).build()));
-        DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, createUnboundedVarcharType()), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));
@@ -157,7 +157,7 @@ public class TestDeltaLakeWriter
                         Statistics.getBuilderForReading(type).withMin("aba".getBytes(UTF_8)).withMax("ab\uFAD8".getBytes(UTF_8)).withNumNulls(6).build()),
                 createMetaData(columnName, type, 10,
                         Statistics.getBuilderForReading(type).withMin("aba".getBytes(UTF_8)).withMax("ab\uD83D\uDD74".getBytes(UTF_8)).withNumNulls(6).build()));
-        DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR);
+        DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, createUnboundedVarcharType()), 20);
         assertEquals(fileStats.getNumRecords(), Optional.of(20L));

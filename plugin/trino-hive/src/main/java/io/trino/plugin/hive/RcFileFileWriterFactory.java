@@ -14,30 +14,27 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.hdfs.HdfsEnvironment;
+import com.google.common.collect.Maps;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.encodings.ColumnEncodingFactory;
+import io.trino.hive.formats.encodings.binary.BinaryColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextColumnEncodingFactory;
+import io.trino.hive.formats.encodings.text.TextEncodingOptions;
+import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
-import io.trino.rcfile.RcFileDataSource;
-import io.trino.rcfile.RcFileEncoding;
-import io.trino.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.RCFileOutputFormat;
-import org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe;
-import org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Optional;
@@ -45,13 +42,15 @@ import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.function.Supplier;
 
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isRcfileOptimizedWriterValidate;
-import static io.trino.plugin.hive.rcfile.RcFilePageSourceFactory.createTextVectorEncoding;
+import static io.trino.plugin.hive.util.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.LAZY_BINARY_COLUMNAR_SERDE_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.RCFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static java.util.Objects.requireNonNull;
@@ -60,66 +59,60 @@ import static java.util.stream.Collectors.toList;
 public class RcFileFileWriterFactory
         implements HiveFileWriterFactory
 {
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final DateTimeZone timeZone;
-    private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
-    private final FileFormatDataSourceStats stats;
 
     @Inject
     public RcFileFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveConfig hiveConfig,
-            FileFormatDataSourceStats stats)
+            HiveConfig hiveConfig)
     {
-        this(hdfsEnvironment, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone(), stats);
+        this(fileSystemFactory, typeManager, nodeVersion, hiveConfig.getRcfileDateTimeZone());
     }
 
     public RcFileFileWriterFactory(
-            HdfsEnvironment hdfsEnvironment,
+            TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone timeZone,
-            FileFormatDataSourceStats stats)
+            DateTimeZone timeZone)
     {
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf configuration,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+        if (!RCFILE_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
-        RcFileEncoding rcFileEncoding;
-        if (LazyBinaryColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
-            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
+        ColumnEncodingFactory columnEncodingFactory;
+        if (LAZY_BINARY_COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
+            columnEncodingFactory = new BinaryColumnEncodingFactory(timeZone);
         }
-        else if (ColumnarSerDe.class.getName().equals(storageFormat.getSerde())) {
-            rcFileEncoding = createTextVectorEncoding(schema);
+        else if (COLUMNAR_SERDE_CLASS.equals(storageFormat.getSerde())) {
+            columnEncodingFactory = new TextColumnEncodingFactory(TextEncodingOptions.fromSchema(Maps.fromProperties(schema)));
         }
         else {
             return Optional.empty();
         }
-
-        Optional<String> codecName = Optional.ofNullable(configuration.get(FileOutputFormat.COMPRESS_CODEC));
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -133,33 +126,24 @@ public class RcFileFileWriterFactory
                 .toArray();
 
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
-            OutputStream outputStream = fileSystem.create(path, false);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
+            OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
 
-            Optional<Supplier<RcFileDataSource>> validationInputFactory = Optional.empty();
+            Optional<Supplier<TrinoInputFile>> validationInputFactory = Optional.empty();
             if (isRcfileOptimizedWriterValidate(session)) {
-                validationInputFactory = Optional.of(() -> {
-                    try {
-                        return new HdfsRcFileDataSource(
-                                path.toString(),
-                                fileSystem.open(path),
-                                fileSystem.getFileStatus(path).getLen(),
-                                stats);
-                    }
-                    catch (IOException e) {
-                        throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
-                    }
-                });
+                validationInputFactory = Optional.of(() -> fileSystem.newInputFile(location));
             }
 
-            Closeable rollbackAction = () -> fileSystem.delete(path, false);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             return Optional.of(new RcFileFileWriter(
                     outputStream,
+                    outputStreamMemoryContext,
                     rollbackAction,
-                    rcFileEncoding,
+                    columnEncodingFactory,
                     fileColumnTypes,
-                    codecName,
+                    compressionCodec.getHiveCompressionKind(),
                     fileInputColumnIndexes,
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())

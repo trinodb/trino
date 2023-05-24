@@ -5,31 +5,31 @@ List of functions and operators
 #
 -
 
-- :ref:`[] substring operator <subscript_operator>`
-- :ref:`|| concatenation operator <concatenation_operator>`
-- :ref:`\< comparison operator <comparison_operators>`
-- :ref:`\> comparison operator <comparison_operators>`
-- :ref:`<= comparison operator <comparison_operators>`
-- :ref:`>= comparison operator <comparison_operators>`
-- :ref:`= comparison operator <comparison_operators>`
-- :ref:`<> comparison operator <comparison_operators>`
-- :ref:`\!= comparison operator <comparison_operators>`
-- :ref:`-> lambda expression <lambda_expressions>`
-- :ref:`+ mathematical operator <mathematical_operators>`
-- :ref:`- mathematical operator <mathematical_operators>`
-- :ref:`* mathematical operator <mathematical_operators>`
-- :ref:`/ mathematical operator <mathematical_operators>`
-- :ref:`% mathematical operator <mathematical_operators>`
+- :ref:`[] substring operator <subscript-operator>`
+- :ref:`|| concatenation operator <concatenation-operator>`
+- :ref:`\< comparison operator <comparison-operators>`
+- :ref:`\> comparison operator <comparison-operators>`
+- :ref:`<= comparison operator <comparison-operators>`
+- :ref:`>= comparison operator <comparison-operators>`
+- :ref:`= comparison operator <comparison-operators>`
+- :ref:`<> comparison operator <comparison-operators>`
+- :ref:`\!= comparison operator <comparison-operators>`
+- :ref:`-> lambda expression <lambda-expressions>`
+- :ref:`+ mathematical operator <mathematical-operators>`
+- :ref:`- mathematical operator <mathematical-operators>`
+- :ref:`* mathematical operator <mathematical-operators>`
+- :ref:`/ mathematical operator <mathematical-operators>`
+- :ref:`% mathematical operator <mathematical-operators>`
 
 A
 -
 
 - :func:`abs`
 - :func:`acos`
-- :ref:`ALL <quantified_comparison_predicates>`
+- :ref:`ALL <quantified-comparison-predicates>`
 - :func:`all_match`
-- :ref:`AND <logical_operators>`
-- :ref:`ANY <quantified_comparison_predicates>`
+- :ref:`AND <logical-operators>`
+- :ref:`ANY <quantified-comparison-predicates>`
 - :func:`any_match`
 - :func:`approx_distinct`
 - :func:`approx_most_frequent`
@@ -49,7 +49,7 @@ A
 - :func:`array_union`
 - :func:`arrays_overlap`
 - :func:`asin`
-- :ref:`AT TIME ZONE <at_time_zone_operator>`
+- :ref:`AT TIME ZONE <at-time-zone-operator>`
 - :func:`at_timezone`
 - :func:`atan`
 - :func:`atan2`
@@ -60,7 +60,7 @@ B
 
 - :func:`bar`
 - :func:`beta_cdf`
-- :ref:`BETWEEN <range_operator>`
+- :ref:`BETWEEN <range-operator>`
 - :func:`bing_tile`
 - :func:`bing_tile_at`
 - :func:`bing_tile_coordinates`
@@ -85,7 +85,7 @@ C
 -
 
 - :func:`cardinality`
-- :ref:`CASE <case_expression>`
+- :ref:`CASE <case-expression>`
 - :func:`cast`
 - :func:`cbrt`
 - :func:`ceil`
@@ -94,7 +94,7 @@ C
 - :func:`checksum`
 - :func:`chr`
 - :func:`classify`
-- :ref:`coalesce <coalesce_function>`
+- :ref:`coalesce <coalesce-function>`
 - :func:`codepoint`
 - :func:`color`
 - :func:`combinations`
@@ -133,7 +133,7 @@ D
 - :func:`day_of_month`
 - :func:`day_of_week`
 - :func:`day_of_year`
-- :ref:`DECIMAL <decimal_literal>`
+- :ref:`DECIMAL <decimal-literal>`
 - :func:`degrees`
 - :func:`dense_rank`
 - :func:`dow`
@@ -147,6 +147,7 @@ E
 - :func:`empty_approx_set`
 - ``evaluate_classifier_predictions``
 - :func:`every`
+- :func:`exclude_columns`
 - :func:`extract`
 - :func:`exp`
 
@@ -208,7 +209,7 @@ H
 I
 -
 
-- :ref:`if <if_function>`
+- :ref:`if <if-function>`
 - :func:`index`
 - :func:`infinity`
 - :func:`intersection_cardinality`
@@ -218,26 +219,28 @@ I
 - :func:`is_infinite`
 - :func:`is_json_scalar`
 - :func:`is_nan`
-- :ref:`IS NOT DISTINCT <is_distinct_operator>`
-- :ref:`IS NOT NULL <is_null_operator>`
-- :ref:`IS DISTINCT <is_distinct_operator>`
-- :ref:`IS NULL <is_null_operator>`
+- :ref:`IS NOT DISTINCT <is-distinct-operator>`
+- :ref:`IS NOT NULL <is-null-operator>`
+- :ref:`IS DISTINCT <is-distinct-operator>`
+- :ref:`IS NULL <is-null-operator>`
 
 J
 -
 
 - :func:`jaccard_index`
+- :ref:`json_array() <json-array>`
 - :func:`json_array_contains`
 - :func:`json_array_get`
 - :func:`json_array_length`
-- :ref:`json_exists() <json_exists>`
+- :ref:`json_exists() <json-exists>`
 - :func:`json_extract`
 - :func:`json_extract_scalar`
 - :func:`json_format`
+- :ref:`json_object() <json-object>`
 - :func:`json_parse`
-- :ref:`json_query() <json_query>`
+- :ref:`json_query() <json-query>`
 - :func:`json_size`
-- :ref:`json_value() <json_value>`
+- :ref:`json_value() <json-value>`
 
 K
 -
@@ -310,12 +313,12 @@ N
 - :func:`none_match`
 - :func:`normal_cdf`
 - :func:`normalize`
-- :ref:`NOT <logical_operators>`
-- :ref:`NOT BETWEEN <range_operator>`
+- :ref:`NOT <logical-operators>`
+- :ref:`NOT BETWEEN <range-operator>`
 - :func:`now`
 - :func:`nth_value`
 - :func:`ntile`
-- :ref:`nullif <nullif_function>`
+- :ref:`nullif <nullif-function>`
 - :func:`numeric_histogram`
 
 O
@@ -323,7 +326,7 @@ O
 
 - ``objectid``
 - :func:`objectid_timestamp`
-- :ref:`OR <logical_operators>`
+- :ref:`OR <logical-operators>`
 
 P
 -
@@ -376,7 +379,8 @@ S
 -
 
 - :func:`second`
-- :func:`sequence`
+- :func:`sequence` (scalar function)
+- :ref:`sequence()<sequence_table_function>` (table function)
 - :func:`sha1`
 - :func:`sha256`
 - :func:`sha512`
@@ -384,9 +388,10 @@ S
 - :func:`sign`
 - :func:`simplify_geometry`
 - :func:`sin`
+- :func:`sinh`
 - :func:`skewness`
 - :func:`slice`
-- :ref:`SOME <quantified_comparison_predicates>`
+- :ref:`SOME <quantified-comparison-predicates>`
 - :func:`soundex`
 - ``spatial_partitioning``
 - ``spatial_partitions``
@@ -499,7 +504,7 @@ T
 - :func:`trim`
 - :func:`trim_array`
 - :func:`truncate`
-- :ref:`try <try_function>`
+- :ref:`try <try-function>`
 - :func:`try_cast`
 - :func:`typeof`
 

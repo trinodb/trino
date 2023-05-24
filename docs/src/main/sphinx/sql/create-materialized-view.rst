@@ -9,6 +9,7 @@ Synopsis
 
     CREATE [ OR REPLACE ] MATERIALIZED VIEW
     [ IF NOT EXISTS ] view_name
+    [ GRACE PERIOD interval ]
     [ COMMENT string ]
     [ WITH properties ]
     AS query
@@ -29,15 +30,18 @@ materialized views, as compared to each time of accessing the view. Multiple
 reads of view data over time, or by multiple users, all trigger repeated
 processing. This is avoided for materialized views.
 
-When the underlying data changes, the materialized view becomes out of sync with
-the source tables. Update the data in the materialized view with the
-:doc:`refresh-materialized-view` statement.
-
 The optional ``OR REPLACE`` clause causes the materialized view to be replaced
 if it already exists rather than raising an error.
 
 The optional ``IF NOT EXISTS`` clause causes the materialized view only to be
 created or replaced if it does not exist yet.
+
+The optional ``GRACE PERIOD`` clause specifies how long the query materialization
+is used for querying. If the time elapsed since last materialized view refresh
+is greater than the grace period, the materialized view acts as a normal view and
+the materialized data is not used. If not specified, the grace period defaults to
+infinity. See :doc:`refresh-materialized-view` for more about refreshing
+materialized views.
 
 The optional ``COMMENT`` clause causes a ``string`` comment to be stored with
 the metadata about the materialized view. The comment is displayed with the
@@ -51,7 +55,7 @@ operation. The supported properties are different for each connector and
 detailed in the SQL support section of the specific connector's documentation.
 
 After successful creation, all metadata about the materialized view is available
-in a :ref:`system table <system_metadata_materialized_views>`.
+in a :ref:`system table <system-metadata-materialized-views>`.
 
 Examples
 --------

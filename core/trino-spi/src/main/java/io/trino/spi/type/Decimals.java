@@ -77,7 +77,7 @@ public final class Decimals
     {
         Matcher matcher = DECIMAL_PATTERN.matcher(stringValue);
         if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid decimal value '" + stringValue + "'");
+            throw new IllegalArgumentException("Invalid DECIMAL value '" + stringValue + "'");
         }
 
         String sign = getMatcherGroup(matcher, 1);
@@ -89,7 +89,7 @@ public final class Decimals
         String fractionalPart = getMatcherGroup(matcher, 6);
 
         if (leadingZeros.isEmpty() && integralPart.isEmpty() && fractionalPart.isEmpty()) {
-            throw new IllegalArgumentException("Invalid decimal value '" + stringValue + "'");
+            throw new IllegalArgumentException("Invalid DECIMAL value '" + stringValue + "'");
         }
 
         int scale = fractionalPart.length();
@@ -257,24 +257,6 @@ public final class Decimals
             throw new IllegalArgumentException("target scale must be larger than source scale");
         }
         return value.multiply(bigIntegerTenToNth(toScale - fromScale));
-    }
-
-    /**
-     * @deprecated Use {@link DecimalType#isShort()}
-     */
-    @Deprecated
-    public static boolean isShortDecimal(Type type)
-    {
-        return type instanceof ShortDecimalType;
-    }
-
-    /**
-     * @deprecated Use {@link DecimalType#isShort()}
-     */
-    @Deprecated
-    public static boolean isLongDecimal(Type type)
-    {
-        return type instanceof LongDecimalType;
     }
 
     /**

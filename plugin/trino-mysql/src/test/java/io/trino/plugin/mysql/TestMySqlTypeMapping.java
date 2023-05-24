@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -34,8 +35,12 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -68,6 +73,7 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMySqlTypeMapping
@@ -931,6 +937,34 @@ public class TestMySqlTypeMapping
     }
 
     @Test
+    public void testZeroTimestamp()
+            throws Exception
+    {
+        String connectionUrl = mySqlServer.getJdbcUrl() + "&zeroDateTimeBehavior=convertToNull";
+
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(getSession()).build();
+        queryRunner.installPlugin(new MySqlPlugin());
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("connection-url", connectionUrl)
+                .put("connection-user", mySqlServer.getUsername())
+                .put("connection-password", mySqlServer.getPassword())
+                .buildOrThrow();
+        queryRunner.createCatalog("mysql", "mysql", properties);
+
+        try (Connection connection = DriverManager.getConnection(connectionUrl, mySqlServer.getUsername(), mySqlServer.getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE tpch.test_zero_ts(col_dt datetime, col_ts timestamp)");
+            statement.execute("SET sql_mode=''");
+            statement.execute("INSERT INTO tpch.test_zero_ts(col_dt, col_ts) VALUES ('0000-00-00 00:00:00', '0000-00-00 00:00:00')");
+
+            assertThat(queryRunner.execute("SELECT col_dt FROM test_zero_ts").getOnlyValue()).isNull();
+            assertThat(queryRunner.execute("SELECT col_ts FROM test_zero_ts").getOnlyValue()).isNull();
+
+            statement.execute("DROP TABLE tpch.test_zero_ts");
+        }
+    }
+
+    @Test
     public void testJson()
     {
         SqlDataTypeTest.create()
@@ -1074,7 +1108,7 @@ public class TestMySqlTypeMapping
     private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> mySqlServer.execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 }

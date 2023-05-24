@@ -13,67 +13,157 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.SqlDecimal.decimal;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDecimalParametricType
-        extends AbstractTestFunctions
 {
+    private QueryAssertions assertions;
+
+    @BeforeAll
+    public void init()
+    {
+        assertions = new QueryAssertions();
+    }
+
+    @AfterAll
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
     @Test
     public void decimalIsCreatedWithPrecisionAndScaleDefined()
     {
-        assertDecimalFunction("CAST(1 AS DECIMAL(2, 0))", decimal("01", createDecimalType(2, 0)));
-        assertDecimalFunction("CAST(0.01 AS DECIMAL(2, 2))", decimal(".01", createDecimalType(2, 2)));
-        assertDecimalFunction("CAST(0.02 AS DECIMAL(10, 10))", decimal(".0200000000", createDecimalType(10, 10)));
-        assertDecimalFunction("CAST(0.02 AS DECIMAL(10, 8))", decimal("00.02000000", createDecimalType(10, 8)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 0))")
+                .binding("a", "1"))
+                .isEqualTo(decimal("01", createDecimalType(2, 0)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(2, 2))")
+                .binding("a", "0.01"))
+                .isEqualTo(decimal(".01", createDecimalType(2, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(10, 10))")
+                .binding("a", "0.02"))
+                .isEqualTo(decimal(".0200000000", createDecimalType(10, 10)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(10, 8))")
+                .binding("a", "0.02"))
+                .isEqualTo(decimal("00.02000000", createDecimalType(10, 8)));
     }
 
     @Test
     public void decimalIsCreatedWithOnlyPrecisionDefined()
     {
-        assertDecimalFunction("CAST(1 AS DECIMAL(2))", decimal("01", createDecimalType(2)));
-        assertDecimalFunction("CAST(-22 AS DECIMAL(3))", decimal("-022", createDecimalType(3)));
-        assertDecimalFunction("CAST(31.41 AS DECIMAL(4))", decimal("0031", createDecimalType(4)));
+        assertThat(assertions.expression("cast(a as DECIMAL(2))")
+                .binding("a", "1"))
+                .isEqualTo(decimal("01", createDecimalType(2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3))")
+                .binding("a", "-22"))
+                .isEqualTo(decimal("-022", createDecimalType(3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4))")
+                .binding("a", "31.41"))
+                .isEqualTo(decimal("0031", createDecimalType(4)));
     }
 
     @Test
     public void decimalIsCreatedWithoutParameters()
     {
-        assertDecimalFunction("CAST(1 AS DECIMAL)", decimal("1", createDecimalType(38)));
-        assertDecimalFunction("CAST(-22 AS DECIMAL)", decimal("-22", createDecimalType(38)));
-        assertDecimalFunction("CAST(31.41 AS DECIMAL)", decimal("31", createDecimalType(38)));
+        assertThat(assertions.expression("cast(a as DECIMAL)")
+                .binding("a", "1"))
+                .isEqualTo(decimal("1", createDecimalType(38)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL)")
+                .binding("a", "-22"))
+                .isEqualTo(decimal("-22", createDecimalType(38)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL)")
+                .binding("a", "31.41"))
+                .isEqualTo(decimal("31", createDecimalType(38)));
     }
 
     @Test
     public void creatingDecimalRoundsValueProperly()
     {
-        assertDecimalFunction("CAST(0.022 AS DECIMAL(4, 2))", decimal("00.02", createDecimalType(4, 2)));
-        assertDecimalFunction("CAST(0.025 AS DECIMAL(4, 2))", decimal("00.03", createDecimalType(4, 2)));
-        assertDecimalFunction("CAST(32.01 AS DECIMAL(3, 1))", decimal("32.0", createDecimalType(3, 1)));
-        assertDecimalFunction("CAST(32.06 AS DECIMAL(3, 1))", decimal("32.1", createDecimalType(3, 1)));
-        assertDecimalFunction("CAST(32.1 AS DECIMAL(3, 0))", decimal("032", createDecimalType(3)));
-        assertDecimalFunction("CAST(32.5 AS DECIMAL(3, 0))", decimal("033", createDecimalType(3)));
-        assertDecimalFunction("CAST(-0.022 AS DECIMAL(4, 2))", decimal("-00.02", createDecimalType(4, 2)));
-        assertDecimalFunction("CAST(-0.025 AS DECIMAL(4, 2))", decimal("-00.03", createDecimalType(4, 2)));
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 2))")
+                .binding("a", "0.022"))
+                .isEqualTo(decimal("00.02", createDecimalType(4, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 2))")
+                .binding("a", "0.025"))
+                .isEqualTo(decimal("00.03", createDecimalType(4, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 1))")
+                .binding("a", "32.01"))
+                .isEqualTo(decimal("32.0", createDecimalType(3, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 1))")
+                .binding("a", "32.06"))
+                .isEqualTo(decimal("32.1", createDecimalType(3, 1)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 0))")
+                .binding("a", "32.1"))
+                .isEqualTo(decimal("032", createDecimalType(3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(3, 0))")
+                .binding("a", "32.5"))
+                .isEqualTo(decimal("033", createDecimalType(3)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 2))")
+                .binding("a", "-0.022"))
+                .isEqualTo(decimal("-00.02", createDecimalType(4, 2)));
+
+        assertThat(assertions.expression("cast(a as DECIMAL(4, 2))")
+                .binding("a", "-0.025"))
+                .isEqualTo(decimal("-00.03", createDecimalType(4, 2)));
     }
 
     @Test
     public void decimalIsNotCreatedWhenScaleExceedsPrecision()
     {
-        assertInvalidFunction("CAST(1 AS DECIMAL(1,2))", "DECIMAL scale must be in range [0, precision (1)]: 2");
-        assertInvalidFunction("CAST(-22 AS DECIMAL(20,21))", "DECIMAL scale must be in range [0, precision (20)]: 21");
-        assertInvalidFunction("CAST(31.41 AS DECIMAL(0,1))", "DECIMAL precision must be in range [1, 38]: 0");
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(1,2))")
+                .binding("a", "1").evaluate())
+                .hasMessage("DECIMAL scale must be in range [0, precision (1)]: 2");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(20,21))")
+                .binding("a", "-22").evaluate())
+                .hasMessage("DECIMAL scale must be in range [0, precision (20)]: 21");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(0,1))")
+                .binding("a", "31.41").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
     }
 
     @Test
     public void decimalWithZeroLengthCannotBeCreated()
     {
-        assertInvalidFunction("CAST(1 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]: 0");
-        assertInvalidFunction("CAST(0 AS DECIMAL(0,0))", "DECIMAL precision must be in range [1, 38]: 0");
-        assertInvalidFunction("CAST(1 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]: 0");
-        assertInvalidFunction("CAST(0 AS DECIMAL(0))", "DECIMAL precision must be in range [1, 38]: 0");
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(0,0))")
+                .binding("a", "1").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(0,0))")
+                .binding("a", "0").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(0))")
+                .binding("a", "1").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
+
+        assertTrinoExceptionThrownBy(() -> assertions.expression("cast(a as DECIMAL(0))")
+                .binding("a", "0").evaluate())
+                .hasMessage("DECIMAL precision must be in range [1, 38]: 0");
     }
 }

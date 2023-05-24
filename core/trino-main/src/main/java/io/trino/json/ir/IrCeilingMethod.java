@@ -13,23 +13,23 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
-public class IrCeilingMethod
-        extends IrMethod
+import static java.util.Objects.requireNonNull;
+
+public record IrCeilingMethod(IrPathNode base, Optional<Type> type)
+        implements IrPathNode
 {
-    @JsonCreator
-    public IrCeilingMethod(@JsonProperty("base") IrPathNode base, @JsonProperty("type") Optional<Type> type)
+    public IrCeilingMethod
     {
-        super(base, type);
+        requireNonNull(type, "type is null");
+        requireNonNull(base, "ceiling() method base is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrCeilingMethod(this, context);
     }

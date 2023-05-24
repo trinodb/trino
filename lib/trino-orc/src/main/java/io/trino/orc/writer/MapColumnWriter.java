@@ -31,7 +31,6 @@ import io.trino.orc.stream.PresentOutputStream;
 import io.trino.orc.stream.StreamDataOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarMap;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -41,17 +40,17 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.orc.stream.LongOutputStream.createLengthOutputStream;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class MapColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(MapColumnWriter.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(MapColumnWriter.class);
     private final OrcColumnId columnId;
     private final boolean compressed;
     private final ColumnEncoding columnEncoding;

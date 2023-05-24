@@ -29,11 +29,9 @@ public class OrdinalitySymbolMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof UnnestNode)) {
+        if (!(node instanceof UnnestNode unnestNode)) {
             return Optional.empty();
         }
-
-        UnnestNode unnestNode = (UnnestNode) node;
 
         return unnestNode.getOrdinalitySymbol();
     }

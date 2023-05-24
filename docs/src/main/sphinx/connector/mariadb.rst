@@ -21,11 +21,10 @@ To connect to MariaDB, you need:
 Configuration
 -------------
 
-To configure the MariaDB connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mariadb.properties``, to
-mount the MariaDB connector as the ``mariadb`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the MariaDB connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the MariaDB
+connector as the ``example`` catalog. Create the file with the following
+contents, replacing the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -56,25 +55,25 @@ Querying MariaDB
 The MariaDB connector provides a schema for every MariaDB *database*.
 You can see the available MariaDB databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM mariadb;
+    SHOW SCHEMAS FROM example;
 
 If you have a MariaDB database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM mariadb.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web``
 database using either of the following::
 
-    DESCRIBE mariadb.web.clicks;
-    SHOW COLUMNS FROM mariadb.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM mariadb.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mariadb`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. mariadb-type-mapping:
 
@@ -106,14 +105,26 @@ to the following table:
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INT``
     - ``INTEGER``
     -
+  * - ``INT UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``FLOAT``
     - ``REAL``
@@ -289,16 +300,16 @@ processed in MariaDB. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
-``CURDATE``::
+As an example, query the ``example`` catalog and select the age of employees by
+using ``TIMESTAMPDIFF`` and ``CURDATE``::
 
     SELECT
       age
     FROM
       TABLE(
-        mariadb.system.query(
+        example.system.query(
           query => 'SELECT
             TIMESTAMPDIFF(
               YEAR,
@@ -309,6 +320,8 @@ As an example, select the age of employees by using ``TIMESTAMPDIFF`` and
             tiny.employees'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

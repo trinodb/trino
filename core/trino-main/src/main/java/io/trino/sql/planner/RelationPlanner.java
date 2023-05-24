@@ -47,6 +47,8 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
@@ -65,6 +67,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Intersect;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
@@ -100,7 +103,6 @@ import io.trino.type.TypeCoercion;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,10 +115,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.QueryPlanner.coerce;
 import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
@@ -280,8 +285,35 @@ class RelationPlanner
         for (Expression filter : filters) {
             planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
-            Expression predicate = planBuilder.rewrite(filter);
+            Expression predicate = coerceIfNecessary(analysis, filter, planBuilder.rewrite(filter));
             predicate = predicateTransformation.apply(predicate);
+            planBuilder = planBuilder.withNewRoot(new FilterNode(
+                    idAllocator.getNextId(),
+                    planBuilder.getRoot(),
+                    predicate));
+        }
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+    }
+
+    public RelationPlan addCheckConstraints(List<Expression> constraints, Table node, RelationPlan plan, Function<Table, Scope> accessControlScope)
+    {
+        if (constraints.isEmpty()) {
+            return plan;
+        }
+
+        PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
+                .withScope(accessControlScope.apply(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
+
+        for (Expression constraint : constraints) {
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, constraint, analysis.getSubqueries(constraint));
+
+            Expression predicate = new IfExpression(
+                    // When predicate evaluates to UNKNOWN (e.g. NULL > 100), it should not violate the check constraint.
+                    new CoalesceExpression(coerceIfNecessary(analysis, constraint, planBuilder.rewrite(constraint)), TRUE_LITERAL),
+                    TRUE_LITERAL,
+                    new Cast(failFunction(plannerContext.getMetadata(), session, CONSTRAINT_VIOLATION, "Check constraint violation: " + constraint), toSqlType(BOOLEAN)));
+
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
                     planBuilder.getRoot(),
@@ -293,7 +325,7 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
-        Map<String, List<Expression>> columnMasks = analysis.getColumnMasks(table);
+        Map<String, Expression> columnMasks = analysis.getColumnMasks(table);
 
         // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
         // it can't have masks. The loop below expects fields to have proper names, so bail out
@@ -305,27 +337,33 @@ class RelationPlanner
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putIdentities(planBuilder.getRoot().getOutputSymbols());
+
+        List<Symbol> fieldMappings = new ArrayList<>();
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            for (Expression mask : columnMasks.getOrDefault(field.getName().orElseThrow(), ImmutableList.of())) {
+            Expression mask = columnMasks.get(field.getName().orElseThrow());
+            Symbol symbol = plan.getFieldMappings().get(i);
+            Expression projection = symbol.toSymbolReference();
+            if (mask != null) {
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
-
-                Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
-                    assignments.put(symbol, symbol.toSymbolReference());
-                }
-                assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
-
-                planBuilder = planBuilder
-                        .withNewRoot(new ProjectNode(
-                                idAllocator.getNextId(),
-                                planBuilder.getRoot(),
-                                Assignments.copyOf(assignments)));
+                symbol = symbolAllocator.newSymbol(symbol);
+                projection = coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask));
             }
+
+            assignments.put(symbol, projection);
+            fieldMappings.add(symbol);
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+        planBuilder = planBuilder
+                .withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        planBuilder.getRoot(),
+                        assignments.build()));
+
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), fieldMappings, outerContext);
     }
 
     @Override
@@ -351,7 +389,18 @@ class RelationPlanner
             RelationPlan sourcePlan = process(tableArgument.getRelation(), context);
             PlanBuilder sourcePlanBuilder = newPlanBuilder(sourcePlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
+            // required columns are a subset of visible columns of the source. remap required column indexes to field indexes in source relation type.
+            RelationType sourceRelationType = sourcePlan.getScope().getRelationType();
+            int[] fieldIndexForVisibleColumn = new int[sourceRelationType.getVisibleFieldCount()];
+            int visibleColumn = 0;
+            for (int i = 0; i < sourceRelationType.getAllFieldCount(); i++) {
+                if (!sourceRelationType.getFieldByIndex(i).isHidden()) {
+                    fieldIndexForVisibleColumn[visibleColumn] = i;
+                    visibleColumn++;
+                }
+            }
             List<Symbol> requiredColumns = functionAnalysis.getRequiredColumns().get(tableArgument.getArgumentName()).stream()
+                    .map(column -> fieldIndexForVisibleColumn[column])
                     .map(sourcePlan::getSymbol)
                     .collect(toImmutableList());
 
@@ -381,38 +430,53 @@ class RelationPlanner
                 specification = Optional.of(new DataOrganizationSpecification(partitionBy, orderBy));
             }
 
-            sources.add(sourcePlanBuilder.getRoot());
-            sourceProperties.add(new TableArgumentProperties(
-                    tableArgument.getArgumentName(),
-                    tableArgument.isRowSemantics(),
-                    tableArgument.isPruneWhenEmpty(),
-                    tableArgument.isPassThroughColumns(),
-                    requiredColumns,
-                    specification));
-
             // add output symbols passed from the table argument
+            ImmutableList.Builder<PassThroughColumn> passThroughColumns = ImmutableList.builder();
             if (tableArgument.isPassThroughColumns()) {
                 // the original output symbols from the source node, not coerced
                 // note: hidden columns are included. They are present in sourcePlan.fieldMappings
                 outputSymbols.addAll(sourcePlan.getFieldMappings());
+                Set<Symbol> partitionBy = specification
+                        .map(DataOrganizationSpecification::getPartitionBy)
+                        .map(ImmutableSet::copyOf)
+                        .orElse(ImmutableSet.of());
+                sourcePlan.getFieldMappings().stream()
+                        .map(symbol -> new PassThroughColumn(symbol, partitionBy.contains(symbol)))
+                        .forEach(passThroughColumns::add);
             }
             else if (tableArgument.getPartitionBy().isPresent()) {
                 tableArgument.getPartitionBy().get().stream()
                         // the original symbols for partitioning columns, not coerced
                         .map(sourcePlanBuilder::translate)
-                        .forEach(outputSymbols::add);
+                        .forEach(symbol -> {
+                            outputSymbols.add(symbol);
+                            passThroughColumns.add(new PassThroughColumn(symbol, true));
+                        });
             }
+
+            sources.add(sourcePlanBuilder.getRoot());
+            sourceProperties.add(new TableArgumentProperties(
+                    tableArgument.getArgumentName(),
+                    tableArgument.isRowSemantics(),
+                    tableArgument.isPruneWhenEmpty(),
+                    new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
+                    requiredColumns,
+                    specification));
         }
 
         PlanNode root = new TableFunctionNode(
                 idAllocator.getNextId(),
                 functionAnalysis.getFunctionName(),
+                functionAnalysis.getCatalogHandle(),
                 functionAnalysis.getArguments(),
                 properOutputs,
                 sources.build(),
                 sourceProperties.build(),
                 functionAnalysis.getCopartitioningLists(),
-                new TableFunctionHandle(functionAnalysis.getCatalogHandle(), functionAnalysis.getConnectorTableFunctionHandle(), functionAnalysis.getTransactionHandle()));
+                new TableFunctionHandle(
+                        functionAnalysis.getCatalogHandle(),
+                        functionAnalysis.getConnectorTableFunctionHandle(),
+                        functionAnalysis.getTransactionHandle()));
 
         return new RelationPlan(root, analysis.getScope(node), outputSymbols.build(), outerContext);
     }
@@ -793,7 +857,7 @@ class RelationPlanner
             rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, subqueries);
 
             for (Expression expression : complexJoinExpressions) {
-                postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
+                postInnerJoinConditions.add(coerceIfNecessary(analysis, expression, rootPlanBuilder.rewrite(expression)));
             }
             root = rootPlanBuilder.getRoot();
 
@@ -978,7 +1042,7 @@ class RelationPlanner
                 .withAdditionalMappings(leftPlanBuilder.getTranslations().getMappings())
                 .withAdditionalMappings(rightPlanBuilder.getTranslations().getMappings());
 
-        Expression rewrittenFilterCondition = translationMap.rewrite(filterExpression);
+        Expression rewrittenFilterCondition = coerceIfNecessary(analysis, filterExpression, translationMap.rewrite(filterExpression));
 
         PlanBuilder planBuilder = subqueryPlanner.appendCorrelatedJoin(
                 leftPlanBuilder,

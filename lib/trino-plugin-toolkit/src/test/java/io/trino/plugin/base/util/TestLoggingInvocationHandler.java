@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.base.util;
 
-import io.trino.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationHandler;
@@ -43,7 +42,7 @@ public class TestLoggingInvocationHandler
             }
         };
         List<String> messages = new ArrayList<>();
-        InvocationHandler handler = new LoggingInvocationHandler(delegate, new ReflectiveParameterNamesProvider(), messages::add);
+        InvocationHandler handler = new LoggingInvocationHandler(delegate, messages::add);
         SomeInterface proxy = newProxy(SomeInterface.class, handler);
 
         proxy.run(true, "xyz");
@@ -76,7 +75,7 @@ public class TestLoggingInvocationHandler
             }
         };
         List<String> messages = new ArrayList<>();
-        InvocationHandler handler = new LoggingInvocationHandler(delegate, new ReflectiveParameterNamesProvider(), messages::add, true);
+        InvocationHandler handler = new LoggingInvocationHandler(delegate, messages::add, true);
         SomeInterface proxy = newProxy(SomeInterface.class, handler);
 
         proxy.run(true, "xyz");

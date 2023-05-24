@@ -13,17 +13,24 @@
  */
 package io.trino.type;
 
-import io.trino.operator.scalar.AbstractTestFunctions;
-import org.testng.annotations.Test;
+import io.trino.sql.query.QueryAssertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.spi.type.CharType.createCharType;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestCharParametricType
-        extends AbstractTestFunctions
 {
     @Test
     public void charIsCreatedWithLength()
     {
-        assertFunction("CHAR '   abc\n   '", createCharType(10), "   abc\n   ");
+        try (QueryAssertions assertions = new QueryAssertions()) {
+            assertThat(assertions.expression("CHAR '   abc\n   '"))
+                    .hasType(createCharType(10))
+                    .isEqualTo("   abc\n   ");
+        }
     }
 }

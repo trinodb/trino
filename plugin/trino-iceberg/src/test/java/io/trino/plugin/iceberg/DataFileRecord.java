@@ -34,6 +34,7 @@ public class DataFileRecord
     private final Map<Integer, String> lowerBounds;
     private final Map<Integer, String> upperBounds;
 
+    @SuppressWarnings("unchecked")
     public static DataFileRecord toDataFileRecord(MaterializedRow row)
     {
         assertEquals(row.getFieldCount(), 14);

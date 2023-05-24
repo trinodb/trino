@@ -14,7 +14,6 @@
 package io.trino.security;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -58,13 +57,6 @@ public class InjectedConnectorAccessControl
     {
         checkArgument(context == null, "context must be null");
         accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName), properties);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
-        checkArgument(context == null, "context must be null");
-        accessControl.checkCanCreateSchema(securityContext, getCatalogSchemaName(schemaName), ImmutableMap.of());
     }
 
     @Override
@@ -500,13 +492,19 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
         checkArgument(context == null, "context must be null");
-        if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
-            return ImmutableList.of();
+        if (accessControl.getColumnMask(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
+            return Optional.empty();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)

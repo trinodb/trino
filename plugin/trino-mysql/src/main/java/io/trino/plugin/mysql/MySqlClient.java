@@ -51,6 +51,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -89,6 +90,7 @@ import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
 import java.sql.Types;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
 import java.util.List;
@@ -159,9 +161,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.createTimestampType;
-import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -195,8 +195,8 @@ public class MySqlClient
 
     private final Type jsonType;
     private final boolean statisticsEnabled;
-    private final ConnectorExpressionRewriter<String> connectorExpressionRewriter;
-    private final AggregateFunctionRewriter<JdbcExpression, String> aggregateFunctionRewriter;
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public MySqlClient(
@@ -219,7 +219,7 @@ public class MySqlClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
                 this.connectorExpressionRewriter,
-                ImmutableSet.<AggregateFunctionRule<JdbcExpression, String>>builder()
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax(false))
@@ -295,7 +295,7 @@ public class MySqlClient
     }
 
     @Override
-    public PreparedStatement getPreparedStatement(Connection connection, String sql)
+    public PreparedStatement getPreparedStatement(Connection connection, String sql, Optional<Integer> columnCount)
             throws SQLException
     {
         PreparedStatement statement = connection.prepareStatement(sql);
@@ -493,12 +493,14 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timestampReadFunction(timestampType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
                 // super calls ResultSet#getObject(), which for TIMESTAMP type returns java.sql.Timestamp, for which the conversion can fail if the value isn't a valid instant in server's time zone.
-                resultSet.getObject(columnIndex, String.class);
+                resultSet.getObject(columnIndex, LocalDateTime.class);
                 return resultSet.wasNull();
             }
 
@@ -506,7 +508,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timestampReadFunction(timestampType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }
@@ -515,6 +517,8 @@ public class MySqlClient
     {
         return new LongReadFunction()
         {
+            private final LongReadFunction delegate = timeReadFunction(timeType);
+
             @Override
             public boolean isNull(ResultSet resultSet, int columnIndex)
                     throws SQLException
@@ -528,7 +532,7 @@ public class MySqlClient
             public long readLong(ResultSet resultSet, int columnIndex)
                     throws SQLException
             {
-                return timeReadFunction(timeType).readLong(resultSet, columnIndex);
+                return delegate.readLong(resultSet, columnIndex);
             }
         };
     }
@@ -597,10 +601,6 @@ public class MySqlClient
             return WriteMapping.longMapping(format("time(%s)", MAX_SUPPORTED_DATE_TIME_PRECISION), timeWriteFunction(MAX_SUPPORTED_DATE_TIME_PRECISION));
         }
 
-        if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
-        }
-
         if (type instanceof TimestampType timestampType) {
             if (timestampType.getPrecision() <= MAX_SUPPORTED_DATE_TIME_PRECISION) {
                 verify(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION);
@@ -666,6 +666,12 @@ public class MySqlClient
                 quoted(remoteColumnName),
                 quoted(newRemoteColumnName));
         execute(session, connection, sql);
+    }
+
+    @Override
+    public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
     @Override

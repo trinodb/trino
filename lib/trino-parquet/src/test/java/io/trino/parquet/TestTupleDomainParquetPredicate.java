@@ -464,11 +464,10 @@ public class TestTupleDomainParquetPredicate
         LocalDateTime maxTime = baseTime.plus(Duration.ofMillis(50));
 
         Object maxDomainValue;
-        if (baseDomainValue instanceof Long) {
-            maxDomainValue = (long) baseDomainValue + 50 * MICROSECONDS_PER_MILLISECOND;
+        if (baseDomainValue instanceof Long value) {
+            maxDomainValue = value + 50 * MICROSECONDS_PER_MILLISECOND;
         }
-        else if (baseDomainValue instanceof LongTimestamp) {
-            LongTimestamp longTimestamp = ((LongTimestamp) baseDomainValue);
+        else if (baseDomainValue instanceof LongTimestamp longTimestamp) {
             maxDomainValue = new LongTimestamp(longTimestamp.getEpochMicros() + 50 * MICROSECONDS_PER_MILLISECOND, longTimestamp.getPicosOfMicro());
         }
         else {
@@ -702,6 +701,27 @@ public class TestTupleDomainParquetPredicate
                 asList(1L, 2L, 3L, 4L, 5L, 6L),
                 toByteBufferList(null, 2L, null, 4L, null, 9L),
                 toByteBufferList(null, 3L, null, 15L, null, 10L));
+        ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
+        assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
+                .isEqualTo(Domain.create(
+                        ValueSet.ofRanges(
+                                range(BIGINT, 2L, true, 3L, true),
+                                range(BIGINT, 4L, true, 15L, true),
+                                range(BIGINT, 9L, true, 10L, true)),
+                        true));
+    }
+
+    @Test
+    public void testColumnIndexWithNoNullsCount()
+            throws Exception
+    {
+        ColumnIndex columnIndex = ColumnIndexBuilder.build(
+                Types.required(INT64).named("test_int64"),
+                BoundaryOrder.UNORDERED,
+                asList(false, false, false),
+                null,
+                toByteBufferList(2L, 4L, 9L),
+                toByteBufferList(3L, 15L, 10L));
         ColumnDescriptor column = new ColumnDescriptor(new String[] {"path"}, Types.optional(INT64).named("Test column"), 0, 0);
         assertThat(getDomain(BIGINT, 200, columnIndex, new ParquetDataSourceId("test"), column, UTC))
                 .isEqualTo(Domain.create(

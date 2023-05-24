@@ -45,7 +45,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     protected static final String HIVE_CATALOG_NAME = "hive";
     protected static final String SCHEMA = "test_shared_schema_views_" + randomNameSuffix();
 
-    private String dataDirectory;
+    private Path dataDirectory;
     private HiveMetastore metastore;
 
     @Override
@@ -58,11 +58,11 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
                 .build();
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
-        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString();
+        this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
-        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta-lake");
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
+        queryRunner.createCatalog(DELTA_CATALOG_NAME, "delta_lake");
 
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
 
@@ -76,7 +76,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
         return queryRunner;
     }
 
-    protected abstract HiveMetastore createTestMetastore(String dataDirectory);
+    protected abstract HiveMetastore createTestMetastore(Path dataDirectory);
 
     @Test
     public void testViewWithLiteralColumnCreatedInDeltaLakeIsReadableInHive()
@@ -160,7 +160,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
     {
         if (metastore != null) {
             metastore.dropDatabase(SCHEMA, false);
-            deleteRecursively(Path.of(dataDirectory), ALLOW_INSECURE);
+            deleteRecursively(dataDirectory, ALLOW_INSECURE);
         }
     }
 }

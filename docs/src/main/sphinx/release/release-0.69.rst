@@ -25,7 +25,7 @@ available for the critical task of scheduling, managing and monitoring
 query execution.
 
 We recommend setting this property to ``false`` for the coordinator.
-See :ref:`config_properties` for an example.
+See :ref:`config-properties` for an example.
 
 Datasource configuration
 ------------------------

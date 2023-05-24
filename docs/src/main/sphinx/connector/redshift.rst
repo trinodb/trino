@@ -22,11 +22,11 @@ To connect to Redshift, you need:
 Configuration
 -------------
 
-To configure the Redshift connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``redshift.properties``, to
-mount the Redshift connector as the ``redshift`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the Redshift connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the
+Redshift connector as the ``example`` catalog. Create the file with the
+following contents, replacing the connection properties as appropriate for your
+setup:
 
 .. code-block:: text
 
@@ -94,25 +94,25 @@ Querying Redshift
 The Redshift connector provides a schema for every Redshift schema.
 You can see the available Redshift schemas by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM redshift;
+    SHOW SCHEMAS FROM example;
 
 If you have a Redshift schema named ``web``, you can view the tables
 in this schema by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM redshift.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE redshift.web.clicks;
-    SHOW COLUMNS FROM redshift.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` schema::
 
-    SELECT * FROM redshift.web.clicks;
+    SELECT * FROM example.web.clicks;
 
-If you used a different name for your catalog properties file, use
-that catalog name instead of ``redshift`` in the above examples.
+If you used a different name for your catalog properties file, use that catalog
+name instead of ``example`` in the above examples.
 
 .. _redshift-type-mapping:
 
@@ -142,6 +142,14 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+.. _redshift-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -159,15 +167,16 @@ processed in Redshift. This can be useful for accessing native features which
 are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, select the top 10 nations by population::
+For example, query the ``example`` catalog and select the top 10 nations by
+population::
 
     SELECT
       *
     FROM
       TABLE(
-        redshift.system.query(
+        example.system.query(
           query => 'SELECT
             TOP 10 *
           FROM
@@ -177,3 +186,4 @@ For example, select the top 10 nations by population::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

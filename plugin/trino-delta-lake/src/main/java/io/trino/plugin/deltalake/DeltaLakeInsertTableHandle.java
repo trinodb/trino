@@ -94,4 +94,10 @@ public class DeltaLakeInsertTableHandle
     {
         return retriesEnabled;
     }
+
+    @Override
+    public String toString()
+    {
+        return schemaName + "." + tableName + "[" + location + "]";
+    }
 }

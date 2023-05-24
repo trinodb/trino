@@ -15,6 +15,8 @@ package io.trino.parquet.reader.flat;
 
 import io.trino.spi.block.Block;
 
+import java.util.List;
+
 import static io.trino.parquet.ParquetReaderUtils.castToByteNegate;
 
 public interface ColumnAdapter<BufferType>
@@ -33,6 +35,13 @@ public interface ColumnAdapter<BufferType>
 
     Block createNullableBlock(boolean[] nulls, BufferType values);
 
+    default Block createNullableDictionaryBlock(BufferType dictionary, int nonNullsCount)
+    {
+        boolean[] nulls = new boolean[nonNullsCount + 1];
+        nulls[nonNullsCount] = true;
+        return createNullableBlock(nulls, dictionary);
+    }
+
     Block createNonNullBlock(BufferType values);
 
     default void unpackNullValues(BufferType source, BufferType destination, boolean[] isNull, int destOffset, int nonNullCount, int totalValuesCount)
@@ -47,4 +56,8 @@ public interface ColumnAdapter<BufferType>
     }
 
     void decodeDictionaryIds(BufferType values, int offset, int length, int[] ids, BufferType dictionary);
+
+    long getSizeInBytes(BufferType values);
+
+    BufferType merge(List<BufferType> buffers);
 }

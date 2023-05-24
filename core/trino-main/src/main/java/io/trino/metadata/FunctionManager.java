@@ -21,6 +21,7 @@ import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
@@ -32,6 +33,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.WindowFunctionSupplier;
+import io.trino.spi.ptf.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
@@ -145,6 +147,22 @@ public class FunctionManager
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
+    }
+
+    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
+    {
+        CatalogHandle catalogHandle = tableFunctionHandle.getCatalogHandle();
+
+        FunctionProvider provider;
+        if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            provider = globalFunctionCatalog;
+        }
+        else {
+            provider = functionProviders.getService(catalogHandle);
+            checkArgument(provider != null, "No function provider for catalog: '%s'", catalogHandle);
+        }
+
+        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.getFunctionHandle());
     }
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)

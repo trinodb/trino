@@ -19,7 +19,7 @@ Alluxio client-side configuration
 To configure Alluxio client-side properties on Trino, append the Alluxio
 configuration directory (``${ALLUXIO_HOME}/conf``) to the Trino JVM classpath,
 so that the Alluxio properties file ``alluxio-site.properties`` can be loaded as
-a resource. Update the Trino :ref:`jvm_config` file ``etc/jvm.config``
+a resource. Update the Trino :ref:`jvm-config` file ``etc/jvm.config``
 to include the following:
 
 .. code-block:: text
@@ -44,7 +44,7 @@ to bypass the network (*short-circuit*). See `Performance Tuning Tips for Presto
 <https://www.alluxio.io/blog/top-5-performance-tuning-tips-for-running-presto-on-alluxio-1/?utm_source=trino&utm_medium=trinodocs>`_
 for more details.
 
-.. _alluxio_catalog_service:
+.. _alluxio-catalog-service:
 
 Alluxio catalog service
 -----------------------

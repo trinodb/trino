@@ -50,6 +50,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "deprecated.legacy-row-to-json-cast",
         "deprecated.legacy-timestamp",
         "deprecated.legacy-unnest-array-rows",
+        "deprecated.legacy-update-delete-implementation",
         "experimental-syntax-enabled",
         "experimental.resource-groups-enabled",
         "fast-inequality-joins",
@@ -67,8 +68,6 @@ public class FeaturesConfig
 {
     @VisibleForTesting
     public static final String SPILLER_SPILL_PATH = "spiller-spill-path";
-
-    private boolean legacyUpdateDeleteImplementation;
 
     private boolean redistributeWrites = true;
     private boolean scaleWriters = true;
@@ -103,6 +102,7 @@ public class FeaturesConfig
     private boolean incrementalHashArrayLoadFactorEnabled = true;
     private boolean allowSetViewAuthorization;
 
+    private boolean legacyMaterializedViewGracePeriod;
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
@@ -114,20 +114,6 @@ public class FeaturesConfig
         ABORT,
         RETRY,
         /**/;
-    }
-
-    @Deprecated
-    public boolean isLegacyUpdateDeleteImplementation()
-    {
-        return legacyUpdateDeleteImplementation;
-    }
-
-    @Deprecated
-    @Config("deprecated.legacy-update-delete-implementation")
-    public FeaturesConfig setLegacyUpdateDeleteImplementation(boolean legacyUpdateDeleteImplementation)
-    {
-        this.legacyUpdateDeleteImplementation = legacyUpdateDeleteImplementation;
-        return this;
     }
 
     public boolean isOmitDateTimeTypePrecision()
@@ -457,6 +443,21 @@ public class FeaturesConfig
     public FeaturesConfig setIncrementalHashArrayLoadFactorEnabled(boolean incrementalHashArrayLoadFactorEnabled)
     {
         this.incrementalHashArrayLoadFactorEnabled = incrementalHashArrayLoadFactorEnabled;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isLegacyMaterializedViewGracePeriod()
+    {
+        return legacyMaterializedViewGracePeriod;
+    }
+
+    @Deprecated
+    @Config("legacy.materialized-view-grace-period")
+    @ConfigDescription("Enable legacy handling of stale materialized views")
+    public FeaturesConfig setLegacyMaterializedViewGracePeriod(boolean legacyMaterializedViewGracePeriod)
+    {
+        this.legacyMaterializedViewGracePeriod = legacyMaterializedViewGracePeriod;
         return this;
     }
 

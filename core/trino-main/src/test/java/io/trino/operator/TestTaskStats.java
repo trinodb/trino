@@ -21,6 +21,8 @@ import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static io.trino.operator.TestPipelineStats.assertExpectedPipelineStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
@@ -32,6 +34,7 @@ public class TestTaskStats
             new DateTime(1),
             new DateTime(2),
             new DateTime(100),
+            new DateTime(102),
             new DateTime(101),
             new DateTime(3),
             new Duration(4, NANOSECONDS),
@@ -78,6 +81,7 @@ public class TestTaskStats
             new Duration(272, NANOSECONDS),
 
             DataSize.ofBytes(25),
+            Optional.of(2),
 
             26,
             new Duration(27, NANOSECONDS),
@@ -100,6 +104,7 @@ public class TestTaskStats
         assertEquals(actual.getCreateTime(), new DateTime(1, UTC));
         assertEquals(actual.getFirstStartTime(), new DateTime(2, UTC));
         assertEquals(actual.getLastStartTime(), new DateTime(100, UTC));
+        assertEquals(actual.getTerminatingStartTime(), new DateTime(102, UTC));
         assertEquals(actual.getLastEndTime(), new DateTime(101, UTC));
         assertEquals(actual.getEndTime(), new DateTime(3, UTC));
         assertEquals(actual.getElapsedTime(), new Duration(4, NANOSECONDS));

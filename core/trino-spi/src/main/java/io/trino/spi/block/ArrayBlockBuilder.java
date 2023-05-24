@@ -14,26 +14,25 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.Type;
-import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.Math.max;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayBlockBuilder
         extends AbstractArrayBlock
         implements BlockBuilder
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(ArrayBlockBuilder.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(ArrayBlockBuilder.class);
 
     private int positionCount;
 

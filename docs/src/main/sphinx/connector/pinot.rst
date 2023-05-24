@@ -14,7 +14,7 @@ Requirements
 
 To connect to Pinot, you need:
 
-* Pinot 0.10.0 or higher.
+* Pinot 0.11.0 or higher.
 * Network access from the Trino coordinator and workers to the Pinot controller
   nodes. Port 8098 is the default port.
 
@@ -22,7 +22,7 @@ Configuration
 -------------
 
 To configure the Pinot connector, create a catalog properties file
-e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
+e.g. ``etc/catalog/example.properties`` with at least the following contents:
 
 .. code-block:: text
 
@@ -47,8 +47,6 @@ Property name                                             Required   Description
                                                                      Pinot returns hostnames and not IP addresses.
 ``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
 ``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
-``pinot.request-timeout``                                 No         The timeout for Pinot requests. Increasing this can reduce timeouts if DNS
-                                                                     resolution is slow.
 ``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are
                                                                      ``NONE`` and ``PASSWORD`` - defaults to ``NONE`` which is no authentication.
 ``pinot.controller.authentication.user``                  No         Controller username for basic authentication method.
@@ -115,12 +113,12 @@ Querying Pinot tables
 The Pinot connector automatically exposes all tables in the default schema of the catalog.
 You can list all tables in the pinot catalog with the following query::
 
-    SHOW TABLES FROM pinot.default;
+    SHOW TABLES FROM example.default;
 
 You can list columns in the flight_status table::
 
-    DESCRIBE pinot.default.flight_status;
-    SHOW COLUMNS FROM pinot.default.flight_status;
+    DESCRIBE example.default.flight_status;
+    SHOW COLUMNS FROM example.default.flight_status;
 
 Queries written with SQL are fully supported and can include filters and limits::
 
@@ -137,7 +135,7 @@ Filters and limits in the outer query are pushed down to Pinot.
 Let's look at an example query::
 
     SELECT *
-    FROM pinot.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
+    FROM example.default."SELECT MAX(col1), COUNT(col2) FROM pinot_table GROUP BY col3, col4"
     WHERE col3 IN ('FOO', 'BAR') AND col4 > 50
     LIMIT 30000
 

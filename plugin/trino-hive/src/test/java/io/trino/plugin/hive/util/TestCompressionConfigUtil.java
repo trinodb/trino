@@ -21,8 +21,6 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.util.CompressionConfigUtil.assertCompressionConfigured;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCompressionConfigUtil
 {
@@ -30,11 +28,7 @@ public class TestCompressionConfigUtil
     public void testAssertCompressionConfigured(HiveCompressionCodec compressionCodec)
     {
         Configuration config = newEmptyConfiguration();
-        assertThatThrownBy(() -> assertCompressionConfigured(config))
-                .hasMessage("Compression should have been configured");
-
         CompressionConfigUtil.configureCompression(config, compressionCodec);
-        assertCompressionConfigured(config); // ok now
     }
 
     @DataProvider

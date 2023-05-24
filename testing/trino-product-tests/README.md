@@ -78,9 +78,6 @@ testing/bin/ptl test run --environment <environment> \
   connections on the HTTPS port (7778), and both coordinator and worker traffic
   is encrypted and kerberized. For multinode-tls-kerberos, the default configuration
   is 1 coordinator and 2 workers.
-- **singlenode** - pseudo-distributed Hadoop installation running on a
- single Docker container and a single node installation of Trino also running
- on a single Docker container.
 - **singlenode-hdfs-impersonation** - HDFS impersonation enabled on top of the
  environment in singlenode profile. Trino impersonates the user
  who is running the query when accessing HDFS.
@@ -169,12 +166,12 @@ Following table describes the profile specific test categories, the correspondin
 test group names and the profile(s) which must be used to run tests in those test
 groups.
 
-| Tests                 | Test Group                | Profiles                                                                         |
-| ----------------------|---------------------------| -------------------------------------------------------------------------------- |
-| Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                       |
-| HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation``    |
-| No HDFS impersonation | ``hdfs_no_impersonation`` | ``singlenode``, ``singlenode-kerberos-hdfs-no_impersonation``                    |
-| LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                              |
+| Tests                 | Test Group                | Profiles                                                                      |
+| ----------------------|---------------------------|-------------------------------------------------------------------------------|
+| Authorization         | ``authorization``         | ``singlenode-kerberos-hdfs-impersonation``                                    |
+| HDFS impersonation    | ``hdfs_impersonation``    | ``singlenode-hdfs-impersonation``, ``singlenode-kerberos-hdfs-impersonation`` |
+| No HDFS impersonation | ``hdfs_no_impersonation`` | ``multinode``, ``singlenode-kerberos-hdfs-no_impersonation``                  |
+| LDAP                  | ``ldap``                  | ``singlenode-ldap``                                                           |
 
 Below is a list of commands that explain how to run these profile specific tests
 and also the entire test suite:

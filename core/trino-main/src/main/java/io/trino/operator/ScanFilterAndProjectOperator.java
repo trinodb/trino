@@ -40,7 +40,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
-import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
@@ -52,7 +51,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -117,17 +115,6 @@ public class ScanFilterAndProjectOperator
                         minOutputPageSize,
                         minOutputPageRowCount,
                         avoidPageMaterialization));
-    }
-
-    @Override
-    public Supplier<Optional<UpdatablePageSource>> getUpdatablePageSourceSupplier()
-    {
-        return () -> {
-            if (pageSource instanceof UpdatablePageSource) {
-                return Optional.of((UpdatablePageSource) pageSource);
-            }
-            return Optional.empty();
-        };
     }
 
     @Override

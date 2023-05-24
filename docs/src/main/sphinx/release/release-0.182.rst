@@ -15,7 +15,7 @@ General
 * Improve the performance of joins with only non-equality conditions by using
   a nested loops join instead of a hash join.
 * Improve the performance of casting from ``JSON`` to ``ARRAY`` or ``MAP`` types.
-* Add a new :ref:`ipaddress_type` type to represent IP addresses.
+* Add a new :ref:`ipaddress-type` type to represent IP addresses.
 * Add :func:`to_milliseconds` function to convert intervals (day to second) to milliseconds.
 * Add support for column aliases in ``CREATE TABLE AS`` statements.
 * Add a config option to reject queries during cluster initialization.

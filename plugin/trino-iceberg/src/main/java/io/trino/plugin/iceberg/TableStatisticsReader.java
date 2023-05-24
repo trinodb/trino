@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.AbstractIterator;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
@@ -30,6 +31,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BlobMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -42,20 +44,23 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -66,8 +71,10 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
-public class TableStatisticsReader
+public final class TableStatisticsReader
 {
+    private TableStatisticsReader() {}
+
     private static final Logger log = Logger.get(TableStatisticsReader.class);
 
     // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
@@ -85,35 +92,39 @@ public class TableStatisticsReader
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
-    private final TypeManager typeManager;
-    private final ConnectorSession session;
-    private final Table icebergTable;
-
-    private TableStatisticsReader(TypeManager typeManager, ConnectorSession session, Table icebergTable)
-    {
-        this.typeManager = typeManager;
-        this.session = session;
-        this.icebergTable = icebergTable;
-    }
-
     public static TableStatistics getTableStatistics(TypeManager typeManager, ConnectorSession session, IcebergTableHandle tableHandle, Table icebergTable)
     {
-        return new TableStatisticsReader(typeManager, session, icebergTable).makeTableStatistics(tableHandle);
+        return makeTableStatistics(
+                typeManager,
+                icebergTable,
+                tableHandle.getSnapshotId(),
+                tableHandle.getEnforcedPredicate(),
+                tableHandle.getUnenforcedPredicate(),
+                isExtendedStatisticsEnabled(session));
     }
 
-    private TableStatistics makeTableStatistics(IcebergTableHandle tableHandle)
+    @VisibleForTesting
+    public static TableStatistics makeTableStatistics(
+            TypeManager typeManager,
+            Table icebergTable,
+            Optional<Long> snapshot,
+            TupleDomain<IcebergColumnHandle> enforcedConstraint,
+            TupleDomain<IcebergColumnHandle> unenforcedConstraint,
+            boolean extendedStatisticsEnabled)
     {
-        if (tableHandle.getSnapshotId().isEmpty()) {
+        if (snapshot.isEmpty()) {
             // No snapshot, so no data.
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
         }
-        long snapshotId = tableHandle.getSnapshotId().get();
+        long snapshotId = snapshot.get();
 
-        TupleDomain<IcebergColumnHandle> enforcedPredicate = tableHandle.getEnforcedPredicate();
-
-        if (enforcedPredicate.isNone()) {
+        // Including both enforced and unenforced constraint matches how Splits will eventually be generated and allows
+        // us to provide more accurate estimates. Stats will be estimated again by FilterStatsCalculator based on the
+        // unenforced constraint.
+        TupleDomain<IcebergColumnHandle> effectivePredicate = enforcedConstraint.intersect(unenforcedConstraint);
+        if (effectivePredicate.isNone()) {
             return TableStatistics.builder()
                     .setRowCount(Estimate.of(0))
                     .build();
@@ -130,7 +141,7 @@ public class TableStatisticsReader
                 .collect(toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         TableScan tableScan = icebergTable.newScan()
-                .filter(toIcebergExpression(enforcedPredicate))
+                .filter(toIcebergExpression(effectivePredicate))
                 .useSnapshot(snapshotId)
                 .includeColumnStats();
 
@@ -151,10 +162,12 @@ public class TableStatisticsReader
         }
 
         Map<Integer, Long> ndvs = readNdvs(
+                icebergTable,
                 snapshotId,
                 // TODO We don't need NDV information for columns not involved in filters/joins. Engine should provide set of columns
                 //  it makes sense to find NDV information for.
-                idToColumnHandle.keySet());
+                idToColumnHandle.keySet(),
+                extendedStatisticsEnabled);
 
         ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnHandleBuilder = ImmutableMap.builder();
         double recordCount = summary.getRecordCount();
@@ -210,19 +223,16 @@ public class TableStatisticsReader
         return new TableStatistics(Estimate.of(recordCount), columnHandleBuilder.buildOrThrow());
     }
 
-    private Map<Integer, Long> readNdvs(long snapshotId, Set<Integer> columnIds)
+    private static Map<Integer, Long> readNdvs(Table icebergTable, long snapshotId, Set<Integer> columnIds, boolean extendedStatisticsEnabled)
     {
-        if (!isExtendedStatisticsEnabled(session)) {
+        if (!extendedStatisticsEnabled) {
             return ImmutableMap.of();
         }
 
         ImmutableMap.Builder<Integer, Long> ndvByColumnId = ImmutableMap.builder();
         Set<Integer> remainingColumnIds = new HashSet<>(columnIds);
 
-        Iterator<StatisticsFile> statisticsFiles = walkStatisticsFiles(icebergTable, snapshotId);
-        while (!remainingColumnIds.isEmpty() && statisticsFiles.hasNext()) {
-            StatisticsFile statisticsFile = statisticsFiles.next();
-
+        getLatestStatisticsFile(icebergTable, snapshotId).ifPresent(statisticsFile -> {
             Map<Integer, BlobMetadata> thetaBlobsByFieldId = statisticsFile.blobMetadata().stream()
                     .filter(blobMetadata -> blobMetadata.type().equals(StandardBlobTypes.APACHE_DATASKETCHES_THETA_V1))
                     .filter(blobMetadata -> blobMetadata.fields().size() == 1)
@@ -243,7 +253,7 @@ public class TableStatisticsReader
                     ndvByColumnId.put(fieldId, parseLong(ndv));
                 }
             }
-        }
+        });
 
         // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
         Iterator<Entry<String, String>> properties = icebergTable.properties().entrySet().iterator();
@@ -267,41 +277,29 @@ public class TableStatisticsReader
     }
 
     /**
-     * Iterates over existing statistics files present for parent snapshot chain,  starting at {@code startingSnapshotId} (inclusive).
+     * Returns most recent statistics file for the given {@code snapshotId}
      */
-    public static Iterator<StatisticsFile> walkStatisticsFiles(Table icebergTable, long startingSnapshotId)
+    public static Optional<StatisticsFile> getLatestStatisticsFile(Table icebergTable, long snapshotId)
     {
-        return new AbstractIterator<>()
-        {
-            private final Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
-                    .collect(toMap(
-                            StatisticsFile::snapshotId,
-                            identity(),
-                            (a, b) -> {
-                                throw new IllegalStateException("Unexpected duplicate statistics files %s, %s".formatted(a, b));
-                            },
-                            HashMap::new));
+        if (icebergTable.statisticsFiles().isEmpty()) {
+            return Optional.empty();
+        }
 
-            private final Iterator<Long> snapshots = walkSnapshots(icebergTable, startingSnapshotId);
+        Map<Long, StatisticsFile> statsFileBySnapshot = icebergTable.statisticsFiles().stream()
+                .collect(toMap(
+                        StatisticsFile::snapshotId,
+                        identity(),
+                        (file1, file2) -> {
+                            throw new TrinoException(
+                                    ICEBERG_INVALID_METADATA,
+                                    "Table '%s' has duplicate statistics files '%s' and '%s' for snapshot ID %s"
+                                            .formatted(icebergTable, file1.path(), file2.path(), file1.snapshotId()));
+                        }));
 
-            @Override
-            protected StatisticsFile computeNext()
-            {
-                if (statsFileBySnapshot.isEmpty()) {
-                    // Already found all statistics files
-                    return endOfData();
-                }
-
-                while (snapshots.hasNext()) {
-                    long snapshotId = snapshots.next();
-                    StatisticsFile statisticsFile = statsFileBySnapshot.remove(snapshotId);
-                    if (statisticsFile != null) {
-                        return statisticsFile;
-                    }
-                }
-                return endOfData();
-            }
-        };
+        return stream(walkSnapshots(icebergTable, snapshotId))
+                .map(statsFileBySnapshot::get)
+                .filter(Objects::nonNull)
+                .findFirst();
     }
 
     /**
@@ -316,8 +314,16 @@ public class TableStatisticsReader
             {
                 requireNonNull(previous, "previous is null");
                 @Nullable
-                Long parentId = icebergTable.snapshot(previous).parentId();
-                return parentId;
+                Snapshot snapshot = icebergTable.snapshot(previous);
+                if (snapshot == null) {
+                    // Snapshot referenced by `previous` is expired from table history
+                    return null;
+                }
+                if (snapshot.parentId() == null) {
+                    // Snapshot referenced by `previous` had no parent.
+                    return null;
+                }
+                return verifyNotNull(snapshot.parentId(), "snapshot.parentId()");
             }
         };
     }

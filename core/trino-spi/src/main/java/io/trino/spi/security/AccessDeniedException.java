@@ -14,9 +14,11 @@
 package io.trino.spi.security;
 
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -116,6 +118,26 @@ public class AccessDeniedException
     public static void denyCatalogAccess(String catalogName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot access catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCreateCatalog(String catalogName)
+    {
+        denyCreateCatalog(catalogName, null);
+    }
+
+    public static void denyCreateCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropCatalog(String catalogName)
+    {
+        denyDropCatalog(catalogName, null);
+    }
+
+    public static void denyDropCatalog(String catalogName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot drop catalog %s%s", catalogName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateSchema(String schemaName)
@@ -273,6 +295,11 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot show columns of table %s", tableName));
     }
 
+    public static void denyShowColumns(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot show columns of table %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyAddColumn(String tableName)
     {
         denyAddColumn(tableName, null);
@@ -426,6 +453,16 @@ public class AccessDeniedException
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetViewComment(String viewName)
+    {
+        denySetViewComment(viewName, null);
+    }
+
+    public static void denySetViewComment(String viewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set comment for view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyDropView(String viewName)
@@ -651,6 +688,11 @@ public class AccessDeniedException
     public static void denyExecuteFunction(String functionName)
     {
         throw new AccessDeniedException(format("Cannot execute function %s", functionName));
+    }
+
+    public static void denyExecuteFunction(String functionName, FunctionKind functionKind, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot execute %s function %s%s", functionKind.name().toLowerCase(Locale.ROOT), functionName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyExecuteTableProcedure(String tableName, String procedureName)

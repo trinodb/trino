@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import io.trino.Session;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -194,5 +195,25 @@ public class TestJsonArrayFunction
         assertThat(assertions.query(
                 "SELECT json_array(true RETURNING varbinary FORMAT JSON ENCODING UTF32)"))
                 .matches("VALUES " + varbinaryLiteral);
+    }
+
+    @Test
+    public void testNestedAggregation()
+    {
+        assertThat(assertions.query("""
+                SELECT json_array('x', max(a))
+                FROM (VALUES ('abc'), ('def')) t(a)
+                """))
+                .matches("VALUES VARCHAR '[\"x\",\"def\"]'");
+    }
+
+    @Test
+    public void testParameters()
+    {
+        Session session = Session.builder(assertions.getDefaultSession())
+                .addPreparedStatement("my_query", "SELECT json_array(?, ?)")
+                .build();
+        assertThat(assertions.query(session, "EXECUTE my_query USING 'a', 1"))
+                .matches("VALUES VARCHAR '[\"a\",1]'");
     }
 }

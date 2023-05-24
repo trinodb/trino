@@ -17,7 +17,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 
-import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HivePageSource.BUCKET_CHANNEL;
 import static io.trino.spi.type.IntegerType.INTEGER;
 
 public class HiveUpdateBucketFunction
@@ -34,7 +34,7 @@ public class HiveUpdateBucketFunction
     public int getBucket(Page page, int position)
     {
         Block bucketBlock = page.getBlock(0).getObject(position, Block.class);
-        long value = INTEGER.getLong(bucketBlock, BUCKET_CHANNEL);
+        long value = INTEGER.getInt(bucketBlock, BUCKET_CHANNEL);
         return (int) (value & Integer.MAX_VALUE) % bucketCount;
     }
 }

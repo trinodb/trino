@@ -837,6 +837,13 @@ public final class MathFunctions
         if (rescaledRound != Long.MAX_VALUE) {
             return sign * (rescaledRound / factor);
         }
+        if (Double.isInfinite(rescaled)) {
+            // num has max 17 precisions, so to make round actually do something, decimals must be smaller than 17.
+            // then factor must be smaller than 10^17
+            // then in order for rescaled to be greater than Double.MAX_VALUE, num must be greater than 1.8E291 with many trailing zeros
+            // in which case, rounding is no op anyway
+            return num;
+        }
         return sign * DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor;
     }
 
@@ -857,6 +864,11 @@ public final class MathFunctions
         long rescaledRound = Math.round(rescaled);
         if (rescaledRound != Long.MAX_VALUE) {
             result = sign * (rescaledRound / factor);
+        }
+        else if (Double.isInfinite(rescaled)) {
+            // numInFloat is max at 3.4028235e+38f, to make rescale greater than Double.MAX_VALUE, decimals must be greater than 270
+            // but numInFloat has max 8 precision, so rounding is no op
+            return num;
         }
         else {
             result = sign * (DoubleMath.roundToBigInteger(rescaled, RoundingMode.HALF_UP).doubleValue() / factor);
@@ -1153,6 +1165,14 @@ public final class MathFunctions
     public static double sin(@SqlType(StandardTypes.DOUBLE) double num)
     {
         return Math.sin(num);
+    }
+
+    @Description("Hyperbolic sine")
+    @ScalarFunction
+    @SqlType(StandardTypes.DOUBLE)
+    public static double sinh(@SqlType(StandardTypes.DOUBLE) double num)
+    {
+        return Math.sinh(num);
     }
 
     @Description("Square root")

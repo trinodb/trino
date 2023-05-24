@@ -48,7 +48,7 @@ public class TestConfiguredFeatures
         if (configuredConnectors.size() == 0) {
             throw new SkipException("Skip checking configured connectors since none were set in Tempto configuration");
         }
-        String sql = "select distinct connector_name from system.metadata.catalogs";
+        String sql = "SELECT DISTINCT connector_name FROM system.metadata.catalogs";
         assertThat(onTrino().executeQuery(sql))
                 .hasColumns(VARCHAR)
                 .containsOnly(configuredConnectors.stream()

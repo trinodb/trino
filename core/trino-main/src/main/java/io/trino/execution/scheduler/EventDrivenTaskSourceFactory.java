@@ -13,13 +13,13 @@
  */
 package io.trino.execution.scheduler;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TableExecuteContextManager;
-import io.trino.execution.scheduler.EventDrivenTaskSource.Callback;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
@@ -41,11 +41,22 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.LongConsumer;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionComputeTaskTargetSize;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionHashDistributionWriteTaskTargetSize;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxTaskSplitCount;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskInputSize;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTargetTaskSplitCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionStandardSplitSize;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -95,39 +106,35 @@ public class EventDrivenTaskSourceFactory
     }
 
     public EventDrivenTaskSource create(
-            Callback callback,
             Session session,
+            Span stageSpan,
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
             LongConsumer getSplitTimeRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
-        ImmutableMap.Builder<PlanFragmentId, PlanNodeId> remoteSources = ImmutableMap.builder();
+        ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
         for (RemoteSourceNode remoteSource : fragment.getRemoteSourceNodes()) {
             for (PlanFragmentId sourceFragment : remoteSource.getSourceFragmentIds()) {
-                remoteSources.put(sourceFragment, remoteSource.getId());
+                remoteSources.put(remoteSource.getId(), sourceFragment);
             }
         }
-        long targetPartitionSizeInBytes = getFaultTolerantExecutionTargetTaskInputSize(session).toBytes();
-        // TODO: refactor to define explicitly
-        long standardSplitSizeInBytes = targetPartitionSizeInBytes / getFaultTolerantExecutionTargetTaskSplitCount(session);
+        long standardSplitSizeInBytes = getFaultTolerantExecutionStandardSplitSize(session).toBytes();
         int maxTaskSplitCount = getFaultTolerantExecutionMaxTaskSplitCount(session);
         return new EventDrivenTaskSource(
                 session.getQueryId(),
                 tableExecuteContextManager,
                 sourceExchanges,
-                remoteSources.buildOrThrow(),
-                () -> splitSourceFactory.createSplitSources(session, fragment),
+                remoteSources.build(),
+                () -> splitSourceFactory.createSplitSources(session, stageSpan, fragment),
                 createSplitAssigner(
                         session,
                         fragment,
                         outputDataSizeEstimates,
                         sourcePartitioningScheme,
-                        targetPartitionSizeInBytes,
                         standardSplitSizeInBytes,
                         maxTaskSplitCount),
-                callback,
                 executor,
                 splitBatchSize,
                 standardSplitSizeInBytes,
@@ -140,7 +147,6 @@ public class EventDrivenTaskSourceFactory
             PlanFragment fragment,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            long targetPartitionSizeInBytes,
             long standardSplitSizeInBytes,
             int maxArbitraryDistributionTaskSplitCount)
     {
@@ -174,18 +180,50 @@ public class EventDrivenTaskSourceFactory
                             .addAll(replicatedSources)
                             .build());
         }
-        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
+
+        int arbitraryDistributionComputeTaskTargetSizeGrowthPeriod = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthPeriod(session);
+        double arbitraryDistributionComputeTaskTargetSizeGrowthFactor = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeGrowthFactor(session);
+        long arbitraryDistributionComputeTaskTargetSizeInBytesMin = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMin(session).toBytes();
+        long arbitraryDistributionComputeTaskTargetSizeInBytesMax = getFaultTolerantExecutionArbitraryDistributionComputeTaskTargetSizeMax(session).toBytes();
+        checkArgument(arbitraryDistributionComputeTaskTargetSizeInBytesMax >= arbitraryDistributionComputeTaskTargetSizeInBytesMin,
+                "arbitraryDistributionComputeTaskTargetSizeInBytesMax %s should be no smaller than arbitraryDistributionComputeTaskTargetSizeInBytesMin %s",
+                arbitraryDistributionComputeTaskTargetSizeInBytesMax, arbitraryDistributionComputeTaskTargetSizeInBytesMin);
+
+        int arbitraryDistributionWriteTaskTargetSizeGrowthPeriod = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthPeriod(session);
+        double arbitraryDistributionWriteTaskTargetSizeGrowthFactor = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeGrowthFactor(session);
+        long arbitraryDistributionWriteTaskTargetSizeInBytesMin = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMin(session).toBytes();
+        long arbitraryDistributionWriteTaskTargetSizeInBytesMax = getFaultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax(session).toBytes();
+        checkArgument(arbitraryDistributionWriteTaskTargetSizeInBytesMax >= arbitraryDistributionWriteTaskTargetSizeInBytesMin,
+                "arbitraryDistributionWriteTaskTargetSizeInBytesMax %s should be larger than arbitraryDistributionWriteTaskTargetSizeInBytesMin %s",
+                arbitraryDistributionWriteTaskTargetSizeInBytesMax, arbitraryDistributionWriteTaskTargetSizeInBytesMin);
+
+        if (partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) || partitioning.equals(SOURCE_DISTRIBUTION)) {
             return new ArbitraryDistributionSplitAssigner(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
                     replicatedSources,
-                    targetPartitionSizeInBytes,
+                    arbitraryDistributionComputeTaskTargetSizeGrowthPeriod,
+                    arbitraryDistributionComputeTaskTargetSizeGrowthFactor,
+                    arbitraryDistributionComputeTaskTargetSizeInBytesMin,
+                    arbitraryDistributionComputeTaskTargetSizeInBytesMax,
+                    standardSplitSizeInBytes,
+                    maxArbitraryDistributionTaskSplitCount);
+        }
+
+        if (partitioning.equals(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION)) {
+            return new ArbitraryDistributionSplitAssigner(
+                    partitioning.getCatalogHandle(),
+                    partitionedSources,
+                    replicatedSources,
+                    arbitraryDistributionWriteTaskTargetSizeGrowthPeriod,
+                    arbitraryDistributionWriteTaskTargetSizeGrowthFactor,
+                    arbitraryDistributionWriteTaskTargetSizeInBytesMin,
+                    arbitraryDistributionWriteTaskTargetSizeInBytesMax,
                     standardSplitSizeInBytes,
                     maxArbitraryDistributionTaskSplitCount);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
-                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle) ||
-                partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+                (partitioning.getConnectorHandle() instanceof MergePartitioningHandle)) {
             return HashDistributionSplitAssigner.create(
                     partitioning.getCatalogHandle(),
                     partitionedSources,
@@ -193,7 +231,19 @@ public class EventDrivenTaskSourceFactory
                     sourcePartitioningScheme,
                     outputDataSizeEstimates,
                     fragment,
-                    getFaultTolerantExecutionTargetTaskInputSize(session).toBytes());
+                    getFaultTolerantExecutionHashDistributionComputeTaskTargetSize(session).toBytes(),
+                    Integer.MAX_VALUE); // compute tasks are bounded by the number of partitions anyways
+        }
+        if (partitioning.equals(SCALED_WRITER_HASH_DISTRIBUTION)) {
+            return HashDistributionSplitAssigner.create(
+                    partitioning.getCatalogHandle(),
+                    partitionedSources,
+                    replicatedSources,
+                    sourcePartitioningScheme,
+                    outputDataSizeEstimates,
+                    fragment,
+                    getFaultTolerantExecutionHashDistributionWriteTaskTargetSize(session).toBytes(),
+                    getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(session));
         }
 
         // other partitioning handles are not expected to be set as a fragment partitioning

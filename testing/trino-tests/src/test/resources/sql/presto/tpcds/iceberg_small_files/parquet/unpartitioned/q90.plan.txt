@@ -1,0 +1,37 @@
+cross join:
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                dynamic filter (["ws_ship_hdemo_sk", "ws_sold_time_sk", "ws_web_page_sk"])
+                                    scan web_sales
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan household_demographics
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan time_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan web_page
+    final aggregation over ()
+        local exchange (GATHER, SINGLE, [])
+            remote exchange (GATHER, SINGLE, [])
+                partial aggregation over ()
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            join (INNER, REPLICATED):
+                                dynamic filter (["ws_ship_hdemo_sk_16", "ws_sold_time_sk_7", "ws_web_page_sk_18"])
+                                    scan web_sales
+                                local exchange (GATHER, SINGLE, [])
+                                    remote exchange (REPLICATE, BROADCAST, [])
+                                        scan household_demographics
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan time_dim
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan web_page

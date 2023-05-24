@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.DataOperationType;
+import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -38,8 +40,6 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import java.util.List;
 import java.util.Map;
@@ -132,7 +132,7 @@ public class BridgingHiveMetastore
     @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        org.apache.hadoop.hive.metastore.api.Table metastoreTable = toMetastoreApiTable(table);
+        io.trino.hive.thrift.metastore.Table metastoreTable = toMetastoreApiTable(table);
         updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, update));
     }
 
@@ -155,6 +155,18 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return delegate.getAllViews();
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
         delegate.createDatabase(toMetastoreApiDatabase(database));
@@ -169,7 +181,7 @@ public class BridgingHiveMetastore
     @Override
     public void renameDatabase(String databaseName, String newDatabaseName)
     {
-        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
+        io.trino.hive.thrift.metastore.Database database = delegate.getDatabase(databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(databaseName, database);
@@ -216,7 +228,7 @@ public class BridgingHiveMetastore
     @Override
     public void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName)
     {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.setDbName(newDatabaseName);
         table.setTableName(newTableName);
@@ -226,7 +238,7 @@ public class BridgingHiveMetastore
     @Override
     public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         Map<String, String> parameters = table.getParameters().entrySet().stream()
@@ -259,7 +271,7 @@ public class BridgingHiveMetastore
     @Override
     public void commentColumn(String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         for (FieldSchema fieldSchema : table.getSd().getCols()) {
@@ -279,7 +291,7 @@ public class BridgingHiveMetastore
     @Override
     public void addColumn(String databaseName, String tableName, String columnName, HiveType columnType, String columnComment)
     {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().add(
                 new FieldSchema(columnName, columnType.getHiveTypeName().toString(), columnComment));
@@ -289,7 +301,7 @@ public class BridgingHiveMetastore
     @Override
     public void renameColumn(String databaseName, String tableName, String oldColumnName, String newColumnName)
     {
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
@@ -308,13 +320,13 @@ public class BridgingHiveMetastore
     public void dropColumn(String databaseName, String tableName, String columnName)
     {
         verifyCanDropColumn(this, databaseName, tableName, columnName);
-        org.apache.hadoop.hive.metastore.api.Table table = delegate.getTable(databaseName, tableName)
+        io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
         table.getSd().getCols().removeIf(fieldSchema -> fieldSchema.getName().equals(columnName));
         alterTable(databaseName, tableName, table);
     }
 
-    private void alterTable(String databaseName, String tableName, org.apache.hadoop.hive.metastore.api.Table table)
+    private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table)
     {
         delegate.alterTable(databaseName, tableName, table);
     }
@@ -356,7 +368,7 @@ public class BridgingHiveMetastore
         return resultBuilder.buildOrThrow();
     }
 
-    private static Partition fromMetastoreApiPartition(Table table, org.apache.hadoop.hive.metastore.api.Partition partition)
+    private static Partition fromMetastoreApiPartition(Table table, io.trino.hive.thrift.metastore.Partition partition)
     {
         if (isAvroTableWithSchemaSet(table)) {
             List<FieldSchema> schema = table.getDataColumns().stream()
@@ -527,7 +539,7 @@ public class BridgingHiveMetastore
     @Override
     public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
-        List<org.apache.hadoop.hive.metastore.api.Partition> hadoopPartitions = partitions.stream()
+        List<io.trino.hive.thrift.metastore.Partition> hadoopPartitions = partitions.stream()
                 .map(ThriftMetastoreUtil::toMetastoreApiPartition)
                 .peek(partition -> partition.setWriteId(writeId))
                 .collect(toImmutableList());

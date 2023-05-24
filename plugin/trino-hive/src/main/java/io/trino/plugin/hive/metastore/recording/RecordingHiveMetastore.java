@@ -28,6 +28,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
@@ -141,6 +142,18 @@ public class RecordingHiveMetastore
     public List<String> getAllViews(String databaseName)
     {
         return recording.getAllViews(databaseName, () -> delegate.getAllViews(databaseName));
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return recording.getAllTables(delegate::getAllTables);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return recording.getAllViews(delegate::getAllViews);
     }
 
     @Override

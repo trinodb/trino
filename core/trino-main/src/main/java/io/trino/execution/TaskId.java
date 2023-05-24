@@ -16,21 +16,20 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.trino.spi.QueryId;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.QueryId.parseDottedId;
 import static java.lang.Integer.parseInt;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class TaskId
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(TaskId.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(TaskId.class);
 
     @JsonCreator
     public static TaskId valueOf(String taskId)
@@ -43,8 +42,8 @@ public class TaskId
     public TaskId(StageId stageId, int partitionId, int attemptId)
     {
         requireNonNull(stageId, "stageId is null");
-        checkArgument(partitionId >= 0, "partitionId is negative");
-        checkArgument(attemptId >= 0, "attemptId is negative");
+        checkArgument(partitionId >= 0, "partitionId is negative: %s", partitionId);
+        checkArgument(attemptId >= 0, "attemptId is negative: %s", attemptId);
         this.fullId = stageId + "." + partitionId + "." + attemptId;
     }
 

@@ -328,4 +328,31 @@ public class TestRecursiveCte
                         "        (6, 3, 'derived',    1), " +
                         "        (7, 5, 'derived',    2)");
     }
+
+    @Test
+    public void testLambda()
+    {
+        assertThat(assertions.query("""
+                WITH RECURSIVE t(list) AS (
+                    SELECT ARRAY[0]
+                    UNION ALL
+                    SELECT list || 0
+                    FROM t
+                    WHERE any_match(list, x -> x = x) AND cardinality(list) < 4)
+                SELECT * FROM t
+                """))
+                .matches("VALUES (ARRAY[0]), (ARRAY[0, 0]), (ARRAY[0, 0, 0]), (ARRAY[0, 0, 0, 0])");
+
+        // lambda contains a symbol other than lambda argument (a)
+        assertThat(assertions.query("""
+                WITH RECURSIVE t(list, a) AS (
+                    SELECT ARRAY[0], 1
+                    UNION ALL
+                    SELECT list || a, a + 1
+                    FROM t
+                    WHERE all_match(list, x -> x < a) AND cardinality(list) < 4)
+                SELECT list FROM t
+                """))
+                .matches("VALUES (ARRAY[0]), (ARRAY[0, 1]), (ARRAY[0, 1, 2]), (ARRAY[0, 1, 2, 3])");
+    }
 }

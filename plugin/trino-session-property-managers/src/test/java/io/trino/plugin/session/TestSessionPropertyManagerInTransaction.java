@@ -55,6 +55,6 @@ public class TestSessionPropertyManagerInTransaction
         // Ensure that the previous statement was successful
         assertQuery(
                 "SHOW SCHEMAS FROM hive",
-                "VALUES('information_schema'),('test'),('tpch'),('tpch_bucketed')");
+                "VALUES('information_schema'),('test'),('tpch')");
     }
 }

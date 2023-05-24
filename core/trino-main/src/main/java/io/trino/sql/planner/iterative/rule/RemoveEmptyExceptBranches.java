@@ -89,7 +89,7 @@ public class RemoveEmptyExceptBranches
         if (newSources.size() == 1) {
             Assignments.Builder assignments = Assignments.builder();
 
-            outputsToInputs.entries().stream()
+            outputsToInputs.entries()
                     .forEach(entry -> assignments.put(entry.getKey(), entry.getValue().toSymbolReference()));
 
             if (node.isDistinct()) {

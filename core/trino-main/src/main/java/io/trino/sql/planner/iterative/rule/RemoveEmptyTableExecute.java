@@ -77,11 +77,9 @@ public class RemoveEmptyTableExecute
         }
 
         Optional<PlanNode> tableExecuteSource = getSingleSourceSkipExchange(finishSource.get(), context.getLookup());
-        if (tableExecuteSource.isEmpty() || !(tableExecuteSource.get() instanceof ValuesNode)) {
+        if (tableExecuteSource.isEmpty() || !(tableExecuteSource.get() instanceof ValuesNode valuesNode)) {
             return Result.empty();
         }
-        ValuesNode valuesNode = (ValuesNode) tableExecuteSource.get();
-
         verify(valuesNode.getRowCount() == 0, "Unexpected non-empty Values as source of TableExecuteNode");
 
         return Result.ofPlanNode(

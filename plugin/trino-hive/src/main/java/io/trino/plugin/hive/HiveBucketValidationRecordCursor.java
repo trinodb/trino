@@ -16,6 +16,8 @@ package io.trino.plugin.hive;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
@@ -23,8 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 
@@ -39,7 +39,7 @@ public class HiveBucketValidationRecordCursor
         extends ForwardingRecordCursor
 {
     private final RecordCursor delegate;
-    private final Path path;
+    private final Location path;
     private final int[] bucketColumnIndices;
     private final List<Class<?>> javaTypeList;
     private final List<TypeInfo> typeInfoList;
@@ -52,7 +52,7 @@ public class HiveBucketValidationRecordCursor
     private int validationCounter;
 
     public HiveBucketValidationRecordCursor(
-            Path path,
+            Location path,
             int[] bucketColumnIndices,
             List<HiveType> bucketColumnTypes,
             BucketingVersion bucketingVersion,

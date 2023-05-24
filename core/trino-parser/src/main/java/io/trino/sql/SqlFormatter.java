@@ -26,6 +26,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -37,6 +38,7 @@ import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
+import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
 import io.trino.sql.tree.DropRole;
@@ -45,6 +47,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
@@ -152,7 +155,6 @@ import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -185,13 +187,6 @@ public final class SqlFormatter
     {
         return ExpressionFormatter.formatExpression(expression);
     }
-
-    /**
-     * @deprecated Use {@link #formatName(Identifier)} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private static void formatExpression(Identifier identifier) {}
 
     private static class Formatter
             extends AstVisitor<Void, Integer>
@@ -407,6 +402,21 @@ public final class SqlFormatter
             List<Expression> parameters = node.getParameters();
             if (!parameters.isEmpty()) {
                 builder.append(" USING ");
+                builder.append(parameters.stream()
+                        .map(SqlFormatter::formatExpression)
+                        .collect(joining(", ")));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitExecuteImmediate(ExecuteImmediate node, Integer indent)
+        {
+            append(indent, "EXECUTE IMMEDIATE\n")
+                    .append(formatStringLiteral(node.getStatement().getValue()));
+            List<Expression> parameters = node.getParameters();
+            if (!parameters.isEmpty()) {
+                builder.append("\nUSING ");
                 builder.append(parameters.stream()
                         .map(SqlFormatter::formatExpression)
                         .collect(joining(", ")));
@@ -1246,6 +1256,40 @@ public final class SqlFormatter
         }
 
         @Override
+        protected Void visitCreateCatalog(CreateCatalog node, Integer indent)
+        {
+            builder.append("CREATE CATALOG ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()));
+            builder.append(" USING ").append(formatName(node.getConnectorName()));
+            node.getComment().ifPresent(comment -> builder
+                    .append("\nCOMMENT ")
+                    .append(formatStringLiteral(comment)));
+            node.getPrincipal().ifPresent(principal -> builder
+                    .append("\nAUTHORIZATION ")
+                    .append(formatPrincipal(principal)));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropCatalog(DropCatalog node, Integer indent)
+        {
+            builder.append("DROP CATALOG ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getCatalogName()))
+                    .append(" ")
+                    .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
         protected Void visitCreateSchema(CreateSchema node, Integer indent)
         {
             builder.append("CREATE SCHEMA ");
@@ -1307,10 +1351,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             node.getColumnAliases().ifPresent(columnAliases -> {
-                String columnList = columnAliases.stream()
+                builder.append(columnAliases.stream()
                         .map(SqlFormatter::formatName)
-                        .collect(joining(", "));
-                builder.append(format("( %s )", columnList));
+                        .collect(joining(", ", "( ", " )")));
             });
 
             node.getComment().ifPresent(comment -> builder
@@ -1433,7 +1476,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName());
+                    return type.name() + " " + principal.getName();
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
@@ -1556,7 +1599,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(formatName(node.getColumn()));
+            builder.append(formatName(node.getField()));
 
             return null;
         }

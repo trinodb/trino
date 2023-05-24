@@ -76,7 +76,7 @@ This holds the following configuration:
   The available catalog configuration properties for a connector are described
   in the respective connector documentation.
 
-.. _node_properties:
+.. _node-properties:
 
 Node properties
 ^^^^^^^^^^^^^^^
@@ -112,7 +112,7 @@ The above properties are described below:
   The location (filesystem path) of the data directory. Trino stores
   logs and other data here.
 
-.. _jvm_config:
+.. _jvm-config:
 
 JVM config
 ^^^^^^^^^^
@@ -146,6 +146,23 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     # Disable Preventive GC for performance reasons (JDK-8293861)
     -XX:-G1UsePreventiveGC
 
+You must adjust the value for the memory used by Trino, specified with ``-Xmx``
+to the available memory on your nodes. Typically, values representing 70 to 85
+percent of the total available memory is recommended. For example, if all
+workers and the coordinator use nodes with 64GB of RAM, you can use ``-Xmx54G``.
+Trino uses most of the allocated memory for processing, with a small percentage
+used by JVM-internal processes such as garbage collection.
+
+The rest of the available node memory must be sufficient for the operating
+system and other running services, as well as off-heap memory used for native
+code initiated the JVM process.
+
+On larger nodes, the percentage value can be lower. Allocation of all memory  to
+the JVM or using swap space is not supported, and disabling swap space on the
+operating system level is recommended.
+
+Large memory allocation beyond 32GB is recommended for production clusters.
+
 Because an ``OutOfMemoryError`` typically leaves the JVM in an
 inconsistent state, we write a heap dump, for debugging, and forcibly
 terminate the process when this occurs.
@@ -160,7 +177,7 @@ list of JVM options.
 We enable ``-XX:+UnlockDiagnosticVMOptions`` and ``-XX:+UseAESCTRIntrinsics`` to improve AES performance for S3, etc. on ARM64 (`JDK-8271567 <https://bugs.openjdk.java.net/browse/JDK-8271567>`_)
 We disable Preventive GC (``-XX:-G1UsePreventiveGC``) for performance reasons (see `JDK-8293861 <https://bugs.openjdk.org/browse/JDK-8293861>`_)
 
-.. _config_properties:
+.. _config-properties:
 
 Config properties
 ^^^^^^^^^^^^^^^^^
@@ -258,7 +275,7 @@ The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
-.. _catalog_properties:
+.. _catalog-properties:
 
 Catalog properties
 ^^^^^^^^^^^^^^^^^^
@@ -281,7 +298,7 @@ contents to mount the ``jmx`` connector as the ``jmx`` catalog:
 
 See :doc:`/connector` for more information about configuring connectors.
 
-.. _running_trino:
+.. _running-trino:
 
 Running Trino
 --------------

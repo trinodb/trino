@@ -18,10 +18,10 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
@@ -144,7 +144,15 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -404,11 +412,10 @@ public class PredicatePushDown
         public PlanNode visitFilter(FilterNode node, RewriteContext<Expression> context)
         {
             PlanNode rewrittenPlan = context.rewrite(node.getSource(), combineConjuncts(metadata, node.getPredicate(), context.get()));
-            if (!(rewrittenPlan instanceof FilterNode)) {
+            if (!(rewrittenPlan instanceof FilterNode rewrittenFilterNode)) {
                 return rewrittenPlan;
             }
 
-            FilterNode rewrittenFilterNode = (FilterNode) rewrittenPlan;
             if (!areExpressionsEquivalent(rewrittenFilterNode.getPredicate(), node.getPredicate())
                     || node.getSource() != rewrittenFilterNode.getSource()) {
                 return rewrittenPlan;
@@ -618,8 +625,7 @@ public class PredicatePushDown
                                     .flatMap(Rewriter::tryConvertBetweenIntoComparisons)
                                     .filter(clause -> joinDynamicFilteringExpression(clause, node.getLeft().getOutputSymbols(), node.getRight().getOutputSymbols()))
                                     .map(expression -> {
-                                        if (expression instanceof NotExpression) {
-                                            NotExpression notExpression = ((NotExpression) expression);
+                                        if (expression instanceof NotExpression notExpression) {
                                             ComparisonExpression comparison = (ComparisonExpression) notExpression.getValue();
                                             return new DynamicFilterExpression(new ComparisonExpression(EQUAL, comparison.getLeft(), comparison.getRight()), true);
                                         }
@@ -678,8 +684,7 @@ public class PredicatePushDown
 
         private static Stream<Expression> tryConvertBetweenIntoComparisons(Expression clause)
         {
-            if (clause instanceof BetweenPredicate) {
-                BetweenPredicate between = (BetweenPredicate) clause;
+            if (clause instanceof BetweenPredicate between) {
                 return Stream.of(
                         new ComparisonExpression(GREATER_THAN_OR_EQUAL, between.getValue(), between.getMin()),
                         new ComparisonExpression(LESS_THAN_OR_EQUAL, between.getValue(), between.getMax()));
@@ -1008,10 +1013,6 @@ public class PredicatePushDown
             Expression simplifiedLeftEffectivePredicate = predicateInference.rewrite(leftEffectivePredicate, leftScope);
             Expression simplifiedRightEffectivePredicate = predicateInference.rewrite(rightEffectivePredicate, rightScope);
 
-            // simplify predicate based on known equalities guaranteed by the left/right side
-            EqualityInference assertions = EqualityInference.newInstance(metadata, leftEffectivePredicate, rightEffectivePredicate);
-            inheritedPredicate = assertions.rewrite(inheritedPredicate, Sets.union(leftScope, rightScope));
-
             // Generate equality inferences
             EqualityInference allInference = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate, simplifiedRightEffectivePredicate);
             EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate, simplifiedRightEffectivePredicate);
@@ -1243,8 +1244,7 @@ public class PredicatePushDown
         private boolean joinDynamicFilteringExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols)
         {
             ComparisonExpression comparison;
-            if (expression instanceof NotExpression) {
-                NotExpression notExpression = (NotExpression) expression;
+            if (expression instanceof NotExpression notExpression) {
                 boolean isDistinctFrom = joinComparisonExpression(notExpression.getValue(), leftSymbols, rightSymbols, ImmutableSet.of(IS_DISTINCT_FROM));
                 if (!isDistinctFrom) {
                     return false;
@@ -1273,8 +1273,7 @@ public class PredicatePushDown
         private boolean joinComparisonExpression(Expression expression, Collection<Symbol> leftSymbols, Collection<Symbol> rightSymbols, Set<ComparisonExpression.Operator> operators)
         {
             // At this point in time, our join predicates need to be deterministic
-            if (expression instanceof ComparisonExpression && isDeterministic(expression, metadata)) {
-                ComparisonExpression comparison = (ComparisonExpression) expression;
+            if (expression instanceof ComparisonExpression comparison && isDeterministic(expression, metadata)) {
                 if (operators.contains(comparison.getOperator())) {
                     Set<Symbol> symbols1 = extractUnique(comparison.getLeft());
                     Set<Symbol> symbols2 = extractUnique(comparison.getRight());

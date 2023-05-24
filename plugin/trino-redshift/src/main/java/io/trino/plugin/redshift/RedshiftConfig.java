@@ -14,7 +14,9 @@
 package io.trino.plugin.redshift;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
+@DefunctConfig("redshift.disable-automatic-fetch-size")
 public class RedshiftConfig
 {
     private boolean legacyTypeMapping;

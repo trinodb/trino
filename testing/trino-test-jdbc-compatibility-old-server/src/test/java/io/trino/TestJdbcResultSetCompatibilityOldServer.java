@@ -71,6 +71,10 @@ public class TestJdbcResultSetCompatibilityOldServer
             ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();
             int testVersion = currentVersion - 1; // last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
+                if (testVersion == 404) {
+                    // 404 release was skipped.
+                    testVersion--;
+                }
                 if (testVersion < FIRST_VERSION) {
                     break;
                 }

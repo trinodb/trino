@@ -28,9 +28,8 @@ To query Prometheus, you need:
 Configuration
 -------------
 
-Create ``etc/catalog/prometheus.properties``
-to mount the Prometheus connector as the ``prometheus`` catalog,
-replacing the properties as appropriate:
+Create ``etc/catalog/example.properties`` to mount the Prometheus connector as
+the ``example`` catalog, replacing the properties as appropriate:
 
 .. code-block:: text
 
@@ -79,7 +78,7 @@ a relatively small window. For example:
 
 .. code-block:: sql
 
-    SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '10' second);
+    SELECT * FROM example.default.up WHERE timestamp > (NOW() - INTERVAL '10' second);
 
 If the query does not include a WHERE clause limit, these config
 settings are meant to protect against an unlimited query.
@@ -123,7 +122,7 @@ represented in Trino:
 
 .. code-block:: sql
 
-    SELECT * FROM prometheus.default.up;
+    SELECT * FROM example.default.up;
 
 .. code-block:: text
 

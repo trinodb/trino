@@ -18,7 +18,7 @@ cluster. Use this configuration under the following conditions:
   between clients and the coordinator
 
 Set the shared secret to the same value in :ref:`config.properties
-<config_properties>` on all nodes of the cluster:
+<config-properties>` on all nodes of the cluster:
 
 .. code-block:: text
 
@@ -30,6 +30,27 @@ command:
 .. code-block:: text
 
     openssl rand 512 | base64
+
+.. _verify-secrets:
+
+Verify configuration
+^^^^^^^^^^^^^^^^^^^^
+
+To verify shared secret configuration:
+
+1. Start your Trino cluster with two or more nodes configured with a shared
+   secret.
+2. Connect to the :doc:`Web UI </admin/web-interface>`.
+3. Confirm the number of ``ACTIVE WORKERS`` equals the number of nodes
+   configured with your shared secret.
+4. Change the value of the shared secret on one worker, and restart the worker.
+5. Log in to the Web UI and confirm the number of ``ACTIVE WORKERS`` is one
+   less. The worker with the invalid secret is not authenticated, and therefore
+   not registered with the coordinator.
+6. Stop your Trino cluster, revert the value change on the worker, and restart
+   your cluster.
+7. Confirm the number of ``ACTIVE WORKERS`` equals the number of nodes
+   configured with your shared secret.
 
 Configure internal TLS
 ----------------------

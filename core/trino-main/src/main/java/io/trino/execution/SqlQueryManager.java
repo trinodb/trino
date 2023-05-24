@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.concurrent.SetThreadName;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -226,6 +227,12 @@ public class SqlQueryManager
     }
 
     @Override
+    public boolean hasQuery(QueryId queryId)
+    {
+        return queryTracker.hasQuery(queryId);
+    }
+
+    @Override
     public void recordHeartbeat(QueryId queryId)
     {
         queryTracker.tryGetQuery(queryId)
@@ -246,7 +253,9 @@ public class SqlQueryManager
             queryTracker.expireQuery(queryExecution.getQueryId());
         });
 
-        queryExecution.start();
+        try (SetThreadName ignored = new SetThreadName("Query-%s", queryExecution.getQueryId())) {
+            queryExecution.start();
+        }
     }
 
     @Override

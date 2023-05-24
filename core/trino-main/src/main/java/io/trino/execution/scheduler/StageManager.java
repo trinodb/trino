@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.NodeTaskMap;
@@ -37,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -66,7 +66,7 @@ class StageManager
             Metadata metadata,
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
-            ExecutorService executor,
+            Tracer tracer,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
             boolean summarizeTaskInfo)
@@ -89,7 +89,8 @@ class StageManager
                     session,
                     summarizeTaskInfo,
                     nodeTaskMap,
-                    executor,
+                    queryStateMachine.getStateMachineExecutor(),
+                    tracer,
                     schedulerStats);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);

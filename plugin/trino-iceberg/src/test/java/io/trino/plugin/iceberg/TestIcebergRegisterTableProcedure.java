@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -39,7 +40,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.procedure.RegisterTableProcedure.getLatestMetadataLocation;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -61,7 +63,7 @@ public class TestIcebergRegisterTableProcedure
         metastoreDir = Files.createTempDirectory("test_iceberg_register_table").toFile();
         metastoreDir.deleteOnExit();
         metastore = createTestingFileHiveMetastore(metastoreDir);
-        fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT).create(TestingConnectorSession.SESSION);
+        fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(TestingConnectorSession.SESSION);
         return IcebergQueryRunner.builder()
                 .setMetastoreDirectory(metastoreDir)
                 .setIcebergProperties(ImmutableMap.of("iceberg.register-table-procedure.enabled", "true"))
@@ -298,17 +300,16 @@ public class TestIcebergRegisterTableProcedure
         assertUpdate(format("INSERT INTO %s values(1, 'INDIA', true)", tableName), 1);
         assertUpdate(format("INSERT INTO %s values(2, 'USA', false)", tableName), 1);
 
-        String tableLocation = getTableLocation(tableName);
+        Location tableLocation = Location.of(getTableLocation(tableName));
         String tableNameNew = tableName + "_new";
-        String metadataDirectoryLocation = format("%s/%s", tableLocation, METADATA_FOLDER_NAME);
+        Location metadataDirectoryLocation = tableLocation.appendPath(METADATA_FOLDER_NAME);
         FileIterator fileIterator = fileSystem.listFiles(metadataDirectoryLocation);
         // Find one invalid metadata file inside metadata folder
         String invalidMetadataFileName = "invalid-default.avro";
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
-            if (fileEntry.path().endsWith(".avro")) {
-                String file = fileEntry.path();
-                invalidMetadataFileName = file.substring(file.lastIndexOf("/") + 1);
+            if (fileEntry.location().fileName().endsWith(".avro")) {
+                invalidMetadataFileName = fileEntry.location().fileName();
                 break;
             }
         }

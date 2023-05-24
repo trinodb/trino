@@ -21,7 +21,6 @@ import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.ScalarStatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
-import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
@@ -53,7 +52,6 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TransactionId;
 import org.testng.annotations.Test;
 
@@ -75,7 +73,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
@@ -259,7 +256,6 @@ public class TestPushProjectionIntoTableScan
                                 TupleDomain.all(),
                                 Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(column("col", VARCHAR)))),
                                 Optional.empty(),
-                                Optional.empty(),
                                 ImmutableList.of());
                     }
 
@@ -331,14 +327,6 @@ public class TestPushProjectionIntoTableScan
                 plannerContext,
                 typeAnalyzer,
                 new ScalarStatsCalculator(plannerContext, typeAnalyzer));
-    }
-
-    private static TableHandle createTableHandle(String schemaName, String tableName)
-    {
-        return new TableHandle(
-                TEST_CATALOG_HANDLE,
-                new MockConnectorTableHandle(new SchemaTableName(schemaName, tableName)),
-                TestingTransactionHandle.create());
     }
 
     private static SymbolReference symbolReference(String name)

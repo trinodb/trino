@@ -14,12 +14,15 @@
 package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,6 +36,7 @@ public class TransactionInfo
     private final Duration idleTime;
     private final List<String> catalogNames;
     private final Optional<String> writtenCatalogName;
+    private final Set<CatalogHandle> activeCatalogs;
 
     public TransactionInfo(
             TransactionId transactionId,
@@ -42,7 +46,8 @@ public class TransactionInfo
             DateTime createTime,
             Duration idleTime,
             List<String> catalogNames,
-            Optional<String> writtenCatalogName)
+            Optional<String> writtenCatalogName,
+            Set<CatalogHandle> activeCatalogs)
     {
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
@@ -52,6 +57,7 @@ public class TransactionInfo
         this.idleTime = requireNonNull(idleTime, "idleTime is null");
         this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "catalogNames is null"));
         this.writtenCatalogName = requireNonNull(writtenCatalogName, "writtenCatalogName is null");
+        this.activeCatalogs = ImmutableSet.copyOf(requireNonNull(activeCatalogs, "activeCatalogs is null"));
     }
 
     public TransactionId getTransactionId()
@@ -92,5 +98,10 @@ public class TransactionInfo
     public Optional<String> getWrittenCatalogName()
     {
         return writtenCatalogName;
+    }
+
+    public Set<CatalogHandle> getActiveCatalogs()
+    {
+        return activeCatalogs;
     }
 }

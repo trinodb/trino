@@ -37,6 +37,9 @@ import io.trino.sql.planner.plan.StatisticAggregations;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
+import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -56,9 +59,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -214,16 +219,18 @@ public class SymbolMapper
             newFunctions.put(map(symbol), new WindowNode.Function(function.getResolvedFunction(), newArguments, newFrame, function.isIgnoreNulls()));
         });
 
+        SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
+
         return new WindowNode(
                 node.getId(),
                 source,
-                mapAndDistinct(node.getSpecification()),
+                newSpecification.specification(),
                 newFunctions.buildOrThrow(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
-                node.getPreSortedOrderPrefix());
+                newSpecification.preSorted());
     }
 
     private WindowNode.Frame map(WindowNode.Frame frame)
@@ -240,6 +247,18 @@ public class SymbolMapper
                 frame.getOriginalEndValue());
     }
 
+    private SpecificationWithPreSortedPrefix mapAndDistinct(DataOrganizationSpecification specification, int preSorted)
+    {
+        Optional<OrderingSchemeWithPreSortedPrefix> newOrderingScheme = specification.getOrderingScheme()
+                .map(orderingScheme -> map(orderingScheme, preSorted));
+
+        return new SpecificationWithPreSortedPrefix(
+                new DataOrganizationSpecification(
+                        mapAndDistinct(specification.getPartitionBy()),
+                        newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::orderingScheme)),
+                newOrderingScheme.map(OrderingSchemeWithPreSortedPrefix::preSorted).orElse(preSorted));
+    }
+
     public DataOrganizationSpecification mapAndDistinct(DataOrganizationSpecification specification)
     {
         return new DataOrganizationSpecification(
@@ -249,6 +268,8 @@ public class SymbolMapper
 
     public PatternRecognitionNode map(PatternRecognitionNode node, PlanNode source)
     {
+        SpecificationWithPreSortedPrefix newSpecification = mapAndDistinct(node.getSpecification(), node.getPreSortedOrderPrefix());
+
         ImmutableMap.Builder<Symbol, WindowNode.Function> newFunctions = ImmutableMap.builder();
         node.getWindowFunctions().forEach((symbol, function) -> {
             List<Expression> newArguments = function.getArguments().stream()
@@ -271,12 +292,12 @@ public class SymbolMapper
         return new PatternRecognitionNode(
                 node.getId(),
                 source,
-                mapAndDistinct(node.getSpecification()),
+                newSpecification.specification(),
                 node.getHashSymbol().map(this::map),
                 node.getPrePartitionedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableSet()),
-                node.getPreSortedOrderPrefix(),
+                newSpecification.preSorted(),
                 newFunctions.buildOrThrow(),
                 newMeasures.buildOrThrow(),
                 node.getCommonBaseFrame().map(this::map),
@@ -296,8 +317,7 @@ public class SymbolMapper
         // with no outer usage or dependencies.
         ImmutableList.Builder<ValuePointer> newValuePointers = ImmutableList.builder();
         for (ValuePointer valuePointer : expressionAndValuePointers.getValuePointers()) {
-            if (valuePointer instanceof ScalarValuePointer) {
-                ScalarValuePointer scalarValuePointer = (ScalarValuePointer) valuePointer;
+            if (valuePointer instanceof ScalarValuePointer scalarValuePointer) {
                 Symbol inputSymbol = scalarValuePointer.getInputSymbol();
                 if (expressionAndValuePointers.getClassifierSymbols().contains(inputSymbol) || expressionAndValuePointers.getMatchNumberSymbols().contains(inputSymbol)) {
                     newValuePointers.add(scalarValuePointer);
@@ -340,6 +360,64 @@ public class SymbolMapper
                 expressionAndValuePointers.getMatchNumberSymbols());
     }
 
+    public TableFunctionProcessorNode map(TableFunctionProcessorNode node, PlanNode source)
+    {
+        // rewrite and deduplicate pass-through specifications
+        // note: Potentially, pass-through symbols from different sources might be recognized as semantically identical, and rewritten
+        // to the same symbol. Currently, we retrieve the first occurrence of a symbol, and skip all the following occurrences.
+        // For better performance, we could pick the occurrence with "isPartitioningColumn" property, since the pass-through mechanism
+        // is more efficient for partitioning columns which are guaranteed to be constant within partition.
+        // TODO choose a partitioning column to be retrieved while deduplicating
+        ImmutableList.Builder<PassThroughSpecification> newPassThroughSpecifications = ImmutableList.builder();
+        Set<Symbol> newPassThroughSymbols = new HashSet<>();
+        for (PassThroughSpecification specification : node.getPassThroughSpecifications()) {
+            ImmutableList.Builder<PassThroughColumn> newColumns = ImmutableList.builder();
+            for (PassThroughColumn column : specification.columns()) {
+                Symbol newSymbol = map(column.symbol());
+                if (newPassThroughSymbols.add(newSymbol)) {
+                    newColumns.add(new PassThroughColumn(newSymbol, column.isPartitioningColumn()));
+                }
+            }
+            newPassThroughSpecifications.add(new PassThroughSpecification(specification.declaredAsPassThrough(), newColumns.build()));
+        }
+
+        // rewrite required symbols without deduplication. the table function expects specific input layout
+        List<List<Symbol>> newRequiredSymbols = node.getRequiredSymbols().stream()
+                .map(this::map)
+                .collect(toImmutableList());
+
+        // rewrite and deduplicate marker mapping
+        Optional<Map<Symbol, Symbol>> newMarkerSymbols = node.getMarkerSymbols()
+                .map(mapping -> mapping.entrySet().stream()
+                        .collect(toImmutableMap(
+                                entry -> map(entry.getKey()),
+                                entry -> map(entry.getValue()),
+                                (first, second) -> {
+                                    checkState(first.equals(second), "Ambiguous marker symbols: %s and %s", first, second);
+                                    return first;
+                                })));
+
+        // rewrite and deduplicate specification
+        Optional<SpecificationWithPreSortedPrefix> newSpecification = node.getSpecification().map(specification -> mapAndDistinct(specification, node.getPreSorted()));
+
+        return new TableFunctionProcessorNode(
+                node.getId(),
+                node.getName(),
+                map(node.getProperOutputs()),
+                Optional.of(source),
+                node.isPruneWhenEmpty(),
+                newPassThroughSpecifications.build(),
+                newRequiredSymbols,
+                newMarkerSymbols,
+                newSpecification.map(SpecificationWithPreSortedPrefix::specification),
+                node.getPrePartitioned().stream()
+                        .map(this::map)
+                        .collect(toImmutableSet()),
+                newSpecification.map(SpecificationWithPreSortedPrefix::preSorted).orElse(node.getPreSorted()),
+                node.getHashSymbol().map(this::map),
+                node.getHandle());
+    }
+
     public LimitNode map(LimitNode node, PlanNode source)
     {
         return new LimitNode(
@@ -351,6 +429,29 @@ public class SymbolMapper
                 node.getPreSortedInputs().stream()
                         .map(this::map)
                         .collect(toImmutableList()));
+    }
+
+    public OrderingSchemeWithPreSortedPrefix map(OrderingScheme orderingScheme, int preSorted)
+    {
+        ImmutableList.Builder<Symbol> newSymbols = ImmutableList.builder();
+        ImmutableMap.Builder<Symbol, SortOrder> newOrderings = ImmutableMap.builder();
+        int newPreSorted = preSorted;
+
+        Set<Symbol> added = new HashSet<>(orderingScheme.getOrderBy().size());
+
+        for (int i = 0; i < orderingScheme.getOrderBy().size(); i++) {
+            Symbol symbol = orderingScheme.getOrderBy().get(i);
+            Symbol canonical = map(symbol);
+            if (added.add(canonical)) {
+                newSymbols.add(canonical);
+                newOrderings.put(canonical, orderingScheme.getOrdering(symbol));
+            }
+            else if (i < preSorted) {
+                newPreSorted--;
+            }
+        }
+
+        return new OrderingSchemeWithPreSortedPrefix(new OrderingScheme(newSymbols.build(), newOrderings.buildOrThrow()), newPreSorted);
     }
 
     public OrderingScheme map(OrderingScheme orderingScheme)
@@ -407,7 +508,6 @@ public class SymbolMapper
                 map(node.getColumns()),
                 node.getColumnNames(),
                 node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
-                node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
     }
@@ -428,8 +528,7 @@ public class SymbolMapper
                 map(node.getFragmentSymbol()),
                 map(node.getColumns()),
                 node.getColumnNames(),
-                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
-                node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())));
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())));
     }
 
     public MergeWriterNode map(MergeWriterNode node, PlanNode source)
@@ -482,7 +581,8 @@ public class SymbolMapper
                 mapAndDistinct(sourceLayout),
                 scheme.getHashColumn().map(this::map),
                 scheme.isReplicateNullsAndAny(),
-                scheme.getBucketToPartition());
+                scheme.getBucketToPartition(),
+                scheme.getPartitionCount());
     }
 
     public TableFinishNode map(TableFinishNode node, PlanNode source)
@@ -541,6 +641,24 @@ public class SymbolMapper
                 node.getCount(),
                 map(node.getOrderingScheme()),
                 node.getStep());
+    }
+
+    private record OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+    {
+        private OrderingSchemeWithPreSortedPrefix(OrderingScheme orderingScheme, int preSorted)
+        {
+            this.orderingScheme = requireNonNull(orderingScheme, "orderingScheme is null");
+            this.preSorted = preSorted;
+        }
+    }
+
+    private record SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+    {
+        private SpecificationWithPreSortedPrefix(DataOrganizationSpecification specification, int preSorted)
+        {
+            this.specification = requireNonNull(specification, "specification is null");
+            this.preSorted = preSorted;
+        }
     }
 
     public static Builder builder()

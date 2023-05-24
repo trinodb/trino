@@ -15,10 +15,12 @@ package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
 import io.trino.plugin.hive.ReaderColumns;
+import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -26,8 +28,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 
 import javax.inject.Inject;
 
@@ -43,11 +43,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.type.TypeInfoUtils.getTypeInfosFromTypeString;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
+import static io.trino.plugin.hive.util.SerdeConstants.COLUMN_NAME_DELIMITER;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.serde.serdeConstants.COLUMN_NAME_DELIMITER;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
-import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 
 public class S3SelectRecordCursorProvider
         implements HiveRecordCursorProvider
@@ -66,7 +67,7 @@ public class S3SelectRecordCursorProvider
     public Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location location,
             long start,
             long length,
             long fileSize,
@@ -80,6 +81,7 @@ public class S3SelectRecordCursorProvider
             return Optional.empty();
         }
 
+        Path path = new Path(location.toString());
         try {
             this.hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
         }
@@ -165,7 +167,7 @@ public class S3SelectRecordCursorProvider
             columnTypes = ImmutableSet.of();
         }
         else {
-            columnTypes = TypeInfoUtils.getTypeInfosFromTypeString(columnTypeProperty)
+            columnTypes = getTypeInfosFromTypeString(columnTypeProperty)
                     .stream()
                     .map(TypeInfo::getTypeName)
                     .collect(toImmutableSet());

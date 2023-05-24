@@ -170,7 +170,14 @@ public class RedshiftTableStatisticsReader
         }
     }
 
-    // TODO remove when error prone is updated for Java 17 records
-    @SuppressWarnings("unused")
-    private record ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength) {}
+    private record ColumnStatisticsResult(String columnName, Optional<Float> nullsFraction, Optional<Float> distinctValuesIndicator, Optional<Integer> averageColumnLength)
+    {
+        ColumnStatisticsResult
+        {
+            requireNonNull(columnName, "columnName is null");
+            requireNonNull(nullsFraction, "nullsFraction is null");
+            requireNonNull(distinctValuesIndicator, "distinctValuesIndicator is null");
+            requireNonNull(averageColumnLength, "averageColumnLength is null");
+        }
+    }
 }

@@ -27,8 +27,6 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DecimalConversions.shortToLongCast;
 import static io.trino.spi.type.DecimalConversions.shortToShortCast;
-import static io.trino.spi.type.Decimals.isLongDecimal;
-import static io.trino.spi.type.Decimals.isShortDecimal;
 import static io.trino.spi.type.Decimals.longTenToNth;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -74,15 +72,13 @@ public class ShortDecimalColumnReader
             }
             else {
                 int startOffset = bytes.length - Long.BYTES;
-                checkBytesFitInShortDecimal(bytes, 0, startOffset, trinoType, field.getDescriptor());
+                checkBytesFitInShortDecimal(bytes, 0, startOffset, field.getDescriptor());
                 value = getShortDecimalValue(bytes, startOffset, Long.BYTES);
             }
         }
 
-        if (trinoType instanceof DecimalType) {
-            DecimalType trinoDecimalType = (DecimalType) trinoType;
-
-            if (isShortDecimal(trinoDecimalType)) {
+        if (trinoType instanceof DecimalType trinoDecimalType) {
+            if (trinoDecimalType.isShort()) {
                 long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
                 long convertedValue = shortToShortCast(
                         value,
@@ -95,7 +91,7 @@ public class ShortDecimalColumnReader
 
                 trinoType.writeLong(blockBuilder, convertedValue);
             }
-            else if (isLongDecimal(trinoDecimalType)) {
+            else {
                 trinoType.writeObject(blockBuilder, shortToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),

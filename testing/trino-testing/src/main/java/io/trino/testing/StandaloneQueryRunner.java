@@ -178,7 +178,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public TestingGroupProvider getGroupProvider()
+    public TestingGroupProviderManager getGroupProvider()
     {
         return server.getGroupProvider();
     }

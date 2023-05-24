@@ -28,6 +28,8 @@ import static java.util.Objects.requireNonNull;
 public class FileSystemExchangeManagerFactory
         implements ExchangeManagerFactory
 {
+    static final String FILESYSTEM = "filesystem";
+
     @Override
     public String getName()
     {

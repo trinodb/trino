@@ -16,14 +16,19 @@ package io.trino.plugin.iceberg.catalog.file;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 
+import java.util.concurrent.TimeUnit;
+
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
 
 public class TestingIcebergFileMetastoreCatalogModule
@@ -40,8 +45,13 @@ public class TestingIcebergFileMetastoreCatalogModule
     protected void setup(Binder binder)
     {
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-        install(new DecoratedHiveMetastoreModule());
+        install(new DecoratedHiveMetastoreModule(false));
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
+
+        configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
+            // ensure caching metastore wrapper isn't created, as it's not leveraged by Iceberg
+            config.setStatsCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        });
     }
 }

@@ -22,11 +22,10 @@ To connect to MySQL, you need:
 Configuration
 -------------
 
-To configure the MySQL connector, create a catalog properties file
-in ``etc/catalog`` named, for example, ``mysql.properties``, to
-mount the MySQL connector as the ``mysql`` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+To configure the MySQL connector, create a catalog properties file in
+``etc/catalog`` named, for example, ``example.properties``, to mount the MySQL
+connector as the ``mysql`` catalog. Create the file with the following contents,
+replacing the connection properties as appropriate for your setup:
 
 .. code-block:: text
 
@@ -68,7 +67,7 @@ parameter to secure the connection with TLS. By default the parameter is set to
 also set this parameter to ``REQUIRED`` which causes the connection to fail if
 TLS is not established.
 
-You can set the ``sslMode`` paremeter in the catalog configuration file by
+You can set the ``sslMode`` parameter in the catalog configuration file by
 appending it to the ``connection-url`` configuration property:
 
 .. code-block:: properties
@@ -133,14 +132,26 @@ this table:
   * - ``TINYINT``
     - ``TINYINT``
     -
+  * - ``TINYINT UNSIGNED``
+    - ``SMALLINT``
+    -
   * - ``SMALLINT``
     - ``SMALLINT``
+    -
+  * - ``SMALLINT UNSIGNED``
+    - ``INTEGER``
     -
   * - ``INTEGER``
     - ``INTEGER``
     -
+  * - ``INTEGER UNSIGNED``
+    - ``BIGINT``
+    -
   * - ``BIGINT``
     - ``BIGINT``
+    -
+  * - ``BIGINT UNSIGNED``
+    - ``DECIMAL(20, 0)``
     -
   * - ``DOUBLE PRECISION``
     - ``DOUBLE``
@@ -266,25 +277,25 @@ Querying MySQL
 The MySQL connector provides a schema for every MySQL *database*.
 You can see the available MySQL databases by running ``SHOW SCHEMAS``::
 
-    SHOW SCHEMAS FROM mysql;
+    SHOW SCHEMAS FROM example;
 
 If you have a MySQL database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
-    SHOW TABLES FROM mysql.web;
+    SHOW TABLES FROM example.web;
 
 You can see a list of the columns in the ``clicks`` table in the ``web`` database
 using either of the following::
 
-    DESCRIBE mysql.web.clicks;
-    SHOW COLUMNS FROM mysql.web.clicks;
+    DESCRIBE example.web.clicks;
+    SHOW COLUMNS FROM example.web.clicks;
 
 Finally, you can access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM mysql.web.clicks;
+    SELECT * FROM example.web.clicks;
 
 If you used a different name for your catalog properties file, use
-that catalog name instead of ``mysql`` in the above examples.
+that catalog name instead of ``example`` in the above examples.
 
 .. _mysql-sql-support:
 
@@ -307,6 +318,14 @@ the following statements:
 
 .. include:: sql-delete-limitation.fragment
 
+.. _mysql-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -324,15 +343,16 @@ processed in MySQL. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-For example, group and concatenate all employee IDs by manager ID::
+For example, query the ``example`` catalog and group and concatenate all
+employee IDs by manager ID::
 
     SELECT
       *
     FROM
       TABLE(
-        mysql.system.query(
+        example.system.query(
           query => 'SELECT
             manager_id, GROUP_CONCAT(employee_id)
           FROM
@@ -341,6 +361,8 @@ For example, group and concatenate all employee IDs by manager ID::
             manager_id'
         )
       );
+
+.. include:: query-table-function-ordering.fragment
 
 Performance
 -----------

@@ -13,6 +13,7 @@
  */
 package io.trino.connector.informationschema;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -79,7 +80,8 @@ public class InformationSchemaMetadata
     private static final InformationSchemaColumnHandle TABLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("table_name");
     private static final InformationSchemaColumnHandle ROLE_NAME_COLUMN_HANDLE = new InformationSchemaColumnHandle("role_name");
     private static final InformationSchemaColumnHandle GRANTEE_COLUMN_HANDLE = new InformationSchemaColumnHandle("grantee");
-    private static final int MAX_PREFIXES_COUNT = 100;
+    @VisibleForTesting
+    public static final int MAX_PREFIXES_COUNT = 100;
 
     private final String catalogName;
     private final Metadata metadata;
@@ -164,7 +166,6 @@ public class InformationSchemaMetadata
                 tableHandle.getPrefixes().isEmpty() ? TupleDomain.none() : TupleDomain.all(),
                 Optional.empty(),
                 Optional.empty(),
-                Optional.empty(),
                 emptyList());
     }
 
@@ -218,18 +219,10 @@ public class InformationSchemaMetadata
         }
 
         InformationSchemaTable informationSchemaTable = table.getTable();
-        Set<QualifiedTablePrefix> prefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
-        Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, prefixes, constraint.getSummary(), constraint.predicate());
-
-        if (tablePrefixes.size() <= MAX_PREFIXES_COUNT) {
-            prefixes = tablePrefixes;
-        }
-        if (prefixes.size() > MAX_PREFIXES_COUNT) {
-            // in case of high number of prefixes it is better to populate all data and then filter
-            prefixes = defaultPrefixes(catalogName);
-        }
-
-        return prefixes;
+        Set<QualifiedTablePrefix> schemaPrefixes = calculatePrefixesWithSchemaName(session, constraint.getSummary(), constraint.predicate());
+        Set<QualifiedTablePrefix> tablePrefixes = calculatePrefixesWithTableName(informationSchemaTable, session, schemaPrefixes, constraint.getSummary(), constraint.predicate());
+        verify(tablePrefixes.size() <= MAX_PREFIXES_COUNT, "calculatePrefixesWithTableName returned too many prefixes: %s", tablePrefixes.size());
+        return tablePrefixes;
     }
 
     public static boolean isTablesEnumeratingTable(InformationSchemaTable table)
@@ -256,9 +249,15 @@ public class InformationSchemaMetadata
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
-        return listSchemaNames(session)
+        Set<QualifiedTablePrefix> schemaPrefixes = listSchemaNames(session)
                 .filter(prefix -> predicate.get().test(schemaAsFixedValues(prefix.getSchemaName().get())))
                 .collect(toImmutableSet());
+        if (schemaPrefixes.size() > MAX_PREFIXES_COUNT) {
+            // in case of high number of prefixes it is better to populate all data and then filter
+            // TODO this may cause re-running the above filtering upon next applyFilter
+            return defaultPrefixes(catalogName);
+        }
+        return schemaPrefixes;
     }
 
     private Set<QualifiedTablePrefix> calculatePrefixesWithTableName(
@@ -272,7 +271,7 @@ public class InformationSchemaMetadata
 
         Optional<Set<String>> tables = filterString(constraint, TABLE_NAME_COLUMN_HANDLE);
         if (tables.isPresent()) {
-            return prefixes.stream()
+            Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
                     .peek(prefix -> verify(prefix.asQualifiedObjectName().isEmpty()))
                     .flatMap(prefix -> prefix.getSchemaName()
                             .map(schemaName -> Stream.of(prefix))
@@ -305,31 +304,35 @@ public class InformationSchemaMetadata
                     })
                     .filter(objectName -> predicate.isEmpty() || predicate.get().test(asFixedValues(objectName)))
                     .map(QualifiedObjectName::asQualifiedTablePrefix)
-                    // In method #getPrefixes, if the prefix set returned by this method has size larger than MAX_PREFIXES_COUNT,
-                    // we will overwrite it with #defaultPrefixes. Limiting the stream at MAX_PREFIXES_COUNT + 1 elements helps
-                    // skip unnecessary computation because we know the resulting set will be discarded when more than MAX_PREFIXES_COUNT
-                    // elements are present. Since there may be duplicate prefixes, a distinct operator is applied to the stream,
-                    // otherwise the stream may be truncated incorrectly.
                     .distinct()
                     .limit(MAX_PREFIXES_COUNT + 1)
                     .collect(toImmutableSet());
+
+            if (tablePrefixes.size() > MAX_PREFIXES_COUNT) {
+                // in case of high number of prefixes it is better to populate all data and then filter
+                // TODO this may cause re-running the above filtering upon next applyFilter
+                return defaultPrefixes(catalogName);
+            }
+            return tablePrefixes;
         }
 
         if (predicate.isEmpty() || !isColumnsEnumeratingTable(informationSchemaTable)) {
             return prefixes;
         }
 
-        return prefixes.stream()
-                .flatMap(prefix -> Stream.concat(
-                        metadata.listTables(session, prefix).stream(),
-                        metadata.listViews(session, prefix).stream()))
+        Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
+                .flatMap(prefix -> metadata.listTables(session, prefix).stream())
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
-                // Same as the prefixes computed above; we use the distinct operator and limit the stream to MAX_PREFIXES_COUNT + 1
-                // elements to skip unnecessary computation.
                 .distinct()
                 .limit(MAX_PREFIXES_COUNT + 1)
                 .collect(toImmutableSet());
+        if (tablePrefixes.size() > MAX_PREFIXES_COUNT) {
+            // in case of high number of prefixes it is better to populate all data and then filter
+            // TODO this may cause re-running the above filtering upon next applyFilter
+            return defaultPrefixes(catalogName);
+        }
+        return tablePrefixes;
     }
 
     private boolean isColumnsEnumeratingTable(InformationSchemaTable table)

@@ -29,11 +29,9 @@ public class RowNumberSymbolMatcher
     @Override
     public Optional<Symbol> getAssignedSymbol(PlanNode node, Session session, Metadata metadata, SymbolAliases symbolAliases)
     {
-        if (!(node instanceof RowNumberNode)) {
+        if (!(node instanceof RowNumberNode rowNumberNode)) {
             return Optional.empty();
         }
-
-        RowNumberNode rowNumberNode = (RowNumberNode) node;
 
         return Optional.of(rowNumberNode.getRowNumberSymbol());
     }

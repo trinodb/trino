@@ -153,8 +153,7 @@ public class CreateTableTask
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
         for (TableElement element : statement.getElements()) {
-            if (element instanceof ColumnDefinition) {
-                ColumnDefinition column = (ColumnDefinition) element;
+            if (element instanceof ColumnDefinition column) {
                 String name = column.getName().getValue().toLowerCase(Locale.ENGLISH);
                 Type type;
                 try {
@@ -190,8 +189,7 @@ public class CreateTableTask
                         .setProperties(columnProperties)
                         .build());
             }
-            else if (element instanceof LikeClause) {
-                LikeClause likeClause = (LikeClause) element;
+            else if (element instanceof LikeClause likeClause) {
                 QualifiedObjectName originalLikeTableName = createQualifiedObjectName(session, statement, likeClause.getTableName());
                 if (plannerContext.getMetadata().getCatalogHandle(session, originalLikeTableName.getCatalogName()).isEmpty()) {
                     throw semanticException(CATALOG_NOT_FOUND, statement, "LIKE table catalog '%s' does not exist", originalLikeTableName.getCatalogName());

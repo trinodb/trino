@@ -84,7 +84,7 @@ public class TestAlignedTablePrinter
 
         byte[] value = "hello".getBytes(UTF_8);
 
-        printer.printRows(rows(row(list(value))), true);
+        printer.printRows(rows(row(ImmutableList.of(value))), true);
         printer.finish();
 
         String expected = "" +
@@ -153,7 +153,7 @@ public class TestAlignedTablePrinter
 
         byte[] value = "hello".getBytes(UTF_8);
 
-        printer.printRows(rows(row(map(item("key", list(value, null)), item("key2", map(item("nested", value)))))), true);
+        printer.printRows(rows(row(map(item("key", asList(value, null)), item("key2", map(item("nested", value)))))), true);
         printer.finish();
 
         String expected = "" +
@@ -298,11 +298,6 @@ public class TestAlignedTablePrinter
     static List<List<?>> rows(List<?>... rows)
     {
         return asList(rows);
-    }
-
-    static List<?> list(Object... objects)
-    {
-        return asList(objects);
     }
 
     static byte[] bytes(String s)

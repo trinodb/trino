@@ -67,6 +67,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -120,6 +121,8 @@ public interface Metadata
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
 
     Optional<Object> getInfo(Session session, TableHandle handle);
+
+    CatalogSchemaTableName getTableName(Session session, TableHandle tableHandle);
 
     /**
      * Return table schema definition for the specified table handle.
@@ -202,7 +205,7 @@ public interface Metadata
     /**
      * Rename the specified table.
      */
-    void renameTable(Session session, TableHandle tableHandle, QualifiedObjectName newTableName);
+    void renameTable(Session session, TableHandle tableHandle, CatalogSchemaTableName currentTableName, QualifiedObjectName newTableName);
 
     /**
      * Set properties to the specified table.
@@ -232,12 +235,12 @@ public interface Metadata
     /**
      * Rename the specified column.
      */
-    void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
+    void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target);
 
     /**
      * Add the specified column to the table.
      */
-    void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
 
     /**
      * Set the specified type to the column.
@@ -252,14 +255,19 @@ public interface Metadata
     /**
      * Drop the specified column.
      */
-    void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+    void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle column);
+
+    /**
+     * Drop the specified field from the column.
+     */
+    void dropField(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath);
 
     /**
      * Drops the specified table
      *
      * @throws RuntimeException if the table cannot be dropped or table handle is no longer valid
      */
-    void dropTable(Session session, TableHandle tableHandle);
+    void dropTable(Session session, TableHandle tableHandle, CatalogSchemaTableName tableName);
 
     /**
      * Truncates the specified table
@@ -348,16 +356,6 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
-     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
-     */
-    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
-
-    /**
-     * Get the row ID column handle used with UpdatablePageSource#updateRows.
-     */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
      * Push delete into connector
      */
     Optional<TableHandle> applyDelete(Session session, TableHandle tableHandle);
@@ -366,26 +364,6 @@ public interface Metadata
      * Execute delete in connector
      */
     OptionalLong executeDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Begin delete query
-     */
-    TableHandle beginDelete(Session session, TableHandle tableHandle);
-
-    /**
-     * Finish delete query
-     */
-    void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
-
-    /**
-     * Begin update query
-     */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
-
-    /**
-     * Finish update query
-     */
-    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Return the row update paradigm supported by the connector on the table or throw
@@ -746,4 +724,10 @@ public interface Metadata
      * Returns a table handle for the specified table name with a specified version
      */
     Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+
+    /**
+     * Returns maximum number of tasks that can be created while writing data to specific connector.
+     * Note: It is ignored when retry policy is set to TASK
+     */
+    OptionalInt getMaxWriterTasks(Session session, String catalogName);
 }

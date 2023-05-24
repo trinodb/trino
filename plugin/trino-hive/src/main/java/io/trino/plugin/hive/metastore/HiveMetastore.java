@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
@@ -26,7 +27,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.List;
 import java.util.Map;
@@ -62,9 +62,19 @@ public interface HiveMetastore
 
     List<String> getAllTables(String databaseName);
 
+    /**
+     * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllTables();
+
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     List<String> getAllViews(String databaseName);
+
+    /**
+     * @return List of views including materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllViews();
 
     void createDatabase(Database database);
 

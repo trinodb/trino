@@ -16,7 +16,6 @@ package io.trino.plugin.hive.util;
 import io.trino.plugin.hive.RecordFileWriter.ExtendedRecordWriter;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.io.BinaryComparable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.JobConf;
@@ -27,6 +26,7 @@ import java.io.OutputStream;
 import java.util.Optional;
 import java.util.Properties;
 
+import static io.trino.plugin.hive.util.SerdeConstants.LINE_DELIM;
 import static java.lang.Integer.parseInt;
 import static org.apache.hadoop.hive.ql.exec.Utilities.createCompressedStream;
 
@@ -40,7 +40,7 @@ public class TextRecordWriter
     public TextRecordWriter(Path path, JobConf jobConf, Properties properties, boolean isCompressed, Optional<TextHeaderWriter> textHeaderWriter)
             throws IOException
     {
-        String rowSeparatorString = properties.getProperty(serdeConstants.LINE_DELIM, "\n");
+        String rowSeparatorString = properties.getProperty(LINE_DELIM, "\n");
         // same logic as HiveIgnoreKeyTextOutputFormat
         int rowSeparatorByte;
         try {

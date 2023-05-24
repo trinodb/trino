@@ -17,7 +17,7 @@ the foundational layer.
     This page discusses only how to prepare the Trino server for secure client
     connections from outside of the Trino cluster to its coordinator.
 
-See the :doc:`Glossary </appendix/glossary>` to clarify unfamiliar terms.
+See the :doc:`Glossary </glossary>` to clarify unfamiliar terms.
 
 .. _tls-version-and-ciphers:
 
@@ -39,7 +39,7 @@ configured on the coordinator to determine that JVM's default cipher list.
 .. code-block:: shell
 
   echo "java.util.Arrays.asList(((javax.net.ssl.SSLServerSocketFactory) \
-  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).stream().forEach(System.out::println)" | jshell -
+  javax.net.ssl.SSLServerSocketFactory.getDefault()).getSupportedCipherSuites()).forEach(System.out::println)" | jshell -
 
 The default Trino server specifies a set of regular expressions that exclude
 older cipher suites that do not support forward secrecy (FS).
@@ -101,7 +101,7 @@ typically runs with default HTTP configuration on the default port, 8080.
 
 When a load balancer accepts a TLS encrypted connection, it adds a
 `forwarded
-<https://developer.mozilla.org/en-US/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
+<https://developer.mozilla.org/docs/Web/HTTP/Proxy_servers_and_tunneling#forwarding_client_information_through_proxies>`_
 HTTP header to the request, such as ``X-Forwarded-Proto: https``.
 
 This tells the Trino coordinator to process the connection as if a TLS
@@ -110,7 +110,7 @@ not need to configure ``http-server.https.enabled=true`` for a coordinator
 behind a load balancer.
 
 However, to enable processing of such forwarded headers, the server's
-:ref:`config properties file <config_properties>` *must* include the following:
+:ref:`config properties file <config-properties>` *must* include the following:
 
 .. code-block:: text
 
@@ -154,7 +154,7 @@ following types of certificates:
 * **Generated self-signed certificates** — A certificate generated just for
   Trino that is not automatically trusted by any client. Before using, make sure
   you understand the :ref:`limitations of self-signed certificates
-  <self_signed_limits>`.
+  <self-signed-limits>`.
 
 The most convenient option and strongly recommended option is a globally trusted
 certificate. It may require a little more work up front, but it is worth it to
@@ -165,6 +165,8 @@ Keys and certificates
 
 Trino can read certificates and private keys encoded in PEM encoded PKCS #1, PEM
 encoded PKCS #8, PKCS #12, and the legacy Java KeyStore (JKS) format.
+Certificates and private keys encoded in a binary format such as DER must be
+converted.
 
 Make sure you obtain a certificate that is validated by a recognized
 :ref:`certificate authority <glossCA>`.
@@ -211,7 +213,7 @@ Configure the coordinator
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 On the coordinator, add the following lines to the :ref:`config properties file
-<config_properties>` to enable TLS/HTTPS support for the server.
+<config-properties>` to enable TLS/HTTPS support for the server.
 
 .. note::
 
@@ -259,7 +261,7 @@ re-enable it by setting:
 
   http-server.authentication.allow-insecure-over-http=true
 
-.. _verify_tls:
+.. _verify-tls:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^
@@ -295,7 +297,7 @@ Send a query to test the connection:
   Splits: 1 total, 1 done (100.00%)
   0.12 [0 rows, 0B] [0 rows/s, 0B/s]
 
-.. _self_signed_limits:
+.. _self-signed-limits:
 
 Limitations of self-signed certificates
 ---------------------------------------

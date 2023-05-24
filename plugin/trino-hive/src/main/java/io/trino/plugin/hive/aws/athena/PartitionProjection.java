@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Map;
@@ -35,10 +34,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.cartesianProduct;
 import static io.trino.plugin.hive.aws.athena.projection.Projection.invalidProjectionMessage;
+import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.common.FileUtils.escapePathName;
 
 public final class PartitionProjection
 {
@@ -69,7 +68,7 @@ public final class PartitionProjection
         Map<String, Domain> columnDomainMap = partitionKeysFilter.getDomains().orElseThrow(VerifyException::new);
         // Should not happen as we enforce defining partition projection for all partitioning columns.
         // But we leave a check as we might get wrong settings stored by 3rd party system.
-        columnNames.stream().forEach(columnName -> checkArgument(
+        columnNames.forEach(columnName -> checkArgument(
                 columnProjections.containsKey(columnName),
                 invalidProjectionMessage(columnName, "Projection not defined for this column")));
         List<Set<String>> projectedPartitionValues = columnNames.stream()
@@ -82,7 +81,7 @@ public final class PartitionProjection
                 .collect(toImmutableList());
         return Optional.of(cartesianProduct(projectedPartitionValues)
                 .stream()
-                .map(parts -> String.join(Path.SEPARATOR, parts))
+                .map(parts -> String.join("/", parts))
                 .collect(toImmutableList()));
     }
 

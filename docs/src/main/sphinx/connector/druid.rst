@@ -25,8 +25,8 @@ Create a catalog properties file that specifies the Druid connector by setting
 the ``connector.name`` to ``druid`` and configuring the ``connection-url`` with
 the JDBC string to connect to Druid.
 
-For example, to access a database as ``druid``, create the file
-``etc/catalog/druid.properties``. Replace ``BROKER:8082`` with the correct
+For example, to access a database as ``example``, create the file
+``etc/catalog/example.properties``. Replace ``BROKER:8082`` with the correct
 host and port of your Druid broker.
 
 .. code-block:: properties
@@ -43,7 +43,7 @@ secured by basic authentication by updating the URL and adding credentials:
     connection-user=root
     connection-password=secret
 
-Now you can access your Druid database in Trino with the ``druiddb`` catalog
+Now you can access your Druid database in Trino with the ``example`` catalog
 name from the properties file.
 
 The ``connection-user`` and ``connection-password`` are typically required and
@@ -134,17 +134,18 @@ processed in Druid. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
-As an example, use ``STRING_TO_MV`` and ``MV_LENGTH`` from
-`Druid SQL's multi-value string functions <https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
+As an example, query the ``example`` catalog and use ``STRING_TO_MV`` and
+``MV_LENGTH`` from `Druid SQL's multi-value string functions
+<https://druid.apache.org/docs/latest/querying/sql-multivalue-string-functions.html>`_
 to split and then count the number of comma-separated values in a column::
 
     SELECT
       num_reports
     FROM
       TABLE(
-        druid.system.query(
+        example.system.query(
           query => 'SELECT
             MV_LENGTH(
               STRING_TO_MV(direct_reports, ",")
@@ -153,3 +154,4 @@ to split and then count the number of comma-separated values in a column::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

@@ -15,6 +15,7 @@ package io.trino.plugin.oracle;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 
 import javax.validation.constraints.AssertTrue;
@@ -27,6 +28,7 @@ import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("oracle.disable-automatic-fetch-size")
 public class OracleConfig
 {
     private boolean synonymsEnabled;

@@ -28,7 +28,8 @@ public final class StaticHostProvider
 {
     public interface Resolver
     {
-        InetAddress[] getAllByName(String name) throws UnknownHostException;
+        InetAddress[] getAllByName(String name)
+                throws UnknownHostException;
     }
 
     private final List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(5);
@@ -92,7 +93,6 @@ public final class StaticHostProvider
      * In Java 7, we have a method getHostString, but earlier versions do not support it.
      * This method is to provide a replacement for InetSocketAddress.getHostString().
      *
-     * @param addr
      * @return Hostname string of address parameter
      */
     private String getHostString(InetSocketAddress addr)

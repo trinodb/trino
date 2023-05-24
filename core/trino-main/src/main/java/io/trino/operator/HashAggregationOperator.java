@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
@@ -25,8 +26,10 @@ import io.trino.operator.aggregation.builder.SpillableHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.operator.aggregation.partial.SkipAggregationBuilder;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillerFactory;
@@ -37,6 +40,7 @@ import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -49,6 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class HashAggregationOperator
         implements Operator
 {
+    static final String INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME = "Input rows processed without partial aggregation enabled";
     private static final double MERGE_WITH_MEMORY_RATIO = 0.9;
 
     public static class HashAggregationOperatorFactory
@@ -285,14 +290,16 @@ public class HashAggregationOperator
     private HashAggregationBuilder aggregationBuilder;
     private final LocalMemoryContext memoryContext;
     private WorkProcessor<Page> outputPages;
-    private boolean inputProcessed;
+    private long totalInputRowsProcessed;
+    private long inputRowsProcessedWithPartialAggregationDisabled;
     private boolean finishing;
     private boolean finished;
 
     // for yield when memory is not available
     private Work<?> unfinishedWork;
-    private long numberOfInputRowsProcessed;
-    private long numberOfUniqueRowsProduced;
+    private long aggregationInputBytesProcessed;
+    private long aggregationInputRowsProcessed;
+    private long aggregationUniqueRowsProduced;
 
     private HashAggregationOperator(
             OperatorContext operatorContext,
@@ -378,7 +385,7 @@ public class HashAggregationOperator
         checkState(unfinishedWork == null, "Operator has unfinished work");
         checkState(!finishing, "Operator is already finishing");
         requireNonNull(page, "page is null");
-        inputProcessed = true;
+        totalInputRowsProcessed += page.getPositionCount();
 
         if (aggregationBuilder == null) {
             boolean partialAggregationDisabled = partialAggregationController
@@ -437,7 +444,8 @@ public class HashAggregationOperator
             unfinishedWork = null;
         }
         aggregationBuilder.updateMemory();
-        numberOfInputRowsProcessed += page.getPositionCount();
+        aggregationInputBytesProcessed += page.getSizeInBytes();
+        aggregationInputRowsProcessed += page.getPositionCount();
     }
 
     private boolean isSpillable()
@@ -481,7 +489,7 @@ public class HashAggregationOperator
 
         if (outputPages == null) {
             if (finishing) {
-                if (!inputProcessed && produceDefaultOutput) {
+                if (totalInputRowsProcessed == 0 && produceDefaultOutput) {
                     // global aggregations always generate an output row with the default aggregation output (e.g. 0 for COUNT, NULL for SUM)
                     finished = true;
                     return getGlobalAggregationOutput();
@@ -511,7 +519,7 @@ public class HashAggregationOperator
         }
 
         Page result = outputPages.getResult();
-        numberOfUniqueRowsProduced += result.getPositionCount();
+        aggregationUniqueRowsProduced += result.getPositionCount();
         return result;
     }
 
@@ -529,6 +537,19 @@ public class HashAggregationOperator
 
     private void closeAggregationBuilder()
     {
+        if (aggregationBuilder instanceof SkipAggregationBuilder) {
+            inputRowsProcessedWithPartialAggregationDisabled += aggregationInputRowsProcessed;
+            operatorContext.setLatestMetrics(new Metrics(ImmutableMap.of(
+                    INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled))));
+            partialAggregationController.ifPresent(controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, OptionalLong.empty()));
+        }
+        else {
+            partialAggregationController.ifPresent(controller -> controller.onFlush(aggregationInputBytesProcessed, aggregationInputRowsProcessed, OptionalLong.of(aggregationUniqueRowsProduced)));
+        }
+        aggregationInputBytesProcessed = 0;
+        aggregationInputRowsProcessed = 0;
+        aggregationUniqueRowsProduced = 0;
+
         outputPages = null;
         if (aggregationBuilder != null) {
             aggregationBuilder.close();
@@ -537,10 +558,6 @@ public class HashAggregationOperator
             aggregationBuilder = null;
         }
         memoryContext.setBytes(0);
-        partialAggregationController.ifPresent(
-                controller -> controller.onFlush(numberOfInputRowsProcessed, numberOfUniqueRowsProduced));
-        numberOfInputRowsProcessed = 0;
-        numberOfUniqueRowsProduced = 0;
     }
 
     private Page getGlobalAggregationOutput()

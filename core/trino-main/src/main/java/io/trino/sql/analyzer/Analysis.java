@@ -89,7 +89,6 @@ import javax.annotation.concurrent.Immutable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -112,6 +111,7 @@ import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
@@ -212,9 +212,10 @@ public class Analysis
 
     private final Multiset<RowFilterScopeEntry> rowFilterScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, List<Expression>> rowFilters = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, List<Expression>>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -964,7 +965,7 @@ public class Analysis
     public Range getRange(RangeQuantifier quantifier)
     {
         Range range = ranges.get(NodeRef.of(quantifier));
-        checkNotNull(range, "missing range for quantifier ", quantifier);
+        checkNotNull(range, "missing range for quantifier %s", quantifier);
         return range;
     }
 
@@ -981,7 +982,7 @@ public class Analysis
     public Set<String> getUndefinedLabels(RowPattern pattern)
     {
         Set<String> labels = undefinedLabels.get(NodeRef.of(pattern));
-        checkNotNull(labels, "missing undefined labels for ", pattern);
+        checkNotNull(labels, "missing undefined labels for %s", pattern);
         return labels;
     }
 
@@ -1071,9 +1072,20 @@ public class Analysis
                 .add(filter);
     }
 
+    public void addCheckConstraints(Table table, Expression constraint)
+    {
+        checkConstraints.computeIfAbsent(NodeRef.of(table), node -> new ArrayList<>())
+                .add(constraint);
+    }
+
     public List<Expression> getRowFilters(Table node)
     {
-        return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+        return unmodifiableList(rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of()));
+    }
+
+    public List<Expression> getCheckConstraints(Table node)
+    {
+        return unmodifiableList(checkConstraints.getOrDefault(NodeRef.of(node), ImmutableList.of()));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)
@@ -1093,14 +1105,15 @@ public class Analysis
 
     public void addColumnMask(Table table, String column, Expression mask)
     {
-        Map<String, List<Expression>> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        masks.computeIfAbsent(column, name -> new ArrayList<>())
-                .add(mask);
+        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+
+        masks.put(column, mask);
     }
 
-    public Map<String, List<Expression>> getColumnMasks(Table table)
+    public Map<String, Expression> getColumnMasks(Table table)
     {
-        return columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of());
+        return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
 
     public List<TableInfo> getReferencedTables()
@@ -1118,10 +1131,8 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    columnMasks.getOrDefault(table, ImmutableMap.of())
-                                            .getOrDefault(fieldName, ImmutableList.of()).stream()
-                                            .map(Expression::toString)
-                                            .collect(toImmutableList())))
+                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                            .map(Expression::toString)))
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();
@@ -1141,8 +1152,8 @@ public class Analysis
 
     public List<RoutineInfo> getRoutines()
     {
-        return resolvedFunctions.entrySet().stream()
-                .map(entry -> new RoutineInfo(entry.getValue().function.getSignature().getName(), entry.getValue().getAuthorization()))
+        return resolvedFunctions.values().stream()
+                .map(value -> new RoutineInfo(value.function.getSignature().getName(), value.getAuthorization()))
                 .collect(toImmutableList());
     }
 
@@ -1462,15 +1473,15 @@ public class Analysis
     {
         private final List<Expression> originalExpressions;
 
-        private final List<Set<FieldId>> cubes;
-        private final List<List<FieldId>> rollups;
+        private final List<List<Set<FieldId>>> cubes;
+        private final List<List<Set<FieldId>>> rollups;
         private final List<List<Set<FieldId>>> ordinarySets;
         private final List<Expression> complexExpressions;
 
         public GroupingSetAnalysis(
                 List<Expression> originalExpressions,
-                List<Set<FieldId>> cubes,
-                List<List<FieldId>> rollups,
+                List<List<Set<FieldId>>> cubes,
+                List<List<Set<FieldId>>> rollups,
                 List<List<Set<FieldId>>> ordinarySets,
                 List<Expression> complexExpressions)
         {
@@ -1486,12 +1497,12 @@ public class Analysis
             return originalExpressions;
         }
 
-        public List<Set<FieldId>> getCubes()
+        public List<List<Set<FieldId>>> getCubes()
         {
             return cubes;
         }
 
-        public List<List<FieldId>> getRollups()
+        public List<List<Set<FieldId>>> getRollups()
         {
             return rollups;
         }
@@ -1509,8 +1520,12 @@ public class Analysis
         public Set<FieldId> getAllFields()
         {
             return Streams.concat(
-                    cubes.stream().flatMap(Collection::stream),
-                    rollups.stream().flatMap(Collection::stream),
+                    cubes.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
+                    rollups.stream()
+                            .flatMap(Collection::stream)
+                            .flatMap(Collection::stream),
                     ordinarySets.stream()
                             .flatMap(Collection::stream)
                             .flatMap(Collection::stream))
@@ -1572,22 +1587,22 @@ public class Analysis
 
         public List<InPredicate> getInPredicatesSubqueries()
         {
-            return Collections.unmodifiableList(inPredicatesSubqueries);
+            return unmodifiableList(inPredicatesSubqueries);
         }
 
         public List<SubqueryExpression> getSubqueries()
         {
-            return Collections.unmodifiableList(subqueries);
+            return unmodifiableList(subqueries);
         }
 
         public List<ExistsPredicate> getExistsSubqueries()
         {
-            return Collections.unmodifiableList(existsSubqueries);
+            return unmodifiableList(existsSubqueries);
         }
 
         public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries()
         {
-            return Collections.unmodifiableList(quantifiedComparisonSubqueries);
+            return unmodifiableList(quantifiedComparisonSubqueries);
         }
     }
 
@@ -2284,6 +2299,7 @@ public class Analysis
         /**
          * Proper columns are the columns produced by the table function, as opposed to pass-through columns from input tables.
          * Proper columns should be considered the actual result of the table function.
+         *
          * @return the number of table function's proper columns
          */
         public int getProperColumnsCount()

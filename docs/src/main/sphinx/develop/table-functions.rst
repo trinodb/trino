@@ -49,7 +49,7 @@ The constructor
 
 The constructor takes the following arguments:
 
-- schema name
+- **schema name**
 
 The schema name helps you organize functions, and it is used for function
 resolution. When a table function is invoked, the right implementation is
@@ -58,11 +58,57 @@ identified by the catalog name, the schema name, and the function name.
 The function can use the schema name, for example to use data from the
 indicated schema, or ignore it.
 
-- function name
-- list of expected arguments
+- **function name**
+- **list of expected arguments**
 
-You can specify default values for some arguments, and those arguments can be
-skipped during invocation:
+Three different types of arguments are supported: scalar arguments, descriptor
+arguments, and table arguments. See :ref:`tf-argument-types` for details. You can
+specify default values for scalar and descriptor arguments. The arguments with
+specified default can be skipped during table function invocation.
+
+- **returned row type**
+
+It describes the row type produced by the table function.
+
+If a table function takes table arguments, it can additionally pass the columns
+of the input tables to output using the *pass-through mechanism*. The returned
+row type is supposed to describe only the columns produced by the function, as
+opposed to the pass-through columns.
+
+In the example, the returned row type is ``GENERIC_TABLE``, which means that
+the row type is not known statically, and it is determined dynamically based on
+the passed arguments.
+
+When the returned row type is known statically, you can declare it using:
+
+.. code-block:: java
+
+    new DescribedTable(descriptor)
+
+If a table function does not produce any columns, and it only outputs the
+pass-through columns, use ``ONLY_PASS_THROUGH`` as the returned row type.
+
+.. note::
+
+    A table function must return at least one column. It can either be a proper
+    column, i.e. produced by the function, or a pass-through column.
+
+.. _tf-argument-types:
+
+Argument types
+^^^^^^^^^^^^^^
+
+Table functions take three types of arguments:
+:ref:`scalar arguments<tf-scalar-arguments>`,
+:ref:`descriptor arguments<tf-descriptor-arguments>`, and
+:ref:`table arguments<tf-table-arguments>`.
+
+.. _tf-scalar-arguments:
+
+Scalar arguments
+++++++++++++++++
+
+They can be of any supported data type. You can specify a default value.
 
 .. code-block:: java
 
@@ -72,9 +118,6 @@ skipped during invocation:
             .defaultValue(2)
             .build()
 
-If you do not specify the default value, the argument is required during
-invocation:
-
 .. code-block:: java
 
     ScalarArgumentSpecification.builder()
@@ -82,16 +125,74 @@ invocation:
             .type(INTEGER)
             .build()
 
-- returned row type
+.. _tf-descriptor-arguments:
 
-In the example, the returned row type is ``GENERIC_TABLE``, which means that
-the row type is not known statically, and it is determined dynamically based on
-the passed arguments. When the returned row type is known statically, you can
-declare it using:
+Descriptor arguments
+++++++++++++++++++++
+
+Descriptors consist of fields with names and optional data types. They are a
+convenient way to pass the required result row type to the function, or for
+example inform the function which input columns it should use. You can specify
+default values for descriptor arguments. Descriptor argument can be ``null``.
 
 .. code-block:: java
 
-    new DescribedTable(descriptor)
+    DescriptorArgumentSpecification.builder()
+            .name("SCHEMA")
+            .defaultValue(null)
+            .build()
+
+.. _tf-table-arguments:
+
+Table arguments
++++++++++++++++
+
+A table function can take any number of input relations. It allows you to
+process multiple data sources simultaneously.
+
+When declaring a table argument, you must specify characteristics to determine
+how the input table is processed. Also note that you cannot specify a default
+value for a table argument.
+
+.. code-block:: java
+
+    TableArgumentSpecification.builder()
+            .name("INPUT")
+            .rowSemantics()
+            .pruneWhenEmpty()
+            .passThroughColumns()
+            .build()
+
+.. _tf-set-or-row-semantics:
+
+Set or row semantics
+====================
+
+Set semantics is the default for table arguments. A table argument with set
+semantics is processed on a partition-by-partition basis. During function
+invocation, the user can specify partitioning and ordering for the argument. If
+no partitioning is specified, the argument is processed as a single partition.
+
+A table argument with row semantics is processed on a row-by-row basis.
+Partitioning or ordering is not applicable.
+
+Prune or keep when empty
+========================
+
+The *prune when empty* property indicates that if the given table argument is
+empty, the function returns empty result. This property is used to optimize
+queries involving table functions. The *keep when empty* property indicates
+that the function should be executed even if the table argument is empty. The
+user can override this property when invoking the function. Using the *keep
+when empty* property can negatively affect performance when the table argument
+is not empty.
+
+Pass-through columns
+====================
+
+If a table argument has *pass-through columns*, all of its columns are passed
+on output. For a table argument without this property, only the partitioning
+columns are passed on output.
 
 The ``analyze()`` method
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -127,6 +228,7 @@ is also the place to perform custom checks on the arguments:
 
         return TableFunctionAnalysis.builder()
                 .returnedType(returnedType)
+                .handle(new MyHandle(columnCount, rowCount))
                 .build();
     }
 
@@ -148,12 +250,35 @@ execute the table function invocation:
 Table function execution
 ------------------------
 
-Table functions are executed as pushdown to the connector. The connector that
-provides a table function should implement the ``applyTableFunction()`` method.
-This method is called during the optimization phase of query processing. It
-returns a ``ConnectorTableHandle`` and a list of ``ColumnHandle`` s
-representing the table function result. The table function invocation is then
-replaced with a ``TableScanNode``.
+There are two paths of execution available for table functions.
+
+1. Pushdown to the connector
+
+The connector that provides the table function implements the
+``applyTableFunction()`` method. This method is called during the optimization
+phase of query processing. It returns a ``ConnectorTableHandle`` and a list of
+``ColumnHandle`` s representing the table function result. The table function
+invocation is then replaced with a ``TableScanNode``.
+
+This execution path is convenient for table functions whose results are easy to
+represent as a ``ConnectorTableHandle``, for example query pass-through. It
+only supports scalar and descriptor arguments.
+
+2. Execution by operator
+
+Trino has a dedicated operator for table functions. It can handle table
+functions with any number of table arguments as well as scalar and descriptor
+arguments. To use this execution path, you provide an implementation of a
+processor.
+
+If your table function has one or more table arguments, you must implement
+``TableFunctionDataProcessor``. It processes pages of input data.
+
+If your table function is a source operator (it does not have table arguments),
+you must implement ``TableFunctionSplitProcessor``. It processes splits. The
+connector that provides the function must provide a ``ConnectorSplitSource``
+for the function. With splits, the task can be divided so that each split
+represents a subtask.
 
 Access control
 --------------

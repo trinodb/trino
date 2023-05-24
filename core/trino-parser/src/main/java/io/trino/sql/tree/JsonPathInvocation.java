@@ -29,6 +29,7 @@ public class JsonPathInvocation
     private final Expression inputExpression;
     private final JsonFormat inputFormat;
     private final StringLiteral jsonPath;
+    private final Optional<Identifier> pathName;
     private final List<JsonPathParameter> pathParameters;
 
     public JsonPathInvocation(
@@ -36,17 +37,20 @@ public class JsonPathInvocation
             Expression inputExpression,
             JsonFormat inputFormat,
             StringLiteral jsonPath,
+            Optional<Identifier> pathName,
             List<JsonPathParameter> pathParameters)
     {
         super(location);
         requireNonNull(inputExpression, "inputExpression is null");
         requireNonNull(inputFormat, "inputFormat is null");
         requireNonNull(jsonPath, "jsonPath is null");
+        requireNonNull(pathName, "pathName is null");
         requireNonNull(pathParameters, "pathParameters is null");
 
         this.inputExpression = inputExpression;
         this.inputFormat = inputFormat;
         this.jsonPath = jsonPath;
+        this.pathName = pathName;
         this.pathParameters = ImmutableList.copyOf(pathParameters);
     }
 
@@ -63,6 +67,11 @@ public class JsonPathInvocation
     public StringLiteral getJsonPath()
     {
         return jsonPath;
+    }
+
+    public Optional<Identifier> getPathName()
+    {
+        return pathName;
     }
 
     public List<JsonPathParameter> getPathParameters()
@@ -82,7 +91,7 @@ public class JsonPathInvocation
         ImmutableList.Builder<Node> children = ImmutableList.builder();
         children.add(inputExpression);
         children.add(jsonPath);
-        pathParameters.stream()
+        pathParameters
                 .forEach(children::add);
         return children.build();
     }
@@ -101,13 +110,14 @@ public class JsonPathInvocation
         return Objects.equals(inputExpression, that.inputExpression) &&
                 inputFormat == that.inputFormat &&
                 Objects.equals(jsonPath, that.jsonPath) &&
+                Objects.equals(pathName, that.pathName) &&
                 Objects.equals(pathParameters, that.pathParameters);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(inputExpression, inputFormat, jsonPath, pathParameters);
+        return Objects.hash(inputExpression, inputFormat, jsonPath, pathName, pathParameters);
     }
 
     @Override
@@ -117,7 +127,9 @@ public class JsonPathInvocation
             return false;
         }
 
-        return inputFormat == ((JsonPathInvocation) other).inputFormat;
+        JsonPathInvocation otherInvocation = (JsonPathInvocation) other;
+        return inputFormat == otherInvocation.inputFormat &&
+                pathName.equals(otherInvocation.getPathName());
     }
 
     @Override

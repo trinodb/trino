@@ -24,7 +24,7 @@ import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder
 import javax.inject.Inject;
 import javax.inject.Provider;
 
-import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
+import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static java.lang.String.format;
 
 public class GlueCredentialsProvider

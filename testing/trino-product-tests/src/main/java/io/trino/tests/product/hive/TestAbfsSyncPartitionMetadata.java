@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.AZURE;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -56,7 +56,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartition()
     {
@@ -64,7 +64,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testAddPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -72,7 +72,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartition()
     {
@@ -80,7 +80,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testDropPartitionContainingCharactersThatNeedUrlEncoding()
     {
@@ -88,7 +88,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testFullSyncPartition()
     {
@@ -96,7 +96,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testInvalidSyncMode()
     {
@@ -104,7 +104,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testMixedCasePartitionNames()
     {
@@ -112,7 +112,7 @@ public class TestAbfsSyncPartitionMetadata
     }
 
     @Test(groups = AZURE)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     @Override
     public void testConflictingMixedCasePartitionNames()
     {

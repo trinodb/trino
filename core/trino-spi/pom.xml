@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406-SNAPSHOT</version>
+        <version>419-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <released-artifacts.dir>${project.build.directory}/released-artifacts</released-artifacts.dir>
+        <trino.check.skip-revapi>${air.check.skip-basic}</trino.check.skip-revapi>
     </properties>
 
     <!-- the SPI should have only minimal dependencies -->
@@ -36,8 +37,20 @@
         </dependency>
 
         <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- for testing -->
@@ -160,12 +173,12 @@
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
-                <version>0.14.7</version>
+                <version>0.15.0</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.revapi</groupId>
                         <artifactId>revapi-java</artifactId>
-                        <version>0.27.0</version>
+                        <version>0.28.1</version>
                     </dependency>
                 </dependencies>
                 <executions>
@@ -176,6 +189,7 @@
                     </execution>
                 </executions>
                 <configuration>
+                    <skip>${trino.check.skip-revapi}</skip>
                     <ignoreSuggestionsFormat>xml</ignoreSuggestionsFormat>
                     <analysisConfiguration>
                         <revapi.filter>
@@ -221,17 +235,43 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean io.trino.spi.connector.MaterializedViewFreshness::isMaterializedViewFresh()</old>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.ptf.TableFunctionSplitProcessor</old>
+                                    <justification>It is just marked @Experimental</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.visibilityReduced</code>
-                                    <old>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</old>
-                                    <new>method java.lang.invoke.MethodHandle io.trino.spi.predicate.Range::getComparisonOperator(io.trino.spi.type.Type)</new>
-                                    <oldVisibility>protected</oldVisibility>
-                                    <newVisibility>package</newVisibility>
-                                    <justification>It was not accessible outside of SPI anyway</justification>
+                                    <code>java.class.removed</code>
+                                    <old>enum io.trino.spi.ptf.EmptyTableFunctionHandle</old>
+                                    <justification>Default implementation should not be used, as ConnectorTableHandle represents table function identity.</justification>
+                                </item>
+                                <item>
+                                    <regex>true</regex>
+                                    <code>java.class.externalClassExposedInAPI</code>
+                                    <newArchive>io.opentelemetry:opentelemetry-(api|context):.*</newArchive>
+                                    <justification>Trino SPI depends on OpenTelemetry</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlock</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlockBuilder</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.Int96ArrayBlockEncoding</old>
+                                    <justification>Int96Array renamed to Fixed12 since this is never used as a number</justification>
+                                </item>
+                                <item>
+                                    <code>java.method.finalMethodAddedToNonFinalClass</code>
+                                    <new>method int io.trino.spi.type.AbstractIntType::getInt(io.trino.spi.block.Block, int)</new>
                                 </item>
                             </differences>
                         </revapi.differences>

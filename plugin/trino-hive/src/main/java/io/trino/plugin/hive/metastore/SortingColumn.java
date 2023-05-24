@@ -20,6 +20,7 @@ import io.trino.spi.connector.SortOrder;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.util.Locale;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -90,9 +91,11 @@ public class SortingColumn
         return order;
     }
 
-    public static SortingColumn fromMetastoreApiOrder(org.apache.hadoop.hive.metastore.api.Order order, String tablePartitionName)
+    public static SortingColumn fromMetastoreApiOrder(io.trino.hive.thrift.metastore.Order order, String tablePartitionName)
     {
-        return new SortingColumn(order.getCol(), Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
+        // Ensure that the names used for the bucket columns are specified in lower case to match the names of the table columns
+        String orderColumnName = order.getCol().toLowerCase(Locale.ENGLISH);
+        return new SortingColumn(orderColumnName, Order.fromMetastoreApiOrder(order.getOrder(), tablePartitionName));
     }
 
     @Override

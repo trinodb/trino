@@ -40,7 +40,6 @@ public class TableExecuteNode
     private final List<Symbol> columns;
     private final List<String> columnNames;
     private final Optional<PartitioningScheme> partitioningScheme;
-    private final Optional<PartitioningScheme> preferredPartitioningScheme;
     private final List<Symbol> outputs;
 
     @JsonCreator
@@ -52,8 +51,7 @@ public class TableExecuteNode
             @JsonProperty("fragmentSymbol") Symbol fragmentSymbol,
             @JsonProperty("columns") List<Symbol> columns,
             @JsonProperty("columnNames") List<String> columnNames,
-            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme,
-            @JsonProperty("preferredPartitioningScheme") Optional<PartitioningScheme> preferredPartitioningScheme)
+            @JsonProperty("partitioningScheme") Optional<PartitioningScheme> partitioningScheme)
     {
         super(id);
 
@@ -68,8 +66,6 @@ public class TableExecuteNode
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
-        this.preferredPartitioningScheme = requireNonNull(preferredPartitioningScheme, "preferredPartitioningScheme is null");
-        checkArgument(partitioningScheme.isEmpty() || preferredPartitioningScheme.isEmpty(), "Both partitioningScheme and preferredPartitioningScheme cannot be present");
 
         ImmutableList.Builder<Symbol> outputs = ImmutableList.<Symbol>builder()
                 .add(rowCountSymbol)
@@ -119,12 +115,6 @@ public class TableExecuteNode
         return partitioningScheme;
     }
 
-    @JsonProperty
-    public Optional<PartitioningScheme> getPreferredPartitioningScheme()
-    {
-        return preferredPartitioningScheme;
-    }
-
     @Override
     public List<PlanNode> getSources()
     {
@@ -154,7 +144,6 @@ public class TableExecuteNode
                 fragmentSymbol,
                 columns,
                 columnNames,
-                partitioningScheme,
-                preferredPartitioningScheme);
+                partitioningScheme);
     }
 }

@@ -22,7 +22,6 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.Map;
@@ -30,20 +29,22 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.LONG_INSTANCE_SIZE;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DeltaLakeSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(DeltaLakeSplit.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(DeltaLakeSplit.class);
 
     private final String path;
     private final long start;
     private final long length;
     private final long fileSize;
+    private final Optional<Long> fileRowCount;
     private final long fileModifiedTime;
     private final List<HostAddress> addresses;
     private final SplitWeight splitWeight;
@@ -56,6 +57,7 @@ public class DeltaLakeSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
+            @JsonProperty("rowCount") Optional<Long> fileRowCount,
             @JsonProperty("fileModifiedTime") long fileModifiedTime,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("splitWeight") SplitWeight splitWeight,
@@ -66,6 +68,7 @@ public class DeltaLakeSplit
         this.start = start;
         this.length = length;
         this.fileSize = fileSize;
+        this.fileRowCount = requireNonNull(fileRowCount, "rowCount is null");
         this.fileModifiedTime = fileModifiedTime;
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
@@ -118,6 +121,12 @@ public class DeltaLakeSplit
     }
 
     @JsonProperty
+    public Optional<Long> getFileRowCount()
+    {
+        return fileRowCount;
+    }
+
+    @JsonProperty
     public long getFileModifiedTime()
     {
         return fileModifiedTime;
@@ -143,6 +152,7 @@ public class DeltaLakeSplit
     {
         return INSTANCE_SIZE
                 + estimatedSizeOf(path)
+                + sizeOf(fileRowCount, value -> LONG_INSTANCE_SIZE)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
                 + splitWeight.getRetainedSizeInBytes()
                 + statisticsPredicate.getRetainedSizeInBytes(DeltaLakeColumnHandle::getRetainedSizeInBytes)
@@ -167,6 +177,7 @@ public class DeltaLakeSplit
                 .add("start", start)
                 .add("length", length)
                 .add("fileSize", fileSize)
+                .add("rowCount", fileRowCount)
                 .add("addresses", addresses)
                 .add("statisticsPredicate", statisticsPredicate)
                 .add("partitionKeys", partitionKeys)
@@ -187,6 +198,7 @@ public class DeltaLakeSplit
                 length == that.length &&
                 fileSize == that.fileSize &&
                 path.equals(that.path) &&
+                fileRowCount.equals(that.fileRowCount) &&
                 addresses.equals(that.addresses) &&
                 Objects.equals(statisticsPredicate, that.statisticsPredicate) &&
                 Objects.equals(partitionKeys, that.partitionKeys);
@@ -195,6 +207,6 @@ public class DeltaLakeSplit
     @Override
     public int hashCode()
     {
-        return Objects.hash(path, start, length, fileSize, addresses, statisticsPredicate, partitionKeys);
+        return Objects.hash(path, start, length, fileSize, fileRowCount, addresses, statisticsPredicate, partitionKeys);
     }
 }

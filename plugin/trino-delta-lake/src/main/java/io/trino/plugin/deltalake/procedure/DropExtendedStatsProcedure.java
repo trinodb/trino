@@ -15,6 +15,7 @@ package io.trino.plugin.deltalake.procedure;
 
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
+import io.trino.plugin.deltalake.LocatedTableHandle;
 import io.trino.plugin.deltalake.statistics.ExtendedStatisticsAccess;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -79,10 +80,11 @@ public class DropExtendedStatsProcedure
 
         SchemaTableName name = new SchemaTableName(schema, table);
         DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
-        if (metadata.getTableHandle(session, name) == null) {
+        LocatedTableHandle tableHandle = metadata.getTableHandle(session, name);
+        if (tableHandle == null) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", name));
         }
         accessControl.checkCanInsertIntoTable(null, name);
-        statsAccess.deleteExtendedStatistics(session, metadata.getMetastore().getTableLocation(name, session));
+        statsAccess.deleteExtendedStatistics(session, tableHandle.location());
     }
 }

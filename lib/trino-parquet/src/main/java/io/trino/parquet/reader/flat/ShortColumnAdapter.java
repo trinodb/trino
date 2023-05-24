@@ -13,10 +13,14 @@
  */
 package io.trino.parquet.reader.flat;
 
+import com.google.common.primitives.Shorts;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ShortArrayBlock;
 
+import java.util.List;
 import java.util.Optional;
+
+import static io.airlift.slice.SizeOf.sizeOf;
 
 public class ShortColumnAdapter
         implements ColumnAdapter<short[]>
@@ -53,5 +57,17 @@ public class ShortColumnAdapter
         for (int i = 0; i < length; i++) {
             values[offset + i] = dictionary[ids[i]];
         }
+    }
+
+    @Override
+    public long getSizeInBytes(short[] values)
+    {
+        return sizeOf(values);
+    }
+
+    @Override
+    public short[] merge(List<short[]> buffers)
+    {
+        return Shorts.concat(buffers.toArray(short[][]::new));
     }
 }

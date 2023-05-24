@@ -13,7 +13,9 @@
  */
 package io.trino.sql.analyzer;
 
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Expression;
@@ -31,19 +33,22 @@ public class AnalyzerFactory
 {
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatementRewrite statementRewrite;
+    private final Tracer tracer;
 
     @Inject
-    public AnalyzerFactory(StatementAnalyzerFactory statementAnalyzerFactory, StatementRewrite statementRewrite)
+    public AnalyzerFactory(StatementAnalyzerFactory statementAnalyzerFactory, StatementRewrite statementRewrite, Tracer tracer)
     {
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statementRewrite = requireNonNull(statementRewrite, "statementRewrite is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     public Analyzer createAnalyzer(
             Session session,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         return new Analyzer(
                 session,
@@ -52,6 +57,8 @@ public class AnalyzerFactory
                 parameters,
                 parameterLookup,
                 warningCollector,
+                planOptimizersStatsCollector,
+                tracer,
                 statementRewrite);
     }
 }

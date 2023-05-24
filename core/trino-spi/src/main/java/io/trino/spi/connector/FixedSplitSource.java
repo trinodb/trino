@@ -29,6 +29,16 @@ public class FixedSplitSource
     private final Optional<List<Object>> tableExecuteSplitsInfo;
     private int offset;
 
+    public static FixedSplitSource emptySplitSource()
+    {
+        return new FixedSplitSource(List.of());
+    }
+
+    public FixedSplitSource(ConnectorSplit split)
+    {
+        this(List.of(split));
+    }
+
     public FixedSplitSource(Iterable<? extends ConnectorSplit> splits)
     {
         this(splits, Optional.empty());

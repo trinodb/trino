@@ -48,7 +48,6 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.type.Decimals.isLongDecimal;
 import static java.util.Objects.requireNonNull;
 
 public final class BlackHolePageSourceProvider
@@ -133,7 +132,7 @@ public final class BlackHolePageSourceProvider
                 requireNonNull(slice, "slice is null");
                 type.writeSlice(builder, slice, 0, slice.length());
             }
-            else if (isLongDecimal(type)) {
+            else if (type instanceof DecimalType decimalType && !decimalType.isShort()) {
                 type.writeObject(builder, Int128.ZERO);
             }
             else {

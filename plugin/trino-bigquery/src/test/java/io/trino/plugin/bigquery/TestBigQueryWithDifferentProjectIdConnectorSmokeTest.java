@@ -14,9 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -26,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
-        extends BaseConnectorSmokeTest
+        extends BaseBigQueryConnectorSmokeTest
 {
     private static final String ALTERNATE_PROJECT_CATALOG = "bigquery";
     private static final String SERVICE_ACCOUNT_CATALOG = "service_account_bigquery";
@@ -45,22 +43,6 @@ public class TestBigQueryWithDifferentProjectIdConnectorSmokeTest
                 REQUIRED_TPCH_TABLES);
         queryRunner.createCatalog(SERVICE_ACCOUNT_CATALOG, "bigquery", Map.of());
         return queryRunner;
-    }
-
-    @SuppressWarnings("DuplicateBranchesInSwitch")
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
-    {
-        switch (connectorBehavior) {
-            case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
     }
 
     @Test

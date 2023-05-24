@@ -110,12 +110,20 @@ public class DeltaLakeParquetStatisticsUtils
             return (long) (int) jsonValue;
         }
         if (type == BIGINT) {
-            return (long) (int) jsonValue;
+            if (jsonValue instanceof Long) {
+                //noinspection RedundantCast
+                return (long) jsonValue;
+            }
+            if (jsonValue instanceof Integer) {
+                return (long) (int) jsonValue;
+            }
+            throw new IllegalArgumentException("Unexpected value for bigint type: " + jsonValue);
         }
         if (type == REAL) {
             return (long) floatToRawIntBits((float) (double) jsonValue);
         }
         if (type == DOUBLE) {
+            //noinspection RedundantCast
             return (double) jsonValue;
         }
         if (type instanceof DecimalType decimalType) {

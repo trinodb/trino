@@ -353,7 +353,7 @@ public class TestEventListenerBasic
 
         ColumnInfo column = table.getColumns().get(0);
         assertEquals(column.getColumn(), "linenumber");
-        assertTrue(column.getMasks().isEmpty());
+        assertTrue(column.getMask().isEmpty());
 
         List<RoutineInfo> routines = event.getMetadata().getRoutines();
         assertEquals(tables.size(), 1);
@@ -385,7 +385,7 @@ public class TestEventListenerBasic
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
 
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
@@ -398,7 +398,7 @@ public class TestEventListenerBasic
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
     }
 
     @Test
@@ -422,7 +422,7 @@ public class TestEventListenerBasic
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("nationkey");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
 
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
@@ -435,7 +435,7 @@ public class TestEventListenerBasic
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_column");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
     }
 
     @Test
@@ -522,7 +522,7 @@ public class TestEventListenerBasic
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("name");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
 
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
@@ -535,7 +535,7 @@ public class TestEventListenerBasic
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
     }
 
     @Test
@@ -570,7 +570,7 @@ public class TestEventListenerBasic
 
         ColumnInfo column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("orderkey");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
 
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
@@ -583,11 +583,11 @@ public class TestEventListenerBasic
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_varchar");
-        assertThat(column.getMasks()).hasSize(1);
+        assertThat(column.getMask()).isPresent();
 
         column = table.getColumns().get(1);
         assertThat(column.getColumn()).isEqualTo("test_bigint");
-        assertThat(column.getMasks()).isEmpty();
+        assertThat(column.getMask()).isEmpty();
     }
 
     @Test
@@ -729,6 +729,7 @@ public class TestEventListenerBasic
         assertEquals(statistics.getOutputRows(), queryStats.getOutputPositions());
         assertEquals(statistics.getWrittenBytes(), queryStats.getLogicalWrittenDataSize().toBytes());
         assertEquals(statistics.getWrittenRows(), queryStats.getWrittenPositions());
+        assertEquals(statistics.getSpilledBytes(), queryStats.getSpilledDataSize().toBytes());
         assertEquals(statistics.getCumulativeMemory(), queryStats.getCumulativeUserMemory());
         assertEquals(statistics.getStageGcStatistics(), queryStats.getStageGcStatistics());
         assertEquals(statistics.getCompletedSplits(), queryStats.getCompletedDrivers());

@@ -198,6 +198,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_NAVIGATION_NESTING;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
 import static io.trino.spi.StandardErrorCode.INVALID_PATTERN_RECOGNITION_FUNCTION;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCESSING_MODE;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
@@ -226,7 +227,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.createTimeType;
-import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_TZ_MILLIS;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -627,7 +628,7 @@ public class ExpressionAnalyzer
                     if (node.getPrecision() != null) {
                         yield setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
                     }
-                    yield setExpressionType(node, TIME_WITH_TIME_ZONE);
+                    yield setExpressionType(node, TIME_TZ_MILLIS);
                 }
                 case LOCALTIME -> {
                     if (node.getPrecision() != null) {
@@ -746,11 +747,10 @@ public class ExpressionAnalyzer
             }
 
             Type baseType = process(node.getBase(), context);
-            if (!(baseType instanceof RowType)) {
+            if (!(baseType instanceof RowType rowType)) {
                 throw semanticException(TYPE_MISMATCH, node.getBase(), "Expression %s is not of type ROW", node.getBase());
             }
 
-            RowType rowType = (RowType) baseType;
             Identifier field = node.getField().orElseThrow();
             String fieldName = field.getValue();
 
@@ -1064,7 +1064,7 @@ public class ExpressionAnalyzer
                 parseResult = Decimals.parse(node.getValue());
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid decimal literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid DECIMAL literal", node.getValue());
             }
             return setExpressionType(node, parseResult.getType());
         }
@@ -1101,7 +1101,7 @@ public class ExpressionAnalyzer
                 literalInterpreter.evaluate(node, type);
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName().toUpperCase(ENGLISH));
             }
 
             return setExpressionType(node, type);
@@ -1127,7 +1127,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (IllegalArgumentException e) {
-                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid TIME literal", node.getValue());
             }
 
             return setExpressionType(node, type);
@@ -1153,7 +1153,7 @@ public class ExpressionAnalyzer
                 throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (Exception e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid timestamp literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid TIMESTAMP literal", node.getValue());
             }
 
             return setExpressionType(node, type);
@@ -1173,7 +1173,7 @@ public class ExpressionAnalyzer
                 literalInterpreter.evaluate(node, type);
             }
             catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid interval literal", node.getValue());
+                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid INTERVAL literal", node.getValue());
             }
             return setExpressionType(node, type);
         }
@@ -1294,7 +1294,9 @@ public class ExpressionAnalyzer
             for (int i = 0; i < argumentTypes.size(); i++) {
                 Expression expression = node.getArguments().get(i);
                 Type expectedType = signature.getArgumentTypes().get(i);
-                requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                if (expectedType == null) {
+                    throw new NullPointerException(format("Type '%s' not found", signature.getArgumentTypes().get(i)));
+                }
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
                 }
@@ -1711,10 +1713,9 @@ public class ExpressionAnalyzer
                     }
                     if (node.getArguments().size() == 1) {
                         Node argument = node.getArguments().get(0);
-                        if (!(argument instanceof Identifier)) {
+                        if (!(argument instanceof Identifier identifier)) {
                             throw semanticException(TYPE_MISMATCH, argument, "CLASSIFIER function argument should be primary pattern variable or subset name. Actual: %s", argument.getClass().getSimpleName());
                         }
-                        Identifier identifier = (Identifier) argument;
                         String label = label(identifier);
                         if (!context.getContext().getLabels().contains(label)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "%s is not a primary pattern variable or subset name", identifier.getValue());
@@ -2251,8 +2252,7 @@ public class ExpressionAnalyzer
                         });
             }
 
-            if (valueList instanceof InListExpression) {
-                InListExpression inListExpression = (InListExpression) valueList;
+            if (valueList instanceof InListExpression inListExpression) {
                 Type type = coerceToSingleType(context,
                         "IN value and list items",
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
@@ -2688,6 +2688,10 @@ public class ExpressionAnalyzer
 
         private List<Type> analyzeJsonPathInvocation(String functionName, Expression node, JsonPathInvocation jsonPathInvocation, StackableAstVisitorContext<Context> context)
         {
+            jsonPathInvocation.getPathName().ifPresent(pathName -> {
+                throw semanticException(INVALID_PATH, pathName, "JSON path name is not allowed in %s function", functionName);
+            });
+
             // ANALYZE THE CONTEXT ITEM
             // analyze context item type
             Expression inputExpression = jsonPathInvocation.getInputExpression();

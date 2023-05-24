@@ -132,12 +132,6 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName, Map<String, Object> properties)
     {
-        checkCanCreateSchema(context, schemaName);
-    }
-
-    @Override
-    public void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
-    {
         if (!isAdmin(context)) {
             denyCreateSchema(schemaName);
         }
@@ -635,6 +629,12 @@ public class SqlStandardAccessControl
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.empty();
     }
 
     @Override

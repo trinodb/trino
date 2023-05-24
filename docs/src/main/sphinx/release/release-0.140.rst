@@ -13,7 +13,7 @@ General
   ``QueryCompletionEvent``.
 * Fix race which can cause queries to fail with a ``REMOTE_TASK_ERROR``.
 * Optimize :func:`array_distinct` for ``array(bigint)``.
-* Optimize ``>`` operator for :ref:`array_type`.
+* Optimize ``>`` operator for :ref:`array-type`.
 * Fix an optimization issue that could result in non-deterministic functions
   being evaluated more than once producing unexpected results.
 * Fix incorrect result for rare ``IN`` lists that contain certain combinations

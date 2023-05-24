@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
@@ -64,7 +65,6 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
-import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
@@ -108,13 +108,13 @@ import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.TableArgumentProperties;
+import io.trino.sql.planner.plan.TableFunctionProcessorNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
-import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
@@ -446,6 +446,11 @@ public class PlanPrinter
         TypeProvider typeProvider = getTypeProvider(allFragments);
 
         builder.append(format("Trino version: %s\n", version));
+        builder.append(format("Queued: %s, Analysis: %s, Planning: %s, Execution: %s\n",
+                queryStats.getQueuedTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getAnalysisTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getPlanningTime().convertToMostSuccinctTimeUnit(),
+                queryStats.getExecutionTime().convertToMostSuccinctTimeUnit()));
 
         for (StageInfo stageInfo : allStages) {
             builder.append(formatFragment(
@@ -551,7 +556,7 @@ public class PlanPrinter
             }
         }
 
-        PartitioningScheme partitioningScheme = fragment.getPartitioningScheme();
+        PartitioningScheme partitioningScheme = fragment.getOutputPartitioningScheme();
         List<String> layout = partitioningScheme.getOutputLayout().stream()
                 .map(anonymizer::anonymize)
                 .collect(toImmutableList());
@@ -584,6 +589,8 @@ public class PlanPrinter
                     Joiner.on(", ").join(arguments),
                     hashColumn));
         }
+
+        fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sPartition count: %s\n", indentString(1), partitionCount)));
 
         builder.append(
                         new PlanPrinter(
@@ -632,6 +639,7 @@ public class PlanPrinter
                 plan,
                 types.allTypes(),
                 SINGLE_DISTRIBUTION,
+                Optional.empty(),
                 ImmutableList.of(plan.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
                 StatsAndCosts.empty(),
@@ -976,7 +984,7 @@ public class PlanPrinter
                     context.tag());
 
             if (node.getCommonBaseFrame().isPresent()) {
-                nodeOutput.appendDetails("base frame: " + formatFrame(node.getCommonBaseFrame().get()));
+                nodeOutput.appendDetails("base frame: %s", formatFrame(node.getCommonBaseFrame().get()));
             }
             for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
@@ -995,17 +1003,17 @@ public class PlanPrinter
                 appendValuePointers(nodeOutput, entry.getValue().getExpressionAndValuePointers());
             }
             if (node.getRowsPerMatch() != WINDOW) {
-                nodeOutput.appendDetails(formatRowsPerMatch(node.getRowsPerMatch()));
+                nodeOutput.appendDetails("%s", formatRowsPerMatch(node.getRowsPerMatch()));
             }
-            nodeOutput.appendDetails(formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
-            nodeOutput.appendDetails(format("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK"));
-            nodeOutput.appendDetails(format("subsets[%s]", node.getSubsets().entrySet().stream()
+            nodeOutput.appendDetails("%s", formatSkipTo(node.getSkipToPosition(), node.getSkipToLabel()));
+            nodeOutput.appendDetails("pattern[%s] (%s)", node.getPattern(), node.isInitial() ? "INITIAL" : "SEEK");
+            nodeOutput.appendDetails("subsets[%s]", node.getSubsets().entrySet().stream()
                     .map(subset -> subset.getKey().getName() +
                             " := " +
                             subset.getValue().stream()
                                     .map(IrLabel::getName)
                                     .collect(Collectors.joining(", ", "{", "}")))
-                    .collect(joining(", "))));
+                    .collect(joining(", ")));
             for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
                 appendValuePointers(nodeOutput, entry.getValue());
@@ -1024,22 +1032,20 @@ public class PlanPrinter
                 }
                 ValuePointer pointer = expressionAndPointers.getValuePointers().get(i);
 
-                if (pointer instanceof ScalarValuePointer) {
-                    ScalarValuePointer scalarPointer = (ScalarValuePointer) pointer;
+                if (pointer instanceof ScalarValuePointer scalarPointer) {
                     String sourceSymbolName = expressionAndPointers.getClassifierSymbols().contains(symbol)
                             ? "classifier"
                             : anonymizer.anonymize(scalarPointer.getInputSymbol());
-                    nodeOutput.appendDetails(indentString(1) + anonymizer.anonymize(symbol) + " := " + sourceSymbolName + "[" + formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()) + "]");
+                    nodeOutput.appendDetails("%s%s := %s[%s]", indentString(1), anonymizer.anonymize(symbol), sourceSymbolName, formatLogicalIndexPointer(scalarPointer.getLogicalIndexPointer()));
                 }
-                else if (pointer instanceof AggregationValuePointer) {
-                    AggregationValuePointer aggregationPointer = (AggregationValuePointer) pointer;
+                else if (pointer instanceof AggregationValuePointer aggregationPointer) {
                     String processingMode = aggregationPointer.getSetDescriptor().isRunning() ? "RUNNING " : "FINAL ";
                     String name = aggregationPointer.getFunction().getSignature().getName();
                     String arguments = Joiner.on(", ").join(anonymizeExpressions(aggregationPointer.getArguments()));
                     String labels = aggregationPointer.getSetDescriptor().getLabels().stream()
                             .map(IrLabel::getName)
                             .collect(joining(", ", "{", "}"));
-                    nodeOutput.appendDetails(indentString(1) + anonymizer.anonymize(symbol) + " := " + processingMode + name + "(" + arguments + ")" + labels);
+                    nodeOutput.appendDetails("%s%s := %s%s(%s)%s", indentString(1), anonymizer.anonymize(symbol), processingMode, name, arguments, labels);
                 }
                 else {
                     throw new UnsupportedOperationException("unexpected ValuePointer type: " + pointer.getClass().getSimpleName());
@@ -1168,15 +1174,16 @@ public class PlanPrinter
             printTableScanInfo(nodeOutput, node, tableInfo);
             PlanNodeStats nodeStats = stats.map(s -> s.get(node.getId())).orElse(null);
             if (nodeStats != null) {
-                String inputDetail = "Input: %s (%s)";
-                if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                    inputDetail += ", Physical Input: %s";
-                }
-                nodeOutput.appendDetails(
-                        inputDetail,
+                StringBuilder inputDetailBuilder = new StringBuilder();
+                ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+                buildFormatString(
+                        inputDetailBuilder,
+                        argsBuilder,
+                        "Input: %s (%s)",
                         formatPositions(nodeStats.getPlanNodeInputPositions()),
-                        nodeStats.getPlanNodeInputDataSize().toString(),
-                        nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                        nodeStats.getPlanNodeInputDataSize().toString());
+                addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
+                appendDetailsFromBuilder(nodeOutput, inputDetailBuilder, argsBuilder);
             }
             return null;
         }
@@ -1203,7 +1210,7 @@ public class PlanPrinter
                     })
                     .collect(toImmutableList());
             for (String row : rows) {
-                nodeOutput.appendDetails(row);
+                nodeOutput.appendDetails("%s", row);
             }
             return null;
         }
@@ -1296,16 +1303,17 @@ public class PlanPrinter
                 if (nodeStats != null) {
                     // Add to 'details' rather than 'statistics', since these stats are node-specific
                     double filtered = 100.0d * (nodeStats.getPlanNodeInputPositions() - nodeStats.getPlanNodeOutputPositions()) / nodeStats.getPlanNodeInputPositions();
-                    String inputDetail = "Input: %s (%s), Filtered: %s%%";
-                    if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
-                        inputDetail += ", Physical Input: %s";
-                    }
-                    nodeOutput.appendDetails(
-                            inputDetail,
+                    StringBuilder inputDetailBuilder = new StringBuilder();
+                    ImmutableList.Builder<String> argsBuilder = ImmutableList.builder();
+                    buildFormatString(
+                            inputDetailBuilder,
+                            argsBuilder,
+                            "Input: %s (%s), Filtered: %s%%",
                             formatPositions(nodeStats.getPlanNodeInputPositions()),
                             nodeStats.getPlanNodeInputDataSize().toString(),
-                            formatDouble(filtered),
-                            nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                            formatDouble(filtered));
+                    addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
+                    appendDetailsFromBuilder(nodeOutput, inputDetailBuilder, argsBuilder);
                 }
                 List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
                         .map(DynamicFilters.Descriptor::getId)
@@ -1333,6 +1341,31 @@ public class PlanPrinter
 
             sourceNode.accept(this, new Context());
             return null;
+        }
+
+        private static void addPhysicalInputStats(PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
+        {
+            if (nodeStats.getPlanNodePhysicalInputDataSize().toBytes() > 0) {
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input: %s", nodeStats.getPlanNodePhysicalInputDataSize().toString());
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+            }
+            // Some connectors may report physical input time but not physical input data size
+            else if (nodeStats.getPlanNodePhysicalInputReadTime().getValue() > 0) {
+                buildFormatString(inputDetailBuilder, argsBuilder, ", Physical input time: %s", nodeStats.getPlanNodePhysicalInputReadTime().toString());
+            }
+        }
+
+        @FormatMethod
+        private static void buildFormatString(StringBuilder formatBuilder, ImmutableList.Builder<String> argsBuilder, String formatFragment, String... fragmentArgs)
+        {
+            formatBuilder.append(formatFragment);
+            argsBuilder.add(fragmentArgs);
+        }
+
+        @SuppressWarnings("FormatStringAnnotation") // verified by building the format and args using #buildFormatString
+        private void appendDetailsFromBuilder(NodeRepresentation nodeOutput, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
+        {
+            nodeOutput.appendDetails(inputDetailBuilder.toString(), argsBuilder.build().toArray());
         }
 
         private String printDynamicFilters(Collection<DynamicFilters.Descriptor> filters)
@@ -1558,7 +1591,7 @@ public class PlanPrinter
         {
             nodeOutput.appendDetails("Collected statistics:");
             printStatisticAggregationsInfo(nodeOutput, descriptor.getTableStatistics(), descriptor.getColumnStatistics(), aggregations.getAggregations());
-            nodeOutput.appendDetails(indentString(1) + "grouped by => [%s]", getStatisticGroupingSetsInfo(descriptor.getGrouping()));
+            nodeOutput.appendDetails("%sgrouped by => [%s]", indentString(1), getStatisticGroupingSetsInfo(descriptor.getGrouping()));
         }
 
         private String getStatisticGroupingSetsInfo(Map<String, Symbol> columnMappings)
@@ -1576,7 +1609,8 @@ public class PlanPrinter
         {
             nodeOutput.appendDetails("aggregations =>");
             for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
-                nodeOutput.appendDetails(indentString(1) + "%s => [%s := %s]",
+                nodeOutput.appendDetails("%s%s => [%s := %s]",
+                        indentString(1),
                         anonymizer.anonymize(tableStatistic.getValue()),
                         tableStatistic.getKey(),
                         formatAggregation(anonymizer, aggregations.get(tableStatistic.getValue())));
@@ -1597,7 +1631,8 @@ public class PlanPrinter
                     }
                 }
                 nodeOutput.appendDetails(
-                        indentString(1) + "%s[%s] => [%s := %s]",
+                        "%s%s[%s] => [%s := %s]",
+                        indentString(1),
                         aggregationName,
                         anonymizer.anonymizeColumn(columnStatistic.getKey().getColumnName()),
                         anonymizer.anonymize(columnStatistic.getValue()),
@@ -1641,33 +1676,11 @@ public class PlanPrinter
                 addNode(node,
                         format("%sExchange", UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, node.getScope().toString())),
                         ImmutableMap.of(
+                                "partitionCount", node.getPartitioningScheme().getPartitionCount().map(String::valueOf).orElse(""),
                                 "type", node.getType().name(),
                                 "isReplicateNullsAndAny", formatBoolean(node.getPartitioningScheme().isReplicateNullsAndAny()),
                                 "hashColumn", formatHash(node.getPartitioningScheme().getHashColumn())),
                         context.tag());
-            }
-            return processChildren(node, new Context());
-        }
-
-        @Override
-        public Void visitDelete(DeleteNode node, Context context)
-        {
-            addNode(node,
-                    "Delete",
-                    ImmutableMap.of("target", anonymizer.anonymize(node.getTarget())),
-                    context.tag());
-
-            return processChildren(node, new Context());
-        }
-
-        @Override
-        public Void visitUpdate(UpdateNode node, Context context)
-        {
-            NodeRepresentation nodeOutput = addNode(node, format("Update[%s]", anonymizer.anonymize(node.getTarget())), context.tag());
-            int index = 0;
-            for (String columnName : node.getTarget().getUpdatedColumns()) {
-                nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(columnName), anonymizer.anonymize(node.getColumnValueAndRowIdSymbols().get(index)));
-                index++;
             }
             return processChildren(node, new Context());
         }
@@ -1799,11 +1812,11 @@ public class PlanPrinter
                 Map<String, TableArgumentProperties> tableArguments = node.getTableArgumentProperties().stream()
                         .collect(toImmutableMap(TableArgumentProperties::getArgumentName, identity()));
 
-                node.getArguments().entrySet().stream()
-                        .forEach(entry -> nodeOutput.appendDetails(formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
+                node.getArguments().entrySet()
+                        .forEach(entry -> nodeOutput.appendDetails("%s", formatArgument(entry.getKey(), entry.getValue(), tableArguments)));
 
                 if (!node.getCopartitioningLists().isEmpty()) {
-                    nodeOutput.appendDetails(node.getCopartitioningLists().stream()
+                    nodeOutput.appendDetails("%s", node.getCopartitioningLists().stream()
                             .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
                             .collect(joining(", ", "Co-partition: [", "]")));
                 }
@@ -1819,54 +1832,109 @@ public class PlanPrinter
         private String formatArgument(String argumentName, Argument argument, Map<String, TableArgumentProperties> tableArguments)
         {
             if (argument instanceof ScalarArgument scalarArgument) {
-                return format(
-                        "%s => ScalarArgument{type=%s, value=%s}",
-                        argumentName,
-                        scalarArgument.getType().getDisplayName(),
-                        anonymizer.anonymize(
-                                scalarArgument.getType(),
-                                valuePrinter.castToVarchar(scalarArgument.getType(), scalarArgument.getValue())));
+                return formatScalarArgument(argumentName, scalarArgument);
             }
             if (argument instanceof DescriptorArgument descriptorArgument) {
-                String descriptor;
-                if (descriptorArgument.equals(NULL_DESCRIPTOR)) {
-                    descriptor = "NULL";
-                }
-                else {
-                    descriptor = descriptorArgument.getDescriptor().orElseThrow().getFields().stream()
-                            .map(field -> anonymizer.anonymizeColumn(field.getName()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
-                            .collect(joining(", ", "(", ")"));
-                }
-                return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
+                return formatDescriptorArgument(argumentName, descriptorArgument);
             }
             else {
                 TableArgumentProperties argumentProperties = tableArguments.get(argumentName);
-                StringBuilder properties = new StringBuilder();
-                if (argumentProperties.isRowSemantics()) {
-                    properties.append("row semantics");
-                }
-                argumentProperties.getSpecification().ifPresent(specification -> {
-                    properties
-                            .append("partition by: [")
-                            .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
-                            .append("]");
-                    specification.getOrderingScheme().ifPresent(orderingScheme -> {
-                        properties
-                                .append(", order by: ")
-                                .append(formatOrderingScheme(orderingScheme));
-                    });
-                });
-                properties.append("required columns: [")
-                        .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
-                        .append("]");
-                if (argumentProperties.isPruneWhenEmpty()) {
-                    properties.append(", prune when empty");
-                }
-                if (argumentProperties.isPassThroughColumns()) {
-                    properties.append(", pass through columns");
-                }
-                return format("%s => TableArgument{%s}", argumentName, properties);
+                return formatTableArgument(argumentName, argumentProperties);
             }
+        }
+
+        private String formatScalarArgument(String argumentName, ScalarArgument argument)
+        {
+            return format(
+                    "%s => ScalarArgument{type=%s, value=%s}",
+                    argumentName,
+                    argument.getType().getDisplayName(),
+                    anonymizer.anonymize(
+                            argument.getType(),
+                            valuePrinter.castToVarchar(argument.getType(), argument.getValue())));
+        }
+
+        private String formatDescriptorArgument(String argumentName, DescriptorArgument argument)
+        {
+            String descriptor;
+            if (argument.equals(NULL_DESCRIPTOR)) {
+                descriptor = "NULL";
+            }
+            else {
+                descriptor = argument.getDescriptor().orElseThrow().getFields().stream()
+                        .map(field -> anonymizer.anonymizeColumn(field.getName().orElseThrow()) + field.getType().map(type -> " " + type.getDisplayName()).orElse(""))
+                        .collect(joining(", ", "(", ")"));
+            }
+            return format("%s => DescriptorArgument{%s}", argumentName, descriptor);
+        }
+
+        private String formatTableArgument(String argumentName, TableArgumentProperties argumentProperties)
+        {
+            StringBuilder properties = new StringBuilder();
+            if (argumentProperties.isRowSemantics()) {
+                properties.append("row semantics");
+            }
+            argumentProperties.getSpecification().ifPresent(specification -> {
+                properties
+                        .append("partition by: [")
+                        .append(Joiner.on(", ").join(anonymize(specification.getPartitionBy())))
+                        .append("]");
+                specification.getOrderingScheme().ifPresent(orderingScheme -> {
+                    properties
+                            .append(", order by: ")
+                            .append(formatOrderingScheme(orderingScheme));
+                });
+            });
+            properties.append("required columns: [")
+                    .append(Joiner.on(", ").join(anonymize(argumentProperties.getRequiredColumns())))
+                    .append("]");
+            if (argumentProperties.isPruneWhenEmpty()) {
+                properties.append(", prune when empty");
+            }
+            if (argumentProperties.getPassThroughSpecification().declaredAsPassThrough()) {
+                properties.append(", pass through columns");
+            }
+            return format("%s => TableArgument{%s}", argumentName, properties);
+        }
+
+        @Override
+        public Void visitTableFunctionProcessor(TableFunctionProcessorNode node, Context context)
+        {
+            ImmutableMap.Builder<String, String> descriptor = ImmutableMap.builder();
+
+            descriptor.put("name", node.getName());
+
+            descriptor.put("properOutputs", format("[%s]", Joiner.on(", ").join(anonymize(node.getProperOutputs()))));
+
+            node.getSpecification().ifPresent(specification -> {
+                if (!specification.getPartitionBy().isEmpty()) {
+                    List<Symbol> prePartitioned = specification.getPartitionBy().stream()
+                            .filter(node.getPrePartitioned()::contains)
+                            .collect(toImmutableList());
+
+                    List<Symbol> notPrePartitioned = specification.getPartitionBy().stream()
+                            .filter(column -> !node.getPrePartitioned().contains(column))
+                            .collect(toImmutableList());
+
+                    StringBuilder builder = new StringBuilder();
+                    if (!prePartitioned.isEmpty()) {
+                        builder.append(anonymize(prePartitioned).stream()
+                                .collect(joining(", ", "<", ">")));
+                        if (!notPrePartitioned.isEmpty()) {
+                            builder.append(", ");
+                        }
+                    }
+                    if (!notPrePartitioned.isEmpty()) {
+                        builder.append(Joiner.on(", ").join(anonymize(notPrePartitioned)));
+                    }
+                    descriptor.put("partitionBy", format("[%s]", builder));
+                }
+                specification.getOrderingScheme().ifPresent(orderingScheme -> descriptor.put("orderBy", formatOrderingScheme(orderingScheme, node.getPreSorted())));
+            });
+
+            addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context.tag());
+
+            return processChildren(node, new Context());
         }
 
         @Override

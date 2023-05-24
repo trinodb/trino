@@ -19,6 +19,7 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -45,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
+import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.OWNER;
 import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.GRANT_SELECT;
@@ -52,12 +54,14 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCatalogAccess;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -67,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
@@ -372,6 +377,22 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyCreateCatalog(catalogName);
+        }
+    }
+
+    @Override
+    public void checkCanDropCatalog(SystemSecurityContext context, String catalogName)
+    {
+        if (!canAccessCatalog(context, catalogName, OWNER)) {
+            denyDropCatalog(catalogName);
+        }
+    }
+
+    @Override
     public Set<String> filterCatalogs(SystemSecurityContext context, Set<String> catalogs)
     {
         ImmutableSet.Builder<String> filteredCatalogs = ImmutableSet.builder();
@@ -385,12 +406,6 @@ public class FileBasedSystemAccessControl
 
     @Override
     public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema, Map<String, Object> properties)
-    {
-        checkCanCreateSchema(context, schema);
-    }
-
-    @Override
-    public void checkCanCreateSchema(SystemSecurityContext context, CatalogSchemaName schema)
     {
         if (!isSchemaOwner(context, schema)) {
             denyCreateSchema(schema.toString());
@@ -950,7 +965,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(table.getCatalogName(), tableName.getSchemaName()))
                 // we return the first one we find
                 .findFirst()
                 .stream()
@@ -959,26 +974,42 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
     {
         SchemaTableName tableName = table.getSchemaTableName();
         if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         Identity identity = context.getIdentity();
-        return tableRules.stream()
+        List<ViewExpression> masks = tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), table))
-                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 // we return the first one we find
                 .findFirst()
                 .stream()
                 .flatMap(Optional::stream)
-                .collect(toImmutableList());
+                .toList();
+
+        if (masks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Multiple masks defined for %s.%s", table, columnName));
+        }
+
+        return masks.stream().findFirst();
+    }
+
+    @Override
+    public List<ViewExpression> getColumnMasks(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
+    {
+        throw new UnsupportedOperationException();
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
     {
+        if (canAccessCatalog(context, catalogName, OWNER)) {
+            return true;
+        }
+
         Identity identity = context.getIdentity();
         return canAccessCatalog(context, catalogName, READ_ONLY) &&
                 anyCatalogPermissionsRules.stream().anyMatch(rule -> rule.match(identity.getUser(), identity.getEnabledRoles(), identity.getGroups(), catalogName));

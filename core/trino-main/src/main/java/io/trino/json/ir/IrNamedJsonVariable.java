@@ -13,56 +13,25 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
-public class IrNamedJsonVariable
-        extends IrPathNode
+public record IrNamedJsonVariable(int index, Optional<Type> type)
+        implements IrPathNode
 {
-    private final int index;
-
-    @JsonCreator
-    public IrNamedJsonVariable(@JsonProperty("index") int index, @JsonProperty("type") Optional<Type> type)
+    public IrNamedJsonVariable
     {
-        super(type);
+        requireNonNull(type, "type is null");
         checkArgument(index >= 0, "parameter index is negative");
-        this.index = index;
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrNamedJsonVariable(this, context);
-    }
-
-    @JsonProperty
-    public int getIndex()
-    {
-        return index;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrNamedJsonVariable other = (IrNamedJsonVariable) obj;
-        return this.index == other.index;
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(index);
     }
 }

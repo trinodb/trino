@@ -10,6 +10,7 @@ This guide is intended for Trino contributors and plugin developers.
     develop/spi-overview
     develop/connectors
     develop/example-http
+    develop/example-jdbc
     develop/insert
     develop/supporting-merge
     develop/types

@@ -89,7 +89,7 @@ public abstract class AbstractTestExchangeManager
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
         exchange.noMoreSinks();
 
-        ExchangeSinkInstanceHandle sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 0);
+        ExchangeSinkInstanceHandle sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 0).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -99,7 +99,7 @@ public abstract class AbstractTestExchangeManager
                         1, "0-1-1"),
                 true);
         exchange.sinkFinished(sinkHandle0, 0);
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 1);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 1).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -109,7 +109,7 @@ public abstract class AbstractTestExchangeManager
                         1, "0-1-1"),
                 true);
         exchange.sinkFinished(sinkHandle0, 1);
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 2);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 2).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -118,7 +118,7 @@ public abstract class AbstractTestExchangeManager
                 false);
         exchange.sinkFinished(sinkHandle0, 2);
 
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -128,7 +128,7 @@ public abstract class AbstractTestExchangeManager
                         1, "1-1-1"),
                 true);
         exchange.sinkFinished(sinkHandle1, 0);
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 1);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 1).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -138,7 +138,7 @@ public abstract class AbstractTestExchangeManager
                         1, "1-1-1"),
                 true);
         exchange.sinkFinished(sinkHandle1, 1);
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 2);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 2).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -147,7 +147,7 @@ public abstract class AbstractTestExchangeManager
                 false);
         exchange.sinkFinished(sinkHandle1, 2);
 
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 2);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 2).get();
         writeData(
                 sinkInstanceHandle,
                 ImmutableListMultimap.of(
@@ -197,7 +197,7 @@ public abstract class AbstractTestExchangeManager
         ExchangeSinkHandle sinkHandle2 = exchange.addSink(2);
         exchange.noMoreSinks();
 
-        ExchangeSinkInstanceHandle sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 0);
+        ExchangeSinkInstanceHandle sinkInstanceHandle = exchange.instantiateSink(sinkHandle0, 0).get();
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()
@@ -208,7 +208,7 @@ public abstract class AbstractTestExchangeManager
                 true);
         exchange.sinkFinished(sinkHandle0, 0);
 
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle1, 0).get();
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()
@@ -219,7 +219,7 @@ public abstract class AbstractTestExchangeManager
                 true);
         exchange.sinkFinished(sinkHandle1, 0);
 
-        sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 0);
+        sinkInstanceHandle = exchange.instantiateSink(sinkHandle2, 0).get();
         writeData(
                 sinkInstanceHandle,
                 new ImmutableListMultimap.Builder<Integer, String>()

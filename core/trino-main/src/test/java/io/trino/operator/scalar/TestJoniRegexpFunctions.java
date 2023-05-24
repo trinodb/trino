@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;

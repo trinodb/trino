@@ -1,0 +1,18 @@
+final aggregation over ()
+    local exchange (GATHER, SINGLE, [])
+        remote exchange (GATHER, SINGLE, [])
+            partial aggregation over ()
+                join (INNER, REPLICATED):
+                    join (INNER, REPLICATED):
+                        join (INNER, REPLICATED):
+                            dynamic filter (["ss_hdemo_sk", "ss_sold_time_sk", "ss_store_sk"])
+                                scan store_sales
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPLICATE, BROADCAST, [])
+                                    scan household_demographics
+                        local exchange (GATHER, SINGLE, [])
+                            remote exchange (REPLICATE, BROADCAST, [])
+                                scan time_dim
+                    local exchange (GATHER, SINGLE, [])
+                        remote exchange (REPLICATE, BROADCAST, [])
+                            scan store

@@ -14,13 +14,14 @@
 package io.trino.operator.window.matcher;
 
 import io.airlift.slice.SizeOf;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 class IntMultimap
 {
-    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntMultimap.class).instanceSize();
+    private static final long INSTANCE_SIZE = instanceSize(IntMultimap.class);
 
     private IntList[] values;
     private final int capacity;

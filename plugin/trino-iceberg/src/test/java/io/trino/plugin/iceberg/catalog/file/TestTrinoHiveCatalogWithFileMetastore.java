@@ -25,7 +25,6 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,9 +33,9 @@ import java.nio.file.Files;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
-import static io.trino.plugin.hive.metastore.file.FileHiveMetastore.createTestingFileHiveMetastore;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 
 public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
@@ -63,7 +62,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT);
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS);
         CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),
@@ -75,21 +74,5 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 useUniqueTableLocations,
                 false,
                 false);
-    }
-
-    @Override
-    @Test
-    public void testCreateNamespaceWithLocation()
-    {
-        assertThatThrownBy(super::testCreateNamespaceWithLocation)
-                .hasMessageContaining("Database cannot be created with a location set");
-    }
-
-    @Override
-    @Test
-    public void testUseUniqueTableLocations()
-    {
-        assertThatThrownBy(super::testCreateNamespaceWithLocation)
-                .hasMessageContaining("Database cannot be created with a location set");
     }
 }

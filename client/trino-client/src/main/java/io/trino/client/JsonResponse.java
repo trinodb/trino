@@ -29,14 +29,12 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.net.HttpHeaders.LOCATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonResponse<T>
 {
     private final int statusCode;
-    private final String statusMessage;
     private final Headers headers;
     @Nullable
     private final String responseBody;
@@ -44,10 +42,9 @@ public final class JsonResponse<T>
     private final T value;
     private final IllegalArgumentException exception;
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, String responseBody)
+    private JsonResponse(int statusCode, Headers headers, String responseBody)
     {
         this.statusCode = statusCode;
-        this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
         this.responseBody = requireNonNull(responseBody, "responseBody is null");
 
@@ -56,10 +53,9 @@ public final class JsonResponse<T>
         this.exception = null;
     }
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, @Nullable String responseBody, @Nullable T value, @Nullable IllegalArgumentException exception)
+    private JsonResponse(int statusCode, Headers headers, @Nullable String responseBody, @Nullable T value, @Nullable IllegalArgumentException exception)
     {
         this.statusCode = statusCode;
-        this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
         this.responseBody = responseBody;
         this.value = value;
@@ -70,11 +66,6 @@ public final class JsonResponse<T>
     public int getStatusCode()
     {
         return statusCode;
-    }
-
-    public String getStatusMessage()
-    {
-        return statusMessage;
     }
 
     public Headers getHeaders()
@@ -111,7 +102,6 @@ public final class JsonResponse<T>
     {
         return toStringHelper(this)
                 .add("statusCode", statusCode)
-                .add("statusMessage", statusMessage)
                 .add("headers", headers.toMultimap())
                 .add("hasValue", hasValue)
                 .add("value", value)
@@ -122,15 +112,6 @@ public final class JsonResponse<T>
     public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit)
     {
         try (Response response = client.newCall(request).execute()) {
-            // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
-            if ((response.code() == 307) || (response.code() == 308)) {
-                String location = response.header(LOCATION);
-                if (location != null) {
-                    request = request.newBuilder().url(location).build();
-                    return execute(codec, client, request, materializedJsonSizeLimit);
-                }
-            }
-
             ResponseBody responseBody = requireNonNull(response.body());
             if (isJson(responseBody.contentType())) {
                 String body = null;
@@ -158,9 +139,9 @@ public final class JsonResponse<T>
                     }
                     exception = new IllegalArgumentException(message, e);
                 }
-                return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, exception);
+                return new JsonResponse<>(response.code(), response.headers(), body, value, exception);
             }
-            return new JsonResponse<>(response.code(), response.message(), response.headers(), responseBody.string());
+            return new JsonResponse<>(response.code(), response.headers(), responseBody.string());
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

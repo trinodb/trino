@@ -196,21 +196,19 @@ public final class FormatUtils
                 repeat(" ", width - (lower + markerWidth));
     }
 
-    public static String formatProgressBar(int width, int complete, int running, int total)
+    public static String formatProgressBar(int width, int progressPercentage, int runningPercentage)
     {
-        if (total == 0) {
-            return repeat(" ", width);
-        }
+        int totalPercentage = 100;
 
-        int pending = max(0, total - complete - running);
+        int pending = max(0, totalPercentage - progressPercentage - runningPercentage);
 
         // compute nominal lengths
-        int completeLength = min(width, ceil(complete * width, total));
-        int pendingLength = min(width, ceil(pending * width, total));
+        int completeLength = min(width, ceil(progressPercentage * width, totalPercentage));
+        int pendingLength = min(width, ceil(pending * width, totalPercentage));
 
-        // leave space for at least one ">" as long as running is > 0
-        int minRunningLength = (running > 0) ? 1 : 0;
-        int runningLength = max(min(width, ceil(running * width, total)), minRunningLength);
+        // leave space for at least one ">" as long as runningPercentage is > 0
+        int minRunningLength = (runningPercentage > 0) ? 1 : 0;
+        int runningLength = max(min(width, ceil(runningPercentage * width, totalPercentage)), minRunningLength);
 
         // adjust to fix rounding errors
         if (((completeLength + runningLength + pendingLength) != width) && (pending > 0)) {
@@ -218,17 +216,17 @@ public final class FormatUtils
             pendingLength = max(0, width - completeLength - runningLength);
         }
         if ((completeLength + runningLength + pendingLength) != width) {
-            // then, sacrifice "running"
+            // then, sacrifice "runningPercentage"
             runningLength = max(minRunningLength, width - completeLength - pendingLength);
         }
-        if (((completeLength + runningLength + pendingLength) > width) && (complete > 0)) {
-            // finally, sacrifice "complete" if we're still over the limit
+        if (((completeLength + runningLength + pendingLength) > width) && (progressPercentage > 0)) {
+            // finally, sacrifice "progressPercentage" if we're still over the limit
             completeLength = max(0, width - runningLength - pendingLength);
         }
 
         checkState((completeLength + runningLength + pendingLength) == width,
-                "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for complete = %s, running = %s, total = %s",
-                completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, complete, running, total);
+                "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for progressPercentage = %s, runningPercentage = %s, totalPercentage = %s",
+                completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, progressPercentage, runningPercentage, totalPercentage);
 
         return repeat("=", completeLength) + repeat(">", runningLength) + repeat(" ", pendingLength);
     }

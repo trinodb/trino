@@ -23,11 +23,11 @@ Requirements
 You need to perform the following steps:
 
 * Provide an HTTP/S service that accepts POST events with a JSON body.
-* Configure ``http-event-listener.ingest-uri`` in the event listener properties file
+* Configure ``http-event-listener.connect-ingest-uri`` in the event listener properties file
   with the URI of the service.
-* Detail the events to send in the :ref:`http_event_listener_configuration` section.
+* Detail the events to send in the :ref:`http-event-listener-configuration` section.
 
-.. _http_event_listener_configuration:
+.. _http-event-listener-configuration:
 
 Configuration
 -------------
@@ -43,7 +43,7 @@ as an example:
     http-event-listener.connect-ingest-uri=<your ingest URI>
 
 And set add ``etc/http-event-listener.properties`` to ``event-listener.config-files``
-in :ref:`config_properties`:
+in :ref:`config-properties`:
 
 .. code-block:: properties
 
@@ -78,7 +78,7 @@ Configuration properties
 
   * - http-event-listener.connect-http-headers
     - List of custom HTTP headers to be sent along with the events. See
-      :ref:`http_event_listener_custom_headers` for more details
+      :ref:`http-event-listener-custom-headers` for more details
     - Empty
 
   * - http-event-listener.connect-retry-count
@@ -107,7 +107,7 @@ Configuration properties
     - Pass configuration onto the HTTP client
     -
 
-.. _http_event_listener_custom_headers:
+.. _http-event-listener-custom-headers:
 
 Custom HTTP headers
 ^^^^^^^^^^^^^^^^^^^

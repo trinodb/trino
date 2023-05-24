@@ -16,17 +16,16 @@ package io.trino.plugin.kafka;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 
 public class Range
 {
-    private static final int INSTANCE_SIZE = toIntExact(ClassLayout.parseClass(Range.class).instanceSize());
+    private static final int INSTANCE_SIZE = instanceSize(Range.class);
 
     private final long begin; // inclusive
     private final long end; // exclusive

@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCredentialProvider
 {
@@ -37,8 +37,8 @@ public class TestCredentialProvider
                 "connection-password", "password_for_user_from_inline");
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_inline");
-        assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_for_user_from_inline");
+        assertThat(credentialProvider.getConnectionUser(Optional.empty()).get()).isEqualTo("user_from_inline");
+        assertThat(credentialProvider.getConnectionPassword(Optional.empty()).get()).isEqualTo("password_for_user_from_inline");
     }
 
     @Test
@@ -50,8 +50,8 @@ public class TestCredentialProvider
                 "connection-credential-file", getResourceFilePath("credentials.properties"));
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_file");
-        assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_for_user_from_file");
+        assertThat(credentialProvider.getConnectionUser(Optional.empty()).get()).isEqualTo("user_from_file");
+        assertThat(credentialProvider.getConnectionPassword(Optional.empty()).get()).isEqualTo("password_for_user_from_file");
     }
 
     @Test
@@ -70,8 +70,8 @@ public class TestCredentialProvider
                 .buildOrThrow();
 
         CredentialProvider credentialProvider = getCredentialProvider(properties);
-        assertEquals(credentialProvider.getConnectionUser(Optional.empty()).get(), "user_from_keystore");
-        assertEquals(credentialProvider.getConnectionPassword(Optional.empty()).get(), "password_from_keystore");
+        assertThat(credentialProvider.getConnectionUser(Optional.empty()).get()).isEqualTo("user_from_keystore");
+        assertThat(credentialProvider.getConnectionPassword(Optional.empty()).get()).isEqualTo("password_from_keystore");
     }
 
     private CredentialProvider getCredentialProvider(Map<String, String> properties)

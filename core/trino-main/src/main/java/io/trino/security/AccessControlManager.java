@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.ConfigurationLoader.loadPropertiesFrom;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
 import static java.lang.String.format;
@@ -288,6 +289,24 @@ public class AccessControlManager
         requireNonNull(queryOwner, "queryOwner is null");
 
         systemAuthorizationCheck(control -> control.checkCanKillQueryOwnedBy(new SystemSecurityContext(identity, Optional.empty()), queryOwner));
+    }
+
+    @Override
+    public void checkCanCreateCatalog(SecurityContext securityContext, String catalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanCreateCatalog(securityContext.toSystemSecurityContext(), catalog));
+    }
+
+    @Override
+    public void checkCanDropCatalog(SecurityContext securityContext, String catalog)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(catalog, "catalog is null");
+
+        systemAuthorizationCheck(control -> control.checkCanDropCatalog(securityContext.toSystemSecurityContext(), catalog));
     }
 
     @Override
@@ -1248,26 +1267,30 @@ public class AccessControlManager
     }
 
     @Override
-    public List<ViewExpression> getColumnMasks(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SecurityContext context, QualifiedObjectName tableName, String columnName, Type type)
     {
         requireNonNull(context, "context is null");
         requireNonNull(tableName, "tableName is null");
 
         ImmutableList.Builder<ViewExpression> masks = ImmutableList.builder();
 
-        // connector-provided masks take precedence over global masks
         ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(context.getTransactionId(), tableName.getCatalogName());
         if (connectorAccessControl != null) {
-            connectorAccessControl.getColumnMasks(toConnectorSecurityContext(tableName.getCatalogName(), context), tableName.asSchemaTableName(), columnName, type)
-                    .forEach(masks::add);
+            connectorAccessControl.getColumnMask(toConnectorSecurityContext(tableName.getCatalogName(), context), tableName.asSchemaTableName(), columnName, type)
+                    .ifPresent(masks::add);
         }
 
         for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            systemAccessControl.getColumnMasks(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
-                    .forEach(masks::add);
+            systemAccessControl.getColumnMask(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnName, type)
+                    .ifPresent(masks::add);
         }
 
-        return masks.build();
+        List<ViewExpression> allMasks = masks.build();
+        if (allMasks.size() > 1) {
+            throw new TrinoException(INVALID_COLUMN_MASK, format("Column must have a single mask: %s", columnName));
+        }
+
+        return allMasks.stream().findFirst();
     }
 
     private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)
