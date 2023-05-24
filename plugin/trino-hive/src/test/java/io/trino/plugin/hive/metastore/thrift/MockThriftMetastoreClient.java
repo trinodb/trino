@@ -132,16 +132,6 @@ public class MockThriftMetastoreClient
         return data;
     }
 
-    private static ColumnStatisticsObj createTestStats()
-    {
-        ColumnStatisticsObj stats = new ColumnStatisticsObj();
-        ColumnStatisticsData data = new ColumnStatisticsData();
-        data.setLongStats(new LongColumnStatsData());
-        stats.setStatsData(data);
-        stats.setColName(TEST_COLUMN);
-        return stats;
-    }
-
     public void setThrowException(boolean throwException)
     {
         this.throwException = throwException;
