@@ -38,7 +38,7 @@ import javax.annotation.concurrent.ThreadSafe;
  * data written by other instances must be safely discarded
  */
 @ThreadSafe
-@Experimental(eta = "2023-01-01")
+@Experimental(eta = "2023-09-01")
 public interface ExchangeManager
 {
     /**
