@@ -409,10 +409,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                         queryStateMachine.getQueryState().isDone() ? ABORTED : PLANNED,
                         plan.getFragment());
             }
-            List<StageInfo> children = plan.getChildren().stream()
-                    .map(child -> getStageInfo(child, infos, reportedFragments))
+            List<StageInfo> sourceStages = plan.getChildren().stream()
+                    .map(source -> getStageInfo(source, infos, reportedFragments))
                     .collect(toImmutableList());
-            return info.withSubStages(children);
+            return info.withSubStages(sourceStages);
         }
 
         public BasicStageStats getBasicStageStats()
@@ -750,13 +750,13 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private boolean isReadyForExecution(SubPlan subPlan)
         {
-            for (SubPlan child : subPlan.getChildren()) {
-                StageExecution childExecution = stageExecutions.get(getStageId(child.getFragment().getId()));
-                if (childExecution == null) {
+            for (SubPlan source : subPlan.getChildren()) {
+                StageExecution sourceStageExecution = stageExecutions.get(getStageId(source.getFragment().getId()));
+                if (sourceStageExecution == null) {
                     return false;
                 }
                 // TODO enable speculative execution
-                if (childExecution.getState() != StageState.FINISHED) {
+                if (sourceStageExecution.getState() != StageState.FINISHED) {
                     return false;
                 }
             }
@@ -765,10 +765,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void closeSourceExchanges(SubPlan subPlan)
         {
-            for (SubPlan child : subPlan.getChildren()) {
-                StageExecution childExecution = stageExecutions.get(getStageId(child.getFragment().getId()));
-                if (childExecution != null) {
-                    childExecution.closeExchange();
+            for (SubPlan source : subPlan.getChildren()) {
+                StageExecution sourceStageExecution = stageExecutions.get(getStageId(source.getFragment().getId()));
+                if (sourceStageExecution != null) {
+                    sourceStageExecution.closeExchange();
                 }
             }
         }
@@ -799,12 +799,12 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
                 Map<PlanFragmentId, OutputDataSizeEstimate> outputEstimates = new HashMap<>();
-                for (SubPlan child : subPlan.getChildren()) {
-                    PlanFragmentId childFragmentId = child.getFragment().getId();
-                    StageExecution childExecution = getStageExecution(getStageId(childFragmentId));
-                    sourceExchanges.put(childFragmentId, childExecution.getExchange());
-                    outputEstimates.put(childFragmentId, childExecution.getOutputDataSize());
-                    stageConsumers.put(childExecution.getStageId(), stageId);
+                for (SubPlan source : subPlan.getChildren()) {
+                    PlanFragmentId sourceFragmentId = source.getFragment().getId();
+                    StageExecution sourceStageExecution = getStageExecution(getStageId(sourceFragmentId));
+                    sourceExchanges.put(sourceFragmentId, sourceStageExecution.getExchange());
+                    outputEstimates.put(sourceFragmentId, sourceStageExecution.getOutputDataSize());
+                    stageConsumers.put(sourceStageExecution.getStageId(), stageId);
                 }
 
                 ImmutableMap.Builder<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates = ImmutableMap.builder();
@@ -856,10 +856,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                 stageExecutions.put(execution.getStageId(), execution);
 
-                for (SubPlan child : subPlan.getChildren()) {
-                    PlanFragmentId childFragmentId = child.getFragment().getId();
-                    StageExecution childExecution = getStageExecution(getStageId(childFragmentId));
-                    execution.setSourceOutputSelector(childFragmentId, childExecution.getSinkOutputSelector());
+                for (SubPlan source : subPlan.getChildren()) {
+                    PlanFragmentId sourceFragmentId = source.getFragment().getId();
+                    StageExecution sourceExecution = getStageExecution(getStageId(sourceFragmentId));
+                    execution.setSourceOutputSelector(sourceFragmentId, sourceExecution.getSinkOutputSelector());
                 }
             }
             catch (Throwable t) {
