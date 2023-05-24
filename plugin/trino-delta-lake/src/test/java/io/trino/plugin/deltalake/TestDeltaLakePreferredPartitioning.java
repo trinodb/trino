@@ -24,20 +24,22 @@ import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
 public class TestDeltaLakePreferredPartitioning
         extends AbstractTestQueryFramework
 {
-    private static final String TEST_BUCKET_NAME = "mock-delta-lake-bucket";
     private static final int WRITE_PARTITIONING_TEST_PARTITIONS_COUNT = 101;
+
+    private final String bucketName = "mock-delta-lake-bucket-" + randomNameSuffix();
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(TEST_BUCKET_NAME));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
@@ -119,9 +121,9 @@ public class TestDeltaLakePreferredPartitioning
         return "table_" + randomUUID().toString().replaceAll("-", "");
     }
 
-    private static String getLocationForTable(String tableName)
+    private String getLocationForTable(String tableName)
     {
-        return format("s3://%s/%s", TEST_BUCKET_NAME, tableName);
+        return format("s3://%s/%s", bucketName, tableName);
     }
 
     private Session withForcedPreferredPartitioning()
