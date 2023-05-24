@@ -146,6 +146,7 @@ public class FileHiveMetastore
     private final VersionCompatibility versionCompatibility;
     private final HdfsEnvironment hdfsEnvironment;
     private final Path catalogDirectory;
+    private final boolean disableLocationChecks;
     private final HdfsContext hdfsContext;
     private final boolean hideDeltaLakeTables;
     private final FileSystem metadataFileSystem;
@@ -166,6 +167,7 @@ public class FileHiveMetastore
         this.versionCompatibility = requireNonNull(config.getVersionCompatibility(), "config.getVersionCompatibility() is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.catalogDirectory = new Path(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
+        this.disableLocationChecks = config.isDisableLocationChecks();
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(config.getMetastoreUser()));
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         try {
@@ -330,7 +332,7 @@ public class FileHiveMetastore
             checkArgument(table.getStorage().getLocation().isEmpty(), "Storage location for view must be empty");
         }
         else if (table.getTableType().equals(MANAGED_TABLE.name())) {
-            if (!(new Path(table.getStorage().getLocation()).toString().contains(tableMetadataDirectory.toString()))) {
+            if (!disableLocationChecks && !(new Path(table.getStorage().getLocation()).toString().contains(tableMetadataDirectory.toString()))) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "Table directory must be " + tableMetadataDirectory);
             }
         }

@@ -38,7 +38,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDeltaLakeConnectorSmokeTest
+/**
+ * Delta Lake connector smoke test exercising Hive metastore and MinIO storage.
+ */
+public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         extends BaseDeltaLakeAwsConnectorSmokeTest
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
