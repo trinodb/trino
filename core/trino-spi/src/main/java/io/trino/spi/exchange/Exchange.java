@@ -21,7 +21,7 @@ import java.io.Closeable;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
-@Experimental(eta = "2023-01-01")
+@Experimental(eta = "2023-09-01")
 public interface Exchange
         extends Closeable
 {
