@@ -13,9 +13,14 @@
  */
 package io.trino.parquet.reader.flat;
 
+import io.airlift.slice.Slice;
+
 public class ZeroDefinitionLevelDecoder
         implements FlatDefinitionLevelDecoder
 {
+    @Override
+    public void init(Slice input) {}
+
     @Override
     public int readNext(boolean[] values, int offset, int length)
     {

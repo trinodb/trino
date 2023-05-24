@@ -97,7 +97,7 @@ public class ParquetReader
     private final List<Field> columnFields;
     private final List<PrimitiveField> primitiveFields;
     private final ParquetDataSource dataSource;
-    private final DateTimeZone timeZone;
+    private final ColumnReaderFactory columnReaderFactory;
     private final AggregatedMemoryContext memoryContext;
 
     private int currentRowGroup = -1;
@@ -168,7 +168,7 @@ public class ParquetReader
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        this.columnReaderFactory = new ColumnReaderFactory(timeZone, options);
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         this.currentRowGroupMemoryContext = memoryContext.newAggregatedMemoryContext();
         this.options = requireNonNull(options, "options is null");
@@ -478,7 +478,7 @@ public class ParquetReader
         for (PrimitiveField field : primitiveFields) {
             columnReaders.put(
                     field.getId(),
-                    ColumnReaderFactory.create(field, timeZone, currentRowGroupMemoryContext, options));
+                    columnReaderFactory.create(field, currentRowGroupMemoryContext));
         }
     }
 

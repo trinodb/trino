@@ -34,6 +34,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
+import static io.trino.parquet.reader.flat.FlatDefinitionLevelDecoder.DefinitionLevelDecoderProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -45,6 +47,7 @@ public class FlatColumnReader<BufferType>
     private static final int[] EMPTY_DEFINITION_LEVELS = new int[0];
     private static final int[] EMPTY_REPETITION_LEVELS = new int[0];
 
+    private final DefinitionLevelDecoderProvider definitionLevelDecoderProvider;
     private final LocalMemoryContext memoryContext;
 
     private int remainingPageValueCount;
@@ -56,10 +59,13 @@ public class FlatColumnReader<BufferType>
     public FlatColumnReader(
             PrimitiveField field,
             ValueDecodersProvider<BufferType> decodersProvider,
+            DefinitionLevelDecoderProvider definitionLevelDecoderProvider,
+            DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider,
             ColumnAdapter<BufferType> columnAdapter,
             LocalMemoryContext memoryContext)
     {
-        super(field, decodersProvider, columnAdapter);
+        super(field, decodersProvider, dictionaryDecoderProvider, columnAdapter);
+        this.definitionLevelDecoderProvider = requireNonNull(definitionLevelDecoderProvider, "definitionLevelDecoderProvider is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
@@ -280,12 +286,11 @@ public class FlatColumnReader<BufferType>
             // Definition levels are skipped from file when the max definition level is 0 as the bit-width required to store them is 0.
             // This can happen for non-null (required) fields or nullable fields where all values are null.
             // See org.apache.parquet.column.Encoding.RLE.getValuesReader for reference.
-            if (field.getDescriptor().getMaxDefinitionLevel() == 0) {
-                definitionLevelDecoder = new ZeroDefinitionLevelDecoder();
-            }
-            else {
+            int maxDefinitionLevel = field.getDescriptor().getMaxDefinitionLevel();
+            definitionLevelDecoder = definitionLevelDecoderProvider.create(maxDefinitionLevel);
+            if (maxDefinitionLevel > 0) {
                 int bufferSize = buffer.getInt(0); //  We need to read the size even if nulls are absent
-                definitionLevelDecoder = new NullsDecoder(buffer.slice(Integer.BYTES, bufferSize));
+                definitionLevelDecoder.init(buffer.slice(Integer.BYTES, bufferSize));
                 alreadyRead = bufferSize + Integer.BYTES;
             }
         }
@@ -295,11 +300,8 @@ public class FlatColumnReader<BufferType>
 
     private void readFlatPageV2(DataPageV2 page)
     {
-        int maxDefinitionLevel = field.getDescriptor().getMaxDefinitionLevel();
-        checkArgument(maxDefinitionLevel >= 0 && maxDefinitionLevel <= 1, "Invalid max definition level: " + maxDefinitionLevel);
-
-        definitionLevelDecoder = new NullsDecoder(page.getDefinitionLevels());
-
+        definitionLevelDecoder = definitionLevelDecoderProvider.create(field.getDescriptor().getMaxDefinitionLevel());
+        definitionLevelDecoder.init(page.getDefinitionLevels());
         valueDecoder = createValueDecoder(decodersProvider, page.getDataEncoding(), page.getSlice());
     }
 

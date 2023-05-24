@@ -14,6 +14,7 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -40,10 +41,12 @@ public final class TestLongValueDecoders
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(INT64, OptionalInt.empty(), BIGINT);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(INT64, OptionalInt.empty(), BIGINT),
-                        ValueDecoders::getLongDecoder,
+                        field,
+                        valueDecoders::getLongDecoder,
                         LongApacheParquetValueDecoder::new,
                         LONG_ADAPTER,
                         (actual, expected) -> assertThat(actual).isEqualTo(expected)),
