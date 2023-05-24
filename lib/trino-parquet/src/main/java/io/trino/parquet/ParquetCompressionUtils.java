@@ -44,7 +44,7 @@ public final class ParquetCompressionUtils
     // Parquet pages written by parquet-mr and trino writers should be typically around 1MB or smaller in uncompressed size.
     // However, it's possible to encounter much larger pages than that from other writers or unusual configurations.
     // We avoid using native decompressor for large pages to reduce chances of GCLocker being held for a long time by JNI code
-    private static final long NATIVE_DECOMPRESSION_THRESHOLD = DataSize.of(1536, KILOBYTE).toBytes(); // 1MB is typical page size + 0.5MB tolerance as page sizing in writer is not exact
+    private static final long JNI_DECOMPRESSION_SIZE_LIMIT = DataSize.of(1536, KILOBYTE).toBytes(); // 1MB is typical page size + 0.5MB tolerance as page sizing in writer is not exact
 
     private ParquetCompressionUtils() {}
 
@@ -64,7 +64,7 @@ public final class ParquetCompressionUtils
             case LZO -> decompressLZO(input, uncompressedSize);
             case LZ4 -> decompressLz4(input, uncompressedSize);
             case ZSTD -> isNativeZstdDecompressorEnabled && !isLargeUncompressedPage(uncompressedSize)
-                    ? decompressNativeZstd(input, uncompressedSize)
+                    ? decompressJniZstd(input, uncompressedSize)
                     : decompressZstd(input, uncompressedSize);
             case BROTLI, LZ4_RAW -> throw new ParquetCorruptionException(dataSourceId, "Codec not supported in Parquet: %s", codec);
         };
@@ -82,7 +82,7 @@ public final class ParquetCompressionUtils
         return wrappedBuffer(buffer, 0, uncompressedSize);
     }
 
-    private static Slice decompressNativeZstd(Slice input, int uncompressedSize)
+    private static Slice decompressJniZstd(Slice input, int uncompressedSize)
     {
         if (uncompressedSize == 0) {
             return EMPTY_SLICE;
@@ -166,6 +166,6 @@ public final class ParquetCompressionUtils
 
     private static boolean isLargeUncompressedPage(int uncompressedSize)
     {
-        return uncompressedSize > NATIVE_DECOMPRESSION_THRESHOLD;
+        return uncompressedSize > JNI_DECOMPRESSION_SIZE_LIMIT;
     }
 }
