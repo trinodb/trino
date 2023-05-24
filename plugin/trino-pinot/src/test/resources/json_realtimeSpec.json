@@ -1,5 +1,5 @@
 {
-    "tableName": "json_table",
+    "tableName": "json_type_table",
     "tableType": "REALTIME",
     "segmentsConfig": {
         "timeColumnName": "updated_at_seconds",
@@ -9,7 +9,7 @@
         "segmentPushType": "APPEND",
         "segmentPushFrequency": "daily",
         "segmentAssignmentStrategy": "BalanceNumSegmentAssignmentStrategy",
-        "schemaName": "json_table",
+        "schemaName": "json_type_table",
         "replicasPerPartition": "1"
     },
     "tenants": {
@@ -24,7 +24,7 @@
         "streamConfigs": {
             "streamType": "kafka",
             "stream.kafka.consumer.type": "LowLevel",
-            "stream.kafka.topic.name": "json_table",
+            "stream.kafka.topic.name": "json_type_table",
             "stream.kafka.decoder.class.name": "org.apache.pinot.plugin.inputformat.avro.confluent.KafkaConfluentSchemaRegistryAvroMessageDecoder",
             "stream.kafka.consumer.factory.class.name": "org.apache.pinot.plugin.stream.kafka20.KafkaConsumerFactory",
             "stream.kafka.decoder.prop.schema.registry.rest.url": "http://schema-registry:8081",
@@ -35,7 +35,7 @@
             "realtime.segment.flush.desired.size": "1M",
             "isolation.level": "read_committed",
             "stream.kafka.consumer.prop.auto.offset.reset": "smallest",
-            "stream.kafka.consumer.prop.group.id": "json_table"
+            "stream.kafka.consumer.prop.group.id": "json_type_table"
         }
     },
     "metadata": {
