@@ -35,7 +35,6 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
 {
     protected final String schema = "test_shared_schema_with_hive_views_" + randomNameSuffix();
     private final String bucketName = "delta-lake-shared-hive-with-views-" + randomNameSuffix();
-
     private HiveMinioDataLake hiveMinioDataLake;
 
     @Override

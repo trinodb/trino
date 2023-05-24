@@ -58,6 +58,7 @@ public class TestDeltaLakeCreateTableStatistics
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "default";
+
     private String bucketName;
 
     @Override

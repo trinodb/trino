@@ -18,6 +18,6 @@ public class TestDeltaLakeDatabricksCompatibility
 {
     public TestDeltaLakeDatabricksCompatibility()
     {
-        super("databricks-test-queries", "io/trino/plugin/deltalake/testing/resources/databricks/");
+        super("io/trino/plugin/deltalake/testing/resources/databricks/");
     }
 }
