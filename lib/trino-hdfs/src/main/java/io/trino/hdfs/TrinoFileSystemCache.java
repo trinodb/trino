@@ -396,12 +396,15 @@ public class TrinoFileSystemCache
             extends FSDataOutputStream
     {
         @SuppressWarnings({"FieldCanBeLocal", "unused"})
-        private final FileSystem fileSystem;
+        // Keep reference to FileSystemWrapper which owns the FSDataOutputStream.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // FSDataOutputStream delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
 
-        public OutputStreamWrapper(FSDataOutputStream delegate, FileSystem fileSystem)
+        public OutputStreamWrapper(FSDataOutputStream delegate, FileSystemWrapper owningFileSystemWrapper)
         {
             super(delegate, null, delegate.getPos());
-            this.fileSystem = fileSystem;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
         }
 
         @Override
@@ -415,12 +418,15 @@ public class TrinoFileSystemCache
             extends FSDataInputStream
     {
         @SuppressWarnings({"FieldCanBeLocal", "unused"})
-        private final FileSystem fileSystem;
+        // Keep reference to FileSystemWrapper which owns the FSDataInputStream.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // FSDataInputStream delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
 
-        public InputStreamWrapper(FSDataInputStream inputStream, FileSystem fileSystem)
+        public InputStreamWrapper(FSDataInputStream inputStream, FileSystemWrapper owningFileSystemWrapper)
         {
             super(inputStream);
-            this.fileSystem = fileSystem;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
         }
 
         @Override
@@ -435,12 +441,15 @@ public class TrinoFileSystemCache
     {
         private final RemoteIterator<LocatedFileStatus> delegate;
         @SuppressWarnings({"FieldCanBeLocal", "unused"})
-        private final FileSystem fileSystem;
+        // Keep reference to FileSystemWrapper which owns the RemoteIterator.
+        // Otherwise, GC on FileSystemWrapper could trigger finalizer that closes wrapped FileSystem object and that would break
+        // RemoteIterator delegate.
+        private final FileSystemWrapper owningFileSystemWrapper;
 
-        public RemoteIteratorWrapper(RemoteIterator<LocatedFileStatus> delegate, FileSystem fileSystem)
+        public RemoteIteratorWrapper(RemoteIterator<LocatedFileStatus> delegate, FileSystemWrapper owningFileSystemWrapper)
         {
             this.delegate = delegate;
-            this.fileSystem = fileSystem;
+            this.owningFileSystemWrapper = requireNonNull(owningFileSystemWrapper, "owningFileSystemWrapper is null");
         }
 
         @Override
