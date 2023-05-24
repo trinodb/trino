@@ -34,15 +34,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeFlushMetadataCacheProcedure
         extends AbstractTestQueryFramework
 {
-    private static final String BUCKET_NAME = "delta-lake-test-flush-metadata-cache";
-
+    private final String bucketName = "delta-lake-test-flush-metadata-cache-" + randomNameSuffix();
     private HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(BUCKET_NAME, HIVE3_IMAGE);
+        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName, HIVE3_IMAGE);
         hiveMinioDataLake.start();
         metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
@@ -67,7 +66,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     @Test
     public void testFlushMetadataCache()
     {
-        assertUpdate("CREATE SCHEMA cached WITH (location = 's3://" + BUCKET_NAME + "/cached')");
+        assertUpdate("CREATE SCHEMA cached WITH (location = 's3://" + bucketName + "/cached')");
         assertUpdate("CREATE TABLE cached.cached AS SELECT * FROM tpch.tiny.nation", 25);
 
         // Verify that column cache is flushed
@@ -113,7 +112,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
         String tableName = "flush_metadata_after_table_created";
         String intermediateTableName = "test_flush_intermediate_" + randomNameSuffix();
 
-        String location = "s3://%s/%s".formatted(BUCKET_NAME, intermediateTableName);
+        String location = "s3://%s/%s".formatted(bucketName, intermediateTableName);
         assertUpdate("CREATE TABLE " + intermediateTableName + " WITH (location = '" + location + "') AS TABLE tpch.tiny.region", 5);
 
         // This may cause the connector to cache the fact that the table does not exist

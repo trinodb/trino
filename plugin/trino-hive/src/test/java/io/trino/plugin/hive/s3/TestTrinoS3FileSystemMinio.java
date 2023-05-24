@@ -37,7 +37,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTrinoS3FileSystemMinio
         extends BaseTestTrinoS3FileSystemObjectStorage
 {
-    private final String bucketName = "trino-ci-test";
+    private final String bucketName = "trino-ci-test-" + randomNameSuffix();
 
     private Minio minio;
 
