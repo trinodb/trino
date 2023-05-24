@@ -15,16 +15,21 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.containers.Minio;
 import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
+import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
-import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 
@@ -34,21 +39,46 @@ public class TestDeltaLakePreferredPartitioning
     private static final int WRITE_PARTITIONING_TEST_PARTITIONS_COUNT = 101;
 
     private final String bucketName = "mock-delta-lake-bucket-" + randomNameSuffix();
+    protected Minio minio;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
-        hiveMinioDataLake.start();
-        return createS3DeltaLakeQueryRunner(
-                DELTA_CATALOG,
-                "default",
-                ImmutableMap.of(
-                        "delta.enable-non-concurrent-writes", "true",
-                        "delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1)),
-                hiveMinioDataLake.getMinio().getMinioAddress(),
-                hiveMinioDataLake.getHiveHadoop());
+        minio = closeAfterClass(Minio.builder().build());
+        minio.start();
+        minio.createBucket(bucketName);
+
+        String schema = "default";
+        Session session = testSessionBuilder()
+                .setCatalog(DELTA_CATALOG)
+                .setSchema(schema)
+                .build();
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        try {
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch");
+
+            queryRunner.installPlugin(new DeltaLakePlugin());
+            queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
+                    .put("hive.metastore", "file")
+                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
+                    .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
+                    .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
+                    .put("hive.s3.endpoint", minio.getMinioAddress())
+                    .put("hive.s3.path-style-access", "true")
+                    .put("delta.enable-non-concurrent-writes", "true")
+                    .put("delta.max-partitions-per-writer", String.valueOf(WRITE_PARTITIONING_TEST_PARTITIONS_COUNT - 1))
+                    .buildOrThrow());
+
+            queryRunner.execute("CREATE SCHEMA " + schema + " WITH (location = 's3://" + bucketName + "/" + schema + "')");
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+
+        return queryRunner;
     }
 
     @Test
