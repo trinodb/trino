@@ -305,7 +305,7 @@ public abstract class AbstractTestQueries
             Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
             assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
             Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-            verify(allSchemas.stream().anyMatch(schema -> ((String) schema).contains("_")),
+            verify(allSchemas.stream().anyMatch(schema -> !((String) schema).contains("_")),
                     "This test expects at least one schema without underscore in it's name. Satisfy this assumption or override the test.");
             assertThat(result)
                     .isSubsetOf(allSchemas)
