@@ -81,7 +81,9 @@ import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -137,6 +139,7 @@ import static io.trino.execution.StageState.PLANNED;
 import static io.trino.execution.resourcegroups.IndexedPriorityQueue.PriorityOrdering.LOW_TO_HIGH;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
+import static io.trino.execution.scheduler.SchedulingUtils.canStream;
 import static io.trino.failuredetector.FailureDetector.State.GONE;
 import static io.trino.operator.ExchangeOperator.REMOTE_CATALOG_HANDLE;
 import static io.trino.operator.RetryPolicy.TASK;
@@ -757,17 +760,74 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private boolean isReadyForExecution(SubPlan subPlan)
         {
+            boolean nonSpeculativeTasksInQueue = schedulingQueue.getNonSpeculativeTaskCount() > 0;
+            boolean nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
+                    .anyMatch(task -> !task.isSpeculative() && !task.getNodeLease().getNode().isDone());
+
+            // do not start a speculative stage if there is non-speculative work still to be done.
+            boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode;
+
             for (SubPlan source : subPlan.getChildren()) {
                 StageExecution sourceStageExecution = stageExecutions.get(getStageId(source.getFragment().getId()));
                 if (sourceStageExecution == null) {
+                    // source stage did not yet start
                     return false;
                 }
-                // TODO enable speculative execution
+
                 if (sourceStageExecution.getState() != StageState.FINISHED) {
+                    if (!exchangeManager.supportsConcurrentReadAndWrite()) {
+                        // speculative execution not supported by Exchange implementation
+                        return false;
+                    }
+                    if (!canScheduleSpeculative) {
+                        return false;
+                    }
+                }
+                else {
+                    // source stage finished; no more checks needed
+                    continue;
+                }
+
+                if (!canOutputDataEarly(source)) {
+                    // no point in starting stage if source stage needs to complete before we can get any input data to make progress
+                    return false;
+                }
+
+                if (!canStream(subPlan, source)) {
+                    // only allow speculative execution of stage if all source stages for which we cannot stream data are finished
+                    return false;
+                }
+
+                if (sourceStageExecution.getOutputDataSize().isEmpty()) {
+                    // no output data size estimate yet
                     return false;
                 }
             }
+
             return true;
+        }
+
+        /**
+         * Verify if source plan is expected to output data as its tasks are progressing.
+         * E.g. tasks building final aggregation would not output any data until task completes; all data
+         * for partition task is responsible for must be processed.
+         * <br/>
+         * Note that logic here is conservative. It is still possible that stage produces output data before it is
+         * finished because some tasks finish sooner than the other.
+         */
+        private boolean canOutputDataEarly(SubPlan source)
+        {
+            PlanFragment fragment = source.getFragment();
+            return canOutputDataEarly(fragment.getRoot());
+        }
+
+        private boolean canOutputDataEarly(PlanNode node)
+        {
+            if (node instanceof AggregationNode aggregationNode) {
+                return aggregationNode.getStep().isOutputPartial();
+            }
+            // todo filter out more (window?)
+            return node.getSources().stream().allMatch(this::canOutputDataEarly);
         }
 
         private void closeSourceExchanges(SubPlan subPlan)
