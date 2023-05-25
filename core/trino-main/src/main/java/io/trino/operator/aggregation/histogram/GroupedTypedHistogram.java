@@ -61,7 +61,6 @@ public class GroupedTypedHistogram
     private static final int INSTANCE_SIZE = instanceSize(GroupedTypedHistogram.class);
     private static final int EMPTY_BUCKET = -1;
     private static final int NULL = -1;
-    private final int bucketId;
 
     private final Type type;
     private final BlockPositionEqual equalOperator;
@@ -89,7 +88,7 @@ public class GroupedTypedHistogram
     private int mask;
     private int bucketCount;
     private int maxFill;
-    // at most one thread uses this object at one time, so this must be set to the group being operated on
+    // at most, one thread uses this object at one time, so this must be set to the group being operated on
     private int currentGroupId = -1;
     private long numberOfGroups = 1;
     //
@@ -101,11 +100,10 @@ public class GroupedTypedHistogram
         this.type = requireNonNull(type, "type is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        this.bucketId = expectedCount;
         this.bucketCount = computeBucketCount(expectedCount, MAX_FILL_RATIO);
         this.mask = bucketCount - 1;
         this.maxFill = calculateMaxFill(bucketCount, MAX_FILL_RATIO);
-        this.values = type.createBlockBuilder(null, computeBucketCount(expectedCount, GroupedTypedHistogram.MAX_FILL_RATIO));
+        this.values = type.createBlockBuilder(null, computeBucketCount(expectedCount, MAX_FILL_RATIO));
         // buckets and node-arrays (bucket "points" to a node, so 1:1 relationship)
         buckets = new IntBigArray(-1);
         buckets.ensureCapacity(bucketCount);
@@ -115,7 +113,7 @@ public class GroupedTypedHistogram
         nextPointers = new IntBigArray(NULL);
         groupIds = new LongBigArray(-1);
         // here, one bucket is one node in the hash structure (vs a bucket may be a chain of nodes in closed-hashing with linked list hashing)
-        // ie, this is open-address hashing
+        // i.e., this is open-address hashing
         resizeNodeArrays(bucketCount);
         // end bucket/node based arrays
         // per-group arrays: size will be set by external call, same as groups since the number will be the same
@@ -205,24 +203,6 @@ public class GroupedTypedHistogram
     }
 
     @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
-    public int getExpectedSize()
-    {
-        return bucketId;
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return isCurrentGroupEmpty();
-    }
-
-    @Override
     public void add(int position, Block block, long count)
     {
         checkState(currentGroupId != -1, "setGroupId() not called yet");
@@ -267,10 +247,10 @@ public class GroupedTypedHistogram
      *
      * @param nodeReader - will be passed every non-null nodePointer
      */
-    private void iterateGroupNodes(long groupdId, NodeReader nodeReader)
+    private void iterateGroupNodes(long groupId, NodeReader nodeReader)
     {
         // while the index can be a long, the value is always an int
-        int currentPointer = (int) headPointers.get(groupdId);
+        int currentPointer = (int) headPointers.get(groupId);
         checkArgument(currentPointer != NULL, "valid group must have non-null head pointer");
 
         while (currentPointer != NULL) {
@@ -299,7 +279,7 @@ public class GroupedTypedHistogram
             int probeCount = 1;
 
             int originalBucket = bucketId;
-            // find new one
+            // find a new one
             while (newBuckets.get(bucketId) != -1) {
                 int probe = nextProbe(probeCount);
                 bucketId = nextBucketId(originalBucket, newMask, probe);
@@ -317,7 +297,7 @@ public class GroupedTypedHistogram
         resizeNodeArrays(newBucketCount);
     }
 
-    private int nextProbe(int probeCount)
+    private static int nextProbe(int probeCount)
     {
         return nextProbeLinear(probeCount);
     }
@@ -333,14 +313,14 @@ public class GroupedTypedHistogram
         groupIds.ensureCapacity(newBucketCount);
     }
 
-    private long combineGroupAndValueHash(long groupIdHash, long valueHash)
+    private static long combineGroupAndValueHash(long groupIdHash, long valueHash)
     {
         return groupIdHash ^ valueHash;
     }
 
     private int getBucketIdForNode(int nodePointer, int mask)
     {
-        long valueAndGroupHash = valueAndGroupHashes.get(nodePointer); // without mask
+        long valueAndGroupHash = valueAndGroupHashes.get(nodePointer); // without the mask
         int bucketId = (int) (valueAndGroupHash & mask);
 
         return bucketId;
@@ -349,7 +329,7 @@ public class GroupedTypedHistogram
     //short-lived abstraction that is basically a position into parallel arrays that we can treat as one data structure
     private class ValueNode
     {
-        // index into parallel arrays that are fields of a "node" in our hash table (eg counts, valuePositions)
+        // index into parallel arrays that are fields of a "node" in our hash table (e.g., counts, valuePositions)
         private final int nodePointer;
 
         /**
@@ -392,7 +372,7 @@ public class GroupedTypedHistogram
     // it as a hash table with Nodes that have values
     private class BucketDataNode
     {
-        // index into parallel arrays that are fields of a "node" in our hash table (eg counts, valuePositions)
+        // index into parallel arrays that are fields of a "node" in our hash table (e.g., counts, valuePositions)
         private final int bucketId;
         private final ValueNode valueNode;
         private final long valueHash;
@@ -442,7 +422,7 @@ public class GroupedTypedHistogram
 
             // we've already computed the value hash for only the value only; ValueStore will save it for future use
             int nextValuePosition = valueStore.addAndGetPosition(block, position, valueHash);
-            // set value pointer to hash map of values
+            // set value pointer to a hash map of values
             valuePositions.set(nodePointerToUse, nextValuePosition);
             // save hashes for future rehashing
             valueAndGroupHashes.set(nodePointerToUse, valueAndGroupHash);
@@ -463,7 +443,8 @@ public class GroupedTypedHistogram
     private class BucketNodeFactory
     {
         /**
-         * invariant: "points" to a virtual node of [key, count] for the histogram and includes any indirection calcs. Makes not guarantees if the node is empty or not
+         * invariant: "points" to a virtual node of [key, count] for the histogram and includes any indirection calculations.
+         * Makes no guarantees if the node is empty or not
          * (use isEmpty())
          */
         private BucketDataNode createBucketDataNode(long groupId, Block block, int position)
