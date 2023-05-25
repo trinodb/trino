@@ -93,7 +93,11 @@ public class NoOpTransactionManager
     @Override
     public Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName)
     {
-        throw new UnsupportedOperationException();
+        /*
+         * When SQL path is present in the session, it is possible for a worker node to invoke this method in the
+         * process of resolving a coercion. Return Optional.empty() here to avoid failing the query in that scenario.
+         */
+        return Optional.empty();
     }
 
     @Override
