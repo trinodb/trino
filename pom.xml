@@ -2269,6 +2269,31 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <systemPropertyVariables>
+                        <sun.jnu.encoding>${project.build.sourceEncoding}</sun.jnu.encoding>
+                        <user.timezone>${air.test.timezone}</user.timezone>
+                        <user.language>${air.test.language}</user.language>
+                        <user.region>${air.test.region}</user.region>
+                        <java.awt.headless>true</java.awt.headless>
+                        <java.util.logging.SimpleFormatter.format>%1$tY-%1$tm-%1$tdT%1$tH:%1$tM:%1$tS.%1$tL%1$tz %4$s %5$s%6$s%n</java.util.logging.SimpleFormatter.format>
+                    </systemPropertyVariables>
+                    <trimStackTrace>false</trimStackTrace>
+                    <runOrder>random</runOrder>
+                    <failIfNoTests>true</failIfNoTests>
+                    <parallel>${air.test.parallel}</parallel>
+                    <threadCount>${air.test.thread-count}</threadCount>
+                    <!-- @{argLine} is for Jacoco: https://www.eclemma.org/jacoco/trunk/doc/prepare-agent-mojo.html -->
+                    <argLine>
+                        @{argLine}
+                        -Dfile.encoding=${project.build.sourceEncoding}
+                        -Xmx${air.test.jvmsize}
+                        -Xms${air.test.jvmsize}
+                        -XX:+ExitOnOutOfMemoryError
+                        -XX:+HeapDumpOnOutOfMemoryError
+                        -XX:-OmitStackTraceInFastThrow
+                        ${surefireEnablePreview}
+                        ${air.test.jvm.additional-arguments}
+                    </argLine>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
