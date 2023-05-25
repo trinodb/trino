@@ -41,7 +41,7 @@ import java.util.concurrent.Future;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
+import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.OperatorFactories.spillingJoin;

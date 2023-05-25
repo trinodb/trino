@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor.timesharing;
 
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.units.Duration;
-import io.trino.execution.executor.SimulationController.TaskSpecification;
-import io.trino.execution.executor.SplitGenerators.AggregatedLeafSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.FastLeafSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.IntermediateSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.L4LeafSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.QuantaExceedingSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.SimpleLeafSplitGenerator;
-import io.trino.execution.executor.SplitGenerators.SlowLeafSplitGenerator;
+import io.trino.execution.executor.timesharing.SimulationController.TaskSpecification;
+import io.trino.execution.executor.timesharing.SplitGenerators.AggregatedLeafSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.FastLeafSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.IntermediateSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.L4LeafSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.QuantaExceedingSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.SimpleLeafSplitGenerator;
+import io.trino.execution.executor.timesharing.SplitGenerators.SlowLeafSplitGenerator;
 import org.joda.time.DateTime;
 
 import java.io.Closeable;
@@ -42,10 +42,10 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
-import static io.trino.execution.executor.Histogram.fromContinuous;
-import static io.trino.execution.executor.Histogram.fromDiscrete;
-import static io.trino.execution.executor.SimulationController.TaskSpecification.Type.INTERMEDIATE;
-import static io.trino.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
+import static io.trino.execution.executor.timesharing.Histogram.fromContinuous;
+import static io.trino.execution.executor.timesharing.Histogram.fromDiscrete;
+import static io.trino.execution.executor.timesharing.SimulationController.TaskSpecification.Type.INTERMEDIATE;
+import static io.trino.execution.executor.timesharing.SimulationController.TaskSpecification.Type.LEAF;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -57,13 +57,13 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 
-public class TaskExecutorSimulator
+public class TimeSharingTaskExecutorSimulation
         implements Closeable
 {
     public static void main(String[] args)
             throws Exception
     {
-        try (TaskExecutorSimulator simulator = new TaskExecutorSimulator()) {
+        try (TimeSharingTaskExecutorSimulation simulator = new TimeSharingTaskExecutorSimulation()) {
             simulator.run();
         }
     }
@@ -73,13 +73,13 @@ public class TaskExecutorSimulator
     private final ScheduledExecutorService runningSplitsPrintExecutor = newSingleThreadScheduledExecutor();
     private final ScheduledExecutorService wakeupExecutor = newScheduledThreadPool(32);
 
-    private final TaskExecutor taskExecutor;
+    private final TimeSharingTaskExecutor taskExecutor;
     private final MultilevelSplitQueue splitQueue;
 
-    private TaskExecutorSimulator()
+    private TimeSharingTaskExecutorSimulation()
     {
         splitQueue = new MultilevelSplitQueue(2);
-        taskExecutor = new TaskExecutor(36, 72, 3, 8, splitQueue, Ticker.systemTicker());
+        taskExecutor = new TimeSharingTaskExecutor(36, 72, 3, 8, splitQueue, Ticker.systemTicker());
         taskExecutor.start();
     }
 
@@ -99,7 +99,7 @@ public class TaskExecutorSimulator
         long start = System.nanoTime();
         scheduleStatusPrinter(start);
 
-        SimulationController controller = new SimulationController(taskExecutor, TaskExecutorSimulator::printSummaryStats);
+        SimulationController controller = new SimulationController(taskExecutor, TimeSharingTaskExecutorSimulation::printSummaryStats);
 
         // Uncomment one of these:
         // runExperimentOverloadedCluster(controller);
@@ -306,7 +306,7 @@ public class TaskExecutorSimulator
         }, 1, 1, SECONDS);
     }
 
-    private static void printSummaryStats(SimulationController controller, TaskExecutor taskExecutor)
+    private static void printSummaryStats(SimulationController controller, TimeSharingTaskExecutor taskExecutor)
     {
         Map<TaskSpecification, Boolean> specEnabled = controller.getSpecificationEnabled();
 
@@ -350,7 +350,7 @@ public class TaskExecutorSimulator
                 SimulationTask::getScheduledTimeNanos,
                 SimulationTask::getProcessedTimeNanos,
                 Duration::succinctNanos,
-                TaskExecutorSimulator::formatNanos);
+                TimeSharingTaskExecutorSimulation::formatNanos);
 
         System.out.println();
         System.out.println("Levels - Running Task Processed Time");
@@ -359,7 +359,7 @@ public class TaskExecutorSimulator
                 SimulationTask::getScheduledTimeNanos,
                 SimulationTask::getProcessedTimeNanos,
                 Duration::succinctNanos,
-                TaskExecutorSimulator::formatNanos);
+                TimeSharingTaskExecutorSimulation::formatNanos);
 
         System.out.println();
         System.out.println("Levels - All Task Wait Time");
@@ -368,7 +368,7 @@ public class TaskExecutorSimulator
                 SimulationTask::getScheduledTimeNanos,
                 SimulationTask::getTotalWaitTimeNanos,
                 Duration::succinctNanos,
-                TaskExecutorSimulator::formatNanos);
+                TimeSharingTaskExecutorSimulation::formatNanos);
 
         System.out.println();
         System.out.println("Specification - Processed time");
@@ -378,7 +378,7 @@ public class TaskExecutorSimulator
                 t -> t.getSpecification().getName(),
                 SimulationTask::getProcessedTimeNanos,
                 identity(),
-                TaskExecutorSimulator::formatNanos);
+                TimeSharingTaskExecutorSimulation::formatNanos);
 
         System.out.println();
         System.out.println("Specification - Wait time");
@@ -387,7 +387,7 @@ public class TaskExecutorSimulator
                 t -> t.getSpecification().getName(),
                 SimulationTask::getTotalWaitTimeNanos,
                 identity(),
-                TaskExecutorSimulator::formatNanos);
+                TimeSharingTaskExecutorSimulation::formatNanos);
 
         System.out.println();
         System.out.println("Breakdown by specification");
@@ -415,7 +415,7 @@ public class TaskExecutorSimulator
                     SimulationTask::getScheduledTimeNanos,
                     SimulationTask::getProcessedTimeNanos,
                     Duration::succinctNanos,
-                    TaskExecutorSimulator::formatNanos);
+                    TimeSharingTaskExecutorSimulation::formatNanos);
 
             System.out.println();
             System.out.println("All Tasks by Scheduled time - Wait Time");
@@ -424,7 +424,7 @@ public class TaskExecutorSimulator
                     SimulationTask::getScheduledTimeNanos,
                     SimulationTask::getTotalWaitTimeNanos,
                     Duration::succinctNanos,
-                    TaskExecutorSimulator::formatNanos);
+                    TimeSharingTaskExecutorSimulation::formatNanos);
 
             System.out.println();
             System.out.println("Complete Tasks by Scheduled time - Wait Time");
@@ -433,7 +433,7 @@ public class TaskExecutorSimulator
                     SimulationTask::getScheduledTimeNanos,
                     SimulationTask::getTotalWaitTimeNanos,
                     Duration::succinctNanos,
-                    TaskExecutorSimulator::formatNanos);
+                    TimeSharingTaskExecutorSimulation::formatNanos);
         }
     }
 

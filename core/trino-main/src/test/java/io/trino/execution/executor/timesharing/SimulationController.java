@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
-import io.trino.execution.executor.SimulationTask.IntermediateTask;
-import io.trino.execution.executor.SimulationTask.LeafTask;
-import io.trino.execution.executor.SplitGenerators.SplitGenerator;
+import io.trino.execution.executor.timesharing.SimulationTask.IntermediateTask;
+import io.trino.execution.executor.timesharing.SimulationTask.LeafTask;
+import io.trino.execution.executor.timesharing.SplitGenerators.SplitGenerator;
 
 import java.util.Map;
 import java.util.OptionalInt;
@@ -29,7 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
-import static io.trino.execution.executor.SimulationController.TaskSpecification.Type.LEAF;
+import static io.trino.execution.executor.timesharing.SimulationController.TaskSpecification.Type.LEAF;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,8 +37,8 @@ class SimulationController
 {
     private static final int DEFAULT_MIN_SPLITS_PER_TASK = 3;
 
-    private final TaskExecutor taskExecutor;
-    private final BiConsumer<SimulationController, TaskExecutor> callback;
+    private final TimeSharingTaskExecutor taskExecutor;
+    private final BiConsumer<SimulationController, TimeSharingTaskExecutor> callback;
 
     private final ExecutorService controllerExecutor = newSingleThreadExecutor();
 
@@ -50,7 +50,7 @@ class SimulationController
 
     private final AtomicBoolean stopped = new AtomicBoolean();
 
-    public SimulationController(TaskExecutor taskExecutor, BiConsumer<SimulationController, TaskExecutor> callback)
+    public SimulationController(TimeSharingTaskExecutor taskExecutor, BiConsumer<SimulationController, TimeSharingTaskExecutor> callback)
     {
         this.taskExecutor = taskExecutor;
         this.callback = callback;

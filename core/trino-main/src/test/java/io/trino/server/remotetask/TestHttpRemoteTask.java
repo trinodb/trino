@@ -35,6 +35,7 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.block.BlockJsonSerde;
 import io.trino.client.NodeVersion;
+import io.trino.execution.BaseTestSqlTaskManager;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.NodeTaskMap;
@@ -49,7 +50,6 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.TaskTestUtils;
-import io.trino.execution.TestSqlTaskManager;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.HandleJsonModule;
@@ -583,7 +583,7 @@ public class TestHttpRemoteTask
                                 new QueryManagerConfig(),
                                 TASK_MANAGER_CONFIG,
                                 testingHttpClient,
-                                new TestSqlTaskManager.MockLocationFactory(),
+                                new BaseTestSqlTaskManager.MockLocationFactory(),
                                 taskStatusCodec,
                                 dynamicFilterDomainsCodec,
                                 taskInfoCodec,
