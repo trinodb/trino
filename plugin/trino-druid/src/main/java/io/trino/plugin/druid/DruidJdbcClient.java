@@ -40,6 +40,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -168,23 +169,27 @@ public class DruidJdbcClient
     {
         String jdbcSchemaName = schemaTableName.getSchemaName();
         String jdbcTableName = schemaTableName.getTableName();
-        try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
-            List<JdbcTableHandle> tableHandles = new ArrayList<>();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
-                String tableName = resultSet.getString("TABLE_NAME");
-                if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
-                    tableHandles.add(new JdbcTableHandle(
-                            schemaTableName,
-                            new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
-                            Optional.empty()));
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ConnectorIdentity identity = session.getIdentity();
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, jdbcSchemaName);
+            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, jdbcTableName);
+            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
+                List<JdbcTableHandle> tableHandles = new ArrayList<>();
+                while (resultSet.next()) {
+                    String schemaName = resultSet.getString("TABLE_SCHEM");
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    if (Objects.equals(schemaName, remoteSchema) && Objects.equals(tableName, remoteTable)) {
+                        tableHandles.add(new JdbcTableHandle(
+                                schemaTableName,
+                                new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                                Optional.empty()));
+                    }
                 }
+                if (tableHandles.isEmpty()) {
+                    return Optional.empty();
+                }
+                return Optional.of(getOnlyElement(tableHandles));
             }
-            if (tableHandles.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(getOnlyElement(tableHandles));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
