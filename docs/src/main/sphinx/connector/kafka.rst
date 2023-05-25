@@ -106,6 +106,8 @@ Property name                                              Description
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not.
 ``kafka.internal-column-prefix``                           Prefix for internal columns, defaults to ``_``
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split; defaults to ``100000``.
+``kafka.protobuf-any-support-enabled``                     Enable support for encoding Protobuf ``any`` types to ``JSON`` by setting the property to ``true``,
+                                                           defaults to ``false``.
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp pushdown is enabled for topics using ``CreateTime`` mode.
 ``kafka.security-protocol``                                Security protocol for connection to Kafka cluster; defaults to ``PLAINTEXT``.
 ``kafka.ssl.keystore.location``                            Location of the keystore file.
@@ -438,7 +440,7 @@ table description supplier are:
 * New tables can be defined without a cluster restart.
 * Schema updates are detected automatically.
 * There is no need to define tables manually.
-* Some Protobuf specific types like ``oneof`` are supported and mapped to JSON.
+* Some Protobuf specific types like ``oneof`` and ``any`` are supported and mapped to JSON.
 
 When using Protobuf decoder with the Confluent table description supplier, some
 additional steps are necessary. For details, refer to :ref:`kafka-requirements`.
@@ -1453,7 +1455,60 @@ Trino data type                       Allowed Protobuf data type
 ``ARRAY``                             Protobuf type with ``repeated`` field
 ``MAP``                               ``Map``
 ``TIMESTAMP``                         ``Timestamp``, predefined in ``timestamp.proto``
+``JSON``                              ``oneof`` (Confluent table supplier only), ``Any``
 ===================================== =======================================
+
+any
++++
+
+Message types with an `Any <https://protobuf.dev/programming-guides/proto3/#any>`_
+field contain an arbitrary serialized message as bytes and a type URL to resolve
+that message's type with a scheme of ``file://``, ``http://``, or ``https://``.
+The connector reads the contents of the URL to create the type descriptor
+for the ``Any`` message and convert the message to JSON. This behavior is enabled
+by setting ``kafka.protobuf-any-support-enabled`` to ``true``.
+
+The descriptors for each distinct URL are cached for performance reasons and
+any modifications made to the type returned by the URL requires a restart of
+Trino.
+
+For example, given the following Protobuf schema which defines ``MyMessage``
+with three columns:
+
+.. code-block:: text
+
+    syntax = "proto3";
+
+    message MyMessage {
+      string stringColumn = 1;
+      uint32 integerColumn = 2;
+      uint64 longColumn = 3;
+    }
+
+And a separate schema which uses an ``Any`` type which is a packed message
+of the above type and a valid URL:
+
+.. code-block:: text
+
+    syntax = "proto3";
+
+    import "google/protobuf/any.proto";
+
+    message schema {
+        google.protobuf.Any any_message = 1;
+    }
+
+The corresponding Trino column is named ``any_message`` of type ``JSON``
+containing a JSON-serialized representation of the Protobuf message:
+
+.. code-block:: text
+
+    {
+      "@type":"file:///path/to/schemas/MyMessage",
+      "longColumn":"493857959588286460",
+      "numberColumn":"ONE",
+      "stringColumn":"Trino"
+    }
 
 Protobuf schema evolution
 +++++++++++++++++++++++++
@@ -1481,7 +1536,6 @@ The schema evolution behavior is as follows:
 Protobuf limitations
 ++++++++++++++++++++
 
-* Protobuf specific types like ``any``, ``oneof`` are not supported.
 * Protobuf Timestamp has a nanosecond precision but Trino supports
   decoding/encoding at microsecond precision.
 
