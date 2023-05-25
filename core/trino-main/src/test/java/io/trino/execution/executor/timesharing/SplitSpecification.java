@@ -11,10 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor.timesharing;
 
-import io.trino.execution.executor.SimulationSplit.IntermediateSplit;
-import io.trino.execution.executor.SimulationSplit.LeafSplit;
+import io.trino.execution.executor.timesharing.SimulationSplit.IntermediateSplit;
+import io.trino.execution.executor.timesharing.SimulationSplit.LeafSplit;
 
 import java.util.concurrent.ScheduledExecutorService;
 

@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +60,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -84,18 +84,20 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
-public class TestSqlTaskManager
+public abstract class BaseTestSqlTaskManager
 {
-    private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 1, 0);
     public static final OutputBufferId OUT = new OutputBufferId(0);
+    private final AtomicInteger sequence = new AtomicInteger();
 
     private TaskExecutor taskExecutor;
     private TaskManagementExecutor taskManagementExecutor;
 
+    protected abstract TaskExecutor createTaskExecutor();
+
     @BeforeAll
     public void setUp()
     {
-        taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+        taskExecutor = createTaskExecutor();
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
     }
@@ -113,7 +115,7 @@ public class TestSqlTaskManager
     public void testEmptyQuery()
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
@@ -134,7 +136,7 @@ public class TestSqlTaskManager
             throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
             createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
             TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
@@ -167,7 +169,7 @@ public class TestSqlTaskManager
             throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
@@ -191,7 +193,7 @@ public class TestSqlTaskManager
             throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
             assertNull(taskInfo.getStats().getEndTime());
@@ -216,7 +218,7 @@ public class TestSqlTaskManager
             throws Exception
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
             createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
             TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
@@ -237,7 +239,7 @@ public class TestSqlTaskManager
             throws InterruptedException, ExecutionException, TimeoutException
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig().setInfoMaxAge(new Duration(5, TimeUnit.MILLISECONDS)))) {
-            TaskId taskId = TASK_ID;
+            TaskId taskId = newTaskId();
 
             TaskInfo taskInfo = createTask(sqlTaskManager, taskId, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
             assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
@@ -436,5 +438,10 @@ public class TestSqlTaskManager
         {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private TaskId newTaskId()
+    {
+        return new TaskId(new StageId("query" + sequence.incrementAndGet(), 0), 1, 0);
     }
 }
