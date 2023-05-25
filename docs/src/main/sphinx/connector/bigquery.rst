@@ -157,6 +157,18 @@ Property                                              Description               
                                                       from BigQuery.
                                                       Please read this `section <#arrow-serialization-support>`_
                                                       before enabling this feature.
+``bigquery.rpc-proxy.uri``                            Proxy URI to use if connecting through a proxy.
+``bigquery.rpc-proxy.username``                       Proxy user name to use if connecting through a proxy.
+``bigquery.rpc-proxy.password``                       Proxy password to use if connecting through a proxy.
+``bigquery.rpc-proxy.keystore-path``                  Keystore containing client certificates to present to proxy if
+                                                      connecting through a proxy. Only required if proxy uses
+                                                      mutual TLS.
+``bigquery.rpc-proxy.keystore-password``              Password of the keystore specified by
+                                                      ``bigquery.rpc-proxy.keystore-path``.
+``bigquery.rpc-proxy.truststore-path``                Truststore containing certificates of the proxy server if
+                                                      connecting through a proxy.
+``bigquery.rpc-proxy.truststore-password``            Password of the truststore specified by
+                                                      ``bigquery.rpc-proxy.truststore-path``.
 ===================================================== ============================================================== ======================================================
 
 .. _bigquery-type-mapping:
