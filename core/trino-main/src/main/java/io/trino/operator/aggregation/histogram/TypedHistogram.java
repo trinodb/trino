@@ -15,7 +15,6 @@ package io.trino.operator.aggregation.histogram;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.Type;
 
 public interface TypedHistogram
 {
@@ -28,12 +27,6 @@ public interface TypedHistogram
     void readAllValues(HistogramValueReader reader);
 
     void add(int position, Block block, long count);
-
-    Type getType();
-
-    int getExpectedSize();
-
-    boolean isEmpty();
 
     // no-op on non-grouped
     default TypedHistogram setGroupId(long groupId)
