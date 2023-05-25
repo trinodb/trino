@@ -29,6 +29,7 @@ import io.trino.connector.ConnectorServicesProvider;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.spi.connector.CatalogHandle;
@@ -63,7 +64,7 @@ public class TestTaskExecutorStuckSplits
 
         TaskId taskId = new TaskId(new StageId("query", 0), 1, 0);
 
-        TaskExecutor taskExecutor = new TaskExecutor(4, 8, 3, 4, ticker);
+        TaskExecutor taskExecutor = new TimeSharingTaskExecutor(4, 8, 3, 4, ticker);
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskId,
                 () -> 1.0,
@@ -121,7 +122,7 @@ public class TestTaskExecutorStuckSplits
                 new EmbedVersion("testversion"),
                 new NoConnectorServicesProvider(),
                 createTestingPlanner(),
-                new TestSqlTaskManager.MockLocationFactory(),
+                new BaseTestSqlTaskManager.MockLocationFactory(),
                 taskExecutor,
                 createTestSplitMonitor(),
                 new NodeInfo("test"),

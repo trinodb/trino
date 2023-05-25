@@ -51,7 +51,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
-import static io.trino.execution.executor.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
+import static io.trino.execution.executor.timesharing.PrioritizedSplitRunner.SPLIT_RUN_QUANTA;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.operator.project.PageProcessor.MAX_BATCH_SIZE;

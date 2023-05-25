@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.trino.execution.executor.SplitSpecification.IntermediateSplitSpecification;
-import io.trino.execution.executor.SplitSpecification.LeafSplitSpecification;
+import io.trino.execution.executor.timesharing.SplitSpecification.IntermediateSplitSpecification;
+import io.trino.execution.executor.timesharing.SplitSpecification.LeafSplitSpecification;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.trino.execution.executor.Histogram.fromContinuous;
+import static io.trino.execution.executor.timesharing.Histogram.fromContinuous;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

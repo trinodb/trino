@@ -11,9 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution;
 
-public interface TaskHandle
+import com.google.common.base.Ticker;
+import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
+
+public class TestSqlTaskManagerTimeSharing
+        extends BaseTestSqlTaskManager
 {
-    boolean isDestroyed();
+    @Override
+    protected TaskExecutor createTaskExecutor()
+    {
+        return new TimeSharingTaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
+    }
 }
