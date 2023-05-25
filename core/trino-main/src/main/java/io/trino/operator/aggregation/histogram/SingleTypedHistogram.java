@@ -31,13 +31,12 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static it.unimi.dsi.fastutil.HashCommon.murmurHash3;
 import static java.util.Objects.requireNonNull;
 
-public class SingleTypedHistogram
+public final class SingleTypedHistogram
         implements TypedHistogram
 {
     private static final int INSTANCE_SIZE = instanceSize(SingleTypedHistogram.class);
     private static final float FILL_RATIO = 0.75f;
 
-    private final int expectedSize;
     private int hashCapacity;
     private int maxFill;
     private int mask;
@@ -50,16 +49,13 @@ public class SingleTypedHistogram
     private IntBigArray hashPositions;
     private final LongBigArray counts;
 
-    private SingleTypedHistogram(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int expectedSize, int hashCapacity, BlockBuilder values)
+    private SingleTypedHistogram(Type type, BlockPositionEqual equalOperator, BlockPositionHashCode hashCodeOperator, int hashCapacity, BlockBuilder values)
     {
         this.type = requireNonNull(type, "type is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
-        this.expectedSize = expectedSize;
         this.hashCapacity = hashCapacity;
         this.values = values;
-
-        checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
         maxFill = calculateMaxFill(hashCapacity);
         mask = hashCapacity - 1;
@@ -74,7 +70,6 @@ public class SingleTypedHistogram
         this(type,
                 equalOperator,
                 hashCodeOperator,
-                expectedSize,
                 computeBucketCount(expectedSize),
                 type.createBlockBuilder(null, computeBucketCount(expectedSize)));
     }
@@ -139,11 +134,7 @@ public class SingleTypedHistogram
         int hashPosition = getBucketId(hashCodeOperator.hashCodeNullSafe(block, position), mask);
 
         // look for an empty slot or a slot containing this key
-        while (true) {
-            if (hashPositions.get(hashPosition) == -1) {
-                break;
-            }
-
+        while (hashPositions.get(hashPosition) != -1) {
             if (equalOperator.equal(block, position, values, hashPositions.get(hashPosition))) {
                 counts.add(hashPositions.get(hashPosition), count);
                 return;
@@ -153,24 +144,6 @@ public class SingleTypedHistogram
         }
 
         addNewGroup(hashPosition, position, block, count);
-    }
-
-    @Override
-    public Type getType()
-    {
-        return type;
-    }
-
-    @Override
-    public int getExpectedSize()
-    {
-        return expectedSize;
-    }
-
-    @Override
-    public boolean isEmpty()
-    {
-        return values.getPositionCount() == 0;
     }
 
     public int getPositionCount()
