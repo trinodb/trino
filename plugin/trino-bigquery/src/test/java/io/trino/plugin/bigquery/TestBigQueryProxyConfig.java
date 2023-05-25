@@ -54,10 +54,10 @@ public class TestBigQueryProxyConfig
                 .put("bigquery.rpc-proxy.uri", "http://localhost:8000")
                 .put("bigquery.rpc-proxy.username", "username")
                 .put("bigquery.rpc-proxy.password", "password")
-                .put("bigquery.rpc-proxy.trust-store-path", truststoreFile.toString())
-                .put("bigquery.rpc-proxy.trust-store-password", "password-truststore")
-                .put("bigquery.rpc-proxy.key-store-path", keystoreFile.toString())
-                .put("bigquery.rpc-proxy.key-store-password", "password-keystore")
+                .put("bigquery.rpc-proxy.truststore-path", truststoreFile.toString())
+                .put("bigquery.rpc-proxy.truststore-password", "password-truststore")
+                .put("bigquery.rpc-proxy.keystore-path", keystoreFile.toString())
+                .put("bigquery.rpc-proxy.keystore-password", "password-keystore")
                 .buildOrThrow();
 
         BigQueryProxyConfig expected = new BigQueryProxyConfig()

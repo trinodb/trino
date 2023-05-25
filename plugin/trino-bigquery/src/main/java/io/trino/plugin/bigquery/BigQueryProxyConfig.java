@@ -87,7 +87,7 @@ public class BigQueryProxyConfig
         return Optional.ofNullable(keystorePath);
     }
 
-    @Config("bigquery.rpc-proxy.key-store-path")
+    @Config("bigquery.rpc-proxy.keystore-path")
     @ConfigDescription("Path to a Java keystore file")
     public BigQueryProxyConfig setKeystorePath(File keystorePath)
     {
@@ -100,7 +100,7 @@ public class BigQueryProxyConfig
         return Optional.ofNullable(keystorePassword);
     }
 
-    @Config("bigquery.rpc-proxy.key-store-password")
+    @Config("bigquery.rpc-proxy.keystore-password")
     @ConfigDescription("Password to a Java keystore file")
     @ConfigSecuritySensitive
     public BigQueryProxyConfig setKeystorePassword(String keystorePassword)
@@ -114,7 +114,7 @@ public class BigQueryProxyConfig
         return Optional.ofNullable(truststorePath);
     }
 
-    @Config("bigquery.rpc-proxy.trust-store-path")
+    @Config("bigquery.rpc-proxy.truststore-path")
     @ConfigDescription("Path to a Java truststore file")
     public BigQueryProxyConfig setTruststorePath(File truststorePath)
     {
@@ -127,7 +127,7 @@ public class BigQueryProxyConfig
         return Optional.ofNullable(truststorePassword);
     }
 
-    @Config("bigquery.rpc-proxy.trust-store-password")
+    @Config("bigquery.rpc-proxy.truststore-password")
     @ConfigDescription("Password to a Java truststore file")
     @ConfigSecuritySensitive
     public BigQueryProxyConfig setTruststorePassword(String truststorePassword)
