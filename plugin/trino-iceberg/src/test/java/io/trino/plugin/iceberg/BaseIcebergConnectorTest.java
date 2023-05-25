@@ -6637,16 +6637,14 @@ public abstract class BaseIcebergConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
-        // The connector appends uuids to the end of all table names
-        // 33 is the length of random suffix. e.g. {table name}-142763c594d54e4b9329a98f90528caf
-        return OptionalInt.of(255 - 33);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected OptionalInt maxTableRenameLength()
     {
         // This value depends on metastore type
-        return OptionalInt.of(255);
+        return OptionalInt.of(128);
     }
 
     @Test
@@ -6923,7 +6921,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("Failed to create file.*|Could not create new table directory");
+        assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
     }
 
     @Override
