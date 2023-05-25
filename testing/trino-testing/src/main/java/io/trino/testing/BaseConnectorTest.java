@@ -3578,19 +3578,17 @@ public abstract class BaseConnectorTest
                     .skippingTypesCheck()
                     .containsAll("VALUES ('" + table.getName() + "', 'new comment')");
 
-            // comment updated
+            // comment deleted
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
+            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'updated comment'");
             assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("updated comment");
 
             // comment set to empty or deleted
             assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
             assertThat(getTableComment(catalogName, schemaName, table.getName())).isIn("", null); // Some storages do not preserve empty comment
-
-            // comment deleted
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'a comment'");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo("a comment");
-            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, table.getName())).isEqualTo(null);
         }
 
         String tableName = "test_comment_" + randomNameSuffix();
@@ -3631,19 +3629,17 @@ public abstract class BaseConnectorTest
             assertThat((String) computeScalar("SHOW CREATE VIEW " + view.getName())).contains("COMMENT 'new comment'");
             assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("new comment");
 
-            // comment updated
+            // comment deleted
+            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
+            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'updated comment'");
             assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("updated comment");
 
             // comment set to empty
             assertUpdate("COMMENT ON VIEW " + view.getName() + " IS ''");
             assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("");
-
-            // comment deleted
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS 'a comment'");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo("a comment");
-            assertUpdate("COMMENT ON VIEW " + view.getName() + " IS NULL");
-            assertThat(getTableComment(catalogName, schemaName, view.getName())).isEqualTo(null);
         }
 
         String viewName = "test_comment_view" + randomNameSuffix();
@@ -3671,19 +3667,17 @@ public abstract class BaseConnectorTest
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("new comment");
 
-            // comment updated
+            // comment deleted
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
+
+            // comment set to non-empty value before verifying setting empty comment
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("updated comment");
 
             // comment set to empty or deleted
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS ''");
             assertThat(getColumnComment(table.getName(), "a")).isIn("", null); // Some storages do not preserve empty comment
-
-            // comment deleted
-            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'a comment'");
-            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("a comment");
-            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
-            assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
         }
     }
 
