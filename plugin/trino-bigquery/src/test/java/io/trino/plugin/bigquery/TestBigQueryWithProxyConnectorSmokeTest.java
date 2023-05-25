@@ -37,8 +37,8 @@ public class TestBigQueryWithProxyConnectorSmokeTest
                 ImmutableMap.of(
                         "bigquery.rpc-proxy.enabled", "true",
                         "bigquery.rpc-proxy.uri", proxy.getProxyEndpoint(),
-                        "bigquery.rpc-proxy.trust-store-path", fromResources("proxy/truststore.jks").getAbsolutePath(),
-                        "bigquery.rpc-proxy.trust-store-password", "123456"),
+                        "bigquery.rpc-proxy.truststore-path", fromResources("proxy/truststore.jks").getAbsolutePath(),
+                        "bigquery.rpc-proxy.truststore-password", "123456"),
                 REQUIRED_TPCH_TABLES);
 
         return queryRunner;
