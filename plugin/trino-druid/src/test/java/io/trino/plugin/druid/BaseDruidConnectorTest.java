@@ -33,6 +33,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
+
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.plugin.druid.DruidTpchTables.SELECT_FROM_ORDERS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -126,6 +129,15 @@ public abstract class BaseDruidConnectorTest
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
+    }
+
+    @Test
+    public void testDriverBehaviorForStoredUpperCaseIdentifiers()
+            throws SQLException
+    {
+        DatabaseMetaData metadata = druidServer.getConnection().getMetaData();
+        // if this fails we need to revisit the RemoteIdentifierSupplier implementation since the driver has probably been fixed - today it returns true even though identifiers are stored in lowercase
+        assertThat(metadata.storesUpperCaseIdentifiers()).isTrue();
     }
 
     @Test
