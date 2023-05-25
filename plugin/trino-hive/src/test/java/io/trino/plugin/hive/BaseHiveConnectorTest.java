@@ -8780,13 +8780,13 @@ public abstract class BaseHiveConnectorTest
     protected OptionalInt maxTableNameLength()
     {
         // This value depends on metastore type
-        return OptionalInt.of(255);
+        return OptionalInt.of(128);
     }
 
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
-        assertThat(e).hasMessageMatching("Failed to create directory.*|Could not rename table directory");
+        assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
     }
 
     private Session withTimestampPrecision(Session session, HiveTimestampPrecision precision)

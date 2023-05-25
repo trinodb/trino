@@ -140,7 +140,7 @@ public class FileHiveMetastore
     private static final Set<String> ADMIN_USERS = ImmutableSet.of("admin", "hive", "hdfs");
 
     // 128 is equals to the max database name length of Thrift Hive metastore
-    private static final int MAX_DATABASE_NAME_LENGTH = 128;
+    private static final int MAX_NAME_LENGTH = 128;
 
     private final String currentVersion;
     private final VersionCompatibility versionCompatibility;
@@ -289,8 +289,15 @@ public class FileHiveMetastore
 
     private void verifyDatabaseNameLength(String databaseName)
     {
-        if (databaseName.length() > MAX_DATABASE_NAME_LENGTH) {
-            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_DATABASE_NAME_LENGTH, databaseName.length()));
+        if (databaseName.length() > MAX_NAME_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Schema name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, databaseName.length()));
+        }
+    }
+
+    private void verifyTableNameLength(String tableName)
+    {
+        if (tableName.length() > MAX_NAME_LENGTH) {
+            throw new TrinoException(NOT_SUPPORTED, format("Table name must be shorter than or equal to '%s' characters but got '%s'", MAX_NAME_LENGTH, tableName.length()));
         }
     }
 
@@ -312,6 +319,7 @@ public class FileHiveMetastore
     @Override
     public synchronized void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
+        verifyTableNameLength(table.getTableName());
         verifyDatabaseExists(table.getDatabaseName());
         verifyTableNotExists(table.getDatabaseName(), table.getTableName());
 
@@ -611,6 +619,7 @@ public class FileHiveMetastore
         getRequiredDatabase(newDatabaseName);
 
         // verify new table does not exist
+        verifyTableNameLength(newTableName);
         verifyTableNotExists(newDatabaseName, newTableName);
 
         Path oldPath = getTableMetadataDirectory(databaseName, tableName);

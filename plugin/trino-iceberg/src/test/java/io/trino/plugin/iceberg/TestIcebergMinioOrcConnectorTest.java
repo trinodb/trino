@@ -40,7 +40,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
@@ -170,18 +169,5 @@ public class TestIcebergMinioOrcConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
-    }
-
-    @Override
-    protected OptionalInt maxTableNameLength()
-    {
-        // Value depends on test setup (catalog, storage). Picked experimentally.
-        return OptionalInt.of(213);
-    }
-
-    @Override
-    protected void verifyTableNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageMatching("Could not create new table directory|Could not validate external location");
     }
 }
