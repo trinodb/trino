@@ -49,8 +49,9 @@ import io.trino.execution.SqlTaskManager;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagementExecutor;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.execution.executor.MultilevelSplitQueue;
 import io.trino.execution.executor.TaskExecutor;
+import io.trino.execution.executor.timesharing.MultilevelSplitQueue;
+import io.trino.execution.executor.timesharing.TimeSharingTaskExecutor;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorModule;
@@ -305,7 +306,12 @@ public class ServerMainModule
         binder.bind(LocalMemoryManagerExporter.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, VersionEmbedder.class).setDefault().to(EmbedVersion.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlTaskManager.class).withGeneratedName();
-        binder.bind(TaskExecutor.class).in(Scopes.SINGLETON);
+
+        binder.bind(TaskExecutor.class)
+                .to(TimeSharingTaskExecutor.class)
+                .in(Scopes.SINGLETON);
+        binder.bind(TimeSharingTaskExecutor.class).in(Scopes.SINGLETON);
+
         newExporter(binder).export(TaskExecutor.class).withGeneratedName();
         binder.bind(MultilevelSplitQueue.class).in(Scopes.SINGLETON);
         newExporter(binder).export(MultilevelSplitQueue.class).withGeneratedName();

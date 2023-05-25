@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.executor;
+package io.trino.execution.executor.timesharing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
-import io.trino.execution.executor.SimulationController.TaskSpecification;
+import io.trino.execution.executor.TaskHandle;
+import io.trino.execution.executor.timesharing.SimulationController.TaskSpecification;
 
 import java.util.OptionalInt;
 import java.util.Set;
@@ -36,7 +37,7 @@ abstract class SimulationTask
     private final TaskHandle taskHandle;
     private final AtomicBoolean killed = new AtomicBoolean();
 
-    public SimulationTask(TaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
+    public SimulationTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
     {
         this.specification = specification;
         this.taskId = taskId;
@@ -123,21 +124,21 @@ abstract class SimulationTask
         return runningWallTime + completedWallTime;
     }
 
-    public abstract void schedule(TaskExecutor taskExecutor, int numSplits);
+    public abstract void schedule(TimeSharingTaskExecutor taskExecutor, int numSplits);
 
     public static class LeafTask
             extends SimulationTask
     {
         private final TaskSpecification taskSpecification;
 
-        public LeafTask(TaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
+        public LeafTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
         {
             super(taskExecutor, specification, taskId);
             this.taskSpecification = specification;
         }
 
         @Override
-        public void schedule(TaskExecutor taskExecutor, int numSplits)
+        public void schedule(TimeSharingTaskExecutor taskExecutor, int numSplits)
         {
             ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builder();
             for (int i = 0; i < numSplits; i++) {
@@ -153,14 +154,14 @@ abstract class SimulationTask
     {
         private final SplitSpecification splitSpecification;
 
-        public IntermediateTask(TaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
+        public IntermediateTask(TimeSharingTaskExecutor taskExecutor, TaskSpecification specification, TaskId taskId)
         {
             super(taskExecutor, specification, taskId);
             this.splitSpecification = specification.nextSpecification();
         }
 
         @Override
-        public void schedule(TaskExecutor taskExecutor, int numSplits)
+        public void schedule(TimeSharingTaskExecutor taskExecutor, int numSplits)
         {
             ImmutableList.Builder<SimulationSplit> splits = ImmutableList.builderWithExpectedSize(numSplits);
             for (int i = 0; i < numSplits; i++) {
