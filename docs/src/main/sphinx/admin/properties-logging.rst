@@ -47,6 +47,14 @@ protocol by using a log path of the format ``tcp://host:port``.
 
 The maximum file size for the general application log file.
 
+``log.max-total-size``
+^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``1GB``
+
+The maximum file size for all general application log files combined.
+
 ``log.compression``
 ^^^^^^^^^^^^^^^^^^^
 
