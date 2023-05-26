@@ -574,19 +574,35 @@ existing Iceberg table from the metastores without deleting the data::
 Migrate table
 """""""""""""
 
-The connector can read from or write to Hive tables that have been migrated to Iceberg.
-The procedure ``system.migrate`` allows the caller to replace
-a Hive table with an Iceberg table, loaded with the source’s data files.
-Table schema, partitioning, properties, and location will be copied from the source table.
-Migrate will fail if any table partition uses an unsupported format::
+The connector can read from or write to Hive tables that have been migrated to
+Iceberg.
 
-    CALL iceberg.system.migrate(schema_name => 'testdb', table_name => 'customer_orders')
+Use the procedure ``system.migrate`` to move a table from the Hive format to the
+Iceberg format, loaded with the source’s data files. Table schema, partitioning,
+properties, and location are copied from the source table. The data files in the
+Hive table must use the Parquet, ORC, or Avro file format.
 
-In addition, you can provide a ``recursive_directory`` argument to migrate a Hive table that contains subdirectories.
-The possible values are ``true``, ``false`` and ``fail``. The default value is ``fail`` that throws an exception
-if nested directory exists::
+The procedure must be called for a specific catalog ``example`` with the
+relevant schema and table names supplied with the required parameters
+``schema_name`` and ``table_name``::
 
-    CALL iceberg.system.migrate(schema_name => 'testdb', table_name => 'customer_orders', recursive_directory => 'true')
+    CALL example.system.migrate(
+        schema_name => 'testdb',
+        table_name => 'customer_orders')
+
+Migrate fails if any table partition uses an unsupported file format.
+
+In addition, you can provide a ``recursive_directory`` argument to migrate a
+Hive table that contains subdirectories::
+
+    CALL example.system.migrate(
+        schema_name => 'testdb',
+        table_name => 'customer_orders',
+        recursive_directory => 'true')
+
+The default value is ``fail``, and cause the migrate procedure to throw an
+exception if subdirectories are found. Set the value to ``true`` to migrate
+nested directories, or ``false`` to ignore them.
 
 .. _iceberg-data-management:
 
