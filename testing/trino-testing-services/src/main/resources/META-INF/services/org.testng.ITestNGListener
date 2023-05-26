@@ -10,3 +10,4 @@ io.trino.testng.services.RetryAnnotationTransformer
 io.trino.testng.services.FlakyAnnotationVerifier
 io.trino.testng.services.ProgressLoggingListener
 io.trino.testng.services.ReportInnerTestClasses
+io.trino.testng.services.ReportBannedAnnotationUsage
