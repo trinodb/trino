@@ -371,11 +371,11 @@ public final class SqlFormatter
                 }
             }
             builder.append(" ")
-                    .append(node.getEmptyBehavior().name())
+                    .append(node.getEmptyBehavior().toString())
                     .append(" ON EMPTY");
             node.getErrorBehavior().ifPresent(behavior ->
                     builder.append(" ")
-                            .append(behavior.name())
+                            .append(behavior.toString())
                             .append(" ON ERROR"));
             return null;
         }
