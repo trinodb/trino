@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
-import com.google.common.graph.Traverser;
 import com.google.common.io.Closer;
 import com.google.common.primitives.ImmutableLongArray;
 import com.google.common.util.concurrent.FutureCallback;
@@ -147,6 +146,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.TopologicalOrderSubPlanVisitor.sortPlanInTopologicalOrder;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -1173,13 +1173,6 @@ public class EventDrivenFaultTolerantQueryScheduler
             StageExecution execution = stageExecutions.get(stageId);
             checkState(execution != null, "stage execution does not exist for stage: %s", stageId);
             return execution;
-        }
-
-        private static List<SubPlan> sortPlanInTopologicalOrder(SubPlan subPlan)
-        {
-            ImmutableList.Builder<SubPlan> result = ImmutableList.builder();
-            Traverser.forTree(SubPlan::getChildren).depthFirstPostOrder(subPlan).forEach(result::add);
-            return result.build();
         }
 
         private boolean shouldDelayScheduling(@Nullable ErrorCode errorCode)
