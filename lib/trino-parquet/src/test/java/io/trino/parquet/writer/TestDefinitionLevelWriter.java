@@ -22,11 +22,6 @@ import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-import org.apache.parquet.bytes.BytesInput;
-import org.apache.parquet.column.Encoding;
-import org.apache.parquet.column.values.ValuesWriter;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -396,59 +391,6 @@ public class TestDefinitionLevelWriter
             Block keyBlock = new LongArrayBlock(positionCount, Optional.empty(), new long[positionCount]);
             Block valueBlock = createLongsBlockWithRandomNulls(positionCount);
             return fromKeyValueBlock(mapIsNull, offsets, keyBlock, valueBlock, new MapType(BIGINT, BIGINT, TYPE_OPERATORS));
-        }
-    }
-
-    private static class TestingValuesWriter
-            extends ValuesWriter
-    {
-        private final IntList values = new IntArrayList();
-
-        @Override
-        public long getBufferedSize()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public BytesInput getBytes()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Encoding getEncoding()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void reset()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public long getAllocatedSize()
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public String memUsageString(String prefix)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void writeInteger(int v)
-        {
-            values.add(v);
-        }
-
-        List<Integer> getWrittenValues()
-        {
-            return values;
         }
     }
 
