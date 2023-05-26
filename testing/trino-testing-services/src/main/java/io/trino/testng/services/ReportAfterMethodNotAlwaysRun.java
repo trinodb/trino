@@ -52,7 +52,7 @@ public class ReportAfterMethodNotAlwaysRun
     public void onBeforeClass(ITestClass testClass)
     {
         try {
-            checkHasAfterMethodsNotAlwaysRun(testClass.getRealClass());
+            checkHasAfterMethodsAlwaysRun(testClass.getRealClass());
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(
@@ -64,7 +64,7 @@ public class ReportAfterMethodNotAlwaysRun
     }
 
     @VisibleForTesting
-    static void checkHasAfterMethodsNotAlwaysRun(Class<?> testClass)
+    static void checkHasAfterMethodsAlwaysRun(Class<?> testClass)
     {
         List<Method> notAlwaysRunMethods = Arrays.stream(testClass.getMethods())
                 .filter(ReportAfterMethodNotAlwaysRun::isAfterMethodNotAlwaysRun)

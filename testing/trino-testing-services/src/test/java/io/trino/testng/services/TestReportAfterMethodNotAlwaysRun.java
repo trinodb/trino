@@ -29,7 +29,7 @@ public class TestReportAfterMethodNotAlwaysRun
     @Test(dataProvider = "correctCases")
     public void testCorrectCases(Class<?> testClass)
     {
-        assertThatNoException().isThrownBy(() -> ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsNotAlwaysRun(testClass));
+        assertThatNoException().isThrownBy(() -> ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsAlwaysRun(testClass));
     }
 
     @DataProvider
@@ -48,7 +48,7 @@ public class TestReportAfterMethodNotAlwaysRun
     @Test(dataProvider = "incorrectCases")
     public void testIncorrectCases(Class<?> testClass, String... failMethods)
     {
-        assertThatThrownBy(() -> ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsNotAlwaysRun(testClass))
+        assertThatThrownBy(() -> ReportAfterMethodNotAlwaysRun.checkHasAfterMethodsAlwaysRun(testClass))
                 .hasMessage(
                         "The @AfterX methods should have the alwaysRun = true attribute to make sure that they'll run even if tests were skipped:%n%s",
                         String.join("\n", failMethods));
