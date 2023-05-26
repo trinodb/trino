@@ -5011,7 +5011,8 @@ public class TestSqlParser
         assertThat(statement("SELECT * FROM JSON_TABLE(col, 'lax $' COLUMNS(" +
                 "ordinal_number FOR ORDINALITY, " +
                 "customer_name varchar PATH 'lax $.cust_no' DEFAULT 'anonymous' ON EMPTY null ON ERROR, " +
-                "customer_countries varchar FORMAT JSON PATH 'lax.cust_ctr[*]' WITH WRAPPER KEEP QUOTES null ON EMPTY ERROR ON ERROR) " +
+                "customer_countries varchar FORMAT JSON PATH 'lax.cust_ctr[*]' WITH WRAPPER KEEP QUOTES null ON EMPTY ERROR ON ERROR," +
+                "customer_regions varchar FORMAT JSON PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
                 "EMPTY ON ERROR)"))
                 .isEqualTo(selectAllFrom(new JsonTable(
                         location(1, 15),
@@ -5042,7 +5043,17 @@ public class TestSqlParser
                                         JsonQuery.ArrayWrapperBehavior.UNCONDITIONAL,
                                         Optional.of(JsonQuery.QuotesBehavior.KEEP),
                                         JsonQuery.EmptyOrErrorBehavior.NULL,
-                                        Optional.of(JsonQuery.EmptyOrErrorBehavior.ERROR))),
+                                        Optional.of(JsonQuery.EmptyOrErrorBehavior.ERROR)),
+                                new QueryColumn(
+                                        location(1, 281),
+                                        new Identifier(location(1, 281), "customer_regions", false),
+                                        new GenericDataType(location(1, 298), new Identifier(location(1, 298), "varchar", false), ImmutableList.of()),
+                                        JSON,
+                                        Optional.of(new StringLiteral(location(1, 323), "lax.cust_reg[*]")),
+                                        JsonQuery.ArrayWrapperBehavior.WITHOUT,
+                                        Optional.empty(),
+                                        JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,
+                                        Optional.of(JsonQuery.EmptyOrErrorBehavior.EMPTY_OBJECT))),
                         Optional.empty(),
                         Optional.of(JsonTable.ErrorBehavior.EMPTY))));
     }
