@@ -24,7 +24,7 @@ import io.trino.plugin.cassandra.CassandraTypes;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
@@ -40,7 +40,7 @@ public class TestCassandraClusteringPredicatesExtractor
     private static CassandraTable cassandraTable;
     private static Version cassandraVersion;
 
-    @BeforeTest
+    @BeforeClass
     public void setUp()
     {
         col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
