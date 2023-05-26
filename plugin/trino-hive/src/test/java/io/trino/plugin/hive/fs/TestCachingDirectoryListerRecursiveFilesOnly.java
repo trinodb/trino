@@ -94,4 +94,15 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
 
         assertFalse(isCached(tableLocation));
     }
+
+    @Test
+    public void testRecursiveDirectoriesWithSpecialCharacters()
+    {
+        // Create partitioned table with special characters
+        assertUpdate("CREATE TABLE recursive_directories_with_special_chars (payload varchar, event_name varchar) WITH (format = 'ORC', partitioned_by = ARRAY['event_name'])");
+        assertUpdate("INSERT INTO recursive_directories_with_special_chars VALUES ('data', 'level1|level2'), ('data', 'level1 | level2')", 2);
+        // Check that all files can be read
+        assertQuery("SELECT count(*) FROM recursive_directories_with_special_chars", "VALUES (2)");
+        assertUpdate("DROP TABLE recursive_directories_with_special_chars");
+    }
 }
