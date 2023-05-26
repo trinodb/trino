@@ -22,8 +22,8 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterTest;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -51,14 +51,14 @@ public class TestBlackHoleSmoke
 {
     private QueryRunner queryRunner;
 
-    @BeforeTest
+    @BeforeClass
     public void setUp()
             throws Exception
     {
         queryRunner = createQueryRunner();
     }
 
-    @AfterTest(alwaysRun = true)
+    @AfterClass(alwaysRun = true)
     public void tearDown()
     {
         assertThatNoBlackHoleTableIsCreated();

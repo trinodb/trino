@@ -19,7 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -53,7 +53,7 @@ public class TestJdbcTableProperties
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties, module);
     }
 
-    @BeforeTest
+    @BeforeMethod
     public void reset()
     {
         onGetTableProperties = () -> {};
