@@ -51,7 +51,8 @@ public class TestingNeo4jServer
     {
         this.container = new Neo4jContainer<>(dockerImageName)
                 .withAdminPassword(DEFAULT_PASSWORD)
-                .withEnv("NEO4JLABS_PLUGINS", "[\"apoc\"]")
+                .withEnv("NEO4JLABS_PLUGINS", "[\"apoc\"]") // for neo4j 4.4
+                .withEnv("NEO4J_PLUGINS", "[\"apoc\"]")     // for neo4j 5.0
                 // this data is used to pre-load neo4j schema
                 .withClasspathResourceMapping("/movies-graph-data.cql", SAMPLE_DATA_PATH, BindMode.READ_ONLY);
 
@@ -82,7 +83,8 @@ public class TestingNeo4jServer
         return String.format("jdbc:neo4j:%s/?" + extraUrlParamsString, this.container.getBoltUrl());
     }
 
-    public void loadSampleData() throws Exception
+    public void loadSampleData()
+            throws Exception
     {
         Container.ExecResult result = this.container.execInContainer("sh", "-c", String.format("cypher-shell -u %s -p %s -f %s", DEFAULT_USER_NAME, DEFAULT_PASSWORD, SAMPLE_DATA_PATH));
     }
@@ -120,7 +122,8 @@ public class TestingNeo4jServer
         return container.getContainerId() != null;
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(String[] args)
+            throws Exception
     {
         try (TestingNeo4jServer server = new TestingNeo4jServer()) {
             System.out.println("Bolt url - " + server.getBoltUrl());

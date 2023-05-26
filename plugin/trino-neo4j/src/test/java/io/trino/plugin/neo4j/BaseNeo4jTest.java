@@ -13,45 +13,29 @@
  */
 package io.trino.plugin.neo4j;
 
+import com.google.common.collect.ImmutableMap;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import io.trino.tpch.TpchTable;
 
 import java.util.Optional;
 
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
 public class BaseNeo4jTest
+        extends AbstractTestQueryFramework
 {
-    protected static TestingNeo4jServer neo4jServer;
-    protected static QueryRunner queryRunner;
+    private Optional<Iterable<TpchTable<?>>> tables;
+    protected TestingNeo4jServer neo4jServer;
 
-    @BeforeClass
-    public static void setupNeo4jTests() throws Exception
+    public BaseNeo4jTest(Optional<Iterable<TpchTable<?>>> tables)
     {
-        neo4jServer = new TestingNeo4jServer();
-//        neo4jServer = getExistingServer();
-        queryRunner = Neo4jQueryRunner.createDefaultQueryRunner(neo4jServer);
+        this.tables = tables;
     }
 
-    @AfterClass
-    public static void teardownNeo4jTests()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        queryRunner.close();
-        neo4jServer.close();
-    }
-
-    /**
-     * Use an existing neo4j server
-     * @return
-     */
-    private TestingNeo4jServer getExistingServer()
-    {
-        TestingNeo4jServer testingNeo4jServer = mock(TestingNeo4jServer.class);
-        when(testingNeo4jServer.getJdbcUrl(Optional.empty())).thenReturn("jdbc:neo4j:bolt://localhost:51927");
-        when(testingNeo4jServer.getUsername()).thenReturn("neo4j");
-        when(testingNeo4jServer.getPassword()).thenReturn("password");
-        return testingNeo4jServer;
+        neo4jServer = closeAfterClass(new TestingNeo4jServer());
+        return Neo4jQueryRunner.createNeo4jQueryRunner(neo4jServer, ImmutableMap.of(), ImmutableMap.of(), this.tables);
     }
 }

@@ -17,7 +17,6 @@ import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcQueryRelationHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -27,7 +26,6 @@ import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.TrinoException;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -46,20 +44,26 @@ import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestNeo4jClient
-        extends AbstractTestQueryFramework
+        extends BaseNeo4jTest
 {
     private Neo4jClient neo4jClient;
+
+    public TestNeo4jClient()
+    {
+        super(Optional.empty());
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingNeo4jServer neo4jServer = closeAfterClass(new TestingNeo4jServer());
+        QueryRunner runner = super.createQueryRunner();
         setUpClass(neo4jServer);
-        return Neo4jQueryRunner.createDefaultQueryRunner(neo4jServer);
+        return runner;
     }
 
-    private void setUpClass(TestingNeo4jServer neo4jServer) throws Exception
+    private void setUpClass(TestingNeo4jServer neo4jServer)
+            throws Exception
     {
         BaseJdbcConfig jdbcConfig = new BaseJdbcConfig();
         jdbcConfig.setConnectionUrl(neo4jServer.getJdbcUrl(Optional.empty()));
@@ -69,7 +73,7 @@ public class TestNeo4jClient
         neo4jClient = new Neo4jClient(
                 jdbcConfig,
                 connectionFactory,
-                new DefaultQueryBuilder(),
+                new Neo4jQueryBuilder(RemoteQueryModifier.NONE),
                 new DefaultIdentifierMapping(),
                 TESTING_TYPE_MANAGER, RemoteQueryModifier.NONE);
     }

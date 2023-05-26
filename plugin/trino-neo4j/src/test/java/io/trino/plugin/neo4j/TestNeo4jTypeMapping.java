@@ -19,10 +19,8 @@ import io.trino.plugin.base.util.JsonUtils;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import org.testng.annotations.Test;
 
@@ -63,14 +61,11 @@ import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestNeo4jTypeMapping
-        extends AbstractTestQueryFramework
+        extends BaseNeo4jTest
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public TestNeo4jTypeMapping()
     {
-        TestingNeo4jServer neo4jServer = closeAfterClass(new TestingNeo4jServer());
-        return Neo4jQueryRunner.createDefaultQueryRunner(neo4jServer);
+        super(Optional.empty());
     }
 
     @Test

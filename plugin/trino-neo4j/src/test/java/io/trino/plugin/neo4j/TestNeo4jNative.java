@@ -13,23 +13,16 @@
  */
 package io.trino.plugin.neo4j;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 public class TestNeo4jNative
-        extends AbstractTestQueryFramework
+        extends BaseNeo4jTest
 {
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public TestNeo4jNative()
     {
-        TestingNeo4jServer neo4jServer = closeAfterClass(new TestingNeo4jServer());
-        return Neo4jQueryRunner.createNeo4jQueryRunner(neo4jServer, ImmutableMap.of(), ImmutableMap.of(), Optional.of(ImmutableList.of()));
+        super(Optional.empty());
     }
 
     @Test

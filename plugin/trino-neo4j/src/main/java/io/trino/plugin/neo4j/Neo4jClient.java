@@ -47,9 +47,9 @@ import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
+import org.neo4j.driver.types.Type;
 import org.neo4j.jdbc.bolt.BoltNeo4jConnection;
 import org.neo4j.jdbc.bolt.BoltNeo4jResultSetMetaData;
 import org.neo4j.jdbc.utils.BoltNeo4jUtils;
@@ -115,13 +115,18 @@ public class Neo4jClient
 {
     private static final Logger log = Logger.get(Neo4jClient.class);
     private static final int MAX_RESULT_SET_INFO_CACHE_ENTRIES = 10000;
-    private final Type jsonType;
+    private final io.trino.spi.type.Type jsonType;
     private final Cache<PreparedQuery, Neo4jResultSetInfo> cachedResultSetInfo;
 
     @Inject
-    public Neo4jClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, TypeManager typeManager, RemoteQueryModifier remoteQueryModifier)
+    public Neo4jClient(BaseJdbcConfig config,
+            ConnectionFactory connectionFactory,
+            QueryBuilder queryBuilder,
+            IdentifierMapping identifierMapping,
+            TypeManager typeManager,
+            RemoteQueryModifier remoteQueryModifier)
     {
-        super(config, "`", connectionFactory, queryBuilder, identifierMapping, remoteQueryModifier);
+        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, remoteQueryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
         cachedResultSetInfo = EvictableCacheBuilder.newBuilder()
                 .maximumSize(MAX_RESULT_SET_INFO_CACHE_ENTRIES)
@@ -197,11 +202,9 @@ public class Neo4jClient
     }
 
     /**
-     * Initially thought of mapping null column types to an empty slice
-     * But neo4j can have mixed types for the same column, if a column of the first row in results set is null, the column is designated
+     * Neo4j can have mixed types for the same column, if a column of the first row in results set is null, the column is designated
      * as jdbc NULL type in ResultSetMetadata even though rest of the rows could have valid values
      * So, we cannot map NULL types to an empty slice instead force the type to Unbounded Varchar
-     * @return
      */
     private ColumnMapping nullColumnMapping()
     {
@@ -247,9 +250,7 @@ public class Neo4jClient
     }
 
     /**
-     * Since this connector doesn't support Writes yet, using this for creating a dummy write function
-     * @param classType
-     * @return
+     * Since this connector doesn't support Writes yet, return a dummy write function
      */
     private ObjectWriteFunction dummyObjectWriteFunction(Class classType)
     {
@@ -343,7 +344,7 @@ public class Neo4jClient
                         Optional.of(metadata.getScale(column)),
                         Optional.empty(), // TODO support arrays
                         Optional.of(metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE));
-                Type type = toColumnMapping(session, connection, jdbcTypeHandle)
+                io.trino.spi.type.Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                         .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                         .getType();
                 columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
@@ -394,7 +395,8 @@ public class Neo4jClient
         }
     }
 
-    private ResultSetMetaData getColumnMetadata(Connection connection, PreparedQuery preparedQuery) throws SQLException
+    private ResultSetMetaData getColumnMetadata(Connection connection, PreparedQuery preparedQuery)
+            throws SQLException
     {
         BoltNeo4jConnection boltNeo4jConnection = connection.unwrap(BoltNeo4jConnection.class);
         Neo4jResultSetInfo resultSetInfo = getNeo4jResultSetInfo(boltNeo4jConnection, preparedQuery);
@@ -415,7 +417,7 @@ public class Neo4jClient
                     resultSetInfo.setMetadata(mdRs.getMetaData());
                 }
                 else {
-                    List<org.neo4j.driver.types.Type> types = new ArrayList<>();
+                    List<Type> types = new ArrayList<>();
                     ResultSetMetaData rsmd = BoltNeo4jResultSetMetaData.newInstance(false, types, new ArrayList<>());
                     resultSetInfo.setMetadata(rsmd);
                 }
@@ -437,7 +439,7 @@ public class Neo4jClient
     }
 
     @Override
-    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
+    public WriteMapping toWriteMapping(ConnectorSession session, io.trino.spi.type.Type type)
     {
         return null;
     }

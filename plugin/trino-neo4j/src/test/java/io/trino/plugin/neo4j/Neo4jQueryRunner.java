@@ -45,7 +45,8 @@ public class Neo4jQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createDefaultQueryRunner(TestingNeo4jServer neo4jServer) throws Exception
+    public static DistributedQueryRunner createDefaultQueryRunner(TestingNeo4jServer neo4jServer)
+            throws Exception
     {
         DistributedQueryRunner queryRunner = createNeo4jQueryRunner(
                 neo4jServer,
@@ -55,7 +56,8 @@ public class Neo4jQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createDefaultQueryRunner() throws Exception
+    public static DistributedQueryRunner createDefaultQueryRunner()
+            throws Exception
     {
         TestingNeo4jServer neo4jServer = new TestingNeo4jServer();
         return createDefaultQueryRunner(neo4jServer);

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>406-SNAPSHOT</version>
+        <version>419-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,6 +15,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <neo4j.jdbc.version>4.0.9</neo4j.jdbc.version>
+        <neo4j.java.version>4.4.9</neo4j.java.version>
     </properties>
 
     <dependencies>
@@ -60,28 +62,21 @@
         <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j-jdbc-bolt</artifactId>
-            <version>4.0.6</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-databind</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>${neo4j.jdbc.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.neo4j.driver</groupId>
             <artifactId>neo4j-java-driver</artifactId>
-            <version>4.4.9</version>
+            <version>${neo4j.java.version}</version>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
@@ -97,7 +92,18 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
-            <version>2.14.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-context</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -108,18 +114,19 @@
         </dependency>
 
         <!-- for testing -->
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
@@ -180,24 +187,13 @@
             <artifactId>annotations</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>4.9.0</version>
-            <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>net.bytebuddy</groupId>
-                    <artifactId>byte-buddy</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>neo4j</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -209,6 +205,5 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 </project>

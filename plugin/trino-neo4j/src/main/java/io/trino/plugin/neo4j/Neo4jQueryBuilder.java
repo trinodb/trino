@@ -14,6 +14,7 @@
 package io.trino.plugin.neo4j;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -23,6 +24,8 @@ import io.trino.plugin.jdbc.JdbcQueryRelationHandle;
 import io.trino.plugin.jdbc.JdbcRelationHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
+import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinType;
@@ -37,12 +40,27 @@ import java.util.stream.Collectors;
 public class Neo4jQueryBuilder
         extends DefaultQueryBuilder
 {
+    @Inject
+    public Neo4jQueryBuilder(RemoteQueryModifier queryModifier)
+    {
+        super(queryModifier);
+    }
+
     /**
      *  This connector only supports table functions, so wrap the user entered table function query into a Neo4j call subquery with projected columns
      *  The other methods prepareJoinQuery and prepareDeleteQuery need not be implemented
      */
     @Override
-    public PreparedQuery prepareSelectQuery(JdbcClient client, ConnectorSession session, Connection connection, JdbcRelationHandle baseRelation, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, TupleDomain<ColumnHandle> tupleDomain, Optional<String> additionalPredicate)
+    public PreparedQuery prepareSelectQuery(
+                JdbcClient client,
+                ConnectorSession session,
+                Connection connection,
+                JdbcRelationHandle baseRelation,
+                Optional<List<List<JdbcColumnHandle>>> groupingSets,
+                List<JdbcColumnHandle> columns,
+                Map<String, ParameterizedExpression> columnExpressions,
+                TupleDomain<ColumnHandle> tupleDomain,
+                Optional<ParameterizedExpression> additionalPredicate)
     {
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
         String columnProjection = columns.stream().map(column -> "`" + column.getColumnName() + "`").collect(Collectors.joining(","));
@@ -56,13 +74,28 @@ public class Neo4jQueryBuilder
     }
 
     @Override
-    public PreparedQuery prepareJoinQuery(JdbcClient client, ConnectorSession session, Connection connection, JoinType joinType, PreparedQuery leftSource, PreparedQuery rightSource, List<JdbcJoinCondition> joinConditions, Map<JdbcColumnHandle, String> leftAssignments, Map<JdbcColumnHandle, String> rightAssignments)
+    public PreparedQuery prepareJoinQuery(
+                JdbcClient client,
+                ConnectorSession session,
+                Connection connection,
+                JoinType joinType,
+                PreparedQuery leftSource,
+                PreparedQuery rightSource,
+                List<JdbcJoinCondition> joinConditions,
+                Map<JdbcColumnHandle, String> leftAssignments,
+                Map<JdbcColumnHandle, String> rightAssignments)
     {
         throw new UnsupportedOperationException("This connector does not support join operations");
     }
 
     @Override
-    public PreparedQuery prepareDeleteQuery(JdbcClient client, ConnectorSession session, Connection connection, JdbcNamedRelationHandle baseRelation, TupleDomain<ColumnHandle> tupleDomain, Optional<String> additionalPredicate)
+    public PreparedQuery prepareDeleteQuery(
+                JdbcClient client,
+                ConnectorSession session,
+                Connection connection,
+                JdbcNamedRelationHandle baseRelation,
+                TupleDomain<ColumnHandle> tupleDomain,
+                Optional<ParameterizedExpression> additionalPredicate)
     {
         throw new UnsupportedOperationException("This connector does not support delete queries");
     }

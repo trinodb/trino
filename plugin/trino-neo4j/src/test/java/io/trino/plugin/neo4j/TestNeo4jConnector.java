@@ -14,11 +14,8 @@
 package io.trino.plugin.neo4j;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.OptimizerConfig;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
@@ -40,16 +37,11 @@ import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 
 public class TestNeo4jConnector
-        extends AbstractTestQueryFramework
+        extends BaseNeo4jTest
 {
-    private TestingNeo4jServer neo4jServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    public TestNeo4jConnector()
     {
-        neo4jServer = closeAfterClass(new TestingNeo4jServer());
-        return Neo4jQueryRunner.createNeo4jQueryRunner(neo4jServer, ImmutableMap.of(), ImmutableMap.of(), Optional.of(ImmutableList.of(ORDERS, NATION, REGION, CUSTOMER)));
+        super(Optional.of(ImmutableList.of(ORDERS, NATION, REGION, CUSTOMER)));
     }
 
     @Test
@@ -72,18 +64,6 @@ public class TestNeo4jConnector
 
         assertQuery(buildNativeQuery("SELECT DISTINCT regionkey FROM TABLE(%s)", TpchTable.NATION), "SELECT DISTINCT regionkey FROM nation");
         assertQuery(buildNativeQuery("SELECT regionkey FROM TABLE(%s) GROUP BY regionkey", TpchTable.NATION), "SELECT regionkey FROM nation GROUP BY regionkey");
-
-//        // TODO support aggregation pushdown with GROUPING SETS
-//        assertQuery(
-//                "SELECT regionkey, nationkey FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))",
-//                "SELECT NULL, nationkey FROM nation " +
-//                        "UNION ALL SELECT DISTINCT regionkey, NULL FROM nation");
-//        assertQuery(
-//                "SELECT regionkey, nationkey, count(*) FROM nation GROUP BY GROUPING SETS ((), (regionkey), (nationkey), (regionkey, nationkey))",
-//                "SELECT NULL, NULL, count(*) FROM nation " +
-//                        "UNION ALL SELECT NULL, nationkey, 1 FROM nation " +
-//                        "UNION ALL SELECT regionkey, NULL, count(*) FROM nation GROUP BY regionkey " +
-//                        "UNION ALL SELECT regionkey, nationkey, 1 FROM nation");
 
         assertQuery(buildNativeQuery("SELECT count(regionkey) FROM TABLE(%s)", TpchTable.NATION), "SELECT count(regionkey) FROM nation");
         assertQuery(buildNativeQuery("SELECT count(DISTINCT regionkey) FROM TABLE(%s)", TpchTable.NATION), "SELECT count(DISTINCT regionkey) FROM nation");

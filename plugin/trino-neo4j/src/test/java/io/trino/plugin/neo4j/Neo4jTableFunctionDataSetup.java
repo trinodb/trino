@@ -55,7 +55,6 @@ public class Neo4jTableFunctionDataSetup
         /**
          * Unlike other data setups where the given column inputs are used to create a new table definition with data,
          * This neo4j setup, just returns the given columns as is
-         * @return
          */
         @Override
         public String getName()
