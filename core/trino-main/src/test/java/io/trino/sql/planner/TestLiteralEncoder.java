@@ -90,6 +90,7 @@ public class TestLiteralEncoder
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
+            false,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
@@ -104,6 +105,7 @@ public class TestLiteralEncoder
                     .build()),
             SCALAR,
             true,
+            false,
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());

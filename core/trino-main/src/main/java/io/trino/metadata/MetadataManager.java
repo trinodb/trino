@@ -2310,6 +2310,7 @@ public final class MetadataManager
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
                 functionMetadata.isDeterministic(),
+                functionMetadata.isDeprecated(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());

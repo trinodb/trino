@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
-import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -96,8 +95,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(session, call.getResolvedFunction());
-            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
+            if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && call.getResolvedFunction().isDeterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
                         .map(ConstantExpression::getValue)

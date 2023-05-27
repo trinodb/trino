@@ -754,6 +754,7 @@ public abstract class AbstractMockMetadata
                     toFunctionId(boundSignature.toSignature()),
                     SCALAR,
                     true,
+                    false,
                     new FunctionNullability(false, ImmutableList.of()),
                     ImmutableMap.of(),
                     ImmutableSet.of());
