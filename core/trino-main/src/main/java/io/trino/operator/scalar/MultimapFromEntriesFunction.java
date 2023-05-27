@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
@@ -36,7 +35,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -47,7 +45,6 @@ import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
 @Description("Construct a multimap from an array of entries")
 public final class MultimapFromEntriesFunction
 {
-    private static final String NAME = "multimap_from_entries";
     private static final int INITIAL_ENTRY_COUNT = 128;
 
     private final BufferedMapValueBuilder mapValueBuilder;
@@ -85,7 +82,7 @@ public final class MultimapFromEntriesFunction
         if (entryCount > entryIndicesList.length) {
             initializeEntryIndicesList(entryCount);
         }
-        TypedSet keySet = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entryCount, NAME);
+        BlockSet keySet = new BlockSet(keyType, keysDistinctOperator, keyHashCode, entryCount);
 
         for (int i = 0; i < entryCount; i++) {
             if (mapEntries.isNull(i)) {

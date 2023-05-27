@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -34,8 +33,8 @@ import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -57,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Verify.verify;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.relational.Expressions.field;
@@ -77,7 +75,7 @@ public class BenchmarkArrayDistinct
     private static final int NUM_TYPES = 1;
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
     private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(new TypeOperators());
-    private static final BlockPositionEqual EQUAL_OPERATOR = BLOCK_TYPE_OPERATORS.getEqualOperator(VARCHAR);
+    private static final BlockPositionIsDistinctFrom DISTINCT_FROM_OPERATOR = BLOCK_TYPE_OPERATORS.getDistinctFromOperator(VARCHAR);
     private static final BlockPositionHashCode HASH_CODE_OPERATOR = BLOCK_TYPE_OPERATORS.getHashCodeOperator(VARCHAR);
 
     static {
@@ -179,11 +177,10 @@ public class BenchmarkArrayDistinct
             return array;
         }
 
-        TypedSet typedSet = createEqualityTypedSet(VARCHAR, EQUAL_OPERATOR, HASH_CODE_OPERATOR, array.getPositionCount(), "old_array_distinct");
+        BlockSet set = new BlockSet(VARCHAR, DISTINCT_FROM_OPERATOR, HASH_CODE_OPERATOR, array.getPositionCount());
         BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
-            if (!typedSet.contains(array, i)) {
-                typedSet.add(array, i);
+            if (set.add(array, i)) {
                 VARCHAR.appendTo(array, i, distinctElementBlockBuilder);
             }
         }
