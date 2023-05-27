@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>418-SNAPSHOT</version>
+        <version>419-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -566,8 +566,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <!-- TODO reenable TODO https://starburstdata.atlassian.net/browse/SEP-11439 -->
-<!--                                <include>**/TestDistributedSnowflakeConnectorTest.java</include>-->
+                                <include>**/TestDistributedSnowflakeConnectorTest.java</include>
                                 <include>**/TestDistributedSnowflakeLargeScan.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
                             </includes>
