@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
@@ -34,7 +33,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -115,11 +113,11 @@ public final class MapConcatFunction
     @UsedByGeneratedCode
     public static Block mapConcat(MapType mapType, BlockPositionIsDistinctFrom keysDistinctOperator, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
     {
-        int entries = 0;
+        int maxEntries = 0;
         int lastMapIndex = maps.length - 1;
         int firstMapIndex = lastMapIndex;
         for (int i = 0; i < maps.length; i++) {
-            entries += maps[i].getPositionCount();
+            maxEntries += maps[i].getPositionCount() / 2;
             if (maps[i].getPositionCount() > 0) {
                 lastMapIndex = i;
                 firstMapIndex = min(firstMapIndex, i);
@@ -133,15 +131,14 @@ public final class MapConcatFunction
 
         BufferedMapValueBuilder mapValueBuilder = (BufferedMapValueBuilder) state;
 
-        // TODO: we should move TypedSet into user state as well
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        TypedSet typedSet = createDistinctTypedSet(keyType, keysDistinctOperator, keyHashCode, entries / 2, FUNCTION_NAME);
-        return mapValueBuilder.build(entries / 2, (keyBuilder, valueBuilder) -> {
+        BlockSet set = new BlockSet(keyType, keysDistinctOperator, keyHashCode, maxEntries);
+        return mapValueBuilder.build(maxEntries, (keyBuilder, valueBuilder) -> {
             // the last map
             Block map = maps[last];
             for (int i = 0; i < map.getPositionCount(); i += 2) {
-                typedSet.add(map, i);
+                set.add(map, i);
                 keyType.appendTo(map, i, keyBuilder);
                 valueType.appendTo(map, i + 1, valueBuilder);
             }
@@ -149,7 +146,7 @@ public final class MapConcatFunction
             for (int idx = last - 1; idx > first; idx--) {
                 map = maps[idx];
                 for (int i = 0; i < map.getPositionCount(); i += 2) {
-                    if (typedSet.add(map, i)) {
+                    if (set.add(map, i)) {
                         keyType.appendTo(map, i, keyBuilder);
                         valueType.appendTo(map, i + 1, valueBuilder);
                     }
@@ -158,7 +155,7 @@ public final class MapConcatFunction
             // the first map
             map = maps[first];
             for (int i = 0; i < map.getPositionCount(); i += 2) {
-                if (!typedSet.contains(map, i)) {
+                if (!set.contains(map, i)) {
                     keyType.appendTo(map, i, keyBuilder);
                     valueType.appendTo(map, i + 1, valueBuilder);
                 }

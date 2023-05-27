@@ -39,7 +39,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Collections;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
