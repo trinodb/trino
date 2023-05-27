@@ -15,7 +15,7 @@ package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.array.ObjectBigArray;
 import io.trino.operator.aggregation.NullablePosition;
-import io.trino.operator.aggregation.TypedSet;
+import io.trino.operator.scalar.BlockSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -37,7 +37,6 @@ import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -96,7 +95,7 @@ public final class MultimapAggregationFunction
             ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
             valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
             BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            TypedSet keySet = createDistinctTypedSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount(), "multimap_agg");
+            BlockSet keySet = new BlockSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount());
 
             state.forEach((key, value, keyValueIndex) -> {
                 // Merge values of the same key into an array

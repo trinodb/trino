@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -40,7 +39,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -251,7 +249,6 @@ public final class MapToMapCast
     {
         MapType mapType = (MapType) targetType;
         Type toKeyType = mapType.getKeyType();
-        TypedSet resultKeys = createDistinctTypedSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2, "map-to-map cast");
 
         // Cast the keys into a new block
         BlockBuilder tempKeyBlockBuilder = toKeyType.createBlockBuilder(null, fromMap.getPositionCount() / 2);
@@ -267,6 +264,7 @@ public final class MapToMapCast
 
         // TODO this should build the value block directly and then construct a single map from the two blocks
         return buildMapValue(mapType, fromMap.getPositionCount() / 2, (keyBuilder, valueBuilder) -> {
+            BlockSet resultKeys = new BlockSet(toKeyType, keyDistinctOperator, keyHashCode, fromMap.getPositionCount() / 2);
             for (int i = 0; i < fromMap.getPositionCount(); i += 2) {
                 if (resultKeys.add(keyBlock, i / 2)) {
                     toKeyType.appendTo(keyBlock, i / 2, keyBuilder);

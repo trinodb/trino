@@ -13,24 +13,22 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
-import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
@@ -42,12 +40,12 @@ import static io.trino.spi.type.BigintType.BIGINT;
 public final class ArrayDistinctFunction
 {
     public static final String NAME = "array_distinct";
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
 
     @TypeParameter("E")
     public ArrayDistinctFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -76,27 +74,19 @@ public final class ArrayDistinctFunction
             return array.getSingleValueBlock(0);
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder distinctElementsBlockBuilder = pageBuilder.getBlockBuilder(0);
-        TypedSet distinctElements = createDistinctTypedSet(
+        BlockSet distinctElements = new BlockSet(
                 type,
                 elementIsDistinctFrom,
                 elementHashCode,
-                distinctElementsBlockBuilder,
-                array.getPositionCount(),
-                "array_distinct");
+                array.getPositionCount());
 
         for (int i = 0; i < array.getPositionCount(); i++) {
             distinctElements.add(array, i);
         }
 
-        pageBuilder.declarePositions(distinctElements.size());
-        return distinctElementsBlockBuilder.getRegion(
-                distinctElementsBlockBuilder.getPositionCount() - distinctElements.size(),
-                distinctElements.size());
+        return arrayValueBuilder.build(
+                distinctElements.size(),
+                blockBuilder -> distinctElements.getAllWithSizeLimit(blockBuilder, "array_distinct", MAX_FUNCTION_MEMORY));
     }
 
     @SqlType("array(bigint)")
@@ -106,36 +96,23 @@ public final class ArrayDistinctFunction
             return array;
         }
 
-        boolean containsNull = false;
-        LongSet set = new LongOpenHashSet(array.getPositionCount());
-        int distinctCount = 0;
+        return arrayValueBuilder.build(array.getPositionCount(), distinctElementBlockBuilder -> {
+            boolean containsNull = false;
+            LongSet set = new LongOpenHashSet(array.getPositionCount());
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder distinctElementBlockBuilder = pageBuilder.getBlockBuilder(0);
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            if (array.isNull(i)) {
-                if (!containsNull) {
-                    containsNull = true;
-                    distinctElementBlockBuilder.appendNull();
-                    distinctCount++;
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                if (array.isNull(i)) {
+                    if (!containsNull) {
+                        containsNull = true;
+                        distinctElementBlockBuilder.appendNull();
+                    }
+                    continue;
                 }
-                continue;
+                long value = BIGINT.getLong(array, i);
+                if (set.add(value)) {
+                    BIGINT.writeLong(distinctElementBlockBuilder, value);
+                }
             }
-            long value = BIGINT.getLong(array, i);
-            if (!set.contains(value)) {
-                set.add(value);
-                distinctCount++;
-                BIGINT.appendTo(array, i, distinctElementBlockBuilder);
-            }
-        }
-
-        pageBuilder.declarePositions(distinctCount);
-
-        return distinctElementBlockBuilder.getRegion(
-                distinctElementBlockBuilder.getPositionCount() - distinctCount,
-                distinctCount);
+        });
     }
 }
