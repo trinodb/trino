@@ -174,6 +174,7 @@ public final class TaskTestUtils
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
+                PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(),
                 new NodeVersion("test"));
