@@ -47,6 +47,7 @@ public class TrinoJdbcCatalogFactory
     private final String jdbcCatalogName;
     private final String defaultWarehouseDir;
     private final boolean isUniqueTableLocation;
+    private final boolean initializeCatalogTables;
     private final Map<String, String> catalogProperties;
     private final JdbcClientPool clientPool;
 
@@ -68,6 +69,7 @@ public class TrinoJdbcCatalogFactory
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.jdbcCatalogName = jdbcConfig.getCatalogName();
         this.defaultWarehouseDir = jdbcConfig.getDefaultWarehouseDir();
+        this.initializeCatalogTables = jdbcConfig.getInitializeCatalogTables();
 
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.put(URI, jdbcConfig.getConnectionUrl());
@@ -91,7 +93,7 @@ public class TrinoJdbcCatalogFactory
         JdbcCatalog jdbcCatalog = new JdbcCatalog(
                 config -> new ForwardingFileIo(fileSystemFactory.create(identity)),
                 config -> clientPool,
-                false);
+                initializeCatalogTables);
 
         jdbcCatalog.initialize(jdbcCatalogName, catalogProperties);
 

@@ -97,6 +97,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                                .put("iceberg.jdbc-catalog.initialize-catalog-tables", "false")
                                 .buildOrThrow())
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();

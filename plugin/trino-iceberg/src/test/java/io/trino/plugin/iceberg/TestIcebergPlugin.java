@@ -258,7 +258,8 @@ public class TestIcebergPlugin
                                 "iceberg.jdbc-catalog.driver-class", "org.postgresql.Driver",
                                 "iceberg.jdbc-catalog.connection-url", "jdbc:postgresql://localhost:5432/test",
                                 "iceberg.jdbc-catalog.catalog-name", "test",
-                                "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket"),
+                                "iceberg.jdbc-catalog.default-warehouse-dir", "s3://bucket",
+                                "iceberg.jdbc-catalog.initialize-catalog-tables", "false"),
                         new TestingConnectorContext())
                 .shutdown();
     }

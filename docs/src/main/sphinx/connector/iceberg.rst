@@ -249,6 +249,7 @@ When using any database besides PostgreSQL, a JDBC driver jar file must be place
     iceberg.jdbc-catalog.connection-user=admin
     iceberg.jdbc-catalog.connection-password=test
     iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
+    iceberg.jdbc-catalog.initialize-catalog-tables=true
 
 JDBC catalog does not support :doc:`views</sql/create-view>` or
 :doc:`materialized views</sql/create-materialized-view>`.

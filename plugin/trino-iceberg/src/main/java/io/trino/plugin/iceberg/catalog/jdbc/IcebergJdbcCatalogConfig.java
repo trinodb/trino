@@ -30,6 +30,7 @@ public class IcebergJdbcCatalogConfig
     private String connectionPassword;
     private String catalogName;
     private String defaultWarehouseDir;
+    private boolean initializeCatalogTables;
 
     @NotNull
     public String getDriverClass()
@@ -113,6 +114,20 @@ public class IcebergJdbcCatalogConfig
     public IcebergJdbcCatalogConfig setDefaultWarehouseDir(String defaultWarehouseDir)
     {
         this.defaultWarehouseDir = defaultWarehouseDir;
+        return this;
+    }
+
+    @NotEmpty
+    public boolean getInitializeCatalogTables()
+    {
+        return initializeCatalogTables;
+    }
+
+    @Config("iceberg.jdbc-catalog.initialize-catalog-tables")
+    @ConfigDescription("Automatic creation of catalog tables (if missing)")
+    public IcebergJdbcCatalogConfig setInitializeCatalogTables(boolean initializeCatalogTables)
+    {
+        this.initializeCatalogTables = initializeCatalogTables;
         return this;
     }
 }

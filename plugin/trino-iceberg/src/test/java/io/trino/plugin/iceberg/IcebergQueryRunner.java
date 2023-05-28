@@ -366,6 +366,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                             .put("iceberg.jdbc-catalog.catalog-name", "tpch")
                             .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                            .put("iceberg.jdbc-catalog.initialize-catalog-tables", "false")
                             .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();
