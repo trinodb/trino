@@ -5864,7 +5864,7 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
-    protected void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
+    private void verifyUnsupportedTypeException(Throwable exception, String trinoTypeName)
     {
         String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
         String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));

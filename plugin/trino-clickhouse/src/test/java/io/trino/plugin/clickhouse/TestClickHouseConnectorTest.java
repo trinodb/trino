@@ -47,8 +47,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -857,8 +855,6 @@ public class TestClickHouseConnectorTest
     @Override
     public void testSetColumnOutOfRangeType()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
         String tableName = "test_set_column_out_of_range" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (col bigint, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
         query("insert into " + tableName + " values(9223372036854775807, 22)");
@@ -885,7 +881,6 @@ public class TestClickHouseConnectorTest
     @Override
     public void testSetColumnTypeWithDefaultColumn()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_INSERT));
         try (TestTable table = createTableWithDefaultColumns()) {
             // col_default column inserts 43 by default
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col_default SET DATA TYPE bigint");
@@ -898,8 +893,6 @@ public class TestClickHouseConnectorTest
     @Override
     public void testSetColumnTypeWithNotNull()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
-
         String tableName = "test_set_column_with_not_null" + randomNameSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + " (col bigint not null, col2 int not null) WITH (order_by=ARRAY['col2'], engine = 'MergeTree')");
@@ -912,61 +905,48 @@ public class TestClickHouseConnectorTest
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
-        if (setup.sourceColumnType().equals("tinyint")) {
-            return Optional.of(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"));
+        switch (setup.sourceColumnType()) {
+            case "tinyint":
+                return Optional.of(new SetColumnTypeSetup("tinyint", "TINYINT '127'", "smallint"));
+            case "smallint":
+                return Optional.of(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"));
+            case "integer":
+                return Optional.of(new SetColumnTypeSetup("integer", "2147483647", "bigint"));
+            case "bigint":
+                return Optional.of(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"));
+            case "real":
+                if (setup.sourceValueLiteral() == "REAL '10.3'")
+                    return Optional.of(new SetColumnTypeSetup("real", "REAL '10.3'", "double"));
+                else if (setup.sourceValueLiteral() == "REAL 'NaN'")
+                    return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
+            case "decimal(5,3)":
+                if (setup.sourceValueLiteral() == "12.345" && setup.newColumnType() == "decimal(10,3)")
+                    return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)"));
+                else if (setup.sourceValueLiteral() == "12.345" && setup.newColumnType() == "decimal(38,3)")
+                    return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
+                else if (setup.sourceValueLiteral() == "12.340")
+                    return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"));
+                else if (setup.sourceValueLiteral() == "12.35")
+                    return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
+            case "decimal(28,3)":
+                return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
+            case "varchar(100)":
+                return Optional.of(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"));
+            case "char(25)":
+                return Optional.of(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"));
+            case "char(20)":
+                return Optional.of(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"));
+            case "varchar":
+                return Optional.of(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"));
+            default:
+                return Optional.empty();
         }
-        else if (setup.sourceColumnType().equals("smallint")) {
-            return Optional.of(new SetColumnTypeSetup("smallint", "SMALLINT '32767'", "integer"));
-        }
-        else if (setup.sourceColumnType().equals("integer")) {
-            return Optional.of(new SetColumnTypeSetup("integer", "2147483647", "bigint"));
-        }
-        else if (setup.sourceColumnType().equals("bigint")) {
-            return Optional.of(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"));
-        }
-        else if (setup.sourceColumnType().equals("real")) {
-            return Optional.of(new SetColumnTypeSetup("real", "REAL '10.3'", "double"));
-        }
-        else if (setup.sourceColumnType().equals("real")) {
-            return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
-        }
-        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
-            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)"));
-        }
-        else if (setup.sourceColumnType().equals("decimal(28,3)")) {
-            return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
-        }
-        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
-            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(38,3)"));
-        }
-        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
-            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"));
-        }
-        else if (setup.sourceColumnType().equals("decimal(5,3)")) {
-            return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
-        }
-        else if (setup.sourceColumnType().equals("varchar(100)")) {
-            return Optional.of(new SetColumnTypeSetup("varchar(100)", "'shorten-varchar'", "varchar"));
-        }
-        else if (setup.sourceColumnType().equals("char(25)")) {
-            return Optional.of(new SetColumnTypeSetup("char(25)", "'shorten-char'", "varchar"));
-        }
-        else if (setup.sourceColumnType().equals("char(20)")) {
-            return Optional.of(new SetColumnTypeSetup("char(20)", "'char-to-varchar'", "varchar"));
-        }
-        else if (setup.sourceColumnType().equals("varchar")) {
-            return Optional.of(new SetColumnTypeSetup("varchar", "'varchar-to-char'", "varchar"));
-        }
-
-        return Optional.empty();
     }
 
     @Test(dataProvider = "setColumnTypesDataProvider")
     @Override
     public void testSetColumnTypes(SetColumnTypeSetup setup)
     {
-        skipTestUnless(hasBehavior(SUPPORTS_SET_COLUMN_TYPE) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
-
         String tableName = "test_set_column_type_" + System.currentTimeMillis();
         assertUpdate("CREATE TABLE " + tableName + "(col " + setup.sourceColumnType() + ", col2 int not null)  WITH (engine='mergetree', order_by=ARRAY['col2'])");
         query("insert into " + tableName + "(col, col2)  values(CAST(" + setup.sourceValueLiteral() + " AS " + setup.sourceColumnType() + "), 2)");
