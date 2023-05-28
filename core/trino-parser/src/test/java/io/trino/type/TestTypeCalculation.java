@@ -18,9 +18,16 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.type.TypeCalculation.calculateLiteralValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestTypeCalculation
 {
+    @Test
+    public void failure()
+    {
+        fail();
+    }
+    
     @Test
     public void testBasicUsage()
     {
