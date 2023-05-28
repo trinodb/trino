@@ -920,6 +920,8 @@ public class TestClickHouseConnectorTest
                 }
                 else if (setup.sourceValueLiteral().equals("REAL 'NaN'")) {
                     return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
+                } else {
+                    return Optional.empty();
                 }
             case "decimal(5,3)":
                 if (setup.sourceValueLiteral().equals("12.345") && setup.newColumnType().equals("decimal(10,3)")) {
@@ -933,6 +935,8 @@ public class TestClickHouseConnectorTest
                 }
                 else if (setup.sourceValueLiteral().equals("12.35")) {
                     return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
+                } else {
+                    return Optional.empty();
                 }
             case "decimal(28,3)":
                 return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
