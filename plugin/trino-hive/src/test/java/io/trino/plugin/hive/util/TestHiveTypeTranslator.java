@@ -59,7 +59,7 @@ public class TestHiveTypeTranslator
             .put(createVarcharType(65534), HiveType.valueOf("varchar(65534)"))
             .put(createVarcharType(65535), HiveType.valueOf("varchar(65535)"))
             .put(createVarcharType(65536), HiveType.HIVE_STRING)
-            .put(createVarcharType(Integer.MAX_VALUE-1), HiveType.HIVE_STRING)
+            .put(createVarcharType(Integer.MAX_VALUE - 1), HiveType.HIVE_STRING)
             .put(VARCHAR, HiveType.HIVE_STRING)
             .put(DATE, HiveType.HIVE_DATE)
             .put(TIMESTAMP_MILLIS, HiveType.HIVE_TIMESTAMP)
