@@ -272,6 +272,7 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InternalNodeManager nodeManager;
+    private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
     private final TypeRegistry typeRegistry;
@@ -356,7 +357,7 @@ public class LocalQueryRunner
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
-        TypeOperators typeOperators = new TypeOperators();
+        this.typeOperators = new TypeOperators();
         this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
@@ -999,6 +1000,7 @@ public class LocalQueryRunner
                 new OrderingCompiler(plannerContext.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
+                typeOperators,
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
                 nodeManager.getCurrentNode().getNodeVersion());
