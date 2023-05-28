@@ -695,15 +695,13 @@ public final class HiveWriteUtils
         }
 
         if (type instanceof VarcharType varcharType) {
-            if (varcharType.isUnbounded()) {
-                // Unbounded VARCHAR is not supported by Hive.
-                // Values for such columns must be stored as STRING in Hive
-                return writableStringObjectInspector;
-            }
-            if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 // VARCHAR columns with the length less than or equal to 65535 are supported natively by Hive
                 return getPrimitiveWritableObjectInspector(getVarcharTypeInfo(varcharType.getBoundedLength()));
             }
+            // Unbounded VARCHAR is not supported by Hive.
+            // Values for such columns must be stored as STRING in Hive
+            return writableStringObjectInspector;
         }
 
         if (type instanceof CharType charType) {
