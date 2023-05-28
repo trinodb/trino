@@ -915,19 +915,25 @@ public class TestClickHouseConnectorTest
             case "bigint":
                 return Optional.of(new SetColumnTypeSetup("bigint", "BIGINT '-2147483648'", "integer"));
             case "real":
-                if (setup.sourceValueLiteral() == "REAL '10.3'")
+                if (setup.sourceValueLiteral().equals("REAL '10.3'")) {
                     return Optional.of(new SetColumnTypeSetup("real", "REAL '10.3'", "double"));
-                else if (setup.sourceValueLiteral() == "REAL 'NaN'")
+                }
+                else if (setup.sourceValueLiteral().equals("REAL 'NaN'")) {
                     return Optional.of(new SetColumnTypeSetup("real", "REAL 'NaN'", "double"));
+                }
             case "decimal(5,3)":
-                if (setup.sourceValueLiteral() == "12.345" && setup.newColumnType() == "decimal(10,3)")
+                if (setup.sourceValueLiteral().equals("12.345") && setup.newColumnType().equals("decimal(10,3)")) {
                     return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.345", "decimal(10,3)"));
-                else if (setup.sourceValueLiteral() == "12.345" && setup.newColumnType() == "decimal(38,3)")
+                }
+                else if (setup.sourceValueLiteral().equals("12.345") && setup.newColumnType().equals("decimal(38,3)")) {
                     return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
-                else if (setup.sourceValueLiteral() == "12.340")
+                }
+                else if (setup.sourceValueLiteral().equals("12.340")) {
                     return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.340", "decimal(5,2)"));
-                else if (setup.sourceValueLiteral() == "12.35")
+                }
+                else if (setup.sourceValueLiteral().equals("12.35")) {
                     return Optional.of(new SetColumnTypeSetup("decimal(5,3)", "12.35", "decimal(5,2)"));
+                }
             case "decimal(28,3)":
                 return Optional.of(new SetColumnTypeSetup("decimal(28,3)", "12.345", "decimal(38,3)"));
             case "varchar(100)":
