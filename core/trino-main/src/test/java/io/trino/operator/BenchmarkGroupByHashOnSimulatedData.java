@@ -98,7 +98,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 joinCompiler,
                 TYPE_OPERATOR_FACTORY,
                 NOOP);
-        List<GroupByIdBlock> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
+        List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
@@ -127,12 +127,12 @@ public class BenchmarkGroupByHashOnSimulatedData
         }
     }
 
-    private List<GroupByIdBlock> addInputPages(GroupByHash groupByHash, List<Page> pages, WorkType workType)
+    private List<int[]> addInputPages(GroupByHash groupByHash, List<Page> pages, WorkType workType)
     {
-        List<GroupByIdBlock> results = new ArrayList<>();
+        List<int[]> results = new ArrayList<>();
         for (Page page : pages) {
             if (workType == GET_GROUPS) {
-                Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                Work<int[]> work = groupByHash.getGroupIds(page);
                 boolean finished;
                 do {
                     finished = work.process();

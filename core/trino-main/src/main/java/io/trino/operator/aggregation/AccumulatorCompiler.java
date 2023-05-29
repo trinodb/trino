@@ -26,7 +26,6 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.expression.BytecodeExpressions;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -70,7 +69,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
-import static io.airlift.bytecode.expression.BytecodeExpressions.not;
 import static io.trino.operator.aggregation.AggregationMaskCompiler.generateAggregationMaskBuilder;
 import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
@@ -371,7 +369,7 @@ public final class AccumulatorCompiler
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
-            parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
+            parameters.add(arg("groupIds", int[].class));
         }
         Parameter arguments = arg("arguments", Page.class);
         parameters.add(arguments);
@@ -582,7 +580,7 @@ public final class AccumulatorCompiler
         BytecodeBlock block = new BytecodeBlock();
 
         if (grouped) {
-            generateSetGroupIdFromGroupIdsBlock(scope, stateField, block, position);
+            generateSetGroupIdFromGroupIds(scope, stateField, block, position);
         }
 
         block.comment("Call input function with unpacked Block arguments");
@@ -678,8 +676,8 @@ public final class AccumulatorCompiler
         loopBody.comment("combine(state_0, state_1, ... scratchState_0, scratchState_1, ... lambda_0, lambda_1, ...)");
         for (FieldDefinition stateField : stateFields) {
             if (grouped) {
-                Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
-                loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+                Variable groupIds = scope.getVariable("groupIds");
+                loopBody.append(thisVariable.getField(stateField).invoke("setGroupId", void.class, groupIds.getElement(position).cast(long.class)));
             }
             loopBody.append(thisVariable.getField(stateField));
         }
@@ -694,25 +692,16 @@ public final class AccumulatorCompiler
         }
         loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
 
-        if (grouped) {
-            // skip rows with null group id
-            IfStatement ifStatement = new IfStatement("if (!groupIdsBlock.isNull(position))")
-                    .condition(not(scope.getVariable("groupIdsBlock").invoke("isNull", boolean.class, position)))
-                    .ifTrue(loopBody);
-
-            loopBody = new BytecodeBlock().append(ifStatement);
-        }
-
         body.append(generateBlockNonNullPositionForLoop(scope, position, loopBody))
                 .ret();
     }
 
-    private static void generateSetGroupIdFromGroupIdsBlock(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block, Variable position)
+    private static void generateSetGroupIdFromGroupIds(Scope scope, List<FieldDefinition> stateFields, BytecodeBlock block, Variable position)
     {
-        Variable groupIdsBlock = scope.getVariable("groupIdsBlock");
+        Variable groupIds = scope.getVariable("groupIds");
         for (FieldDefinition stateField : stateFields) {
             BytecodeExpression state = scope.getThis().getField(stateField);
-            block.append(state.invoke("setGroupId", void.class, groupIdsBlock.invoke("getGroupId", long.class, position)));
+            block.append(state.invoke("setGroupId", void.class, groupIds.getElement(position).cast(long.class)));
         }
     }
 
@@ -720,7 +709,7 @@ public final class AccumulatorCompiler
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         if (grouped) {
-            parameters.add(arg("groupIdsBlock", GroupByIdBlock.class));
+            parameters.add(arg("groupIds", int[].class));
         }
         parameters.add(arg("block", Block.class));
 
