@@ -14,8 +14,8 @@
 package io.trino.tests.product.iceberg;
 
 import com.google.inject.Inject;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
@@ -35,14 +35,14 @@ public class TestIcebergCreateTable
     @Inject
     private HdfsClient hdfsClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         // Use IF NOT EXISTS because the schema can be left behind after previous test, as the tests are @Flaky
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.iceberg");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanUp()
     {
         onTrino().executeQuery("DROP SCHEMA iceberg.iceberg");

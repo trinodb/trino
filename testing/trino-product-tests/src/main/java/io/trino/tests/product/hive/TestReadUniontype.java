@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import io.trino.jdbc.Row;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -38,8 +38,8 @@ public class TestReadUniontype
     private static final String TABLE_NAME = "test_read_uniontype";
     private static final String TABLE_NAME_SCHEMA_EVOLUTION = "test_read_uniontype_with_schema_evolution";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         onHive().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));

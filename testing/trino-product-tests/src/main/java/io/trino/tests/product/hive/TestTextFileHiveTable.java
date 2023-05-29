@@ -16,8 +16,8 @@ package io.trino.tests.product.hive;
 import com.google.common.io.Resources;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
@@ -41,7 +41,7 @@ public class TestTextFileHiveTable
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
             throws Exception
     {
@@ -51,7 +51,7 @@ public class TestTextFileHiveTable
         }
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         hdfsClient.delete(warehouseDirectory + "/TestTextFileHiveTable");

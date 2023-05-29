@@ -14,7 +14,7 @@
 package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
@@ -49,7 +49,7 @@ public class TestDeltaLakeDatabricksInsertCompatibility
 {
     private Optional<DatabricksVersion> databricksRuntimeVersion;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();

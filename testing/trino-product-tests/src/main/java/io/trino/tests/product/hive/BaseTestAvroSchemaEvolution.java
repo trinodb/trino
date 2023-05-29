@@ -15,8 +15,8 @@ package io.trino.tests.product.hive;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import org.testng.annotations.Test;
@@ -65,7 +65,7 @@ public abstract class BaseTestAvroSchemaEvolution
         this.varcharPartitionColumns = ImmutableList.copyOf(varcharPartitionColumns);
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void createAndLoadTable()
             throws IOException
     {
@@ -97,7 +97,7 @@ public abstract class BaseTestAvroSchemaEvolution
         insertData(tableWithSchemaLiteral, 0, "'stringA0'", "0");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableWithSchemaUrl));

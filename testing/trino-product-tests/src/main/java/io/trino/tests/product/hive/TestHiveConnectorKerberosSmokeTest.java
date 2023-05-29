@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.io.Closer;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
@@ -39,7 +39,7 @@ public class TestHiveConnectorKerberosSmokeTest
     private Closer closer;
     private ExecutorService executor;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         closer = Closer.create();
@@ -47,7 +47,7 @@ public class TestHiveConnectorKerberosSmokeTest
         closer.register(executor::shutdownNow);
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanUp()
             throws IOException
     {

@@ -143,7 +143,7 @@ public class ReportUnannotatedMethods
                         return true;
                     }
                     if (isTemptoClass(annotationClass)) {
-                        // tempto annotation (@BeforeTestWithContext, @AfterTestWithContext)
+                        // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
                         return true;
                     }
                     return false;

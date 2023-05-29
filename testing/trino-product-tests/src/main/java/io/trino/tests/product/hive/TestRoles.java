@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -53,7 +53,7 @@ public class TestRoles
     @Named("databases.presto.jdbc_user")
     private String userName;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         onTrino().executeQuery("SET ROLE admin IN hive");
@@ -61,7 +61,7 @@ public class TestRoles
         cleanup();
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         cleanup();

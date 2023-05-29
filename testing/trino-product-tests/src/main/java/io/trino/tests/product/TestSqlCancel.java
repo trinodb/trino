@@ -24,8 +24,8 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.Assertions;
@@ -66,7 +66,7 @@ public class TestSqlCancel
     @Named("databases.presto.server_address")
     private String serverAddress;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         closer = Closer.create();
@@ -75,7 +75,7 @@ public class TestSqlCancel
         queryCanceller = closer.register(new QueryCanceller(serverAddress));
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanUp()
             throws IOException
     {
