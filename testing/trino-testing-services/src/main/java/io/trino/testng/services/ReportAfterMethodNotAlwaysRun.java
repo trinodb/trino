@@ -21,7 +21,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterGroups;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterSuite;
-import org.testng.annotations.AfterTest;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -42,7 +41,6 @@ public class ReportAfterMethodNotAlwaysRun
         implements IClassListener
 {
     private static final Set<AnnotationPredicate<?>> VIOLATIONS = ImmutableSet.of(
-            new AnnotationPredicate<>(AfterTest.class, not(AfterTest::alwaysRun)),
             new AnnotationPredicate<>(AfterMethod.class, not(AfterMethod::alwaysRun)),
             new AnnotationPredicate<>(AfterClass.class, not(AfterClass::alwaysRun)),
             new AnnotationPredicate<>(AfterSuite.class, not(AfterSuite::alwaysRun)),

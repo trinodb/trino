@@ -17,7 +17,6 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterGroups;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterSuite;
-import org.testng.annotations.AfterTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -76,10 +75,6 @@ public class TestReportAfterMethodNotAlwaysRun
                         SuiteNotAlwaysRun.class.getMethod("afterSuite").toString(),
                 },
                 {
-                        TestNotAlwaysRun.class,
-                        TestNotAlwaysRun.class.getMethod("afterTest").toString(),
-                },
-                {
                         AllNotAlwaysRunTwice.class,
                         AllNotAlwaysRunTwice.class.getMethod("afterClass1").toString(),
                         AllNotAlwaysRunTwice.class.getMethod("afterClass2").toString(),
@@ -89,8 +84,6 @@ public class TestReportAfterMethodNotAlwaysRun
                         AllNotAlwaysRunTwice.class.getMethod("afterMethod2").toString(),
                         AllNotAlwaysRunTwice.class.getMethod("afterSuite1").toString(),
                         AllNotAlwaysRunTwice.class.getMethod("afterSuite2").toString(),
-                        AllNotAlwaysRunTwice.class.getMethod("afterTest1").toString(),
-                        AllNotAlwaysRunTwice.class.getMethod("afterTest2").toString(),
                 },
                 {
                         SubClassWithBaseNotAlwaysRunNoOverride.class,
@@ -137,9 +130,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite(alwaysRun = true)
         public void afterSuite() {}
-
-        @AfterTest(alwaysRun = true)
-        public void afterTest() {}
     }
 
     private static class ClassNotAlwaysRun
@@ -155,9 +145,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite(alwaysRun = true)
         public void afterSuite() {}
-
-        @AfterTest(alwaysRun = true)
-        public void afterTest() {}
     }
 
     private static class GroupNotAlwaysRun
@@ -173,9 +160,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite(alwaysRun = true)
         public void afterSuite() {}
-
-        @AfterTest(alwaysRun = true)
-        public void afterTest() {}
     }
 
     private static class MethodNotAlwaysRun
@@ -191,9 +175,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite(alwaysRun = true)
         public void afterSuite() {}
-
-        @AfterTest(alwaysRun = true)
-        public void afterTest() {}
     }
 
     private static class SuiteNotAlwaysRun
@@ -209,27 +190,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite
         public void afterSuite() {}
-
-        @AfterTest(alwaysRun = true)
-        public void afterTest() {}
-    }
-
-    private static class TestNotAlwaysRun
-    {
-        @AfterClass(alwaysRun = true)
-        public void afterClass() {}
-
-        @AfterGroups(alwaysRun = true)
-        public void afterGroup() {}
-
-        @AfterMethod(alwaysRun = true)
-        public void afterMethod() {}
-
-        @AfterSuite(alwaysRun = true)
-        public void afterSuite() {}
-
-        @AfterTest
-        public void afterTest() {}
     }
 
     private static class AllNotAlwaysRunTwice
@@ -257,12 +217,6 @@ public class TestReportAfterMethodNotAlwaysRun
 
         @AfterSuite
         public void afterSuite2() {}
-
-        @AfterTest
-        public void afterTest1() {}
-
-        @AfterTest
-        public void afterTest2() {}
     }
 
     private abstract static class BaseClassAlwaysRun
