@@ -847,6 +847,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             // do not start a speculative stage if there is non-speculative work still to be done.
             boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode;
+            boolean speculative = false;
+            int finishedSourcesCount = 0;
+            int estimatedByProgressSourcesCount = 0;
+            int estimatedBySmallInputSourcesCount = 0;
 
             ImmutableMap.Builder<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates = ImmutableMap.builder();
 
@@ -865,10 +869,14 @@ public class EventDrivenFaultTolerantQueryScheduler
                     if (!canScheduleSpeculative) {
                         return IsReadyForExecutionResult.notReady();
                     }
+                    speculative = true;
                 }
                 else {
                     // source stage finished; no more checks needed
-                    sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), sourceStageExecution.getOutputDataSize(stageExecutions::get).orElseThrow());
+                    OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get).orElseThrow();
+                    verify(result.getStatus() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.getStatus());
+                    finishedSourcesCount++;
+                    sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.getOutputDataSizeEstimate());
                     continue;
                 }
 
@@ -882,14 +890,35 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                Optional<OutputDataSizeEstimate> outputDataSize = sourceStageExecution.getOutputDataSize(stageExecutions::get);
-                if (outputDataSize.isEmpty()) {
-                    // no output data size estimate yet
+                Optional<OutputDataSizeEstimateResult> result = sourceStageExecution.getOutputDataSize(stageExecutions::get);
+                if (result.isEmpty()) {
                     return IsReadyForExecutionResult.notReady();
                 }
-                sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), outputDataSize.orElseThrow());
+
+                switch (result.orElseThrow().getStatus()) {
+                    case ESTIMATED_BY_PROGRESS -> {
+                        estimatedByProgressSourcesCount++;
+                    }
+                    case ESTIMATED_BY_SMALL_INPUT -> {
+                        estimatedBySmallInputSourcesCount++;
+                    }
+                    default -> {
+                        // FINISHED handled above
+                        throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().getStatus()));
+                    }
+                }
+
+                sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().getOutputDataSizeEstimate());
             }
 
+            if (speculative) {
+                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedSmall=%s",
+                        queryStateMachine.getQueryId(),
+                        subPlan.getFragment().getId(),
+                        finishedSourcesCount,
+                        estimatedByProgressSourcesCount,
+                        estimatedBySmallInputSourcesCount);
+            }
             return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow());
         }
 
@@ -1865,15 +1894,16 @@ public class EventDrivenFaultTolerantQueryScheduler
             return getStagePartition(partitionId).getNodeRequirements();
         }
 
-        public Optional<OutputDataSizeEstimate> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        public Optional<OutputDataSizeEstimateResult> getOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
         {
             if (stage.getState() == StageState.FINISHED) {
-                return Optional.of(new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)));
+                return Optional.of(new OutputDataSizeEstimateResult(
+                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
             }
             return getEstimatedOutputDataSize().or(() -> getEstimatedSmallStageOutputDataSize(stageExecutionLookup));
         }
 
-        private Optional<OutputDataSizeEstimate> getEstimatedOutputDataSize()
+        private Optional<OutputDataSizeEstimateResult> getEstimatedOutputDataSize()
         {
             if (!isNoMorePartitions()) {
                 return Optional.empty();
@@ -1897,10 +1927,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             for (long partitionSize : outputDataSize) {
                 estimateBuilder.add((long) (partitionSize / progress));
             }
-            return Optional.of(new OutputDataSizeEstimate(estimateBuilder.build()));
+            return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), OutputDataSizeEstimateStatus.ESTIMATED_BY_PROGRESS));
         }
 
-        private Optional<OutputDataSizeEstimate> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
+        private Optional<OutputDataSizeEstimateResult> getEstimatedSmallStageOutputDataSize(Function<StageId, StageExecution> stageExecutionLookup)
         {
             if (!smallStageEstimationEnabled) {
                 return Optional.empty();
@@ -1941,14 +1971,14 @@ public class EventDrivenFaultTolerantQueryScheduler
 
                     StageExecution sourceStage = stageExecutionLookup.apply(sourceStageId);
                     requireNonNull(sourceStage, "sourceStage is null");
-                    Optional<OutputDataSizeEstimate> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup);
+                    Optional<OutputDataSizeEstimateResult> sourceStageOutputDataSize = sourceStage.getOutputDataSize(stageExecutionLookup);
 
                     if (sourceStageOutputDataSize.isEmpty()) {
                         // cant estimate size of one of sources; should not happen in practice
                         return Optional.empty();
                     }
 
-                    remoteInputSizeEstimate += sourceStageOutputDataSize.orElseThrow().getTotalSizeInBytes();
+                    remoteInputSizeEstimate += sourceStageOutputDataSize.orElseThrow().getOutputDataSizeEstimate().getTotalSizeInBytes();
                 }
             }
 
@@ -1964,7 +1994,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 // TODO; should we use distribution as in this.outputDataSize if we have some data there already?
                 estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
             }
-            return Optional.of(new OutputDataSizeEstimate(estimateBuilder.build()));
+            return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_BY_SMALL_INPUT));
         }
 
         public ExchangeSourceOutputSelector getSinkOutputSelector()
@@ -2036,6 +2066,39 @@ public class EventDrivenFaultTolerantQueryScheduler
             StagePartition partition = partitions.get(partitionId);
             checkState(partition != null, "partition with id %s does not exist in stage %s", partitionId, stage.getStageId());
             return partition;
+        }
+    }
+
+    private enum OutputDataSizeEstimateStatus {
+        FINISHED,
+        ESTIMATED_BY_PROGRESS,
+        ESTIMATED_BY_SMALL_INPUT
+    }
+
+    private static class OutputDataSizeEstimateResult
+    {
+        private final OutputDataSizeEstimate outputDataSizeEstimate;
+        private final OutputDataSizeEstimateStatus status;
+
+        public OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
+        {
+            this(new OutputDataSizeEstimate(partitionDataSizes), status);
+        }
+
+        private OutputDataSizeEstimateResult(OutputDataSizeEstimate outputDataSizeEstimate, OutputDataSizeEstimateStatus status)
+        {
+            this.outputDataSizeEstimate = requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
+            this.status = requireNonNull(status, "status is null");
+        }
+
+        public OutputDataSizeEstimate getOutputDataSizeEstimate()
+        {
+            return outputDataSizeEstimate;
+        }
+
+        public OutputDataSizeEstimateStatus getStatus()
+        {
+            return status;
         }
     }
 
