@@ -43,6 +43,9 @@ public final class AggregationMask
         return new AggregationMask(positionCount);
     }
 
+    /**
+     * Creates a mask with the given selected positions. Selected positions must be sorted in ascending order.
+     */
     public static AggregationMask createSelectedPositions(int positionCount, int[] selectedPositions, int selectedPositionCount)
     {
         return new AggregationMask(positionCount, selectedPositions, selectedPositionCount);

@@ -13,7 +13,6 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -24,9 +23,9 @@ public interface GroupedAccumulator
 
     void setGroupCount(long groupCount);
 
-    void addInput(GroupByIdBlock groupIdsBlock, Page page, AggregationMask mask);
+    void addInput(int[] groupIds, Page page, AggregationMask mask);
 
-    void addIntermediate(GroupByIdBlock groupIdsBlock, Block block);
+    void addIntermediate(int[] groupIds, Block block);
 
     void evaluateIntermediate(int groupId, BlockBuilder output);
 

@@ -124,7 +124,7 @@ public class RowNumberOperator
     private final int[] outputChannels;
     private final List<Type> types;
 
-    private GroupByIdBlock partitionIds;
+    private int[] partitionIds;
     private final Optional<GroupByHash> groupByHash;
 
     private Page inputPage;
@@ -135,7 +135,7 @@ public class RowNumberOperator
     private final Optional<PageBuilder> selectedRowPageBuilder;
 
     // for yield when memory is not available
-    private Work<GroupByIdBlock> unfinishedWork;
+    private Work<int[]> unfinishedWork;
 
     public RowNumberOperator(
             OperatorContext operatorContext,
@@ -275,7 +275,7 @@ public class RowNumberOperator
             return false;
         }
         partitionIds = unfinishedWork.getResult();
-        partitionRowCount.ensureCapacity(partitionIds.getGroupCount());
+        partitionRowCount.ensureCapacity(groupByHash.orElseThrow().getGroupCount());
         unfinishedWork = null;
         return true;
     }
@@ -342,7 +342,7 @@ public class RowNumberOperator
 
     private long getPartitionId(int position)
     {
-        return isSinglePartition() ? 0 : partitionIds.getGroupId(position);
+        return isSinglePartition() ? 0 : partitionIds[position];
     }
 
     private static List<Type> toTypes(List<? extends Type> sourceTypes, List<Integer> outputChannels)

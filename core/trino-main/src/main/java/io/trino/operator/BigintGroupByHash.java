@@ -21,7 +21,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
@@ -29,7 +28,6 @@ import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -164,7 +162,7 @@ public class BigintGroupByHash
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         Block block = page.getBlock(hashChannel);
@@ -490,9 +488,9 @@ public class BigintGroupByHash
 
     @VisibleForTesting
     class GetGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Block block;
 
         private boolean finished;
@@ -501,7 +499,7 @@ public class BigintGroupByHash
         public GetGroupIdsWork(Block block)
         {
             this.block = requireNonNull(block, "block is null");
-            this.groupIds = new long[block.getPositionCount()];
+            this.groupIds = new int[block.getPositionCount()];
         }
 
         @Override
@@ -532,20 +530,20 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Block dictionary;
         private final DictionaryBlock block;
 
@@ -558,7 +556,7 @@ public class BigintGroupByHash
             this.dictionary = block.getDictionary();
             updateDictionaryLookBack(dictionary);
 
-            this.groupIds = new long[block.getPositionCount()];
+            this.groupIds = new int[block.getPositionCount()];
         }
 
         @Override
@@ -586,18 +584,18 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == block.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(block.getPositionCount(), Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetRunLengthEncodedGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final RunLengthEncodedBlock block;
 
@@ -632,17 +630,15 @@ public class BigintGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
 
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    RunLengthEncodedBlock.create(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            block.getPositionCount()));
+            int[] result = new int[block.getPositionCount()];
+            Arrays.fill(result, groupId);
+            return result;
         }
     }
 

@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.primitives.Ints;
-import io.trino.operator.GroupByIdBlock;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -71,9 +70,9 @@ public class GroupedAggregator
         return finalType;
     }
 
-    public void processPage(GroupByIdBlock groupIds, Page page)
+    public void processPage(int groupCount, int[] groupIds, Page page)
     {
-        accumulator.setGroupCount(groupIds.getGroupCount());
+        accumulator.setGroupCount(groupCount);
 
         if (step.isInputRaw()) {
             Page arguments = page.getColumns(inputChannels);

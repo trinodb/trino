@@ -18,6 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
 import io.trino.operator.MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork;
+import io.trino.operator.MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -122,15 +123,14 @@ public class TestGroupByHash
                     assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
 
                     // add the page again using get group ids and make sure the group count didn't change
-                    Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                    Work<int[]> work = groupByHash.getGroupIds(page);
                     work.process();
-                    GroupByIdBlock groupIds = work.getResult();
+                    int[] groupIds = work.getResult();
                     assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
-                    assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
 
                     // verify the first position
-                    assertEquals(groupIds.getPositionCount(), 1);
-                    long groupId = groupIds.getGroupId(0);
+                    assertEquals(groupIds.length, 1);
+                    int groupId = groupIds[0];
                     assertEquals(groupId, value);
                 }
             }
@@ -151,18 +151,20 @@ public class TestGroupByHash
 
         assertEquals(groupByHash.getGroupCount(), 1);
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        Work<int[]> work = groupByHash.getGroupIds(page);
+        if (groupByHashType == GroupByHashType.MULTI_CHANNEL) {
+            assertThat(work).isInstanceOf(GetRunLengthEncodedGroupIdsWork.class);
+        }
+        else {
+            assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        }
         work.process();
-        GroupByIdBlock groupIds = work.getResult();
+        int[] groupIds = work.getResult();
 
-        assertEquals(groupIds.getGroupCount(), 1);
-        assertEquals(groupIds.getPositionCount(), 2);
-        assertEquals(groupIds.getGroupId(0), 0);
-        assertEquals(groupIds.getGroupId(1), 0);
-
-        List<Block> children = groupIds.getChildren();
-        assertEquals(children.size(), 1);
-        assertTrue(children.get(0) instanceof RunLengthEncodedBlock);
+        assertEquals(groupByHash.getGroupCount(), 1);
+        assertEquals(groupIds.length, 2);
+        assertEquals(groupIds[0], 0);
+        assertEquals(groupIds[1], 0);
     }
 
     @Test(dataProvider = "groupByHashType")
@@ -180,16 +182,16 @@ public class TestGroupByHash
 
         assertEquals(groupByHash.getGroupCount(), 2);
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        Work<int[]> work = groupByHash.getGroupIds(page);
         work.process();
-        GroupByIdBlock groupIds = work.getResult();
+        int[] groupIds = work.getResult();
 
-        assertEquals(groupIds.getGroupCount(), 2);
-        assertEquals(groupIds.getPositionCount(), 4);
-        assertEquals(groupIds.getGroupId(0), 0);
-        assertEquals(groupIds.getGroupId(1), 0);
-        assertEquals(groupIds.getGroupId(2), 1);
-        assertEquals(groupIds.getGroupId(3), 1);
+        assertEquals(groupByHash.getGroupCount(), 2);
+        assertEquals(groupIds.length, 4);
+        assertEquals(groupIds[0], 0);
+        assertEquals(groupIds[1], 0);
+        assertEquals(groupIds[2], 1);
+        assertEquals(groupIds[3], 1);
     }
 
     @Test(dataProvider = "groupByHashType")
@@ -224,12 +226,12 @@ public class TestGroupByHash
                 Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
                 Page page = new Page(block, hashBlock);
                 for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
-                    Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+                    Work<int[]> work = groupByHash.getGroupIds(page);
                     work.process();
-                    GroupByIdBlock groupIds = work.getResult();
-                    assertEquals(groupIds.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
-                    assertEquals(groupIds.getPositionCount(), 1);
-                    long groupId = groupIds.getGroupId(0);
+                    int[] groupIds = work.getResult();
+                    assertEquals(groupByHash.getGroupCount(), tries == 0 ? value + 1 : MAX_GROUP_ID);
+                    assertEquals(groupIds.length, 1);
+                    long groupId = groupIds[0];
                     assertEquals(groupId, value);
                 }
             }
@@ -251,11 +253,11 @@ public class TestGroupByHash
         Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
+        Work<int[]> work = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
         work.process();
-        GroupByIdBlock groupIds = work.getResult();
-        for (int i = 0; i < groupIds.getPositionCount(); i++) {
-            assertEquals(groupIds.getGroupId(i), i);
+        int[] groupIds = work.getResult();
+        for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
+            assertEquals(groupIds[i], i);
         }
         assertEquals(groupByHash.getGroupCount(), 100);
 
@@ -444,7 +446,7 @@ public class TestGroupByHash
         groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, updateMemory);
 
         finish = false;
-        Work<GroupByIdBlock> getGroupIdsWork = groupByHash.getGroupIds(page);
+        Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
         while (!finish) {
             finish = getGroupIdsWork.process();
             if (!finish) {
@@ -458,7 +460,7 @@ public class TestGroupByHash
         }
         // assert there is not anything missing
         assertEquals(length, groupByHash.getGroupCount());
-        assertEquals(length, getGroupIdsWork.getResult().getPositionCount());
+        assertEquals(length, getGroupIdsWork.getResult().length);
         // assert we yield for every 3 rehashes
         // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
         // the rehash count is 20 = log2(1_000_000 / 0.75)
@@ -519,7 +521,7 @@ public class TestGroupByHash
         groupByHash = groupByHashType.createGroupByHash(1, updateMemory);
 
         finish = false;
-        Work<GroupByIdBlock> getGroupIdsWork = groupByHash.getGroupIds(page);
+        Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
         while (!finish) {
             finish = getGroupIdsWork.process();
             if (!finish) {
@@ -534,7 +536,7 @@ public class TestGroupByHash
 
         // assert there is not anything missing
         assertEquals(dictionaryLength, groupByHash.getGroupCount());
-        assertEquals(dictionaryLength, getGroupIdsWork.getResult().getPositionCount());
+        assertEquals(dictionaryLength, getGroupIdsWork.getResult().length);
         // assert we yield for every 3 rehashes
         // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
         // the rehash count is 10 = log2(1_000 / 0.75)
@@ -604,16 +606,17 @@ public class TestGroupByHash
         Page lowCardinalityPage = new Page(block1, block2, block3, block4);
         Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
 
-        Work<GroupByIdBlock> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
+        Work<int[]> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
         assertThat(lowCardinalityWork).isInstanceOf(GetLowCardinalityDictionaryGroupIdsWork.class);
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        Work<int[]> work = groupByHash.getGroupIds(page);
 
         lowCardinalityWork.process();
         work.process();
-        GroupByIdBlock lowCardinalityResults = lowCardinalityWork.getResult();
-        GroupByIdBlock results = work.getResult();
 
-        assertThat(lowCardinalityResults.getGroupCount()).isEqualTo(results.getGroupCount());
+        assertThat(lowCardinalityGroupByHash.getGroupCount()).isEqualTo(groupByHash.getGroupCount());
+        int[] lowCardinalityResults = lowCardinalityWork.getResult();
+        int[] results = work.getResult();
+        assertThat(lowCardinalityResults).isEqualTo(results);
     }
 
     @Test
@@ -639,17 +642,17 @@ public class TestGroupByHash
 
         Page page = new Page(block1, block2);
 
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        Work<int[]> work = groupByHash.getGroupIds(page);
         assertThat(work).isInstanceOf(GetLowCardinalityDictionaryGroupIdsWork.class);
 
         work.process();
-        GroupByIdBlock results = work.getResult();
+        int[] results = work.getResult();
         // Records with group id '0' should come before '1' despite being in the end of the block
         for (int i = 0; i < 16; i++) {
-            assertThat(results.getGroupId(i)).isEqualTo(0);
+            assertThat(results[i]).isEqualTo(0);
         }
         for (int i = 16; i < 32; i++) {
-            assertThat(results.getGroupId(i)).isEqualTo(1);
+            assertThat(results[i]).isEqualTo(1);
         }
     }
 
@@ -677,7 +680,7 @@ public class TestGroupByHash
         Page singleVarcharDictionaryPage = new Page(varcharDictionaryBlock);
         assertGroupByHashWork(singleVarcharDictionaryPage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetDictionaryGroupIdsWork.class);
         Page singleVarcharRlePage = new Page(varcharRleBlock);
-        assertGroupByHashWork(singleVarcharRlePage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        assertGroupByHashWork(singleVarcharRlePage, ImmutableList.of(VARCHAR), GetRunLengthEncodedGroupIdsWork.class);
 
         Page lowCardinalityDictionaryPage = new Page(bigintDictionaryBlock, varcharDictionaryBlock);
         assertGroupByHashWork(lowCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
@@ -700,7 +703,7 @@ public class TestGroupByHash
                 JOIN_COMPILER,
                 TYPE_OPERATOR_FACTORY,
                 NOOP);
-        Work<GroupByIdBlock> work = groupByHash.getGroupIds(page);
+        Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
         assertThat(work).isInstanceOf(clazz);
     }
