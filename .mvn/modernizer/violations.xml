@@ -301,4 +301,16 @@
         <version>1.8</version>
         <comment>Use io.airlift.slice.SizeOf.instanceSize</comment>
     </violation>
+
+    <violation>
+        <name>org/testng/annotations/BeforeTest</name>
+        <version>1.8</version>
+        <comment>Prefer org.testng.annotations.BeforeClass</comment>
+    </violation>
+
+    <violation>
+        <name>org/testng/annotations/AfterTest</name>
+        <version>1.8</version>
+        <comment>Prefer org.testng.annotations.AfterClass</comment>
+    </violation>
 </modernizer>
