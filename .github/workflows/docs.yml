@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
@@ -85,7 +85,7 @@ jobs:
           fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
       - uses: actions/setup-java@v3
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: 17
           cache: 'maven'
       - name: Configure Problem Matchers
