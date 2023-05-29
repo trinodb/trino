@@ -77,7 +77,7 @@ public class GroupedTopNRowNumberBuilder
         return new TransformWork<>(
                 groupByHash.getGroupIds(page),
                 groupIds -> {
-                    processPage(page, groupIds);
+                    processPage(page, groupByHash.getGroupCount(), groupIds);
                     return null;
                 });
     }
@@ -97,16 +97,16 @@ public class GroupedTopNRowNumberBuilder
                 + groupedTopNRowNumberAccumulator.sizeOf();
     }
 
-    private void processPage(Page newPage, GroupByIdBlock groupIds)
+    private void processPage(Page newPage, int groupCount, int[] groupIds)
     {
-        int firstPositionToAdd = groupedTopNRowNumberAccumulator.findFirstPositionToAdd(newPage, groupIds, comparator, pageManager);
+        int firstPositionToAdd = groupedTopNRowNumberAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager);
         if (firstPositionToAdd < 0) {
             return;
         }
 
         try (LoadCursor loadCursor = pageManager.add(newPage, firstPositionToAdd)) {
             for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
-                long groupId = groupIds.getGroupId(position);
+                int groupId = groupIds[position];
                 loadCursor.advance();
                 groupedTopNRowNumberAccumulator.add(groupId, loadCursor);
             }
@@ -126,8 +126,8 @@ public class GroupedTopNRowNumberBuilder
             extends AbstractIterator<Page>
     {
         private final PageBuilder pageBuilder;
-        private final long groupIdCount = groupByHash.getGroupCount();
-        private long currentGroupId = -1;
+        private final int groupIdCount = groupByHash.getGroupCount();
+        private int currentGroupId = -1;
         private final LongBigArray rowIdOutput = new LongBigArray();
         private long currentGroupSize;
         private int currentIndexInGroup;

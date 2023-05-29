@@ -21,7 +21,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.JoinCompiler;
@@ -213,7 +212,7 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public Work<GroupByIdBlock> getGroupIds(Page page)
+    public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
         if (isRunLengthEncoded(page)) {
@@ -750,9 +749,9 @@ public class MultiChannelGroupByHash
 
     @VisibleForTesting
     class GetNonDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Page page;
 
         private boolean finished;
@@ -762,7 +761,7 @@ public class MultiChannelGroupByHash
         {
             this.page = requireNonNull(page, "page is null");
             // we know the exact size required for the block
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -793,21 +792,21 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetLowCardinalityDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final Page page;
-        private final long[] groupIds;
+        private final int[] groupIds;
         @Nullable
         private short[] positionToCombinationId;
         @Nullable
@@ -818,7 +817,7 @@ public class MultiChannelGroupByHash
         public GetLowCardinalityDictionaryGroupIdsWork(Page page)
         {
             this.page = requireNonNull(page, "page is null");
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -856,19 +855,19 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetDictionaryGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
-        private final long[] groupIds;
+        private final int[] groupIds;
         private final Page page;
         private final Page dictionaryPage;
         private final DictionaryBlock dictionaryBlock;
@@ -884,7 +883,7 @@ public class MultiChannelGroupByHash
             this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
             updateDictionaryLookBack(dictionaryBlock.getDictionary());
             this.dictionaryPage = createPageWithExtractedDictionary(page);
-            groupIds = new long[page.getPositionCount()];
+            groupIds = new int[page.getPositionCount()];
         }
 
         @Override
@@ -911,18 +910,18 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(lastPosition == page.getPositionCount(), "process has not yet finished");
             checkState(!finished, "result has produced");
             finished = true;
-            return new GroupByIdBlock(nextGroupId, new LongArrayBlock(groupIds.length, Optional.empty(), groupIds));
+            return groupIds;
         }
     }
 
     @VisibleForTesting
     class GetRunLengthEncodedGroupIdsWork
-            implements Work<GroupByIdBlock>
+            implements Work<int[]>
     {
         private final Page page;
 
@@ -957,17 +956,15 @@ public class MultiChannelGroupByHash
         }
 
         @Override
-        public GroupByIdBlock getResult()
+        public int[] getResult()
         {
             checkState(processFinished);
             checkState(!resultProduced);
             resultProduced = true;
 
-            return new GroupByIdBlock(
-                    nextGroupId,
-                    RunLengthEncodedBlock.create(
-                            BIGINT.createFixedSizeBlockBuilder(1).writeLong(groupId).build(),
-                            page.getPositionCount()));
+            int[] groupIds = new int[page.getPositionCount()];
+            Arrays.fill(groupIds, groupId);
+            return groupIds;
         }
     }
 

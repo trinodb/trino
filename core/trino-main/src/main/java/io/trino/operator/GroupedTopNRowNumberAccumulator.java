@@ -73,13 +73,13 @@ public class GroupedTopNRowNumberAccumulator
         return INSTANCE_SIZE + groupIdToHeapBuffer.sizeOf() + heapNodeBuffer.sizeOf() + heapTraversal.sizeOf();
     }
 
-    public int findFirstPositionToAdd(Page newPage, GroupByIdBlock groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
+    public int findFirstPositionToAdd(Page newPage, int groupCount, int[] groupIds, PageWithPositionComparator comparator, RowReferencePageManager pageManager)
     {
-        long currentTotalGroups = groupIdToHeapBuffer.getTotalGroups();
-        groupIdToHeapBuffer.allocateGroupIfNeeded(groupIds.getGroupCount());
+        int currentTotalGroups = groupIdToHeapBuffer.getTotalGroups();
+        groupIdToHeapBuffer.allocateGroupIfNeeded(groupCount);
 
         for (int position = 0; position < newPage.getPositionCount(); position++) {
-            long groupId = groupIds.getGroupId(position);
+            int groupId = groupIds[position];
             if (groupId >= currentTotalGroups || calculateRootRowNumber(groupId) < topN) {
                 return position;
             }
@@ -104,7 +104,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @return true if this row was incorporated, false otherwise
      */
-    public boolean add(long groupId, RowReference rowReference)
+    public boolean add(int groupId, RowReference rowReference)
     {
         groupIdToHeapBuffer.allocateGroupIfNeeded(groupId);
 
@@ -128,7 +128,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @return number of rows deposited to the output buffer
      */
-    public long drainTo(long groupId, LongBigArray rowIdOutput)
+    public long drainTo(int groupId, LongBigArray rowIdOutput)
     {
         long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
         rowIdOutput.ensureCapacity(heapSize);
@@ -141,12 +141,12 @@ public class GroupedTopNRowNumberAccumulator
         return heapSize;
     }
 
-    private long calculateRootRowNumber(long groupId)
+    private long calculateRootRowNumber(int groupId)
     {
         return groupIdToHeapBuffer.getHeapSize(groupId);
     }
 
-    private long peekRootRowId(long groupId)
+    private long peekRootRowId(int groupId)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkArgument(heapRootNodeIndex != UNKNOWN_INDEX, "No root to peek");
@@ -175,7 +175,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @param contextEvictionListener optional callback for the root node that gets popped off
      */
-    private void heapPop(long groupId, @Nullable LongConsumer contextEvictionListener)
+    private void heapPop(int groupId, @Nullable LongConsumer contextEvictionListener)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkArgument(heapRootNodeIndex != UNKNOWN_INDEX, "Group ID has an empty heap");
@@ -204,7 +204,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @return leaf node index that was detached from the heap
      */
-    private long heapDetachLastInsertionLeaf(long groupId)
+    private long heapDetachLastInsertionLeaf(int groupId)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
@@ -243,7 +243,7 @@ public class GroupedTopNRowNumberAccumulator
      * Insertions always fill the left child before the right, and fill up an entire heap level before moving to the
      * next level.
      */
-    private void heapInsert(long groupId, long newRowId)
+    private void heapInsert(int groupId, long newRowId)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         if (heapRootNodeIndex == UNKNOWN_INDEX) {
@@ -293,7 +293,7 @@ public class GroupedTopNRowNumberAccumulator
      *
      * @param contextEvictionListener optional callback for the root node that gets popped off
      */
-    private void heapPopAndInsert(long groupId, long newRowId, @Nullable LongConsumer contextEvictionListener)
+    private void heapPopAndInsert(int groupId, long newRowId, @Nullable LongConsumer contextEvictionListener)
     {
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         checkState(heapRootNodeIndex != UNKNOWN_INDEX, "popAndInsert() requires at least a root node");
@@ -347,7 +347,7 @@ public class GroupedTopNRowNumberAccumulator
     void verifyIntegrity()
     {
         long totalHeapNodes = 0;
-        for (long groupId = 0; groupId < groupIdToHeapBuffer.getTotalGroups(); groupId++) {
+        for (int groupId = 0; groupId < groupIdToHeapBuffer.getTotalGroups(); groupId++) {
             long heapSize = groupIdToHeapBuffer.getHeapSize(groupId);
             long rootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
             verify(rootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(groupId) <= topN, "Max heap has more values than needed");
@@ -432,9 +432,9 @@ public class GroupedTopNRowNumberAccumulator
         // Since we have a single element per group, this array is effectively indexed on group ID
         private final LongBigArray sizeBuffer = new LongBigArray(0);
 
-        private long totalGroups;
+        private int totalGroups;
 
-        public void allocateGroupIfNeeded(long groupId)
+        public void allocateGroupIfNeeded(int groupId)
         {
             if (totalGroups > groupId) {
                 return;
@@ -446,37 +446,37 @@ public class GroupedTopNRowNumberAccumulator
             sizeBuffer.ensureCapacity(totalGroups);
         }
 
-        public long getTotalGroups()
+        public int getTotalGroups()
         {
             return totalGroups;
         }
 
-        public long getHeapRootNodeIndex(long groupId)
+        public long getHeapRootNodeIndex(int groupId)
         {
             return heapIndexBuffer.get(groupId);
         }
 
-        public void setHeapRootNodeIndex(long groupId, long heapNodeIndex)
+        public void setHeapRootNodeIndex(int groupId, long heapNodeIndex)
         {
             heapIndexBuffer.set(groupId, heapNodeIndex);
         }
 
-        public long getHeapSize(long groupId)
+        public long getHeapSize(int groupId)
         {
             return sizeBuffer.get(groupId);
         }
 
-        public void setHeapSize(long groupId, long count)
+        public void setHeapSize(int groupId, long count)
         {
             sizeBuffer.set(groupId, count);
         }
 
-        public void addHeapSize(long groupId, long delta)
+        public void addHeapSize(int groupId, long delta)
         {
             sizeBuffer.add(groupId, delta);
         }
 
-        public void incrementHeapSize(long groupId)
+        public void incrementHeapSize(int groupId)
         {
             sizeBuffer.increment(groupId);
         }

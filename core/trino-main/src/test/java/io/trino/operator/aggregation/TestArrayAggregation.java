@@ -161,7 +161,7 @@ public class TestArrayAggregation
         AggregationTestOutput testOutput = new AggregationTestOutput(ImmutableList.of("hello", "world", "hello2", "world2", "hello3", "world3", "goodbye"));
         AggregationTestInput testInput = testInputBuilder.build();
 
-        testInput.runPagesOnAggregatorWithAssertion(0L, varcharAgg.getFinalType(), testInput.createGroupedAggregator(), testOutput);
+        testInput.runPagesOnAggregatorWithAssertion(0, varcharAgg.getFinalType(), testInput.createGroupedAggregator(), testOutput);
     }
 
     @Test
@@ -178,14 +178,14 @@ public class TestArrayAggregation
         AggregationTestInput test1 = testInputBuilder1.build();
         GroupedAggregator groupedAggregator = test1.createGroupedAggregator();
 
-        test1.runPagesOnAggregatorWithAssertion(0L, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput1);
+        test1.runPagesOnAggregatorWithAssertion(0, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput1);
 
         AggregationTestOutput aggregationTestOutput2 = new AggregationTestOutput(ImmutableList.of("f", "g", "h", "i", "j"));
         AggregationTestInputBuilder testBuilder2 = new AggregationTestInputBuilder(
                 new Block[] {block2},
                 varcharAgg);
         AggregationTestInput test2 = testBuilder2.build();
-        test2.runPagesOnAggregatorWithAssertion(255L, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput2);
+        test2.runPagesOnAggregatorWithAssertion(255, varcharAgg.getFinalType(), groupedAggregator, aggregationTestOutput2);
     }
 
     @Test

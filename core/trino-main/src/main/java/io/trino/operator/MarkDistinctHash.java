@@ -51,7 +51,7 @@ public class MarkDistinctHash
 
     public Work<Block> markDistinctRows(Page page)
     {
-        return new TransformWork<>(groupByHash.getGroupIds(page), this::processNextGroupIds);
+        return new TransformWork<>(groupByHash.getGroupIds(page), groupIds -> processNextGroupIds(groupByHash.getGroupCount(), groupIds, page.getPositionCount()));
     }
 
     @VisibleForTesting
@@ -60,24 +60,23 @@ public class MarkDistinctHash
         return groupByHash.getCapacity();
     }
 
-    private Block processNextGroupIds(GroupByIdBlock ids)
+    private Block processNextGroupIds(int groupCount, int[] ids, int positions)
     {
-        int positions = ids.getPositionCount();
         if (positions > 1) {
             // must have > 1 positions to benefit from using a RunLengthEncoded block
-            if (nextDistinctId == ids.getGroupCount()) {
+            if (nextDistinctId == groupCount) {
                 // no new distinct positions
                 return RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(false), positions);
             }
-            if (nextDistinctId + positions == ids.getGroupCount()) {
+            if (nextDistinctId + positions == groupCount) {
                 // all positions are distinct
-                nextDistinctId = ids.getGroupCount();
+                nextDistinctId = groupCount;
                 return RunLengthEncodedBlock.create(BooleanType.createBlockForSingleNonNullValue(true), positions);
             }
         }
         byte[] distinctMask = new byte[positions];
         for (int position = 0; position < distinctMask.length; position++) {
-            if (ids.getGroupId(position) == nextDistinctId) {
+            if (ids[position] == nextDistinctId) {
                 distinctMask[position] = 1;
                 nextDistinctId++;
             }
@@ -85,7 +84,7 @@ public class MarkDistinctHash
                 distinctMask[position] = 0;
             }
         }
-        checkState(nextDistinctId == ids.getGroupCount());
+        checkState(nextDistinctId == groupCount);
         return BooleanType.wrapByteArrayAsBooleanBlockWithoutNulls(distinctMask);
     }
 }
