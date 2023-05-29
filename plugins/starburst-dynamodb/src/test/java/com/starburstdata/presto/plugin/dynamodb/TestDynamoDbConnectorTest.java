@@ -71,6 +71,7 @@ public class TestDynamoDbConnectorTest
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_MERGE:
             case SUPPORTS_UPDATE:
+            case SUPPORTS_ROW_TYPE:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
