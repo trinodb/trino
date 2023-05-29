@@ -36,7 +36,7 @@ runs:
       - uses: actions/setup-java@v3
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
       - name: Cache local Maven repo
         id: cache
