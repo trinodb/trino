@@ -15,7 +15,7 @@ package io.trino.tests.product.hive;
 
 import com.google.inject.name.Named;
 import io.airlift.log.Logger;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
@@ -44,7 +44,7 @@ public class TestHivePartitionSchemaEvolution
     @Named("databases.hive.enforce_non_transactional_tables")
     private boolean createTablesAsAcid;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void useColumnMappingByName()
             throws SQLException
     {

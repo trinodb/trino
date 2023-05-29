@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
@@ -38,7 +38,7 @@ public class TestSqlStandardAccessControlChecks
     private QueryExecutor charlieExecutor;
     private QueryExecutor caseSensitiveUserNameExecutor;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         aliceExecutor = connectToTrino("alice@presto");
@@ -53,7 +53,7 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor.executeQuery(format("CREATE VIEW %s AS SELECT month, day FROM %s", viewName, tableName));
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         // should not be closed, this would close a shared, global QueryExecutor

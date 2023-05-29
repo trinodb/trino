@@ -14,7 +14,7 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.Requires;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
@@ -39,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestHiveViewsLegacy
         extends AbstractTestHiveViews
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         setSessionProperty("hive.hive_views_legacy_translation", "true");

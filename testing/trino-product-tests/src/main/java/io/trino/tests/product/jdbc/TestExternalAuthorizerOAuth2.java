@@ -16,7 +16,7 @@ package io.trino.tests.product.jdbc;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.jdbc.TestingRedirectHandlerInjector;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tests.product.TpchTableResults;
 import okhttp3.JavaNetCookieJar;
@@ -64,7 +64,7 @@ public class TestExternalAuthorizerOAuth2
 
     private OkHttpClient httpClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
             throws Exception
     {

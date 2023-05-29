@@ -15,8 +15,8 @@ package io.trino.tests.product;
 
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
@@ -55,13 +55,13 @@ public class TestImpersonation
     @Named("databases.presto.configured_hdfs_user")
     private String configuredHdfsUser;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         aliceExecutor = connectToTrino("alice@presto");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         // should not be closed, this would close a shared, global QueryExecutor

@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.mysql;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;
@@ -32,8 +32,8 @@ public class TestCreateTableAsSelect
 {
     private static final String TABLE_NAME = "test.nation_tmp";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));

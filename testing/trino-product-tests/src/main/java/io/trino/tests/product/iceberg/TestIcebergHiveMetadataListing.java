@@ -14,8 +14,8 @@
 package io.trino.tests.product.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import org.testng.annotations.Test;
@@ -38,7 +38,7 @@ public class TestIcebergHiveMetadataListing
     private List<QueryAssert.Row> preexistingTables;
     private List<QueryAssert.Row> preexistingColumns;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         cleanUp();
@@ -66,7 +66,7 @@ public class TestIcebergHiveMetadataListing
         onTrino().executeQuery("CREATE VIEW iceberg.default.iceberg_view AS SELECT * FROM iceberg.default.iceberg_table1");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanUp()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS hive.default.hive_table");

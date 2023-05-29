@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -33,7 +33,7 @@ public class TestHiveMaterializedView
         return getHiveVersionMajor() >= 3;
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         if (!isTestEnabled()) {
@@ -47,7 +47,7 @@ public class TestHiveMaterializedView
         onHive().executeQuery("INSERT INTO test_materialized_view_table VALUES ('a'), ('a'), ('b')");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         if (!isTestEnabled()) {

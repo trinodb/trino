@@ -14,7 +14,7 @@
 package io.trino.tests.product.hudi;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import org.assertj.core.api.Assertions;
@@ -41,7 +41,7 @@ public class TestHudiSparkCompatibility
 
     private String bucketName;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment variable not set: S3_BUCKET");

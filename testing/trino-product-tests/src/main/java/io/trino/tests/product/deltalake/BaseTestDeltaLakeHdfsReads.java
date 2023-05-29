@@ -15,7 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.reflect.ClassPath;
 import com.google.inject.Inject;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
@@ -46,7 +46,7 @@ public abstract class BaseTestDeltaLakeHdfsReads
         this.regionResourcePath = requireNonNull(regionResourcePath, "regionResourcePath is null");
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
             throws IOException
     {
