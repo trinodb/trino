@@ -77,6 +77,10 @@ Array functions
 .. function:: array_join(x, delimiter, null_replacement) -> varchar
 
     Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
+    
+.. function:: array_join(x, delimiter) -> varchar
+
+    Concatenates the elements of the given array using the delimiter. Does not replace nulls.
 
 .. function:: array_max(x) -> x
 
