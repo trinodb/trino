@@ -75,17 +75,16 @@ import static org.testng.Assert.assertFalse;
 public class TestDeltaLakeConnectorTest
         extends BaseConnectorTest
 {
-    private static final String SCHEMA = "test_schema";
+    protected static final String SCHEMA = "test_schema";
 
     protected final String bucketName = "trino-ci-test-" + randomNameSuffix();
-    protected Minio minio;
     protected MinioClient minioClient;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        minio = closeAfterClass(Minio.builder().build());
+        Minio minio = closeAfterClass(Minio.builder().build());
         minio.start();
         minio.createBucket(bucketName);
         minioClient = closeAfterClass(minio.createMinioClient());
@@ -127,7 +126,6 @@ public class TestDeltaLakeConnectorTest
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
-        minio = null; // closed by closeAfterClass
         minioClient = null; // closed by closeAfterClass
     }
 
