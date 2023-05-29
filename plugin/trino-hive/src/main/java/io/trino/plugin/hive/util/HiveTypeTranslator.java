@@ -120,13 +120,13 @@ public final class HiveTypeTranslator
             return HIVE_DOUBLE.getTypeInfo();
         }
         if (type instanceof VarcharType varcharType) {
-            if (varcharType.isUnbounded()) {
-                return HIVE_STRING.getTypeInfo();
-            }
-            if (varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
+            if (!varcharType.isUnbounded() && varcharType.getBoundedLength() <= MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, MAX_VARCHAR_LENGTH));
+            if (varcharType.isUnbounded() || varcharType.getBoundedLength() <= VarcharType.MAX_LENGTH) {
+                return HIVE_STRING.getTypeInfo();
+            }
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, VarcharType.UNBOUNDED_LENGTH));
         }
         if (type instanceof CharType charType) {
             int charLength = charType.getLength();

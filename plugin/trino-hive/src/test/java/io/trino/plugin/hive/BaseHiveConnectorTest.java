@@ -2058,10 +2058,38 @@ public abstract class BaseHiveConnectorTest
                 .hasMessageMatching("Unsupported type .* for partition: a");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported Hive type: varchar\\(65536\\)\\. Supported VARCHAR types: VARCHAR\\(<=65535\\), VARCHAR\\.")
+    @Test(expectedExceptions = RuntimeException.class)
     public void testCreateTableNonSupportedVarcharColumn()
     {
-        assertUpdate("CREATE TABLE test_create_table_non_supported_varchar_column (apple varchar(65536))");
+        assertUpdate("CREATE TABLE test_create_table_non_supported_varchar_column (apple varchar(" + ((long) Integer.MAX_VALUE + 1) + "))");
+    }
+
+    @Test
+    public void testCreateTableSupportedVarcharColumns()
+    {
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_apple (apple varchar(65534))");
+        TableMetadata tableMetadataApple = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_apple");
+        assertColumnType(tableMetadataApple, "apple", createVarcharType(65534));
+
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_banana (banana varchar(65535))");
+        TableMetadata tableMetadataBanana = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_banana");
+        assertColumnType(tableMetadataBanana, "banana", createVarcharType(65535));
+
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_cherry (cherry varchar(65536))");
+        TableMetadata tableMetadataCherry = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_cherry");
+        assertColumnType(tableMetadataCherry, "cherry", createUnboundedVarcharType());
+
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_durian (durian varchar(" + (Integer.MAX_VALUE - 1) + "))");
+        TableMetadata tableMetadataDurian = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_durian");
+        assertColumnType(tableMetadataDurian, "durian", createUnboundedVarcharType());
+
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_eggplant (eggplant varchar(" + Integer.MAX_VALUE + "))");
+        TableMetadata tableMetadataEggplant = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_eggplant");
+        assertColumnType(tableMetadataEggplant, "eggplant", createUnboundedVarcharType());
+
+        assertUpdate("CREATE TABLE test_create_table_supported_varchar_columns_feijoa (feijoa varchar)");
+        TableMetadata tableMetadataFeijoa = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_table_supported_varchar_columns_feijoa");
+        assertColumnType(tableMetadataFeijoa, "feijoa", createUnboundedVarcharType());
     }
 
     @Test
