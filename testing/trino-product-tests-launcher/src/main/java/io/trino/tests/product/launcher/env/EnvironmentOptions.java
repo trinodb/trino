@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Spec;
@@ -55,7 +56,7 @@ public final class EnvironmentOptions
     public String launcherBin;
 
     @Option(names = "--trino-jdk-version", paramLabel = "<trino-jdk-version>", description = "JDK to use for running Trino: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ZULU_17")
-    public SupportedTrinoJdk jdkVersion = SupportedTrinoJdk.ZULU_17;
+    public JdkProvider jdkProvider = JdkProvider.ZULU_17;
 
     @Option(names = "--bind", description = "Bind exposed container ports to host ports, possible values: " + BIND_ON_HOST + ", " + DO_NOT_BIND + ", [port base number] " + DEFAULT_VALUE, defaultValue = BIND_ON_HOST, arity = "0..1", fallbackValue = BIND_ON_HOST)
     public void setBindOnHost(String value)

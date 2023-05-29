@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.env;
+package io.trino.tests.product.launcher.env.jdk;
 
-public enum SupportedTrinoJdk
+public enum JdkProvider
 {
     ZULU_17("/usr/lib/jvm/zulu-17"),
     /**/;
 
     private final String javaHome;
 
-    SupportedTrinoJdk(String javaHome)
+    JdkProvider(String javaHome)
     {
         this.javaHome = javaHome;
     }
