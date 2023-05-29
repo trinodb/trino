@@ -30,6 +30,7 @@ import io.trino.tests.product.launcher.env.common.Kerberos;
 import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -120,9 +121,9 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
-    public SupportedTrinoJdk provideJavaVersion(EnvironmentOptions options)
+    public JdkProvider provideJdkProvider(EnvironmentOptions options)
     {
-        return requireNonNull(options.jdkVersion, "JDK version is null");
+        return requireNonNull(options.jdkProvider, "JDK version is null");
     }
 
     @Provides
