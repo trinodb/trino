@@ -32,7 +32,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.testcontainers.ExistingNetwork;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
@@ -161,7 +161,7 @@ public final class TestRun
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
         private final boolean debugSuspend;
-        private final SupportedTrinoJdk jdkVersion;
+        private final JdkProvider jdkProvider;
         private final File testJar;
         private final File cliJar;
         private final List<String> testArguments;
@@ -185,7 +185,7 @@ public final class TestRun
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.debugSuspend = testRunOptions.debugSuspend;
-            this.jdkVersion = requireNonNull(environmentOptions.jdkVersion, "environmentOptions.jdkVersion is null");
+            this.jdkProvider = requireNonNull(environmentOptions.jdkProvider, "environmentOptions.jdkProvider is null");
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
             this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testRunOptions.testArguments is null"));
@@ -303,7 +303,7 @@ public final class TestRun
                         .collect(toImmutableList());
                 testsContainer.dependsOn(environmentContainers);
 
-                log.info("Starting environment '%s' with config '%s' and options '%s'. Trino will be started using JAVA_HOME: %s.", this.environment, environmentConfig.getConfigName(), extraOptions, jdkVersion.getJavaHome());
+                log.info("Starting environment '%s' with config '%s' and options '%s'. Trino will be started using JAVA_HOME: %s.", this.environment, environmentConfig.getConfigName(), extraOptions, jdkProvider.getJavaHome());
                 environment.start();
             }
             else {
@@ -341,10 +341,10 @@ public final class TestRun
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
-                        .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
+                        .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
-                                        jdkVersion.getJavaCommand(),
+                                        jdkProvider.getJavaCommand(),
                                         "-Xmx1g",
                                         // Force Parallel GC to ensure MaxHeapFreeRatio is respected
                                         "-XX:+UseParallelGC",

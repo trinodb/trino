@@ -21,7 +21,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.ServerPackage;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 
 import java.io.File;
 import java.util.List;
@@ -42,7 +42,7 @@ public class StandardMultinode
     private final DockerFiles.ResourceProvider configDir;
     private final String imagesVersion;
     private final File serverPackage;
-    private final SupportedTrinoJdk jdkVersion;
+    private final JdkProvider jdkProvider;
     private final boolean debug;
 
     @Inject
@@ -51,14 +51,14 @@ public class StandardMultinode
             DockerFiles dockerFiles,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
-            SupportedTrinoJdk jdkVersion,
+            JdkProvider jdkProvider,
             @Debug boolean debug)
     {
         this.standard = requireNonNull(standard, "standard is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/standard-multinode");
         this.imagesVersion = environmentConfig.getImagesVersion();
-        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
+        this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
@@ -81,7 +81,7 @@ public class StandardMultinode
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker()
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, WORKER)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, WORKER)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
     }
 }

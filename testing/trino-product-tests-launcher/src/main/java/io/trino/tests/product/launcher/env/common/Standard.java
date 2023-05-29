@@ -22,7 +22,7 @@ import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentContainers;
 import io.trino.tests.product.launcher.env.ServerPackage;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
@@ -79,7 +79,7 @@ public final class Standard
     private final PortBinder portBinder;
 
     private final String imagesVersion;
-    private final SupportedTrinoJdk jdkVersion;
+    private final JdkProvider jdkProvider;
     private final File serverPackage;
     private final boolean debug;
 
@@ -89,13 +89,13 @@ public final class Standard
             PortBinder portBinder,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
-            SupportedTrinoJdk jdkVersion,
+            JdkProvider jdkProvider,
             @Debug boolean debug)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = environmentConfig.getImagesVersion();
-        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
+        this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
@@ -116,7 +116,7 @@ public final class Standard
     private DockerContainer createTrinoCoordinator()
     {
         DockerContainer container =
-                createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, COORDINATOR)
+                createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_TRINO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
 
@@ -135,7 +135,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createTrinoContainer(DockerFiles dockerFiles, File serverPackage, SupportedTrinoJdk jdkVersion, boolean debug, String dockerImageName, String logicalName)
+    public static DockerContainer createTrinoContainer(DockerFiles dockerFiles, File serverPackage, JdkProvider jdkProvider, boolean debug, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -145,7 +145,7 @@ public final class Standard
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
-                .withEnv("JAVA_HOME", jdkVersion.getJavaHome())
+                .withEnv("JAVA_HOME", jdkProvider.getJavaHome())
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
