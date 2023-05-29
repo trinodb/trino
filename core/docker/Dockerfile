@@ -13,6 +13,7 @@
 #
 FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
 
+# Use Eclipse Temurin as they have base Docker images for more architectures.
 FROM eclipse-temurin:17-jdk
 
 RUN \
