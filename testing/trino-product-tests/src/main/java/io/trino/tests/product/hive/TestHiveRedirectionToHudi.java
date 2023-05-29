@@ -13,7 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
@@ -38,7 +38,7 @@ public class TestHiveRedirectionToHudi
     private static final String HUDI_TABLE_TYPE_COPY_ON_WRITE = "cow";
     private static final String HUDI_TABLE_TYPE_MERGE_ON_READ = "mor";
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         bucketName = System.getenv().getOrDefault("S3_BUCKET", "trino-ci-test");

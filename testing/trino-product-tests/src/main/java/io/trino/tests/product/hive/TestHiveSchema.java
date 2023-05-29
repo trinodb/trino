@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class TestHiveSchema
         extends ProductTest
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         // make sure hive.default schema is not empty
@@ -48,7 +48,7 @@ public class TestHiveSchema
         onTrino().executeQuery("CREATE TABLE hive.default.test_sys_schema_disabled_table_in_default(a bigint)");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         onTrino().executeQuery("DROP TABLE hive.default.test_sys_schema_disabled_table_in_default");

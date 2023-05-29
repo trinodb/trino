@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
@@ -33,8 +33,8 @@ public class TestComments
     private static final String COMMENT_COLUMN_NAME = "comment_column_test";
     private static final String COMMENT_HIVE_VIEW_NAME = "comment_hive_view_test";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTable()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS " + COMMENT_TABLE_NAME);

@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import com.google.inject.Inject;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
 import org.testng.SkipException;
@@ -43,7 +43,7 @@ public class TestAvroSchemaUrl
     @Inject
     private HdfsClient hdfsClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
             throws Exception
     {
@@ -57,7 +57,7 @@ public class TestAvroSchemaUrl
         saveResourceOnHdfs("avro/column_with_long_type_definition_data.avro", "/user/hive/warehouse/TestAvroSchemaUrl/data/column_with_long_type_definition_data.avro");
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         hdfsClient.delete("/user/hive/warehouse/TestAvroSchemaUrl");

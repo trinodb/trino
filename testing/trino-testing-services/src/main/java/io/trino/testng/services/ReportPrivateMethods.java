@@ -97,7 +97,7 @@ public class ReportPrivateMethods
                         return true;
                     }
                     if ("io.trino.tempto".equals(annotationClass.getPackage().getName())) {
-                        // tempto annotation (@BeforeTestWithContext, @AfterTestWithContext)
+                        // tempto annotation (@BeforeMethodWithContext, @AfterMethodWithContext)
                         return true;
                     }
                     return false;

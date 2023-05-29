@@ -15,7 +15,7 @@ package io.trino.tests.product;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.io.Resources;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import org.assertj.core.data.Percentage;
 import org.testng.annotations.DataProvider;
@@ -85,7 +85,7 @@ public class TestParquet
 
     private volatile boolean initialized;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void init()
     {
         if (initialized) {

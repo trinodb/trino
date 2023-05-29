@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
@@ -39,7 +39,7 @@ public class TestAzureBlobFileSystem
 {
     private String schemaLocation;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
     {
         String container = requireNonNull(System.getenv("ABFS_CONTAINER"), "Environment variable not set: ABFS_CONTAINER");
@@ -50,7 +50,7 @@ public class TestAzureBlobFileSystem
         onHive().executeQuery("dfs -mkdir -p " + schemaLocation);
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void tearDown()
     {
         onHive().executeQuery("dfs -mkdir -p " + schemaLocation);

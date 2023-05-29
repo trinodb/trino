@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
@@ -35,8 +35,8 @@ public class TestAlterTable
     private static final String TABLE_NAME = "table_name";
     private static final String RENAMED_TABLE_NAME = "renamed_table_name";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
