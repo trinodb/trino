@@ -742,7 +742,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 StageId stageId = getStageId(fragmentId);
                 currentPlanStages.add(stageId);
                 StageExecution stageExecution = stageExecutions.get(stageId);
-                if (isReadyForExecution(subPlan) && stageExecution == null) {
+                if (stageExecution == null && isReadyForExecution(subPlan)) {
                     createStageExecution(subPlan, fragmentId.equals(rootFragmentId), nextSchedulingPriority++);
                 }
                 if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
