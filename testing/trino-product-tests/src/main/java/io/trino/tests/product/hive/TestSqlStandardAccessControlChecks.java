@@ -37,6 +37,7 @@ public class TestSqlStandardAccessControlChecks
     private QueryExecutor bobExecutor;
     private QueryExecutor charlieExecutor;
     private QueryExecutor caseSensitiveUserNameExecutor;
+    private QueryExecutor hdfsExecutor;
 
     @BeforeMethodWithContext
     public void setup()
@@ -45,6 +46,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor = connectToTrino("bob@presto");
         charlieExecutor = connectToTrino("charlie@presto");
         caseSensitiveUserNameExecutor = connectToTrino("CaseSensitiveUserName@presto");
+        hdfsExecutor = connectToTrino("hdfs@presto");
 
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         aliceExecutor.executeQuery(format("CREATE TABLE %s(month bigint, day bigint) WITH (partitioned_by = ARRAY['day'])", tableName));
@@ -61,6 +63,7 @@ public class TestSqlStandardAccessControlChecks
         bobExecutor = null;
         charlieExecutor = null;
         caseSensitiveUserNameExecutor = null;
+        hdfsExecutor = null;
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -243,10 +246,15 @@ public class TestSqlStandardAccessControlChecks
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlSetTableAuthorization()
     {
+        // Using custom table name as drop table as different user may leave some data in HDFS
+        String tableName = "set_table_authorization_test";
+        aliceExecutor.executeQuery(format("CREATE TABLE %s(col1 bigint, col2 bigint)", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName)))
                 .hasMessageContaining("Access Denied: Cannot set authorization for table default.%s to USER bob", tableName);
-        aliceExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName));
-        bobExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION alice", tableName));
+        hdfsExecutor.executeQuery("SET SESSION legacy_catalog_roles=true");
+        hdfsExecutor.executeQuery("SET ROLE ADMIN");
+        hdfsExecutor.executeQuery(format("ALTER TABLE %s SET AUTHORIZATION bob", tableName));
+        bobExecutor.executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -257,7 +265,9 @@ public class TestSqlStandardAccessControlChecks
         assertQueryFailure(() -> bobExecutor.executeQuery(format("DROP VIEW %s", viewName)))
                 .hasMessageContaining("Access Denied: Cannot drop view default.%s", viewName);
 
-        aliceExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName));
+        hdfsExecutor.executeQuery("SET SESSION legacy_catalog_roles=true");
+        hdfsExecutor.executeQuery("SET ROLE ADMIN");
+        hdfsExecutor.executeQuery(format("ALTER VIEW %s SET AUTHORIZATION bob", viewName));
         bobExecutor.executeQuery(format("DROP VIEW %s", viewName));
     }
 
@@ -267,13 +277,13 @@ public class TestSqlStandardAccessControlChecks
         onHive().executeQuery("CREATE TABLE test_hive_table (col1 int)");
         onHive().executeQuery("CREATE VIEW test_hive_view AS SELECT * FROM test_hive_table");
 
-        QueryExecutor hdfsExecutor = connectToTrino("hdfs@presto");
-
         assertQueryFailure(() -> bobExecutor.executeQuery("ALTER VIEW test_hive_view SET AUTHORIZATION bob"))
                 .hasMessageContaining("Access Denied: Cannot set authorization for view default.test_hive_view to USER bob");
         assertQueryFailure(() -> bobExecutor.executeQuery("DROP VIEW test_hive_view"))
                 .hasMessageContaining("Access Denied: Cannot drop view default.test_hive_view");
 
+        hdfsExecutor.executeQuery("SET SESSION legacy_catalog_roles=true");
+        hdfsExecutor.executeQuery("SET ROLE ADMIN");
         hdfsExecutor.executeQuery("ALTER VIEW test_hive_view SET AUTHORIZATION bob");
         bobExecutor.executeQuery("DROP VIEW test_hive_view");
 
