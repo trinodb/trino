@@ -813,20 +813,33 @@ public abstract class BaseHiveConnectorTest
                 .build();
 
         assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
-
+        assertAccessDenied(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user2", "Cannot set authorization for schema test_schema_authorization to USER user2");
+        assertAccessDenied(user, "DROP SCHEMA test_schema_authorization", "Cannot drop schema test_schema_authorization");
         assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
-        assertUpdate(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin");
-        assertQueryFails(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION ROLE admin", "Access Denied: Cannot set authorization for schema test_schema_authorization to ROLE admin");
+        // only admin can change the owner
+        assertAccessDenied(user, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user2", "Cannot set authorization for schema test_schema_authorization to USER user2");
+        assertUpdate(user, "DROP SCHEMA test_schema_authorization"); // new onwer can drop schema
 
         // switch owner back to user, and then change the owner to ROLE admin from a different catalog to verify roles are relative to the catalog of the schema
-        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
         Session userSessionInDifferentCatalog = testSessionBuilder()
                 .setIdentity(Identity.forUser("user").withPrincipal(getSession().getIdentity().getPrincipal()).build())
                 .build();
-        assertUpdate(userSessionInDifferentCatalog, "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION ROLE admin");
-        assertUpdate(admin, "ALTER SCHEMA test_schema_authorization SET AUTHORIZATION user");
-
-        assertUpdate(admin, "DROP SCHEMA test_schema_authorization");
+        assertUpdate(admin, "CREATE SCHEMA test_schema_authorization");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user",
+                "Cannot set authorization for schema test_schema_authorization to USER user");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "DROP SCHEMA hive.test_schema_authorization",
+                "Cannot drop schema test_schema_authorization");
+        assertUpdate(admin, "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user");
+        assertAccessDenied(
+                userSessionInDifferentCatalog,
+                "ALTER SCHEMA hive.test_schema_authorization SET AUTHORIZATION user",
+                "Cannot set authorization for schema test_schema_authorization to USER user");
+        // new owner can drop schema
+        assertUpdate(userSessionInDifferentCatalog, "DROP SCHEMA hive.test_schema_authorization");
     }
 
     @Test
@@ -850,9 +863,14 @@ public abstract class BaseHiveConnectorTest
                 "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
                 "Cannot set authorization for table test_table_authorization.foo to USER alice");
         assertUpdate(admin, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice");
-        assertUpdate(alice, "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION admin");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER TABLE test_table_authorization.foo SET AUTHORIZATION alice",
+                "Cannot set authorization for table test_table_authorization.foo to USER alice");
+        // alice as new owner can now drop table
+        assertUpdate(alice, "DROP TABLE test_table_authorization.foo");
 
-        assertUpdate(admin, "DROP TABLE test_table_authorization.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization");
     }
 
@@ -877,13 +895,18 @@ public abstract class BaseHiveConnectorTest
                 alice,
                 "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
                 "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        assertAccessDenied(
+                alice,
+                "DROP TABLE test_table_authorization_role.foo",
+                "Cannot drop table test_table_authorization_role.foo");
         assertUpdate(admin, "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION alice");
-        assertQueryFails(
+        // Only admin can change the owner
+        assertAccessDenied(
                 alice,
                 "ALTER TABLE test_table_authorization_role.foo SET AUTHORIZATION ROLE admin",
-                "Setting table owner type as a role is not supported");
-
-        assertUpdate(admin, "DROP TABLE test_table_authorization_role.foo");
+                "Cannot set authorization for table test_table_authorization_role.foo to ROLE admin");
+        // new owner can drop table
+        assertUpdate(alice, "DROP TABLE test_table_authorization_role.foo");
         assertUpdate(admin, "DROP SCHEMA test_table_authorization_role");
     }
 
@@ -907,10 +930,14 @@ public abstract class BaseHiveConnectorTest
 
         assertAccessDenied(
                 alice,
-                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice",
-                "Cannot set authorization for view " + schema + ".test_view to USER alice");
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
 
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP SCHEMA " + schema);
@@ -936,13 +963,22 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY DEFINER AS SELECT * from " + schema + ".test_table");
         assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+        assertAccessDenied(
+                alice,
+                "DROP VIEW " + schema + ".test_view",
+                "Cannot drop view " + schema + ".test_view");
 
         assertQuery(alice, "SELECT * FROM " + schema + ".test_view", "VALUES (1)");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
 
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
-        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
+        // new owner can drop the view
+        assertUpdate(alice, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
@@ -967,13 +1003,22 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, "INSERT INTO " + schema + ".test_table VALUES (1)", 1);
         assertUpdate(admin, "CREATE VIEW " + schema + ".test_view SECURITY INVOKER AS SELECT * from " + schema + ".test_table");
         assertUpdate(admin, "GRANT SELECT ON " + schema + ".test_view TO alice");
+        assertAccessDenied(
+                alice,
+                "DROP VIEW " + schema + ".test_view",
+                "Cannot drop view " + schema + ".test_view");
 
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
         assertQueryFails(alice, "SELECT * FROM " + schema + ".test_view", "Access Denied: Cannot select from table " + schema + ".test_table");
 
-        assertUpdate(alice, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin");
-        assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
+        // only admin can change the owner
+        assertAccessDenied(
+                alice,
+                "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION admin",
+                "Cannot set authorization for view " + schema + ".test_view to USER admin");
+        // new owner can drop the view
+        assertUpdate(alice, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
         assertUpdate(admin, "DROP SCHEMA " + schema);
     }
@@ -1003,10 +1048,11 @@ public abstract class BaseHiveConnectorTest
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
                 "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
         assertUpdate(admin, "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION alice");
-        assertQueryFails(
+        // only admin can change the owner
+        assertAccessDenied(
                 alice,
                 "ALTER VIEW " + schema + ".test_view SET AUTHORIZATION ROLE admin",
-                "Setting table owner type as a role is not supported");
+                "Cannot set authorization for view " + schema + ".test_view to ROLE admin");
 
         assertUpdate(admin, "DROP VIEW " + schema + ".test_view");
         assertUpdate(admin, "DROP TABLE " + schema + ".test_table");
