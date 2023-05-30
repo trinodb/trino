@@ -24,13 +24,10 @@ import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -82,16 +79,16 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertableToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
-import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
-import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.primitiveFieldTypes;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -298,7 +295,7 @@ public class IcebergSplitSource
             return true;
         }
         if (!fileModifiedTimeDomain.isAll()) {
-            long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString());
+            long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString(), fileSystemFactory.create(session.getIdentity(), fileIoProperties));
             if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
                 return true;
             }
@@ -335,17 +332,6 @@ public class IcebergSplitSource
                 .map(PartitionField::sourceId)
                 .collect(toImmutableSet())
                 .containsAll(projectedBaseColumns);
-    }
-
-    private long getModificationTime(String path)
-    {
-        try {
-            TrinoInputFile inputFile = fileSystemFactory.create(session.getIdentity(), fileIoProperties).newInputFile(Location.of(path));
-            return inputFile.lastModified().toEpochMilli();
-        }
-        catch (IOException e) {
-            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to get file modification time: " + path, e);
-        }
     }
 
     private void finish()
@@ -532,27 +518,5 @@ public class IcebergSplitSource
                 fileStatisticsDomain,
                 fileIoProperties,
                 cachingHostAddressProvider.getHosts(task.file().path().toString(), ImmutableList.of()));
-    }
-
-    private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
-    {
-        IcebergColumnHandle pathColumn = pathColumnHandle();
-        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
-                .get(pathColumn);
-        if (domain == null) {
-            return Domain.all(pathColumn.getType());
-        }
-        return domain;
-    }
-
-    private static Domain getFileModifiedTimePathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
-    {
-        IcebergColumnHandle fileModifiedTimeColumn = fileModifiedTimeColumnHandle();
-        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
-                .get(fileModifiedTimeColumn);
-        if (domain == null) {
-            return Domain.all(fileModifiedTimeColumn.getType());
-        }
-        return domain;
     }
 }
