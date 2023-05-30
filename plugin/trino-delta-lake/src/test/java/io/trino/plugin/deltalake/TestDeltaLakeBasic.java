@@ -284,6 +284,54 @@ public class TestDeltaLakeBasic
         }
     }
 
+    /**
+     * @see deltalake.column_mapping_mode_id
+     * @see deltalake.column_mapping_mode_name
+     */
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testDropColumnWithColumnMappingMode(String columnMappingMode)
+            throws Exception
+    {
+        // The table contains 'x' column with column mapping mode
+        String tableName = "test_add_column_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/column_mapping_mode_" + columnMappingMode).toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).projected("Column", "Type").skippingTypesCheck().matches("VALUES ('x', 'integer')");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
+        MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
+        Assertions.assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
+                .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
+        Assertions.assertThat(metadata.getSchemaString())
+                .containsPattern("(delta\\.columnMapping\\.id.*?){6}")
+                .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
+
+        JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
+        List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
+        Assertions.assertThat(fields).hasSize(2);
+        JsonNode nestedColumn = fields.get(1);
+        List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").elements());
+        Assertions.assertThat(rowFields).hasSize(3);
+
+        // Drop 'x' column and verify that nested metadata and table configuration are preserved
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
+
+        MetadataEntry droppedMetadata = loadMetadataEntry(2, tableLocation);
+        JsonNode droppedSchema = OBJECT_MAPPER.readTree(droppedMetadata.getSchemaString());
+        List<JsonNode> droppedFields = ImmutableList.copyOf(droppedSchema.get("fields").elements());
+        Assertions.assertThat(droppedFields).hasSize(1);
+        Assertions.assertThat(droppedFields.get(0)).isEqualTo(nestedColumn);
+
+        Assertions.assertThat(droppedMetadata.getConfiguration())
+                .isEqualTo(metadata.getConfiguration());
+        Assertions.assertThat(droppedMetadata.getSchemaString())
+                .containsPattern("(delta\\.columnMapping\\.id.*?){5}")
+                .containsPattern("(delta\\.columnMapping\\.physicalName.*?){5}");
+    }
+
     @DataProvider
     public Object[][] columnMappingModeDataProvider()
     {
