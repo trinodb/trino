@@ -37,7 +37,7 @@ public final class LocalMemoryManager
     }
 
     @VisibleForTesting
-    LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
+    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
         validateHeapHeadroom(config, availableMemory);
         DataSize memoryPoolSize = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());
