@@ -72,9 +72,14 @@ public final class ParquetCompressionUtils
 
     private static Slice decompressSnappy(Slice input, int uncompressedSize)
     {
-        byte[] buffer = new byte[uncompressedSize];
-        decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
-        return wrappedBuffer(buffer);
+        // Snappy decompressor is more efficient if there's at least a long's worth of extra space
+        // in the output buffer
+        byte[] buffer = new byte[uncompressedSize + SIZE_OF_LONG];
+        int actualUncompressedSize = decompress(new SnappyDecompressor(), input, 0, input.length(), buffer, 0);
+        if (actualUncompressedSize != uncompressedSize) {
+            throw new IllegalArgumentException(format("Invalid uncompressedSize for SNAPPY input. Expected %s, actual: %s", uncompressedSize, actualUncompressedSize));
+        }
+        return wrappedBuffer(buffer, 0, uncompressedSize);
     }
 
     private static Slice decompressZstd(Slice input, int uncompressedSize)
