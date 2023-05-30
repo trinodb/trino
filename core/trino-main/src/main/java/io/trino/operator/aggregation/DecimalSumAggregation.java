@@ -115,7 +115,7 @@ public final class DecimalSumAggregation
     }
 
     @OutputFunction("decimal(38,s)")
-    public static void outputLongDecimal(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
+    public static void outputDecimal(@AggregationState LongDecimalWithOverflowState state, BlockBuilder out)
     {
         if (state.isNotNull()) {
             if (state.getOverflow() != 0) {
