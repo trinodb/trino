@@ -342,6 +342,33 @@ public class TestMemoryPools
     }
 
     @Test
+    public void testGlobalRevocableAllocations()
+    {
+        MemoryPool testPool = new MemoryPool(DataSize.ofBytes(1000));
+
+        assertThat(testPool.tryReserveRevocable(999)).isTrue();
+        assertThat(testPool.tryReserveRevocable(2)).isFalse();
+        assertThat(testPool.getReservedBytes()).isEqualTo(0);
+        assertThat(testPool.getReservedRevocableBytes()).isEqualTo(999);
+        assertThat(testPool.getTaskMemoryReservations()).isEmpty();
+        assertThat(testPool.getQueryMemoryReservations()).isEmpty();
+        assertThat(testPool.getTaggedMemoryAllocations()).isEmpty();
+
+        // non-revocable allocation should block
+        QueryId query = new QueryId("test_query1");
+        TaskId task = new TaskId(new StageId(query, 0), 0, 0);
+        ListenableFuture<Void> memoryFuture = testPool.reserve(task, "tag", 2);
+        assertThat(memoryFuture).isNotDone();
+
+        // non-revocable allocation should unblock after global revocable is freed
+        testPool.freeRevocable(999);
+        assertThat(memoryFuture).isDone();
+
+        assertThat(testPool.getReservedBytes()).isEqualTo(2L);
+        assertThat(testPool.getReservedRevocableBytes()).isEqualTo(0);
+    }
+
+    @Test
     public void testPerTaskRevocableAllocations()
     {
         QueryId query1 = new QueryId("test_query1");
