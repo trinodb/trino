@@ -40,6 +40,7 @@ import java.util.function.Supplier;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
@@ -228,6 +229,13 @@ public class TypeOperators
             List<OperatorMethodHandle> operatorMethodHandles = getOperatorMethodHandles(operatorConvention).stream()
                     .sorted(Comparator.comparing(TypeOperators::getScore).reversed())
                     .toList();
+
+            // if a method handle exists for the exact convention, use it
+            for (OperatorMethodHandle operatorMethodHandle : operatorMethodHandles) {
+                if (operatorMethodHandle.getCallingConvention().equals(operatorConvention.callingConvention())) {
+                    return operatorMethodHandle;
+                }
+            }
 
             for (OperatorMethodHandle operatorMethodHandle : operatorMethodHandles) {
                 if (ScalarFunctionAdapter.canAdapt(operatorMethodHandle.getCallingConvention(), operatorConvention.callingConvention())) {
@@ -523,8 +531,11 @@ public class TypeOperators
     {
         int score = 0;
         for (InvocationArgumentConvention argument : operatorMethodHandle.getCallingConvention().getArgumentConventions()) {
-            if (argument == NULL_FLAG) {
+            if (argument == FLAT) {
                 score += 1000;
+            }
+            if (argument == NULL_FLAG || argument == FLAT) {
+                score += 100;
             }
             else if (argument == BLOCK_POSITION) {
                 score += 1;

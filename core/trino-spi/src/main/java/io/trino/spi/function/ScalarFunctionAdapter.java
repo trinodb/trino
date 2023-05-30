@@ -22,6 +22,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -32,6 +33,7 @@ import java.util.stream.IntStream;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -39,6 +41,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -59,6 +62,8 @@ public final class ScalarFunctionAdapter
 {
     private static final MethodHandle IS_NULL_METHOD = lookupIsNullMethod();
     private static final MethodHandle APPEND_NULL_METHOD = lookupAppendNullMethod();
+    // This is needed to convert flat arguments to stack types
+    private static final TypeOperators READ_VALUE_TYPE_OPERATORS = new TypeOperators();
 
     private ScalarFunctionAdapter() {}
 
@@ -107,9 +112,9 @@ public final class ScalarFunctionAdapter
         }
 
         return switch (actualReturnConvention) {
-            case FAIL_ON_NULL -> true;
+            case FAIL_ON_NULL -> expectedReturnConvention != FLAT_RETURN;
             case NULLABLE_RETURN -> expectedReturnConvention.isNullable() || expectedReturnConvention == DEFAULT_ON_NULL;
-            case BLOCK_BUILDER -> false;
+            case BLOCK_BUILDER, FLAT_RETURN -> false;
             case DEFAULT_ON_NULL -> throw new IllegalArgumentException("actual return convention cannot be DEFAULT_ON_NULL");
         };
     }
@@ -131,7 +136,7 @@ public final class ScalarFunctionAdapter
 
         return switch (actualArgumentConvention) {
             case NEVER_NULL -> switch (expectedArgumentConvention) {
-                case BLOCK_POSITION_NOT_NULL -> true;
+                case BLOCK_POSITION_NOT_NULL, FLAT -> true;
                 case BOXED_NULLABLE, NULL_FLAG -> returnConvention != FAIL_ON_NULL;
                 case BLOCK_POSITION, IN_OUT -> true; // todo only support these if the return convention is nullable
                 case FUNCTION -> throw new IllegalStateException("Unexpected value: " + expectedArgumentConvention);
@@ -143,7 +148,7 @@ public final class ScalarFunctionAdapter
             case BLOCK_POSITION_NOT_NULL -> expectedArgumentConvention == BLOCK_POSITION && (returnConvention.isNullable() || returnConvention == DEFAULT_ON_NULL);
             case BLOCK_POSITION -> expectedArgumentConvention == BLOCK_POSITION_NOT_NULL;
             case BOXED_NULLABLE, NULL_FLAG -> true;
-            case IN_OUT -> false;
+            case FLAT, IN_OUT -> false;
             case FUNCTION -> throw new IllegalArgumentException("Unsupported argument convention: " + actualArgumentConvention);
         };
     }
@@ -266,6 +271,9 @@ public final class ScalarFunctionAdapter
         }
         if (actualArgumentConvention == FUNCTION || expectedArgumentConvention == FUNCTION) {
             throw new IllegalArgumentException("Function argument cannot be adapted");
+        }
+        if (actualArgumentConvention == FLAT) {
+            throw new IllegalArgumentException("Flat argument cannot be adapted");
         }
 
         // caller will never pass null
@@ -435,6 +443,31 @@ public final class ScalarFunctionAdapter
             }
         }
 
+        // caller will pass boolean true in the next argument for SQL null
+        if (expectedArgumentConvention == FLAT) {
+            if (actualArgumentConvention != NEVER_NULL && actualArgumentConvention != BOXED_NULLABLE && actualArgumentConvention != NULL_FLAG) {
+                throw new IllegalArgumentException(actualArgumentConvention + " cannot be adapted to " + expectedArgumentConvention);
+            }
+
+            // if the actual method has a null flag, set the flag to false
+            if (actualArgumentConvention == NULL_FLAG) {
+                // actual method takes value and null flag, so change method handles to not have the flag and always pass false to the actual method
+                methodHandle = insertArguments(methodHandle, parameterIndex + 1, false);
+            }
+
+            // if the actual method has a boxed argument, change it to accept the unboxed value
+            if (actualArgumentConvention == BOXED_NULLABLE) {
+                // if actual argument is boxed primitive, change method handle to accept a primitive and then box to actual method
+                if (isWrapperType(methodHandle.type().parameterType(parameterIndex))) {
+                    MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, unwrap(methodHandle.type().parameterType(parameterIndex)));
+                    methodHandle = explicitCastArguments(methodHandle, targetType);
+                }
+            }
+
+            // read the value from flat memory
+            return collectArguments(methodHandle, parameterIndex, getFlatValueNeverNull(argumentType, methodHandle.type().parameterType(parameterIndex)));
+        }
+
         // caller passes in-out which may contain a null
         if (expectedArgumentConvention == IN_OUT) {
             MethodHandle getInOutValue = getInOutValue(argumentType, methodHandle.type().parameterType(parameterIndex));
@@ -553,6 +586,13 @@ public final class ScalarFunctionAdapter
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
+    }
+
+    private static MethodHandle getFlatValueNeverNull(Type argumentType, Class<?> expectedType)
+    {
+        MethodHandle readValueOperator = READ_VALUE_TYPE_OPERATORS.getReadValueOperator(argumentType, InvocationConvention.simpleConvention(FAIL_ON_NULL, FLAT));
+        readValueOperator = explicitCastArguments(readValueOperator, readValueOperator.type().changeReturnType(expectedType));
+        return readValueOperator;
     }
 
     private static MethodHandle getInOutValue(Type argumentType, Class<?> expectedType)
