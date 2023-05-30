@@ -149,7 +149,7 @@ public class TestDeltaLakeConnectorTest
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
-            case SUPPORTS_DROP_COLUMN:
+            case SUPPORTS_DROP_FIELD:
             case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
@@ -332,6 +332,33 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("DROP SCHEMA " + schemaName, ".*Cannot drop non-empty schema '\\Q" + schemaName + "\\E'");
         assertUpdate("DROP TABLE " + schemaName + ".t");
         assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testDropColumn)
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testAddAndDropColumnName(String columnName)
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testDropAndAddColumnWithSameName()
+    {
+        // Override because the connector doesn't support dropping columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
+                .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
     @Override
