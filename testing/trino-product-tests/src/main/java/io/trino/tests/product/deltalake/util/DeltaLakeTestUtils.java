@@ -64,6 +64,12 @@ public final class DeltaLakeTestUtils
         return Optional.of(DatabricksVersion.parse(version));
     }
 
+    public static List<String> getColumnNamesOnDelta(String schemaName, String tableName)
+    {
+        QueryResult result = onDelta().executeQuery("SHOW COLUMNS IN " + schemaName + "." + tableName);
+        return result.column(1);
+    }
+
     public static String getColumnCommentOnTrino(String schemaName, String tableName, String columnName)
     {
         return (String) onTrino()

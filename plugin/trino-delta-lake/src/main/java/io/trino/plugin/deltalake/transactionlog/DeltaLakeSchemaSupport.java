@@ -515,6 +515,21 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
+    /**
+     * @return the case-sensitive column names
+     */
+    public static List<String> getExactColumnNames(MetadataEntry metadataEntry)
+    {
+        try {
+            return stream(OBJECT_MAPPER.readTree(metadataEntry.getSchemaString()).get("fields").elements())
+                    .map(field -> field.get("name").asText())
+                    .collect(toImmutableList());
+        }
+        catch (JsonProcessingException e) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to parse serialized schema: " + metadataEntry.getSchemaString(), e);
+        }
+    }
+
     public static Set<String> unsupportedReaderFeatures(Set<String> features)
     {
         return Sets.difference(features, SUPPORTED_READER_FEATURES);
