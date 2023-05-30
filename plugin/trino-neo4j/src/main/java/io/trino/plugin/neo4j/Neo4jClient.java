@@ -114,7 +114,7 @@ public class Neo4jClient
         extends BaseJdbcClient
 {
     private static final Logger log = Logger.get(Neo4jClient.class);
-    private static final int MAX_RESULT_SET_INFO_CACHE_ENTRIES = 10000;
+    private static final int MAX_RESULT_SET_INFO_CACHE_ENTRIES = 1000;
     private final io.trino.spi.type.Type jsonType;
     private final Cache<PreparedQuery, Neo4jResultSetInfo> cachedResultSetInfo;
 

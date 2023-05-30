@@ -111,8 +111,8 @@ public class Neo4jQueryRunner
     private static Session createSession()
     {
         return testSessionBuilder()
-                .setCatalog("neo4j")
-                .setSchema(TPCH_SCHEMA)
+                .setCatalog("tpch")
+                .setSchema(TINY_SCHEMA_NAME)
                 .build();
     }
 

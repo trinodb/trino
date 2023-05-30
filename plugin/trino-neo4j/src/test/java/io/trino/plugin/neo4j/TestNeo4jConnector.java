@@ -48,6 +48,8 @@ public class TestNeo4jConnector
     public void testColumnsInReverseOrder()
     {
         assertQuery(buildNativeQuery("SELECT shippriority, clerk, totalprice FROM TABLE(%s)", TpchTable.ORDERS), "SELECT shippriority, clerk, totalprice FROM orders");
+        // constant value
+        assertQuery(buildNativeQuery("SELECT totalprice, date '2023-01-01' FROM TABLE(%s)", TpchTable.ORDERS), "SELECT totalprice, date '2023-01-01' FROM orders");
     }
 
     @Test
@@ -199,9 +201,14 @@ public class TestNeo4jConnector
         // empty build side
         assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN TABLE(%s) as region ON nation.regionkey = region.regionkey AND region.name = ''", NATION, REGION), "VALUES 0");
         assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN TABLE(%s) as region ON nation.regionkey = region.regionkey AND region.regionkey < 0", NATION, REGION), "VALUES 0");
+        // federated query
+        assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN region as region ON nation.regionkey = region.regionkey AND region.name = ''", NATION), "VALUES 0");
+        assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN region as region ON nation.regionkey = region.regionkey AND region.regionkey < 0", NATION), "VALUES 0");
         // empty probe side
         assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as region JOIN TABLE(%s) as nation ON nation.regionkey = region.regionkey AND region.name = ''", REGION, NATION), "VALUES 0");
         assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN TABLE(%s) as region ON nation.regionkey = region.regionkey AND region.regionkey < 0", NATION, REGION), "VALUES 0");
+        // federated query
+        assertQuery(session, buildNativeQuery("SELECT count(*) FROM TABLE(%s) as nation JOIN region as region ON nation.regionkey = region.regionkey AND region.regionkey < 0", NATION), "VALUES 0");
     }
 
     @DataProvider
@@ -225,6 +232,18 @@ public class TestNeo4jConnector
                         "FROM TABLE(%s) n " +
                         "JOIN TABLE(%s) c ON c.nationkey = n.nationkey " +
                         "JOIN TABLE(%s) r ON n.regionkey = r.regionkey", NATION, CUSTOMER, REGION),
+                "SELECT c.name, n.name, r.name " +
+                        "FROM nation n " +
+                        "JOIN customer c ON c.nationkey = n.nationkey " +
+                        "JOIN region r ON n.regionkey = r.regionkey");
+
+        // federated query
+        assertQuery(
+                session,
+                buildNativeQuery("SELECT c.name, n.name, r.name " +
+                        "FROM TABLE(%s) n " +
+                        "JOIN customer c ON c.nationkey = n.nationkey " +
+                        "JOIN region r ON n.regionkey = r.regionkey", NATION),
                 "SELECT c.name, n.name, r.name " +
                         "FROM nation n " +
                         "JOIN customer c ON c.nationkey = n.nationkey " +
