@@ -53,6 +53,7 @@ public class TestMongoClientConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("mongodb.schema-collection", "_my_schema")
+                .put("mongodb.schema-database", "_my_schema_db")
                 .put("mongodb.case-insensitive-name-matching", "true")
                 .put("mongodb.connection-url", "mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
                 .put("mongodb.min-connections-per-host", "1")
@@ -73,6 +74,7 @@ public class TestMongoClientConfig
 
         MongoClientConfig expected = new MongoClientConfig()
                 .setSchemaCollection("_my_schema")
+                .setSchemaDatabase("_my_schema_db")
                 .setCaseInsensitiveNameMatching(true)
                 .setConnectionUrl("mongodb://router1.example.com:27017,router2.example2.com:27017,router3.example3.com:27017/")
                 .setMinConnectionsPerHost(1)

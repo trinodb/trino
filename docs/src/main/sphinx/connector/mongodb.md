@@ -40,8 +40,9 @@ will create a catalog named `sales` using the configured connector.
 The following configuration properties are available:
 
 | Property name                            | Description                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
+| ---------------------------------------- |----------------------------------------------------------------------------|
 | `mongodb.connection-url`                 | The connection url that the driver uses to connect to a MongoDB deployment |
+| `mongodb.schema-database`                | The database to use for schema management                                  |
 | `mongodb.schema-collection`              | A collection which contains schema information                             |
 | `mongodb.case-insensitive-name-matching` | Match database and collection names case insensitively                     |
 | `mongodb.min-connections-per-host`       | The minimum size of the connection pool per host                           |
@@ -76,6 +77,15 @@ See the [MongoDB Connection URI](https://docs.mongodb.com/drivers/java/sync/curr
 
 This property is required; there is no default. A connection URL must be
 provided to connect to a MongoDB deployment.
+
+### `mongodb.schema-database`
+
+The name of the database used by the MongoDB connector to create schema
+collections for the metadata in a different database on the cluster.
+
+If not set, the schema collection is created on the same database being queried.
+
+This property is optional; only set one of `mongodb.schema-database` or `mongodb.schema-collection`.
 
 ### `mongodb.schema-collection`
 
