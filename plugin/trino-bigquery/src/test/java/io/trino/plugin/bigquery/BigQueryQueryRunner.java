@@ -94,6 +94,10 @@ public final class BigQueryQueryRunner
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
             connectorProperties.putIfAbsent("bigquery.view-expire-duration", "30m");
+            connectorProperties.putIfAbsent("bigquery.rpc-retries", "4");
+            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay", "200ms");
+            connectorProperties.putIfAbsent("bigquery.rpc-retry-delay-multiplier", "1.5");
+            connectorProperties.putIfAbsent("bigquery.rpc-timeout", "8s");
 
             queryRunner.installPlugin(new BigQueryPlugin());
             queryRunner.createCatalog(
