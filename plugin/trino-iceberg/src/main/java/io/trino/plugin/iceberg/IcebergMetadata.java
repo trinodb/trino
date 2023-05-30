@@ -2801,7 +2801,12 @@ public class IcebergMetadata
                         Optional.empty()), // forAnalyze does not affect stats
                 handle -> {
                     Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
-                    return TableStatisticsReader.getTableStatistics(typeManager, session, handle, icebergTable);
+                    return TableStatisticsReader.getTableStatistics(
+                            typeManager,
+                            session,
+                            handle,
+                            icebergTable,
+                            fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties()));
                 });
     }
 
