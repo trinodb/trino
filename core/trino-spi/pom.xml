@@ -262,6 +262,22 @@
                                     <code>java.method.removed</code>
                                     <old>method byte[] io.airlift.slice.Slice::getBase()</old>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.type.Type::getFlatFixedSize()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method boolean io.trino.spi.type.Type::isFlatVariableWidth()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.type.Type::getFlatVariableWidthSize(io.trino.spi.block.Block, int)</new>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

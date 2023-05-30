@@ -26,36 +26,52 @@ import io.trino.spi.function.OperatorMethodHandle;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
+import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 
 public class MapType
         extends AbstractType
 {
+    private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
+
     private static final MethodHandle NOT;
+    private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
+    private static final InvocationConvention READ_FLAT_TO_BLOCK_CONVENTION = simpleConvention(BLOCK_BUILDER, FLAT);
+    private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
 
+    private static final MethodHandle READ_FLAT;
+    private static final MethodHandle READ_FLAT_TO_BLOCK;
+    private static final MethodHandle WRITE_FLAT;
     private static final MethodHandle EQUAL;
     private static final MethodHandle HASH_CODE;
 
@@ -67,6 +83,9 @@ public class MapType
         try {
             Lookup lookup = MethodHandles.lookup();
             NOT = lookup.findStatic(MapType.class, "not", methodType(boolean.class, boolean.class));
+            READ_FLAT = lookup.findStatic(MapType.class, "readFlat", methodType(Block.class, MapType.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class));
+            READ_FLAT_TO_BLOCK = lookup.findStatic(MapType.class, "readFlatToBlock", methodType(void.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
+            WRITE_FLAT = lookup.findStatic(MapType.class, "writeFlat", methodType(void.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, int.class, int.class, boolean.class, boolean.class, Block.class, byte[].class, int.class, byte[].class, int.class));
             EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
             HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
             DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
@@ -141,12 +160,56 @@ public class MapType
             typeOperatorDeclaration = NO_TYPE_OPERATOR_DECLARATION;
         }
         typeOperatorDeclaration = TypeOperatorDeclaration.builder(getJavaType())
+                .addReadValueOperators(getReadValueOperatorMethodHandles(typeOperators, this))
                 .addEqualOperator(getEqualOperatorMethodHandle(typeOperators, keyType, valueType))
                 .addHashCodeOperator(getHashCodeOperatorMethodHandle(typeOperators, keyType, valueType))
                 .addXxHash64Operator(getXxHash64OperatorMethodHandle(typeOperators, keyType, valueType))
                 .addDistinctFromOperator(getDistinctFromOperatorInvoker(typeOperators, keyType, valueType))
                 .addIndeterminateOperator(getIndeterminateOperatorInvoker(typeOperators, valueType))
                 .build();
+    }
+
+    private static List<OperatorMethodHandle> getReadValueOperatorMethodHandles(TypeOperators typeOperators, MapType mapType)
+    {
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
+
+        MethodHandle keyReadOperator = typeOperators.getReadValueOperator(keyType, simpleConvention(BLOCK_BUILDER, FLAT));
+        MethodHandle valueReadOperator = typeOperators.getReadValueOperator(valueType, simpleConvention(BLOCK_BUILDER, FLAT));
+        MethodHandle readFlat = insertArguments(
+                READ_FLAT,
+                0,
+                mapType,
+                keyReadOperator,
+                valueReadOperator,
+                keyType.getFlatFixedSize(),
+                valueType.getFlatFixedSize());
+        MethodHandle readFlatToBlock = insertArguments(
+                READ_FLAT_TO_BLOCK,
+                0,
+                keyReadOperator,
+                valueReadOperator,
+                keyType.getFlatFixedSize(),
+                valueType.getFlatFixedSize());
+
+        MethodHandle keyWriteOperator = typeOperators.getReadValueOperator(keyType, simpleConvention(FLAT_RETURN, BLOCK_POSITION));
+        MethodHandle valueWriteOperator = typeOperators.getReadValueOperator(valueType, simpleConvention(FLAT_RETURN, BLOCK_POSITION));
+        MethodHandle writeFlat = insertArguments(
+                WRITE_FLAT,
+                0,
+                mapType.getKeyType(),
+                mapType.getValueType(),
+                keyWriteOperator,
+                valueWriteOperator,
+                keyType.getFlatFixedSize(),
+                valueType.getFlatFixedSize(),
+                keyType.isFlatVariableWidth(),
+                valueType.isFlatVariableWidth());
+
+        return List.of(
+                new OperatorMethodHandle(READ_FLAT_CONVENTION, readFlat),
+                new OperatorMethodHandle(READ_FLAT_TO_BLOCK_CONVENTION, readFlatToBlock),
+                new OperatorMethodHandle(WRITE_FLAT_CONVENTION, writeFlat));
     }
 
     private static OperatorMethodHandle getHashCodeOperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
@@ -165,7 +228,7 @@ public class MapType
 
     private static OperatorMethodHandle getEqualOperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
     {
-        MethodHandle seekKey = MethodHandles.insertArguments(
+        MethodHandle seekKey = insertArguments(
                 SEEK_KEY,
                 1,
                 typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)),
@@ -176,7 +239,7 @@ public class MapType
 
     private static OperatorMethodHandle getDistinctFromOperatorInvoker(TypeOperators typeOperators, Type keyType, Type valueType)
     {
-        MethodHandle seekKey = MethodHandles.insertArguments(
+        MethodHandle seekKey = insertArguments(
                 SEEK_KEY,
                 1,
                 typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)),
@@ -272,6 +335,88 @@ public class MapType
     }
 
     @Override
+    public int getFlatFixedSize()
+    {
+        return 8;
+    }
+
+    @Override
+    public boolean isFlatVariableWidth()
+    {
+        return true;
+    }
+
+    @Override
+    public int getFlatVariableWidthSize(Block block, int position)
+    {
+        Block map = getObject(block, position);
+
+        long size = map.getPositionCount() / 2 * (keyType.getFlatFixedSize() + valueType.getFlatFixedSize() + 2L);
+
+        if (keyType.isFlatVariableWidth()) {
+            for (int index = 0; index < map.getPositionCount(); index += 2) {
+                if (!map.isNull(index)) {
+                    size += keyType.getFlatVariableWidthSize(map, index);
+                }
+            }
+        }
+        if (valueType.isFlatVariableWidth()) {
+            for (int index = 1; index < map.getPositionCount(); index += 2) {
+                if (!map.isNull(index)) {
+                    size += valueType.getFlatVariableWidthSize(map, index);
+                }
+            }
+        }
+        return toIntExact(size);
+    }
+
+    @Override
+    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
+
+        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int keyFixedSize = keyType.getFlatFixedSize();
+        int valueFixedSize = valueType.getFlatFixedSize();
+        if (!keyType.isFlatVariableWidth() && !valueType.isFlatVariableWidth()) {
+            return positionCount / 2 * (2 + keyFixedSize + valueFixedSize);
+        }
+
+        return relocateVariableWidthData(positionCount, keyFixedSize, valueFixedSize, variableSizeSlice, variableSizeOffset);
+    }
+
+    private int relocateVariableWidthData(int positionCount, int keyFixedSize, int valueFixedSize, byte[] slice, int offset)
+    {
+        int writeVariableWidthOffset = positionCount / 2 * (2 + keyFixedSize + valueFixedSize);
+        for (int index = 0; index < positionCount; index += 2) {
+            if (!keyType.isFlatVariableWidth() || slice[offset] != 0) {
+                offset++;
+            }
+            else {
+                // skip null byte
+                offset++;
+
+                int keyVariableSize = keyType.relocateFlatVariableWidthOffsets(slice, offset, slice, offset + writeVariableWidthOffset);
+                writeVariableWidthOffset += keyVariableSize;
+            }
+            offset += keyFixedSize;
+
+            if (!valueType.isFlatVariableWidth() || slice[offset] != 0) {
+                offset++;
+            }
+            else {
+                // skip null byte
+                offset++;
+
+                int valueVariableSize = valueType.relocateFlatVariableWidthOffsets(slice, offset, slice, offset + writeVariableWidthOffset);
+                writeVariableWidthOffset += valueVariableSize;
+            }
+            offset += valueFixedSize;
+        }
+        return writeVariableWidthOffset;
+    }
+
+    @Override
     public List<Type> getTypeParameters()
     {
         return asList(getKeyType(), getValueType());
@@ -358,6 +503,187 @@ public class MapType
             return NULL_HASH_CODE;
         }
         return (long) keyOperator.invokeExact(block, position);
+    }
+
+    private static Block readFlat(
+            MapType mapType,
+            MethodHandle keyReadOperator,
+            MethodHandle valueReadOperator,
+            int keyFixedSize,
+            int valueFixedSize,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableWidthSlice)
+            throws Throwable
+    {
+        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int variableWidthOffset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
+        return buildMapValue(mapType, positionCount, (keyBuilder, valueBuilder) ->
+                readFlatEntries(
+                        keyReadOperator,
+                        valueReadOperator,
+                        keyFixedSize,
+                        valueFixedSize,
+                        positionCount,
+                        variableWidthSlice,
+                        variableWidthOffset,
+                        keyBuilder,
+                        valueBuilder));
+    }
+
+    private static void readFlatToBlock(
+            MethodHandle keyReadOperator,
+            MethodHandle valueReadOperator,
+            int keyFixedSize,
+            int valueFixedSize,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableWidthSlice,
+            BlockBuilder blockBuilder)
+            throws Throwable
+    {
+        int positionCount = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
+        int variableWidthOffset = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset + Integer.BYTES);
+        ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) ->
+                readFlatEntries(
+                        keyReadOperator,
+                        valueReadOperator,
+                        keyFixedSize,
+                        valueFixedSize,
+                        positionCount,
+                        variableWidthSlice,
+                        variableWidthOffset,
+                        keyBuilder,
+                        valueBuilder));
+    }
+
+    private static void readFlatEntries(
+            MethodHandle keyReadFlat,
+            MethodHandle valueReadFlat,
+            int keyFixedSize,
+            int valueFixedSize,
+            int positionCount,
+            byte[] slice,
+            int offset,
+            BlockBuilder keyBuilder,
+            BlockBuilder valueBuilder)
+            throws Throwable
+    {
+        for (int index = 0; index < positionCount; index += 2) {
+            boolean keyIsNull = slice[offset] != 0;
+            offset++;
+            if (keyIsNull) {
+                keyBuilder.appendNull();
+            }
+            else {
+                keyReadFlat.invokeExact(
+                        slice,
+                        offset,
+                        slice,
+                        keyBuilder);
+            }
+            offset += keyFixedSize;
+
+            boolean valueIsNull = slice[offset] != 0;
+            offset++;
+            if (valueIsNull) {
+                valueBuilder.appendNull();
+            }
+            else {
+                valueReadFlat.invokeExact(
+                        slice,
+                        offset,
+                        slice,
+                        valueBuilder);
+            }
+            offset += valueFixedSize;
+        }
+    }
+
+    private static void writeFlat(
+            Type keyType,
+            Type valueType,
+            MethodHandle keyWriteFlat,
+            MethodHandle valueWriteFlat,
+            int keyFixedSize,
+            int valueFixedSize,
+            boolean keyVariableWidth,
+            boolean valueVariableWidth,
+            Block map,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableSizeSlice,
+            int variableSizeOffset)
+            throws Throwable
+    {
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset, map.getPositionCount());
+        INT_HANDLE.set(fixedSizeSlice, fixedSizeOffset + Integer.BYTES, variableSizeOffset);
+
+        writeFlatEntries(keyType, valueType, keyWriteFlat, valueWriteFlat, keyFixedSize, valueFixedSize, keyVariableWidth, valueVariableWidth, map, variableSizeSlice, variableSizeOffset);
+    }
+
+    private static void writeFlatEntries(
+            Type keyType,
+            Type valueType,
+            MethodHandle keyWriteFlat,
+            MethodHandle valueWriteFlat,
+            int keyFixedSize,
+            int valueFixedSize,
+            boolean keyVariableWidth,
+            boolean valueVariableWidth,
+            Block map,
+            byte[] slice,
+            int offset)
+            throws Throwable
+    {
+        int writeVariableWidthOffset = offset + map.getPositionCount() / 2 * (2 + keyFixedSize + valueFixedSize);
+        for (int index = 0; index < map.getPositionCount(); index += 2) {
+            if (map.isNull(index)) {
+                slice[offset] = 1;
+                offset++;
+            }
+            else {
+                // skip null byte
+                offset++;
+
+                int keyVariableSize = 0;
+                if (keyVariableWidth) {
+                    keyVariableSize = keyType.getFlatVariableWidthSize(map, index);
+                }
+                keyWriteFlat.invokeExact(
+                        map,
+                        index,
+                        slice,
+                        offset,
+                        slice,
+                        offset + writeVariableWidthOffset);
+                writeVariableWidthOffset += keyVariableSize;
+            }
+            offset += keyFixedSize;
+
+            if (map.isNull(index + 1)) {
+                slice[offset] = 1;
+                offset++;
+            }
+            else {
+                // skip null byte
+                offset++;
+
+                int valueVariableSize = 0;
+                if (valueVariableWidth) {
+                    valueVariableSize = valueType.getFlatVariableWidthSize(map, index + 1);
+                }
+                valueWriteFlat.invokeExact(
+                        map,
+                        index + 1,
+                        slice,
+                        offset,
+                        slice,
+                        offset + writeVariableWidthOffset);
+                writeVariableWidthOffset += valueVariableSize;
+            }
+            offset += valueFixedSize;
+        }
     }
 
     private static Boolean equalOperator(

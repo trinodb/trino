@@ -28,6 +28,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -47,11 +48,14 @@ import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -67,11 +71,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 public class TestScalarFunctionAdapter
 {
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final ArrayType ARRAY_TYPE = new ArrayType(BIGINT);
     private static final CharType CHAR_TYPE = createCharType(7);
     private static final TimestampType TIMESTAMP_TYPE = createTimestampType(9);
@@ -219,7 +223,7 @@ public class TestScalarFunctionAdapter
             throws Throwable
     {
         List<List<InvocationArgumentConvention>> allArgumentConventions = allCombinations(
-                ImmutableList.of(NEVER_NULL, BLOCK_POSITION_NOT_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION, IN_OUT),
+                ImmutableList.of(NEVER_NULL, BLOCK_POSITION_NOT_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION, FLAT, IN_OUT),
                 argumentTypes.size());
         for (List<InvocationArgumentConvention> argumentConventions : allArgumentConventions) {
             for (InvocationReturnConvention returnConvention : InvocationReturnConvention.values()) {
@@ -255,7 +259,7 @@ public class TestScalarFunctionAdapter
         catch (IllegalArgumentException e) {
             if (!ScalarFunctionAdapter.canAdapt(actualConvention, expectedConvention)) {
                 if (hasNullableToNoNullableAdaptation(actualConvention, expectedConvention)) {
-                    assertSame(expectedConvention.getReturnConvention(), FAIL_ON_NULL);
+                    assertTrue(expectedConvention.getReturnConvention() == FAIL_ON_NULL || expectedConvention.getReturnConvention() == FLAT_RETURN);
                     return;
                 }
                 if (actualConvention.getArgumentConventions().stream().anyMatch(convention -> convention == BLOCK_POSITION || convention == BLOCK_POSITION_NOT_NULL)) {
@@ -330,6 +334,12 @@ public class TestScalarFunctionAdapter
                 return true;
             }
         }
+        if (actualConvention.getReturnConvention() != expectedConvention.getReturnConvention()) {
+            if (expectedConvention.getReturnConvention() == FLAT_RETURN) {
+                // Flat return can not be adapted
+                return true;
+            }
+        }
         return false;
     }
 
@@ -337,7 +347,7 @@ public class TestScalarFunctionAdapter
     {
         for (int i = 0; i < convention.getArgumentConventions().size(); i++) {
             InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(i);
-            if (nullArguments.get(i) && (argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL)) {
+            if (nullArguments.get(i) && (argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL || argumentConvention == FLAT)) {
                 return false;
             }
         }
@@ -376,6 +386,12 @@ public class TestScalarFunctionAdapter
                     expectedArguments.add(Block.class);
                     expectedArguments.add(int.class);
                 }
+                case FLAT -> {
+                    expectedArguments.add(Slice.class);
+                    expectedArguments.add(int.class);
+                    expectedArguments.add(Slice.class);
+                    expectedArguments.add(int.class);
+                }
                 case IN_OUT -> expectedArguments.add(InOut.class);
                 default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
             }
@@ -384,6 +400,7 @@ public class TestScalarFunctionAdapter
     }
 
     private static List<Object> toCallArgumentValues(InvocationConvention callingConvention, BitSet nullArguments, Target target, List<Type> argumentTypes)
+            throws Throwable
     {
         List<Object> callArguments = new ArrayList<>();
         callArguments.add(target);
@@ -426,6 +443,22 @@ public class TestScalarFunctionAdapter
                     blockBuilder.appendNull();
                     callArguments.add(blockBuilder.build());
                     callArguments.add(1);
+                }
+                case FLAT -> {
+                    verify(testValue != null, "null cannot be passed to a flat argument");
+                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
+                    writeNativeValue(argumentType, blockBuilder, testValue);
+                    Block block = blockBuilder.build();
+
+                    byte[] fixedSlice = new byte[argumentType.getFlatFixedSize()];
+                    int variableWidthLength = argumentType.getFlatVariableWidthSize(block, 0);
+                    byte[] variableSlice = new byte[variableWidthLength];
+                    MethodHandle writeFlat = TYPE_OPERATORS.getReadValueOperator(argumentType, simpleConvention(FLAT_RETURN, BLOCK_POSITION));
+                    writeFlat.invokeExact(block, 0, fixedSlice, 0, variableSlice, 0);
+
+                    callArguments.add(fixedSlice);
+                    callArguments.add(0);
+                    callArguments.add(variableSlice);
                 }
                 case IN_OUT -> callArguments.add(new TestingInOut(argumentType, testValue));
                 default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
@@ -748,7 +781,7 @@ public class TestScalarFunctionAdapter
         {
             for (int i = 0; i < actualConvention.getArgumentConventions().size(); i++) {
                 InvocationArgumentConvention argumentConvention = actualConvention.getArgumentConvention(i);
-                if ((argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL) && nullArguments.get(i)) {
+                if ((argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL || argumentConvention == FLAT) && nullArguments.get(i)) {
                     return false;
                 }
             }
@@ -776,7 +809,7 @@ public class TestScalarFunctionAdapter
                 return;
             }
 
-            if (argumentConvention != NEVER_NULL) {
+            if (argumentConvention != NEVER_NULL && argumentConvention != FLAT) {
                 assertNull(actualValue);
                 return;
             }

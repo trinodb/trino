@@ -24,14 +24,22 @@ import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.ScalarOperator;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.block.Int128ArrayBlock.INT128_BYTES;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.READ_VALUE;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Long.reverseBytes;
@@ -47,6 +55,7 @@ public class UuidType
         implements FixedWidthType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(UuidType.class, lookup(), Slice.class);
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final UuidType UUID = new UuidType();
 
@@ -156,6 +165,12 @@ public class UuidType
         return value;
     }
 
+    @Override
+    public int getFlatFixedSize()
+    {
+        return INT128_BYTES;
+    }
+
     public static Slice javaUuidToTrinoUuid(UUID uuid)
     {
         Slice value = Slices.allocate(INT128_BYTES);
@@ -172,6 +187,38 @@ public class UuidType
         return new UUID(
                 reverseBytes(uuid.getLong(0)),
                 reverseBytes(uuid.getLong(SIZE_OF_LONG)));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Slice readFlat(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice)
+    {
+        return wrappedBuffer(fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void writeFlat(
+            Slice sourceSlice,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] unusedVariableSizeSlice,
+            int unusedVariableSizeOffset)
+    {
+        sourceSlice.getBytes(0, fixedSizeSlice, fixedSizeOffset, INT128_BYTES);
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static void readFlatToBlock(
+            @FlatFixed byte[] fixedSizeSlice,
+            @FlatFixedOffset int fixedSizeOffset,
+            @FlatVariableWidth byte[] unusedVariableSizeSlice,
+            BlockBuilder blockBuilder)
+    {
+        ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset),
+                (long) LONG_HANDLE.get(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG));
     }
 
     @ScalarOperator(EQUAL)

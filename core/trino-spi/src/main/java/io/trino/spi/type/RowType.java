@@ -33,11 +33,15 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -62,12 +66,18 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 public class RowType
         extends AbstractType
 {
+    private static final InvocationConvention READ_FLAT_CONVENTION = simpleConvention(FAIL_ON_NULL, FLAT);
+    private static final InvocationConvention READ_FLAT_TO_BLOCK_CONVENTION = simpleConvention(BLOCK_BUILDER, FLAT);
+    private static final InvocationConvention WRITE_FLAT_CONVENTION = simpleConvention(FLAT_RETURN, NEVER_NULL);
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
 
+    private static final MethodHandle READ_FLAT;
+    private static final MethodHandle READ_FLAT_TO_BLOCK;
+    private static final MethodHandle WRITE_FLAT;
     private static final MethodHandle EQUAL;
     private static final MethodHandle CHAIN_EQUAL;
     private static final MethodHandle HASH_CODE;
@@ -88,6 +98,9 @@ public class RowType
     static {
         try {
             Lookup lookup = lookup();
+            READ_FLAT = lookup.findStatic(RowType.class, "megamorphicReadFlat", methodType(Block.class, RowType.class, List.class, byte[].class, int.class, byte[].class));
+            READ_FLAT_TO_BLOCK = lookup.findStatic(RowType.class, "megamorphicReadFlatToBlock", methodType(void.class, RowType.class, List.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
+            WRITE_FLAT = lookup.findStatic(RowType.class, "megamorphicWriteFlat", methodType(void.class, RowType.class, List.class, Block.class, byte[].class, int.class, byte[].class, int.class));
             EQUAL = lookup.findStatic(RowType.class, "megamorphicEqualOperator", methodType(Boolean.class, List.class, Block.class, Block.class));
             CHAIN_EQUAL = lookup.findStatic(RowType.class, "chainEqual", methodType(Boolean.class, Boolean.class, int.class, MethodHandle.class, Block.class, Block.class));
             HASH_CODE = lookup.findStatic(RowType.class, "megamorphicHashCodeOperator", methodType(long.class, List.class, Block.class));
@@ -258,6 +271,55 @@ public class RowType
     }
 
     @Override
+    public int getFlatFixedSize()
+    {
+        int fixedSize = 0;
+        for (Type fieldType : fieldTypes) {
+            fixedSize += fieldType.getFlatFixedSize() + 4;
+        }
+        return fixedSize + fieldTypes.size();
+    }
+
+    @Override
+    public boolean isFlatVariableWidth()
+    {
+        for (Type fieldType : fieldTypes) {
+            if (fieldType.isFlatVariableWidth()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public int getFlatVariableWidthSize(Block block, int position)
+    {
+        Block row = getObject(block, position);
+
+        int variableSize = 0;
+        for (int i = 0; i < fieldTypes.size(); i++) {
+            Type fieldType = fieldTypes.get(i);
+            if (!row.isNull(i)) {
+                variableSize += fieldType.getFlatVariableWidthSize(row, i);
+            }
+        }
+        return variableSize;
+    }
+
+    @Override
+    public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        int totalVariableSize = 0;
+        for (Type fieldType : fieldTypes) {
+            if (fieldType.isFlatVariableWidth() && fixedSizeSlice[fixedSizeOffset] == 0) {
+                totalVariableSize += fieldType.relocateFlatVariableWidthOffsets(fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset + totalVariableSize);
+            }
+            fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
+        }
+        return totalVariableSize;
+    }
+
+    @Override
     public List<Type> getTypeParameters()
     {
         return fieldTypes;
@@ -311,12 +373,13 @@ public class RowType
         return typeOperatorDeclaration;
     }
 
-    private synchronized void generateTypeOperators(TypeOperators typeOperators)
+    private void generateTypeOperators(TypeOperators typeOperators)
     {
         if (typeOperatorDeclaration != null) {
             return;
         }
         typeOperatorDeclaration = TypeOperatorDeclaration.builder(getJavaType())
+                .addReadValueOperators(getReadValueOperatorMethodHandles(typeOperators))
                 .addEqualOperators(getEqualOperatorMethodHandles(typeOperators, fields))
                 .addHashCodeOperators(getHashCodeOperatorMethodHandles(typeOperators, fields))
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, fields))
@@ -325,6 +388,105 @@ public class RowType
                 .addComparisonUnorderedLastOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedLastOperator, fields))
                 .addComparisonUnorderedFirstOperators(getComparisonOperatorInvokers(typeOperators::getComparisonUnorderedFirstOperator, fields))
                .build();
+    }
+
+    private List<OperatorMethodHandle> getReadValueOperatorMethodHandles(TypeOperators typeOperators)
+    {
+        List<MethodHandle> fieldReadFlatMethods = fields.stream()
+                .map(Field::getType)
+                .map(type -> typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT)))
+                .toList();
+        MethodHandle readFlat = insertArguments(READ_FLAT, 0, this, fieldReadFlatMethods);
+        MethodHandle readFlatToBlock = insertArguments(READ_FLAT_TO_BLOCK, 0, this, fieldReadFlatMethods);
+
+        List<MethodHandle> fieldWriteFlatMethods = fields.stream()
+                .map(Field::getType)
+                .map(type -> typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION)))
+                .toList();
+        MethodHandle writeFlat = insertArguments(WRITE_FLAT, 0, this, fieldWriteFlatMethods);
+
+        return List.of(
+                new OperatorMethodHandle(READ_FLAT_CONVENTION, readFlat),
+                new OperatorMethodHandle(READ_FLAT_TO_BLOCK_CONVENTION, readFlatToBlock),
+                new OperatorMethodHandle(WRITE_FLAT_CONVENTION, writeFlat));
+    }
+
+    private static Block megamorphicReadFlat(
+            RowType rowType,
+            List<MethodHandle> fieldReadFlatMethods,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableSizeSlice)
+            throws Throwable
+    {
+        return buildRowValue(rowType, fieldBuilders ->
+                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, fieldBuilders));
+    }
+
+    private static void megamorphicReadFlatToBlock(
+            RowType rowType,
+            List<MethodHandle> fieldReadFlatMethods,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableSizeSlice,
+            BlockBuilder blockBuilder)
+            throws Throwable
+    {
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders ->
+                readFlatFields(rowType, fieldReadFlatMethods, fixedSizeSlice, fixedSizeOffset, variableSizeSlice, fieldBuilders));
+    }
+
+    private static void readFlatFields(
+            RowType rowType,
+            List<MethodHandle> fieldReadFlatMethods,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableSizeSlice,
+            List<BlockBuilder> fieldBuilders)
+            throws Throwable
+    {
+        List<Type> fieldTypes = rowType.getTypeParameters();
+        for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
+            Type fieldType = fieldTypes.get(fieldIndex);
+            BlockBuilder fieldBuilder = fieldBuilders.get(fieldIndex);
+
+            boolean isNull = fixedSizeSlice[fixedSizeOffset] != 0;
+            if (isNull) {
+                fieldBuilder.appendNull();
+            }
+            else {
+                fieldReadFlatMethods.get(fieldIndex).invokeExact(fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, fieldBuilder);
+            }
+            fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
+        }
+    }
+
+    private static void megamorphicWriteFlat(
+            RowType rowType,
+            List<MethodHandle> fieldWriteFlatMethods,
+            Block row,
+            byte[] fixedSizeSlice,
+            int fixedSizeOffset,
+            byte[] variableSizeSlice,
+            int variableSizeOffset)
+            throws Throwable
+    {
+        List<Type> fieldTypes = rowType.getTypeParameters();
+        for (int fieldIndex = 0; fieldIndex < fieldTypes.size(); fieldIndex++) {
+            Type fieldType = fieldTypes.get(fieldIndex);
+            if (row.isNull(fieldIndex)) {
+                fixedSizeSlice[fixedSizeOffset] = 1;
+            }
+            else {
+                int fieldVariableLength = 0;
+                if (fieldType.isFlatVariableWidth()) {
+                    fieldVariableLength = fieldType.getFlatVariableWidthSize(row, fieldIndex);
+                }
+                fieldWriteFlatMethods.get(fieldIndex).invokeExact(row, fieldIndex, fixedSizeSlice, fixedSizeOffset + 1, variableSizeSlice, variableSizeOffset);
+                variableSizeOffset += fieldVariableLength;
+            }
+            fixedSizeOffset += 1 + fieldType.getFlatFixedSize();
+        }
     }
 
     private static List<OperatorMethodHandle> getEqualOperatorMethodHandles(TypeOperators typeOperators, List<Field> fields)

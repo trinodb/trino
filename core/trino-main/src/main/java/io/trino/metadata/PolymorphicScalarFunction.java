@@ -177,7 +177,7 @@ class PolymorphicScalarFunction
         return switch (returnConvention) {
             case NULLABLE_RETURN -> Primitives.wrap(clazz);
             case DEFAULT_ON_NULL, FAIL_ON_NULL -> clazz;
-            case BLOCK_BUILDER -> void.class;
+            case BLOCK_BUILDER, FLAT_RETURN -> void.class;
         };
     }
 
