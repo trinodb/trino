@@ -347,6 +347,8 @@ public class Query
                 return new TsvPrinter(fieldNames, writer, true);
             case JSON:
                 return new JsonPrinter(fieldNames, writer);
+            case MARKDOWN:
+                return new MarkdownTablePrinter(columns, writer);
             case NULL:
                 return new NullPrinter();
         }

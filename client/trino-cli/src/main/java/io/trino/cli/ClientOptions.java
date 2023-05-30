@@ -285,6 +285,7 @@ public class ClientOptions
         CSV_UNQUOTED,
         CSV_HEADER_UNQUOTED,
         JSON,
+        MARKDOWN,
         NULL
     }
 
