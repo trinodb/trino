@@ -20,6 +20,7 @@ import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.spi.connector.ConnectorSession;
 
+import static java.lang.Math.pow;
 import static java.util.Objects.requireNonNull;
 import static org.threeten.bp.temporal.ChronoUnit.MILLIS;
 
@@ -29,6 +30,7 @@ public class RetryOptionsConfigurer
     private final int retries;
     private final Duration timeout;
     private final Duration retryDelay;
+    private final double retryMultiplier;
 
     @Inject
     public RetryOptionsConfigurer(BigQueryRpcConfig rpcConfig)
@@ -37,6 +39,7 @@ public class RetryOptionsConfigurer
         this.retries = rpcConfig.getRetries();
         this.timeout = rpcConfig.getTimeout();
         this.retryDelay = rpcConfig.getRetryDelay();
+        this.retryMultiplier = rpcConfig.getRetryMultiplier();
     }
 
     @Override
@@ -61,10 +64,14 @@ public class RetryOptionsConfigurer
 
     private RetrySettings retrySettings()
     {
+        long maxDelay = retryDelay.toMillis() * (long) pow(retryMultiplier, retries);
+
         return RetrySettings.newBuilder()
                 .setMaxAttempts(retries)
                 .setTotalTimeout(org.threeten.bp.Duration.of(timeout.toMillis(), MILLIS))
                 .setInitialRetryDelay(org.threeten.bp.Duration.of(retryDelay.toMillis(), MILLIS))
+                .setRetryDelayMultiplier(retryMultiplier)
+                .setMaxRetryDelay(org.threeten.bp.Duration.of(maxDelay, MILLIS))
                 .build();
     }
 }

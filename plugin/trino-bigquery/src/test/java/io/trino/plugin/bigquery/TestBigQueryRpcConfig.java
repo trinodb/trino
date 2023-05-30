@@ -36,7 +36,8 @@ public class TestBigQueryRpcConfig
                 .setRpcMaxChannelCount(1)
                 .setRetries(0)
                 .setTimeout(Duration.valueOf("0s"))
-                .setRetryDelay(Duration.valueOf("0s")));
+                .setRetryDelay(Duration.valueOf("0s"))
+                .setRetryMultiplier(1.0));
     }
 
     @Test
@@ -51,6 +52,7 @@ public class TestBigQueryRpcConfig
                 .put("bigquery.rpc-retries", "5")
                 .put("bigquery.rpc-timeout", "17s")
                 .put("bigquery.rpc-retry-delay", "10s")
+                .put("bigquery.rpc-retry-delay-multiplier", "1.2")
                 .buildOrThrow();
 
         BigQueryRpcConfig expected = new BigQueryRpcConfig()
@@ -61,7 +63,8 @@ public class TestBigQueryRpcConfig
                 .setMaxRpcPerChannel(15)
                 .setRetries(5)
                 .setTimeout(Duration.valueOf("17s"))
-                .setRetryDelay(Duration.valueOf("10s"));
+                .setRetryDelay(Duration.valueOf("10s"))
+                .setRetryMultiplier(1.2);
 
         assertFullMapping(properties, expected);
     }
