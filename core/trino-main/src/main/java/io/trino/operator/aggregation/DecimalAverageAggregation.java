@@ -131,7 +131,7 @@ public final class DecimalAverageAggregation
     }
 
     @OutputFunction("decimal(p,s)")
-    public static void outputShortDecimal(
+    public static void outputDecimal(
             @TypeParameter("decimal(p,s)") Type type,
             @AggregationState LongDecimalWithOverflowAndLongState state,
             BlockBuilder out)
