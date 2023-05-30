@@ -22,6 +22,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 
 import java.io.Closeable;
+import java.io.EOFException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static java.lang.Math.min;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -283,6 +285,36 @@ public abstract class AbstractTestTrinoFileSystem
                 long skipSize = inputStream.skip(MEGABYTE);
                 assertThat(skipSize).isEqualTo(fileSize - expectedPosition);
                 assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+
+                // skip N bytes
+                inputStream.seek(0);
+                expectedPosition = 0;
+                for (int i = 1; i <= 11; i++) {
+                    int size = min((MEGABYTE / 4) * i, MEGABYTE * 2);
+                    inputStream.skipNBytes(size);
+                    expectedPosition += size;
+                    assertThat(inputStream.getPosition()).isEqualTo(expectedPosition);
+
+                    size = inputStream.readNBytes(bytes, 0, bytes.length);
+                    assertThat(size).isEqualTo(4);
+                    assertThat(slice.getInt(0)).isEqualTo(expectedPosition / 4);
+                    expectedPosition += size;
+                }
+                inputStream.skipNBytes(fileSize - expectedPosition);
+                assertThat(inputStream.getPosition()).isEqualTo(fileSize);
+
+                // skip beyond the end of the file is not allowed
+                inputStream.seek(expectedPosition);
+                assertThat(expectedPosition + MEGABYTE).isGreaterThan(fileSize);
+                assertThatThrownBy(() -> inputStream.skipNBytes(MEGABYTE))
+                        .isInstanceOf(EOFException.class);
+
+                inputStream.seek(fileSize);
+                assertThatThrownBy(() -> inputStream.skipNBytes(1))
+                        .isInstanceOf(EOFException.class);
+
+                inputStream.seek(fileSize);
+                assertThat(inputStream.skip(1)).isEqualTo(0);
 
                 // seek beyond the end of the file, is not allowed
                 long currentPosition = fileSize - 500;
