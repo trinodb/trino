@@ -819,7 +819,7 @@ public class TestIcebergV2
             Optional<Long> snapshotId = Optional.of((long) computeScalar("SELECT snapshot_id FROM \"" + testTable.getName() + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES"));
             TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
-            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true);
+            TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true, fileSystemFactory.create(SESSION));
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
@@ -830,7 +830,8 @@ public class TestIcebergV2
                             new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
-                    true);
+                    true,
+                    fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
@@ -841,7 +842,8 @@ public class TestIcebergV2
                     TupleDomain.withColumnDomains(ImmutableMap.of(
                             new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty()),
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
-                    true);
+                    true,
+                    fileSystemFactory.create(SESSION));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
     }

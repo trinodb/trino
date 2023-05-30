@@ -5517,6 +5517,208 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCollectingStatisticsWithPathColumnPredicate()
+    {
+        assertQuerySucceeds("EXPLAIN SELECT * FROM region WHERE \"$path\" = ''");
+
+        Session collectingStatisticsSession = Session.builder(getSession())
+                .setSystemProperty("collect_plan_statistics_for_all_queries", "true")
+                .build();
+        String tableName = "test_collect_statistics_with_path_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, value integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, null)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
+
+        // Make sure the whole table has stats
+        MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IS NOT NULL)".formatted(tableName));
+        MaterializedResult expectedTableStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 4.0, 0.0, null, "1", "4")
+                        .row("value", null, 3.0, 0.25, null, "1", "4")
+                        .row(null, null, null, null, 4.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedTableStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 4.0, 0.0, null, null, null)
+                            .row("value", null, 3.0, 0.1, null, null, null)
+                            .row(null, null, null, null, 4.0, null, null)
+                            .build();
+        }
+        assertThat(tableStatistics).containsExactlyElementsOf(expectedTableStatistics);
+
+        String firstPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+        String secondPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+        String thirdPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+        String fourthPath = (String) computeScalar(collectingStatisticsSession, "SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+        String pathPredicateSql = "SELECT * FROM " + tableName + " WHERE \"$path\" = '%s'";
+        // Check the predicate with path
+        assertQuery(collectingStatisticsSession, pathPredicateSql.formatted(firstPath), "VALUES (1, 1)");
+        assertQuery(collectingStatisticsSession, pathPredicateSql.formatted(secondPath), "VALUES (2, 2)");
+        assertQuery(collectingStatisticsSession, "SELECT COUNT(*) FROM %s WHERE \"$path\" = '%s' OR \"$path\" = '%s'".formatted(tableName, thirdPath, fourthPath), "VALUES 2");
+
+        MaterializedResult firstPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(firstPath) + ")");
+        MaterializedResult expectedFirstPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "1", "1")
+                        .row("value", null, 1.0, 0.0, null, "1", "1")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFirstPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(firstPathStatistics).containsExactlyElementsOf(expectedFirstPathStatistics);
+
+        MaterializedResult secondThirdPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$path\" IN ('%s', '%s'))".formatted(tableName, secondPath, thirdPath));
+        MaterializedResult expectedSecondThirdPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 2.0, 0.0, null, "2", "3")
+                        .row("value", null, 1.0, 0.5, null, "2", "2")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedSecondThirdPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 2.0, 0.0, null, null, null)
+                            .row("value", null, 2.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 2.0, null, null)
+                            .build();
+        }
+        assertThat(secondThirdPathStatistics).containsExactlyElementsOf(expectedSecondThirdPathStatistics);
+
+        MaterializedResult fourthPathStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + pathPredicateSql.formatted(fourthPath) + ")");
+        MaterializedResult expectedFourthPathStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "4", "4")
+                        .row("value", null, 1.0, 0.0, null, "4", "4")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFourthPathStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(fourthPathStatistics).containsExactlyElementsOf(expectedFourthPathStatistics);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCollectingStatisticsWithFileModifiedTimeColumnPredicate()
+            throws InterruptedException
+    {
+        assertQuerySucceeds("EXPLAIN SELECT * FROM region WHERE \"$file_modified_time\" = TIMESTAMP '2001-08-22 03:04:05.321 UTC'");
+
+        Session collectingStatisticsSession = Session.builder(getSession())
+                .setSystemProperty("collect_plan_statistics_for_all_queries", "true")
+                .build();
+        String tableName = "test_collect_statistics_with_file_modified_time_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id integer, value integer)");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 1)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, 2)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, null)", 1);
+        storageTimePrecision.sleep(1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (4, 4)", 1);
+
+        // Make sure the whole table has stats
+        MaterializedResult tableStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IS NOT NULL)".formatted(tableName));
+        MaterializedResult expectedTableStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 4.0, 0.0, null, "1", "4")
+                        .row("value", null, 3.0, 0.25, null, "1", "4")
+                        .row(null, null, null, null, 4.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedTableStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 4.0, 0.0, null, null, null)
+                            .row("value", null, 3.0, 0.1, null, null, null)
+                            .row(null, null, null, null, 4.0, null, null)
+                            .build();
+        }
+        assertThat(tableStatistics).containsExactlyElementsOf(expectedTableStatistics);
+
+        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+        ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar(collectingStatisticsSession, "SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+
+        String fileModifiedTimePredicateSql = "SELECT * FROM " + tableName + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s')";
+        // Check the predicate with fileModifiedTime
+        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 1, 1");
+        assertQuery(collectingStatisticsSession, fileModifiedTimePredicateSql.formatted(secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "SELECT 2, 2");
+        assertQuery(collectingStatisticsSession, "SELECT COUNT(*) FROM %s WHERE \"$file_modified_time\" = from_iso8601_timestamp('%s') OR \"$file_modified_time\" = from_iso8601_timestamp('%s')".formatted(tableName, thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME), fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)), "VALUES 2");
+
+        MaterializedResult firstFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
+        MaterializedResult expectedFirstFileModifiedTimeStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "1", "1")
+                        .row("value", null, 1.0, 0.0, null, "1", "1")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFirstFileModifiedTimeStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(firstFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFirstFileModifiedTimeStatistics);
+
+        MaterializedResult secondThirdFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (SELECT * FROM %s WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('%s'), from_iso8601_timestamp('%s')))".formatted(tableName, secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME), thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME)));
+        MaterializedResult expectedSecondThirdFileModifiedTimetatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 2.0, 0.0, null, "2", "3")
+                        .row("value", null, 1.0, 0.5, null, "2", "2")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedSecondThirdFileModifiedTimetatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 2.0, 0.0, null, null, null)
+                            .row("value", null, 2.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 2.0, null, null)
+                            .build();
+        }
+        assertThat(secondThirdFileModifiedTimeStatistics).containsExactlyElementsOf(expectedSecondThirdFileModifiedTimetatistics);
+
+        MaterializedResult fourthFileModifiedTimeStatistics = computeActual(collectingStatisticsSession, "SHOW STATS FOR (" + fileModifiedTimePredicateSql.formatted(fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME)) + ")");
+        MaterializedResult expectedFourthFileModifiedTimeStatistics =
+                resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("id", null, 1.0, 0.0, null, "4", "4")
+                        .row("value", null, 1.0, 0.0, null, "4", "4")
+                        .row(null, null, null, null, 1.0, null, null)
+                        .build();
+        if (format == AVRO) {
+            expectedFourthFileModifiedTimeStatistics =
+                    resultBuilder(collectingStatisticsSession, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                            .row("id", null, 1.0, 0.0, null, null, null)
+                            .row("value", null, 1.0, 0.0, null, null, null)
+                            .row(null, null, null, null, 1.0, null, null)
+                            .build();
+        }
+        assertThat(fourthFileModifiedTimeStatistics).containsExactlyElementsOf(expectedFourthFileModifiedTimeStatistics);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testDeleteWithPathColumn()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_path_", "(key int)")) {
