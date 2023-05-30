@@ -31,6 +31,11 @@ import io.trino.spi.type.TypeSignature;
 public class JsonType
         extends AbstractVariableWidthType
 {
+    private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = TypeOperatorDeclaration.builder(Slice.class)
+            .addOperators(DEFAULT_READ_OPERATORS)
+            .addOperators(DEFAULT_COMPARABLE_OPERATORS)
+            .build();
+
     public static final JsonType JSON = new JsonType();
 
     private JsonType()
@@ -47,7 +52,7 @@ public class JsonType
     @Override
     public TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
-        return DEFAULT_COMPARABLE_OPERATORS;
+        return TYPE_OPERATOR_DECLARATION;
     }
 
     @Override

@@ -18,6 +18,9 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.FlatFixed;
+import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -40,10 +43,12 @@ import java.util.List;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.String.format;
@@ -201,6 +206,15 @@ public final class TypeOperatorDeclaration
         {
             verifyMethodHandleSignature(1, typeJavaType, readValueOperator);
             this.readValueOperators.add(readValueOperator);
+            return this;
+        }
+
+        public Builder addReadValueOperators(Collection<OperatorMethodHandle> readValueOperators)
+        {
+            for (OperatorMethodHandle readValueOperator : readValueOperators) {
+                verifyMethodHandleSignature(1, typeJavaType, readValueOperator);
+            }
+            this.readValueOperators.addAll(readValueOperators);
             return this;
         }
 
@@ -450,6 +464,12 @@ public final class TypeOperatorDeclaration
                         checkArgument(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
                                 "Expected BLOCK_POSITION argument have parameters Block and int");
                         break;
+                    case FLAT:
+                        checkArgument(parameterType.equals(byte[].class) &&
+                                        methodType.parameterType(parameterIndex + 1).equals(int.class) &&
+                                        methodType.parameterType(parameterIndex + 2).equals(byte[].class),
+                                "Expected FLAT argument have parameters byte[], int, and byte[]");
+                        break;
                     case FUNCTION:
                         throw new IllegalArgumentException("Function argument convention is not supported in type operators");
                     default:
@@ -474,6 +494,15 @@ public final class TypeOperatorDeclaration
                     checkArgument(methodType.returnType().equals(void.class),
                             "Expected return type to be void, but is %s", methodType.returnType());
                     break;
+                case FLAT_RETURN:
+                    List<Class<?>> parameters = methodType.parameterList();
+                    parameters = parameters.subList(parameters.size() - 4, parameters.size());
+                    checkArgument(
+                            parameters.equals(List.of(byte[].class, int.class, byte[].class, int.class)),
+                            "Expected last argument types to be (byte[], int, byte[], int), but is %s", methodType);
+                    checkArgument(methodType.returnType().equals(void.class),
+                            "Expected return type to be void, but is %s", methodType.returnType());
+                    break;
                 default:
                     throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
             }
@@ -481,8 +510,6 @@ public final class TypeOperatorDeclaration
 
         private static InvocationConvention parseInvocationConvention(OperatorType operatorType, Class<?> typeJavaType, Method method, Class<?> expectedReturnType)
         {
-            checkArgument(expectedReturnType.isPrimitive(), "Expected return type must be a primitive: %s", expectedReturnType);
-
             InvocationReturnConvention returnConvention = getReturnConvention(expectedReturnType, operatorType, method);
 
             List<Class<?>> parameterTypes = List.of(method.getParameterTypes());
@@ -527,6 +554,14 @@ public final class TypeOperatorDeclaration
                     method.getParameterTypes()[method.getParameterCount() - 1].equals(BlockBuilder.class)) {
                 returnConvention = BLOCK_BUILDER;
             }
+            else if (method.getReturnType().equals(void.class) &&
+                    method.getParameterCount() >= 4 &&
+                    method.getParameterTypes()[method.getParameterCount() - 4].equals(byte[].class) &&
+                    method.getParameterTypes()[method.getParameterCount() - 3].equals(int.class) &&
+                    method.getParameterTypes()[method.getParameterCount() - 2].equals(byte[].class) &&
+                    method.getParameterTypes()[method.getParameterCount() - 1].equals(int.class)) {
+                returnConvention = FLAT_RETURN;
+            }
             else {
                 throw new IllegalArgumentException(format("Expected %s operator to return %s: %s", operatorType, expectedReturnType, method));
             }
@@ -551,6 +586,16 @@ public final class TypeOperatorDeclaration
             else if (isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class)) {
                 if (parameterTypes.get(0).equals(wrap(typeJavaType))) {
                     return BOXED_NULLABLE;
+                }
+            }
+            else if (isAnnotationPresent(parameterAnnotations.get(0), FlatFixed.class)) {
+                if (parameterTypes.size() > 2 &&
+                        isAnnotationPresent(parameterAnnotations.get(1), FlatFixedOffset.class) &&
+                        isAnnotationPresent(parameterAnnotations.get(2), FlatVariableWidth.class) &&
+                        parameterTypes.get(0).equals(byte[].class) &&
+                        parameterTypes.get(1).equals(int.class) &&
+                        parameterTypes.get(2).equals(byte[].class)) {
+                    return FLAT;
                 }
             }
             else if (parameterTypes.size() > 1 && isAnnotationPresent(parameterAnnotations.get(1), IsNull.class)) {

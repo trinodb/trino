@@ -203,6 +203,17 @@ public class VariableWidthBlockBuilder
         return this;
     }
 
+    public VariableWidthBlockBuilder writeEntry(byte[] source, int sourceIndex, int length)
+    {
+        if (!initialized) {
+            initializeCapacity();
+        }
+
+        sliceOutput.writeBytes(source, sourceIndex, length);
+        entryAdded(length, false);
+        return this;
+    }
+
     public <E extends Throwable> void buildEntry(VariableWidthEntryBuilder<E> builder)
             throws E
     {

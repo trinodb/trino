@@ -15,7 +15,6 @@ package io.trino.spi.type;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import org.junit.jupiter.api.Test;
 
@@ -29,9 +28,12 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.invoke.MethodHandles.exactInvoker;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,11 +46,11 @@ class TestTypeOperators
     {
         TypeOperators typeOperators = new TypeOperators();
 
-        List<InvocationArgumentConvention> argumentConventions = ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION);
+        List<InvocationArgumentConvention> argumentConventions = ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION, FLAT);
         List<Long> testArguments = Arrays.asList(0L, 1L, 2L, null);
         for (InvocationArgumentConvention leftConvention : argumentConventions) {
             for (InvocationArgumentConvention rightConvention : argumentConventions) {
-                MethodHandle operator = typeOperators.getDistinctFromOperator(BIGINT, InvocationConvention.simpleConvention(FAIL_ON_NULL, leftConvention, rightConvention));
+                MethodHandle operator = typeOperators.getDistinctFromOperator(BIGINT, simpleConvention(FAIL_ON_NULL, leftConvention, rightConvention));
                 operator = exactInvoker(operator.type()).bindTo(operator);
 
                 for (Long leftArgument : testArguments) {
@@ -59,8 +61,8 @@ class TestTypeOperators
                         boolean expected = !Objects.equals(leftArgument, rightArgument);
 
                         ArrayList<Object> arguments = new ArrayList<>();
-                        addCallArgument(leftConvention, leftArgument, arguments);
-                        addCallArgument(rightConvention, rightArgument, arguments);
+                        addCallArgument(typeOperators, leftConvention, leftArgument, arguments);
+                        addCallArgument(typeOperators, rightConvention, rightArgument, arguments);
                         assertThat((boolean) operator.invokeWithArguments(arguments)).isEqualTo(expected);
                     }
                 }
@@ -68,7 +70,8 @@ class TestTypeOperators
         }
     }
 
-    private static void addCallArgument(InvocationArgumentConvention convention, Long value, List<Object> callArguments)
+    private static void addCallArgument(TypeOperators typeOperators, InvocationArgumentConvention convention, Long value, List<Object> callArguments)
+            throws Throwable
     {
         switch (convention) {
             case NEVER_NULL, BOXED_NULLABLE -> callArguments.add(value);
@@ -87,6 +90,17 @@ class TestTypeOperators
                 }
                 callArguments.add(blockBuilder.build());
                 callArguments.add(0);
+            }
+            case FLAT -> {
+                verify(value != null);
+
+                byte[] fixedSlice = new byte[BIGINT.getFlatFixedSize()];
+                MethodHandle writeFlat = typeOperators.getReadValueOperator(BIGINT, simpleConvention(FLAT_RETURN, NEVER_NULL));
+                writeFlat.invoke(value, fixedSlice, 0, new byte[0], 0);
+
+                callArguments.add(fixedSlice);
+                callArguments.add(0);
+                callArguments.add(new byte[0]);
             }
             default -> throw new UnsupportedOperationException();
         }
