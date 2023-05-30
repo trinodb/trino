@@ -62,7 +62,6 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
-import static org.assertj.core.api.Fail.fail;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -141,7 +140,7 @@ public class TestScalarFunctionAdapter
             List<Type> argumentTypes)
             throws Throwable
     {
-        MethodHandle adaptedMethodHandle = null;
+        MethodHandle adaptedMethodHandle;
         try {
             adaptedMethodHandle = ScalarFunctionAdapter.adapt(
                     methodHandle,
@@ -156,7 +155,7 @@ public class TestScalarFunctionAdapter
             if (hasNullableToNoNullableAdaptation(actualConvention, expectedConvention)) {
                 return;
             }
-            fail("Adaptation failed but no illegal conversions found", e);
+            throw new AssertionError("Adaptation failed but no illegal conversions found", e);
         }
 
         InvocationConvention newCallingConvention = new InvocationConvention(
@@ -229,25 +228,18 @@ public class TestScalarFunctionAdapter
                 javaType = Object.class;
             }
             switch (argumentConvention) {
-                case NEVER_NULL:
-                    expectedArguments.add(javaType);
-                    break;
-                case BOXED_NULLABLE:
-                    expectedArguments.add(Primitives.wrap(javaType));
-                    break;
-                case NULL_FLAG:
+                case NEVER_NULL -> expectedArguments.add(javaType);
+                case BOXED_NULLABLE -> expectedArguments.add(Primitives.wrap(javaType));
+                case NULL_FLAG -> {
                     expectedArguments.add(javaType);
                     expectedArguments.add(boolean.class);
-                    break;
-                case BLOCK_POSITION:
+                }
+                case BLOCK_POSITION -> {
                     expectedArguments.add(Block.class);
                     expectedArguments.add(int.class);
-                    break;
-                case IN_OUT:
-                    expectedArguments.add(InOut.class);
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
+                }
+                case IN_OUT -> expectedArguments.add(InOut.class);
+                default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
             }
         }
         return expectedArguments;
@@ -271,31 +263,25 @@ public class TestScalarFunctionAdapter
 
             InvocationArgumentConvention argumentConvention = callingConvention.getArgumentConvention(i);
             switch (argumentConvention) {
-                case NEVER_NULL:
+                case NEVER_NULL -> {
                     verify(testValue != null, "null can not be passed to a never null argument");
                     callArguments.add(testValue);
-                    break;
-                case BOXED_NULLABLE:
-                    callArguments.add(testValue);
-                    break;
-                case NULL_FLAG:
+                }
+                case BOXED_NULLABLE -> callArguments.add(testValue);
+                case NULL_FLAG -> {
                     callArguments.add(testValue == null ? Defaults.defaultValue(argumentType.getJavaType()) : testValue);
                     callArguments.add(testValue == null);
-                    break;
-                case BLOCK_POSITION:
+                }
+                case BLOCK_POSITION -> {
                     BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
                     blockBuilder.appendNull();
                     writeNativeValue(argumentType, blockBuilder, testValue);
                     blockBuilder.appendNull();
-
                     callArguments.add(blockBuilder.build());
                     callArguments.add(1);
-                    break;
-                case IN_OUT:
-                    callArguments.add(new TestingInOut(argumentType, testValue));
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
+                }
+                case IN_OUT -> callArguments.add(new TestingInOut(argumentType, testValue));
+                default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);
             }
         }
         return callArguments;
@@ -609,7 +595,7 @@ public class TestScalarFunctionAdapter
             }
 
             // the only way for a never null to be called with a null is for the undefined value null convention
-            // Currently, for primitives, the value is the java default, but for all other types it could be anything
+            // Currently, for primitives, the value is the java default, but for all other types it could be any value
             if (argumentType.getJavaType().isPrimitive()) {
                 assertArgumentValue(actualValue, Defaults.defaultValue(argumentType.getJavaType()));
             }

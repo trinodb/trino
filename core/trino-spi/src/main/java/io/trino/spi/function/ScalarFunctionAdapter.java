@@ -274,7 +274,7 @@ public final class ScalarFunctionAdapter
             }
 
             if (actualArgumentConvention == NULL_FLAG) {
-                // actual method takes value and null flag, so change method handle to not have the flag and always pass false to the actual method
+                // actual method takes value and null flag, so change method handles to not have the flag and always pass false to the actual method
                 return insertArguments(methodHandle, parameterIndex + 1, false);
             }
 
@@ -306,7 +306,7 @@ public final class ScalarFunctionAdapter
                 // The conversion is described below in reverse order as this is how method handle adaptation works.  The provided example
                 // signature is based on a boxed Long argument.
 
-                // 3. unbox the value (if null the java default is sent)
+                // 3. unbox the value (if null, the java default is sent)
                 // long, boolean => Long, boolean
                 Class<?> parameterType = methodHandle.type().parameterType(parameterIndex);
                 methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeParameterType(parameterIndex, wrap(parameterType)));
@@ -338,7 +338,7 @@ public final class ScalarFunctionAdapter
                 if (returnConvention == FAIL_ON_NULL) {
                     throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
                 }
-                // add null flag to call
+                // add a null flag to call
                 methodHandle = dropArguments(methodHandle, parameterIndex + 1, boolean.class);
                 if (returnConvention == DEFAULT_ON_NULL) {
                     return methodHandle;
@@ -544,7 +544,7 @@ public final class ScalarFunctionAdapter
         }
         // Add boolean null flag
         handle = dropArguments(handle, 1, boolean.class);
-        // if flag is true, return null, otherwise invoke identity
+        // if the flag is true, return null, otherwise invoke identity
         return guardWithTest(
                 isTrueNullFlag(handle.type(), 0),
                 returnNull(handle.type()),
@@ -562,7 +562,7 @@ public final class ScalarFunctionAdapter
         MethodHandle isNull = IS_NULL_METHOD;
         // Cast in incoming type: isNull(T):boolean
         isNull = explicitCastArguments(isNull, methodType(boolean.class, methodType.parameterType(index)));
-        // Add extra argument to match expected method type
+        // Add extra argument to match the expected method type
         isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index);
         return isNull;
     }
@@ -577,7 +577,7 @@ public final class ScalarFunctionAdapter
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
-        // Add extra argument to match expected method type
+        // Add extra argument to match the expected method type
         isNull = permuteArguments(isNull, methodType.changeReturnType(boolean.class), index, index + 1);
         return isNull;
     }
