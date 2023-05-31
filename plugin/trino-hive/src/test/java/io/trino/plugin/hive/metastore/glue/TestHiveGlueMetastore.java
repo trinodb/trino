@@ -301,7 +301,7 @@ public class TestHiveGlueMetastore
     public void testStorePartitionWithStatistics()
             throws Exception
     {
-        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, EMPTY_TABLE_STATISTICS);
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, ZERO_TABLE_STATISTICS);
     }
 
     @Override
@@ -353,8 +353,8 @@ public class TestHiveGlueMetastore
                     .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                     .collect(toImmutableList());
             metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> EMPTY_TABLE_STATISTICS);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> EMPTY_TABLE_STATISTICS);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> ZERO_TABLE_STATISTICS);
+            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> ZERO_TABLE_STATISTICS);
 
             Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
                     tableName.getSchemaName(),
@@ -1103,7 +1103,7 @@ public class TestHiveGlueMetastore
                     .setColumnStatistics(columnStatistics.buildOrThrow()).build();
 
             doCreateEmptyTable(tableName, ORC, columns.build());
-            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, partitionStatistics);
+            testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, partitionStatistics);
         }
         finally {
             dropTable(tableName);
@@ -1136,8 +1136,8 @@ public class TestHiveGlueMetastore
             doCreateEmptyTable(tableName, ORC, columns);
 
             assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
-                    .isEqualTo(EMPTY_TABLE_STATISTICS);
-            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, partitionStatistics);
+                    .isEqualTo(ZERO_TABLE_STATISTICS);
+            testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, partitionStatistics);
         }
         finally {
             dropTable(tableName);
@@ -1170,7 +1170,7 @@ public class TestHiveGlueMetastore
                     tableName.getTableName(),
                     NO_ACID_TRANSACTION,
                     actualStatistics -> {
-                        assertThat(actualStatistics).isEqualTo(EMPTY_TABLE_STATISTICS);
+                        assertThat(actualStatistics).isEqualTo(ZERO_TABLE_STATISTICS);
                         return partitionStatistics;
                     });
 
@@ -1276,7 +1276,7 @@ public class TestHiveGlueMetastore
                     tableName.getTableName(),
                     NO_ACID_TRANSACTION,
                     actualStatistics -> {
-                        assertThat(actualStatistics).isEqualTo(EMPTY_TABLE_STATISTICS);
+                        assertThat(actualStatistics).isEqualTo(ZERO_TABLE_STATISTICS);
                         return partitionStatistics;
                     });
 
@@ -1453,7 +1453,7 @@ public class TestHiveGlueMetastore
         metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
         partitionNames.forEach(
                 partitionName -> metastoreClient.updatePartitionStatistics(
-                        tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> EMPTY_TABLE_STATISTICS));
+                        tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> ZERO_TABLE_STATISTICS));
     }
 
     private class CloseableSchamaTableName
