@@ -174,12 +174,7 @@ public class TestDeltaLakeConnectorTest
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
                 .cause()
-                .hasMessageMatching(
-                        "Transaction log locked.*" +
-                                "|.*/_delta_log/\\d+.json already exists" +
-                                "|Conflicting concurrent writes found..*" +
-                                "|Multiple live locks found for:.*" +
-                                "|Target file .* was created during locking");
+                .hasMessageMatching(transactionConflictErrors());
     }
 
     @Override
@@ -188,12 +183,7 @@ public class TestDeltaLakeConnectorTest
         assertThat(e)
                 .hasMessage("Failed to write Delta Lake transaction log entry")
                 .cause()
-                .hasMessageMatching(
-                        "Transaction log locked.*" +
-                                "|.*/_delta_log/\\d+.json already exists" +
-                                "|Conflicting concurrent writes found..*" +
-                                "|Multiple live locks found for:.*" +
-                                "|Target file .* was created during locking");
+                .hasMessageMatching(transactionConflictErrors());
     }
 
     @Override
@@ -202,12 +192,17 @@ public class TestDeltaLakeConnectorTest
         assertThat(e)
                 .hasMessageMatching("Unable to add '.*' column for: .*")
                 .cause()
-                .hasMessageMatching(
-                        "Transaction log locked.*" +
-                                "|.*/_delta_log/\\d+.json already exists" +
-                                "|Conflicting concurrent writes found..*" +
-                                "|Multiple live locks found for:.*" +
-                                "|Target file .* was created during locking");
+                .hasMessageMatching(transactionConflictErrors());
+    }
+
+    @Language("RegExp")
+    private static String transactionConflictErrors()
+    {
+        return "Transaction log locked.*" +
+                "|Target file already exists: .*/_delta_log/\\d+.json" +
+                "|Conflicting concurrent writes found\\..*" +
+                "|Multiple live locks found for:.*" +
+                "|Target file was created during locking: .*";
     }
 
     @Override
