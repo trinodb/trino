@@ -25,7 +25,7 @@
           -->
         <air.test.parallel>instances</air.test.parallel>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.51.1</dep.nessie.version>
+        <dep.nessie.version>0.59.0</dep.nessie.version>
     </properties>
 
     <dependencies>
