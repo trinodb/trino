@@ -283,7 +283,7 @@ public class InCodeGenerator
 
     public static boolean isInteger(long value)
     {
-        return value == (int) value;
+        return (value & 0xFFFFFFFFL) == value;
     }
 
     private static BytecodeBlock buildInCase(
