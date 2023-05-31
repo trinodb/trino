@@ -66,50 +66,54 @@ public final class DynamoDbQueryRunner
         return new Builder(dynamoDbUrl, schemaDirectory);
     }
 
-    public static Session createSession()
+    public static Session createSession(String catalogName)
     {
         return testSessionBuilder()
-                .setCatalog("dynamodb")
+                .setCatalog(catalogName)
                 .setSchema("amazondynamodb")
                 .build();
     }
 
-    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties,
+    private static DistributedQueryRunner createQueryRunner(
+            String catalogName,
+            Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables,
             boolean enableWrites)
             throws Exception
     {
         if (!tables.iterator().hasNext()) {
-            return createQueryRunner(extraProperties, connectorProperties, enableWrites);
+            return createQueryRunner(catalogName, extraProperties, connectorProperties, enableWrites);
         }
         // Create QueryRunner with writes enabled to create TPC-H tables
-        DistributedQueryRunner queryRunner = createQueryRunner(extraProperties, connectorProperties, true);
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
+        DistributedQueryRunner queryRunner = createQueryRunner(catalogName, extraProperties, connectorProperties, true);
+        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession(catalogName)), tables);
         if (enableWrites) {
             return queryRunner;
         }
         else {
             queryRunner.close();
             // Create query runner to be returned with given enableWrites flag - False
-            return createQueryRunner(extraProperties, connectorProperties, false);
+            return createQueryRunner(catalogName, extraProperties, connectorProperties, false);
         }
     }
 
-    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties,
+    private static DistributedQueryRunner createQueryRunner(
+            String catalogName,
+            Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             boolean enableWrites)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession(catalogName));
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             queryRunner.installPlugin(new TestingDynamoDbPlugin(enableWrites));
-            queryRunner.createCatalog("dynamodb", "dynamodb", connectorProperties);
+            queryRunner.createCatalog(catalogName, "dynamodb", connectorProperties);
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
             queryRunner.installPlugin(new TpchPlugin());
@@ -167,6 +171,7 @@ public final class DynamoDbQueryRunner
 
     public static class Builder
     {
+        private String catalogName = "dynamodb";
         private Iterable<TpchTable<?>> tables = TpchTable.getTables();
         private Map<String, String> connectorProperties;
         private Map<String, String> extraProperties;
@@ -184,6 +189,12 @@ public final class DynamoDbQueryRunner
                     .put("dynamodb.endpoint-url", dynamoDbUrl)
                     .buildOrThrow();
             extraProperties = ImmutableMap.of();
+        }
+
+        public Builder setCatalogName(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
         }
 
         public Builder addConnectorProperties(Map<String, String> properties)
@@ -225,7 +236,7 @@ public final class DynamoDbQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createQueryRunner(extraProperties, connectorProperties, tables, enableWrites);
+            return createQueryRunner(catalogName, extraProperties, connectorProperties, tables, enableWrites);
         }
 
         private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)

@@ -12,6 +12,8 @@ package com.starburstdata.presto.plugin.dynamodb;
 import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
+
 public class TestDynamoDbTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
@@ -19,9 +21,11 @@ public class TestDynamoDbTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        String catalogName = "dynamodb_" + randomNameSuffix();
         TestingDynamoDbServer server = closeAfterClass(new TestingDynamoDbServer());
         return DynamoDbQueryRunner.builder(server.getEndpointUrl(), server.getSchemaDirectory())
-                .addConnectorProperties(getRedirectionProperties("dynamodb", "amazondynamodb"))
+                .setCatalogName(catalogName)
+                .addConnectorProperties(getRedirectionProperties(catalogName, "amazondynamodb"))
                 .build();
     }
 }
