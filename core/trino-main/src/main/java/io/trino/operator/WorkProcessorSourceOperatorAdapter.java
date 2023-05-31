@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.base.Suppliers;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
@@ -56,12 +55,12 @@ public class WorkProcessorSourceOperatorAdapter
             extends WorkProcessorSourceOperatorFactory
     {
         default WorkProcessorSourceOperator createAdapterOperator(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits);
+            return create(operatorContext, memoryTrackingContext, yieldSignal, splits);
         }
     }
 
@@ -72,7 +71,7 @@ public class WorkProcessorSourceOperatorAdapter
         this.splitBuffer = new SplitBuffer();
         this.sourceOperator = sourceOperatorFactory
                 .createAdapterOperator(
-                        operatorContext.getSession(),
+                        operatorContext,
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),
                                 operatorContext.aggregateRevocableMemoryContext()),
