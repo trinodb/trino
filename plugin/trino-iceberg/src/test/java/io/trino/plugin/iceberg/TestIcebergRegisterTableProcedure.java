@@ -319,7 +319,7 @@ public class TestIcebergRegisterTableProcedure
         }
 
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableNameNew + "', '" + tableLocation + "', '" + invalidMetadataFileName + "')",
-                ".*is not a valid metadata file.*");
+                "Invalid metadata file: .*");
         assertUpdate(format("DROP TABLE %s", tableName));
     }
 
@@ -339,7 +339,7 @@ public class TestIcebergRegisterTableProcedure
         String nonExistingMetadataFileName = "00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json";
         String tableLocation = "/test/iceberg/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + nonExistingMetadataFileName + "')",
-                ".*Location (.*) does not exist.*");
+                "Metadata file does not exist: .*");
     }
 
     @Test
@@ -371,9 +371,9 @@ public class TestIcebergRegisterTableProcedure
         String nonExistedMetadataFileName = "00003-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json";
         String tableLocation = "invalid://hadoop-master:9000/test/iceberg/hive/orders_5-581fad8517934af6be1857a903559d44";
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "', '" + nonExistedMetadataFileName + "')",
-                ".*Invalid location:.*");
+                ".*Invalid metadata file location: .*");
         assertQueryFails("CALL iceberg.system.register_table (CURRENT_SCHEMA, '" + tableName + "', '" + tableLocation + "')",
-                ".*Failed checking table's location:.*");
+                ".*Failed checking table location: .*");
     }
 
     @Test
