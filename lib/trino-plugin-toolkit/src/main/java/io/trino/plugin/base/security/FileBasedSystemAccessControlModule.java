@@ -103,6 +103,7 @@ public class FileBasedSystemAccessControlModule
                 .setImpersonationRules(rules.getImpersonationRules())
                 .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
                 .setSystemInformationRules(rules.getSystemInformationRules())
+                .setAuthorizationRules(rules.getAuthorizationRules())
                 .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
                 .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
                 .setSessionPropertyRules(rules.getSessionPropertyRules().orElse(ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL)))

@@ -1,0 +1,37 @@
+{
+    "authorization": [
+        {
+            "original_user": ".*DENY.*",
+            "new_user": ".*",
+            "allow": false
+        },
+        {
+            "original_user": ".*authorized",
+            "new_user": ".*"
+        }
+    ],
+    "schemas": [
+        {
+            "user": "owner.*",
+            "schema": "owned_by_user",
+            "owner": true
+        },
+        {
+            "group": "owner.*",
+            "schema": "owned_by_group",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "user": "owner.*",
+            "table": "owned_by_user",
+            "privileges": ["OWNERSHIP"]
+        },
+        {
+            "group": "owner*",
+            "table": "owned_by_group",
+            "privileges": ["OWNERSHIP"]
+        }
+    ]
+}
