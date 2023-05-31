@@ -45,7 +45,6 @@ import java.util.regex.Pattern;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkState;
 
 /**
  * The S3 Native synhcornizer is a {@link TransactionLogSynchronizer} for S3 that requires no other dependencies.
@@ -87,7 +86,7 @@ public class S3NativeTransactionLogSynchronizer
 
         try {
             if (fileSystem.newInputFile(newLogEntryPath).exists()) {
-                throw new TransactionConflictException(newLogEntryPath + " already exists");
+                throw new TransactionConflictException("Target file already exists: " + newLogEntryPath);
             }
 
             List<LockInfo> lockInfos = listLockInfos(fileSystem, locksDirectory);
@@ -138,7 +137,9 @@ public class S3NativeTransactionLogSynchronizer
             }
 
             // extra check if target file did not appear concurrently; e.g. due to conflict with TL writer which uses different synchronization mechanism (like DB)
-            checkState(!fileSystem.newInputFile(newLogEntryPath).exists(), format("Target file %s was created during locking", newLogEntryPath));
+            if (fileSystem.newInputFile(newLogEntryPath).exists()) {
+                throw new TransactionConflictException("Target file was created during locking: " + newLogEntryPath);
+            }
 
             // write transaction log entry
             try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath).create()) {
