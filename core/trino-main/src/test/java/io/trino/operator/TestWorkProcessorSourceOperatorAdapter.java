@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
 import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
@@ -93,7 +92,7 @@ public class TestWorkProcessorSourceOperatorAdapter
     {
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
