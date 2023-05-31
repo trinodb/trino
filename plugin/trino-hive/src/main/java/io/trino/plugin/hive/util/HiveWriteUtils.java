@@ -107,6 +107,7 @@ import static io.trino.plugin.hive.util.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FO
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
+import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -452,7 +453,7 @@ public final class HiveWriteUtils
             }
         }
 
-        return Location.of(location).appendPath(tableName);
+        return Location.of(location).appendPath(escapeTableName(tableName));
     }
 
     public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
