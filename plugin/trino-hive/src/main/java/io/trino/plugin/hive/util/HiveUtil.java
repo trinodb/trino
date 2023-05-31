@@ -1225,6 +1225,17 @@ public final class HiveUtil
         return sb.toString();
     }
 
+    public static String escapeSchemaName(String schemaName)
+    {
+        if (isNullOrEmpty(schemaName)) {
+            throw new IllegalArgumentException("The provided schemaName cannot be null or empty");
+        }
+        if (DOT_MATCHER.matchesAllOf(schemaName)) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Invalid schema name");
+        }
+        return escapePathName(schemaName);
+    }
+
     public static String escapeTableName(String tableName)
     {
         if (isNullOrEmpty(tableName)) {
