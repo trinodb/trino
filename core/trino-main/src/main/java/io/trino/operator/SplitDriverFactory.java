@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.execution.ScheduledSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
@@ -28,7 +29,12 @@ public interface SplitDriverFactory
 
     OptionalInt getDriverInstances();
 
-    Driver createDriver(DriverContext driverContext);
+    Driver createDriver(DriverContext driverContext, Optional<ScheduledSplit> split);
+
+    default Driver createDriver(DriverContext driverContext)
+    {
+        return createDriver(driverContext, Optional.empty());
+    }
 
     void noMoreDrivers();
 
