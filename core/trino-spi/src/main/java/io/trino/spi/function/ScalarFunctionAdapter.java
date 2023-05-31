@@ -49,6 +49,7 @@ import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodHandles.publicLookup;
 import static java.lang.invoke.MethodHandles.throwException;
+import static java.lang.invoke.MethodHandles.zero;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
@@ -292,13 +293,10 @@ public final class ScalarFunctionAdapter
                 if (returnConvention == FAIL_ON_NULL) {
                     throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
                 }
-                if (returnConvention == DEFAULT_ON_NULL) {
-                    // perform unboxing, which converts nulls to Java primitive default value
-                    return methodHandle;
-                }
+                MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                 return guardWithTest(
                         isNullArgument(methodHandle.type(), parameterIndex),
-                        returnNull(methodHandle.type()),
+                        nullReturnValue,
                         methodHandle);
             }
 
@@ -340,12 +338,11 @@ public final class ScalarFunctionAdapter
                 }
                 // add a null flag to call
                 methodHandle = dropArguments(methodHandle, parameterIndex + 1, boolean.class);
-                if (returnConvention == DEFAULT_ON_NULL) {
-                    return methodHandle;
-                }
+
+                MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                 return guardWithTest(
                         isTrueNullFlag(methodHandle.type(), parameterIndex),
-                        returnNull(methodHandle.type()),
+                        nullReturnValue,
                         methodHandle);
             }
 
@@ -364,12 +361,11 @@ public final class ScalarFunctionAdapter
                 if (returnConvention != FAIL_ON_NULL) {
                     // if caller sets null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getBlockValue);
-                    if (returnConvention == DEFAULT_ON_NULL) {
-                        return methodHandle;
-                    }
+
+                    MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                     return guardWithTest(
                             isBlockPositionNull(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
+                            nullReturnValue,
                             methodHandle);
                 }
 
@@ -422,12 +418,11 @@ public final class ScalarFunctionAdapter
                 if (returnConvention != FAIL_ON_NULL) {
                     // if caller sets null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
-                    if (returnConvention == DEFAULT_ON_NULL) {
-                        return methodHandle;
-                    }
+
+                    MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
                     return guardWithTest(
                             isInOutNull(methodHandle.type(), parameterIndex),
-                            returnNull(methodHandle.type()),
+                            nullReturnValue,
                             methodHandle);
                 }
 
@@ -605,6 +600,31 @@ public final class ScalarFunctionAdapter
             throw new AssertionError(e);
         }
         return isNull;
+    }
+
+    private static MethodHandle getNullShortCircuitResult(MethodHandle methodHandle, InvocationReturnConvention returnConvention)
+    {
+        MethodHandle nullReturnValue;
+        if (returnConvention == DEFAULT_ON_NULL) {
+            nullReturnValue = returnDefault(methodHandle.type());
+        }
+        else {
+            nullReturnValue = returnNull(methodHandle.type());
+        }
+        return nullReturnValue;
+    }
+
+    private static MethodHandle returnDefault(MethodType methodType)
+    {
+        // Start with a constant default value of the expected return type: f():R
+        MethodHandle returnDefault = zero(methodType.returnType());
+
+        // Add extra argument to match expected method type: f(a, b, c, ..., n):R
+        returnDefault = permuteArguments(returnDefault, methodType.changeReturnType(methodType.returnType()));
+
+        // Convert return to a primitive is necessary: f(a, b, c, ..., n):r
+        returnDefault = explicitCastArguments(returnDefault, methodType);
+        return returnDefault;
     }
 
     private static MethodHandle returnNull(MethodType methodType)
