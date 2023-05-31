@@ -145,6 +145,7 @@ import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -204,6 +205,8 @@ public final class HiveUtil
     private static final CharMatcher PATH_CHAR_TO_ESCAPE = CharMatcher.inRange((char) 0, (char) 31)
             .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"))
             .precomputed();
+
+    private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
 
     static {
         DateTimeParser[] timestampWithoutTimeZoneParser = {
@@ -1220,6 +1223,17 @@ public final class HiveUtil
             sb.append(path, fromIndex, path.length());
         }
         return sb.toString();
+    }
+
+    public static String escapeTableName(String tableName)
+    {
+        if (isNullOrEmpty(tableName)) {
+            throw new IllegalArgumentException("The provided tableName cannot be null or empty");
+        }
+        if (DOT_MATCHER.matchesAllOf(tableName)) {
+            throw new TrinoException(GENERIC_USER_ERROR, "Invalid table name");
+        }
+        return escapePathName(tableName);
     }
 
     // copy of org.apache.hadoop.hive.common.FileUtils#escapePathName
