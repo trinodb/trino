@@ -39,6 +39,7 @@ import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.SEQUENCEFILE;
+import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.trino.plugin.hive.util.HiveUtil.getInputFormat;
@@ -148,6 +149,18 @@ public class TestHiveUtil
     {
         assertThat(FileUtils.unescapePathName(value)).isEqualTo(expected);
         assertThat(HiveUtil.unescapePathName(value)).isEqualTo(expected);
+    }
+
+    @Test
+    public void testEscapeDatabaseName()
+    {
+        assertThat(escapeSchemaName("schema1")).isEqualTo("schema1");
+        assertThatThrownBy(() -> escapeSchemaName(null))
+                .hasMessage("The provided schemaName cannot be null or empty");
+        assertThatThrownBy(() -> escapeSchemaName(""))
+                .hasMessage("The provided schemaName cannot be null or empty");
+        assertThat(escapeSchemaName("../schema1")).isEqualTo("..%2Fschema1");
+        assertThat(escapeSchemaName("../../schema1")).isEqualTo("..%2F..%2Fschema1");
     }
 
     @Test
