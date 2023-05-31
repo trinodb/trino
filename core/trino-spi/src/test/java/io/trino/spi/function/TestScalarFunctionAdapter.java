@@ -49,7 +49,6 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -179,14 +178,17 @@ public class TestScalarFunctionAdapter
             List<Object> argumentValues = toCallArgumentValues(newCallingConvention, nullArguments, target, argumentTypes);
             try {
                 Boolean result = (Boolean) exactInvoker.invokeWithArguments(argumentValues);
-                if (result != null) {
-                    assertTrue(result);
+                switch (expectedConvention.getReturnConvention()) {
+                    case FAIL_ON_NULL -> assertTrue(result);
+                    case DEFAULT_ON_NULL -> assertEquals(result, (Boolean) nullArguments.isEmpty());
+                    case NULLABLE_RETURN -> assertEquals(result, nullArguments.isEmpty() ? true : null);
+                    default -> throw new UnsupportedOperationException();
                 }
             }
             catch (TrinoException trinoException) {
                 assertEquals(trinoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             }
-            target.verify(actualConvention, expectedConvention, nullArguments, argumentTypes);
+            target.verify(actualConvention, nullArguments, argumentTypes);
         }
     }
 
@@ -512,11 +514,10 @@ public class TestScalarFunctionAdapter
 
         public void verify(
                 InvocationConvention actualConvention,
-                InvocationConvention expectedConvention,
                 BitSet nullArguments,
                 List<Type> argumentTypes)
         {
-            if (shouldFunctionBeInvoked(actualConvention, expectedConvention, nullArguments)) {
+            if (shouldFunctionBeInvoked(actualConvention, nullArguments)) {
                 assertTrue(invoked, "function not invoked");
                 if (!objectsMethod) {
                     assertArgumentValue(this.booleanValue, 0, actualConvention, nullArguments, argumentTypes);
@@ -554,12 +555,8 @@ public class TestScalarFunctionAdapter
             this.objectTimestampValue = null;
         }
 
-        private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, InvocationConvention expectedConvention, BitSet nullArguments)
+        private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, BitSet nullArguments)
         {
-            if (expectedConvention.getReturnConvention() == DEFAULT_ON_NULL) {
-                return true;
-            }
-
             for (int i = 0; i < actualConvention.getArgumentConventions().size(); i++) {
                 if (actualConvention.getArgumentConvention(i) == NEVER_NULL && nullArguments.get(i)) {
                     return false;
