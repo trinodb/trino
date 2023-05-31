@@ -1,0 +1,69 @@
+{
+    "authorization": [
+        {
+            "original_user": ".*DENY.*",
+            "new_user": ".*",
+            "new_role": ".*",
+            "allow": false
+        },
+        {
+            "original_group": ".*DENY.*",
+            "new_user": ".*",
+            "new_role": ".*",
+            "allow": false
+        },
+        {
+            "original_role": ".*DENY.*",
+            "new_user": ".*",
+            "new_role": ".*",
+            "allow": false
+        },
+        {
+            "original_user": ".*authorized",
+            "new_user": ".*"
+        },
+        {
+            "original_group": ".*authorized",
+            "new_user": ".*",
+            "new_role": ".*"
+        },
+        {
+            "original_role": ".*authorized",
+            "new_role": ".*"
+        }
+    ],
+    "schemas": [
+        {
+            "user": "owner.*",
+            "schema": "owned_by_user",
+            "owner": true
+        },
+        {
+            "group": "owner.*",
+            "schema": "owned_by_group",
+            "owner": true
+        },
+        {
+            "role": "owner.*",
+            "schema": "owned_by_role",
+            "owner": true
+        }
+    ],
+    "tables": [
+        {
+            "user": "owner.*",
+            "table": "owned_by_user",
+            "privileges": ["OWNERSHIP"]
+        },
+        {
+            "group": "owner*",
+            "table": "owned_by_group",
+            "privileges": ["OWNERSHIP"]
+        },
+        {
+            "role": "owner.*",
+            "table": "owned_by_role",
+            "privileges": ["OWNERSHIP"]
+        }
+    ]
+}

@@ -94,7 +94,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot create schema .*";
     private static final String DROP_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot drop schema .*";
     private static final String RENAME_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot rename schema from .* to .*";
-    private static final String AUTH_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot set authorization for schema .* to .*";
     private static final String SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot show create schema for .*";
     private static final String GRANT_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot grant privilege %s on schema %s%s";
     private static final String DENY_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot deny privilege %s on schema %s%s";
@@ -106,8 +105,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot drop a column from table .*";
     private static final String RENAME_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot rename a column in table .*";
-    private static final String AUTH_TABLE_ACCESS_DENIED_MESSAGE = "Cannot set authorization for table .* to .*";
-    private static final String AUTH_VIEW_ACCESS_DENIED_MESSAGE = "Cannot set authorization for view .* to .*";
     private static final String TABLE_COMMENT_ACCESS_DENIED_MESSAGE = "Cannot comment table to .*";
     private static final String INSERT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot insert into table .*";
     private static final String DELETE_TABLE_ACCESS_DENIED_MESSAGE = "Cannot delete from table .*";
@@ -182,9 +179,9 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), ImmutableMap.of());
         accessControl.checkCanDropSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
         accessControl.checkCanRenameSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), "new_unknown");
-        accessControl.checkCanSetSchemaAuthorization(UNKNOWN,
-                new CatalogSchemaName("some-catalog", "unknown"),
-                new TrinoPrincipal(ROLE, "some_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for schema some-catalog.unknown to ROLE some_role");
         accessControl.checkCanShowCreateSchema(UNKNOWN, new CatalogSchemaName("some-catalog", "unknown"));
 
         accessControl.checkCanSelectFromColumns(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), ImmutableSet.of());
@@ -199,10 +196,20 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanRenameTable(UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for table some-catalog.unknown.unknown to ROLE some_role");
+
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for view some-catalog.unknown.unknown to ROLE some_role");
 
         accessControl.checkCanCreateMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), Map.of());
         accessControl.checkCanDropMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
         accessControl.checkCanRefreshMaterializedView(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(UNKNOWN, new CatalogSchemaTableName("some-catalog", "unknown", "unknown"), new TrinoPrincipal(ROLE, "some_role")),
+                "Cannot set authorization for view some-catalog.unknown.unknown to ROLE some_role");
 
         accessControl.checkCanSetUser(Optional.empty(), "unknown");
         accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
@@ -305,19 +312,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "staff"), "new_schema"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
         accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "authenticated"), "authenticated");
         assertAccessDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test"), "new_schema"), RENAME_SCHEMA_ACCESS_DENIED_MESSAGE);
-    }
-
-    @Test
-    public void testSchemaRulesForCheckCanSetSchemaAuthorization()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
-
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("some-catalog", "test"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("some-catalog", "test"), new TrinoPrincipal(USER, "some_user"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "bob"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "bob"), new TrinoPrincipal(USER, "some_user"));
-        assertAccessDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "test"), new TrinoPrincipal(ROLE, "some_role")), AUTH_SCHEMA_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("some-catalog", "test"), new TrinoPrincipal(USER, "some_user")), AUTH_SCHEMA_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -825,60 +819,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
     }
 
     @Test
-    public void testCheckCanSetTableAuthorizationForAdmin()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(USER, "some_user"));
-    }
-
-    @Test
-    public void testCheckCanSetViewAuthorizationForAdmin()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        accessControl.checkCanSetViewAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(USER, "some_user"));
-    }
-
-    @Test
-    public void testCheckCanSetTableAuthorizationForOwner()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(USER, "some_user"));
-    }
-
-    @Test
-    public void testCheckCanSetViewAuthorizationForOwner()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "test"), new TrinoPrincipal(USER, "some_user"));
-    }
-
-    @Test
-    public void testCheckCanSetTableAuthorizationForNonOwner()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(ROLE, "some_role")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(USER, "some_user")), AUTH_TABLE_ACCESS_DENIED_MESSAGE);
-    }
-
-    @Test
-    public void testCheckCanSetViewAuthorizationForNonOwner()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-
-        assertAccessDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(ROLE, "some_role")), AUTH_VIEW_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), new TrinoPrincipal(USER, "some_user")), AUTH_VIEW_ACCESS_DENIED_MESSAGE);
-    }
-
-    @Test
     public void testTableRulesForCheckCanSetTableComment()
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
@@ -1122,37 +1062,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())),
                 "Cannot write system information");
-    }
-
-    @Test
-    public void testSchemaOperations()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-catalog.json");
-
-        TrinoPrincipal user = new TrinoPrincipal(USER, "some_user");
-        TrinoPrincipal role = new TrinoPrincipal(ROLE, "some_user");
-
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("alice-catalog", "some_schema"), user);
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, new CatalogSchemaName("alice-catalog", "some_schema"), role);
-
-        accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("alice-catalog", "some_schema"), user);
-        accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("alice-catalog", "some_schema"), role);
-
-        assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("alice-catalog", "some_schema"), user),
-                "Cannot set authorization for schema alice-catalog.some_schema.*");
-
-        assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(BOB, new CatalogSchemaName("alice-catalog", "some_schema"), role),
-                "Cannot set authorization for schema alice-catalog.some_schema.*");
-
-        assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("secret", "some_schema"), user),
-                "Cannot set authorization for schema secret.some_schema.*");
-
-        assertAccessDenied(
-                () -> accessControl.checkCanSetSchemaAuthorization(ALICE, new CatalogSchemaName("secret", "some_schema"), role),
-                "Cannot set authorization for schema secret.some_schema.*");
     }
 
     @Test
@@ -1488,6 +1397,232 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, ALICE.getIdentity().getUser()), true);
         accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, BOB.getIdentity().getUser()), true);
         accessControl.checkCanGrantExecuteFunctionPrivilege(BOB, "some_function", new TrinoPrincipal(USER, CHARLIE.getIdentity().getUser()), true);
+    }
+
+    @Test
+    public void testSchemaAuthorization()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("authorization.json");
+
+        CatalogSchemaName schema = new CatalogSchemaName("some-catalog", "test");
+        CatalogSchemaName ownedByUser = new CatalogSchemaName("some-catalog", "owned_by_user");
+        CatalogSchemaName ownedByGroup = new CatalogSchemaName("some-catalog", "owned_by_group");
+        CatalogSchemaName ownedByRole = new CatalogSchemaName("some-catalog", "owned_by_role");
+
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "group", "role"), schema, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.test to ROLE new_role");
+
+        // access to schema granted to user
+        accessControl.checkCanSetSchemaAuthorization(user("owner_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetSchemaAuthorization(user("owner", "authorized", "role"), ownedByUser, new TrinoPrincipal(ROLE, "new_role"));
+        accessControl.checkCanSetSchemaAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("owner_without_authorization_access", "group", "role"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("owner_DENY_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_user to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("owner", "DENY_authorized", "role"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("owner", "group", "DENY_authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_user to USER new_user");
+
+        // access to schema granted to group
+        accessControl.checkCanSetSchemaAuthorization(user("authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetSchemaAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "owner", "role"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("DENY_authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_group to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "owner", "DENY_authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_group to USER new_user");
+
+        // access to schema granted to role
+        accessControl.checkCanSetSchemaAuthorization(user("authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetSchemaAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "group", "owner"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("DENY_authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_role to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "group", "owner_DENY_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for schema some-catalog.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetSchemaAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for schema some-catalog.owned_by_role to USER new_user");
+    }
+
+    @Test
+    public void testTableAuthorization()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("authorization.json");
+
+        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "test", "table");
+        CatalogSchemaTableName ownedByUser = new CatalogSchemaTableName("some-catalog", "test", "owned_by_user");
+        CatalogSchemaTableName ownedByGroup = new CatalogSchemaTableName("some-catalog", "test", "owned_by_group");
+        CatalogSchemaTableName ownedByRole = new CatalogSchemaTableName("some-catalog", "test", "owned_by_role");
+
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "group", "role"), table, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.table to ROLE new_role");
+
+        // access to table granted to user
+        accessControl.checkCanSetTableAuthorization(user("owner_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetTableAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("owner_without_authorization_access", "group", "role"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("owner_DENY_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_user to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("owner", "group", "DENY_authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_user to USER new_user");
+
+        // access to table granted to group
+        accessControl.checkCanSetTableAuthorization(user("authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetTableAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "owner", "role"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("DENY_authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_group to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "owner", "DENY_authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_group to USER new_user");
+
+        // access to table granted to role
+        accessControl.checkCanSetTableAuthorization(user("authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetTableAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "group", "owner"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("DENY_authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_role to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "group", "owner_DENY_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for table some-catalog.test.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetTableAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for table some-catalog.test.owned_by_role to USER new_user");
+    }
+
+    @Test
+    public void testViewAuthorization()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("authorization.json");
+
+        CatalogSchemaTableName table = new CatalogSchemaTableName("some-catalog", "test", "table");
+        CatalogSchemaTableName ownedByUser = new CatalogSchemaTableName("some-catalog", "test", "owned_by_user");
+        CatalogSchemaTableName ownedByGroup = new CatalogSchemaTableName("some-catalog", "test", "owned_by_group");
+        CatalogSchemaTableName ownedByRole = new CatalogSchemaTableName("some-catalog", "test", "owned_by_role");
+
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "group", "role"), table, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.table to ROLE new_role");
+
+        // access to table granted to user
+        accessControl.checkCanSetViewAuthorization(user("owner_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetViewAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("owner_without_authorization_access", "group", "role"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("owner_DENY_authorized", "group", "role"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_user to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("owner", "group", "DENY_authorized"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_user to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("owner", "group", "authorized"), ownedByUser, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_user to USER new_user");
+
+        // access to table granted to group
+        accessControl.checkCanSetViewAuthorization(user("authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetViewAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "owner", "role"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "owner", "role"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_group to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "owner", "DENY_authorized"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_group to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "owner", "authorized"), ownedByGroup, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_group to USER new_user");
+
+        // access to table granted to role
+        accessControl.checkCanSetViewAuthorization(user("authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user"));
+        accessControl.checkCanSetViewAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "group", "owner"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "group", "owner"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_role to USER new_user");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "group", "owner_DENY_authorized"), ownedByRole, new TrinoPrincipal(ROLE, "new_role")),
+                "Cannot set authorization for view some-catalog.test.owned_by_role to ROLE new_role");
+        assertAccessDenied(
+                () -> accessControl.checkCanSetViewAuthorization(user("user", "group", "owner_authorized"), ownedByRole, new TrinoPrincipal(USER, "new_user")),
+                "Cannot set authorization for view some-catalog.test.owned_by_role to USER new_user");
+    }
+
+    @Test
+    public void testAuthorizationDocsExample()
+    {
+        File rulesFile = new File("../../docs/src/main/sphinx/security/authorization.json");
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(rulesFile, ImmutableMap.of());
+        CatalogSchemaName schema = new CatalogSchemaName("catalog", "schema");
+        CatalogSchemaTableName tableOrView = new CatalogSchemaTableName("catalog", "schema", "table_or_view");
+        accessControlManager.checkCanSetSchemaAuthorization(ADMIN, schema, new TrinoPrincipal(USER, "alice"));
+        accessControlManager.checkCanSetSchemaAuthorization(ADMIN, schema, new TrinoPrincipal(ROLE, "role"));
+        accessControlManager.checkCanSetTableAuthorization(ADMIN, tableOrView, new TrinoPrincipal(USER, "alice"));
+        accessControlManager.checkCanSetTableAuthorization(ADMIN, tableOrView, new TrinoPrincipal(ROLE, "role"));
+        accessControlManager.checkCanSetViewAuthorization(ADMIN, tableOrView, new TrinoPrincipal(USER, "alice"));
+        accessControlManager.checkCanSetViewAuthorization(ADMIN, tableOrView, new TrinoPrincipal(ROLE, "role"));
+        assertAccessDenied(
+                () -> accessControlManager.checkCanSetSchemaAuthorization(ADMIN, schema, new TrinoPrincipal(USER, "bob")),
+                "Cannot set authorization for schema catalog.schema to USER bob");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanSetTableAuthorization(ADMIN, tableOrView, new TrinoPrincipal(USER, "bob")),
+                "Cannot set authorization for table catalog.schema.table_or_view to USER bob");
+        assertAccessDenied(
+                () -> accessControlManager.checkCanSetViewAuthorization(ADMIN, tableOrView, new TrinoPrincipal(USER, "bob")),
+                "Cannot set authorization for view catalog.schema.table_or_view to USER bob");
+    }
+
+    private static SystemSecurityContext user(String user, String group, String role)
+    {
+        Identity identity = Identity.forUser(user)
+                .withGroups(ImmutableSet.of(group))
+                .withEnabledRoles(ImmutableSet.of(role))
+                .build();
+        return new SystemSecurityContext(identity, queryId);
     }
 
     @Test

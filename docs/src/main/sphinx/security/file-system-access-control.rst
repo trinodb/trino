@@ -722,6 +722,50 @@ The fixed management user only applies to HTTP by default. To enable the fixed
 user over HTTPS, set the ``management.user.https-enabled`` configuration
 property.
 
+.. _system-file-auth-authorization:
+
+Authorization rules
+-------------------
+
+These rules control the ability of how owner of schema, table or view can
+be altered. These rules are applicable to commands like:
+
+    ALTER SCHEMA name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
+    ALTER VIEW name SET AUTHORIZATION ( user | USER user | ROLE role )
+
+When these rules are present, the authorization is based on the first matching
+rule, processed from top to bottom. If no rules match, the authorization is
+denied.
+
+Notice that in order to execute ``ALTER`` command on schema, table or view user requires ``OWNERSHIP``
+privilege.
+
+Each authorization rule is composed of the following fields:
+
+* ``original_user`` (optional): regex to match against the user requesting the
+  authorization. Defaults to ``.*``.
+* ``original_group`` (optional): regex to match against group names of the
+  requesting authorization. Defaults to ``.*``.
+* ``original_role`` (optional): regex to match against role names of the
+  requesting authorization. Defaults to ``.*``.
+* ``new_user`` (optional): regex to match against the new owner user of the schema, table or view.
+  By default it does not match.
+* ``new_role`` (optional): regex to match against the new owner role of the schema, table or view.
+  By default it does not match.
+* ``allow`` (optional): boolean indicating if the authentication should be
+  allowed. Defaults to ``true``.
+
+Notice that ``new_user`` and ``new_role`` are optional, however it is required to provide at least one of them.
+
+The following example allows the ``admin`` role, to change owner of any schema, table or view
+to any user, except to``bob``.
+
+.. literalinclude:: authorization.json
+    :language: json
+
+.. _system-file-auth-system_information:
+
 .. _catalog-file-based-access-control:
 
 Catalog-level access control files

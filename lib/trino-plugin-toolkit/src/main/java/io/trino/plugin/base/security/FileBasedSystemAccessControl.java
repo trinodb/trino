@@ -129,6 +129,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
+    private final List<AuthorizationRule> authorizationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
@@ -143,6 +144,7 @@ public class FileBasedSystemAccessControl
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
+            List<AuthorizationRule> authorizationRules,
             List<CatalogSchemaAccessControlRule> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
             List<SessionPropertyAccessControlRule> sessionPropertyRules,
@@ -154,6 +156,7 @@ public class FileBasedSystemAccessControl
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
         this.systemInformationRules = systemInformationRules;
+        this.authorizationRules = authorizationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
         this.sessionPropertyRules = sessionPropertyRules;
@@ -434,6 +437,9 @@ public class FileBasedSystemAccessControl
         if (!isSchemaOwner(context, schema)) {
             denySetSchemaAuthorization(schema.toString(), principal);
         }
+        if (!checkCanSetAuthorization(context, principal)) {
+            denySetSchemaAuthorization(schema.toString(), principal);
+        }
     }
 
     @Override
@@ -628,6 +634,9 @@ public class FileBasedSystemAccessControl
         if (!checkTablePermission(context, table, OWNERSHIP)) {
             denySetTableAuthorization(table.toString(), principal);
         }
+        if (!checkCanSetAuthorization(context, principal)) {
+            denySetTableAuthorization(table.toString(), principal);
+        }
     }
 
     @Override
@@ -698,6 +707,9 @@ public class FileBasedSystemAccessControl
     public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denySetViewAuthorization(view.toString(), principal);
+        }
+        if (!checkCanSetAuthorization(context, principal)) {
             denySetViewAuthorization(view.toString(), principal);
         }
     }
@@ -1109,6 +1121,15 @@ public class FileBasedSystemAccessControl
                         .isPresent();
     }
 
+    private boolean checkCanSetAuthorization(SystemSecurityContext context, TrinoPrincipal principal)
+    {
+        Identity identity = context.getIdentity();
+        return authorizationRules.stream()
+                .flatMap(rule -> rule.match(identity.getUser(), identity.getGroups(), identity.getEnabledRoles(), principal).stream())
+                .findFirst()
+                .orElse(false);
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -1121,6 +1142,7 @@ public class FileBasedSystemAccessControl
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
         private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
+        private List<AuthorizationRule> authorizationRules = ImmutableList.of();
         private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
         private List<SessionPropertyAccessControlRule> sessionPropertyRules = ImmutableList.of(SessionPropertyAccessControlRule.ALLOW_ALL);
@@ -1135,6 +1157,7 @@ public class FileBasedSystemAccessControl
             impersonationRules = Optional.of(ImmutableList.of());
             principalUserMatchRules = Optional.of(ImmutableList.of());
             systemInformationRules = Optional.of(ImmutableList.of());
+            authorizationRules = ImmutableList.of();
             schemaRules = ImmutableList.of();
             tableRules = ImmutableList.of();
             sessionPropertyRules = ImmutableList.of();
@@ -1170,6 +1193,12 @@ public class FileBasedSystemAccessControl
         public Builder setSystemInformationRules(Optional<List<SystemInformationRule>> systemInformationRules)
         {
             this.systemInformationRules = systemInformationRules;
+            return this;
+        }
+
+        public Builder setAuthorizationRules(List<AuthorizationRule> authorizationRules)
+        {
+            this.authorizationRules = authorizationRules;
             return this;
         }
 
@@ -1211,6 +1240,7 @@ public class FileBasedSystemAccessControl
                     impersonationRules,
                     principalUserMatchRules,
                     systemInformationRules,
+                    authorizationRules,
                     schemaRules,
                     tableRules,
                     sessionPropertyRules,
