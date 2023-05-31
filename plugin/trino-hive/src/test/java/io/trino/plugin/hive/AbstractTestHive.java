@@ -543,7 +543,7 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("ds", VARCHAR))
             .build();
 
-    protected static final PartitionStatistics EMPTY_TABLE_STATISTICS = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
+    protected static final PartitionStatistics ZERO_TABLE_STATISTICS = new PartitionStatistics(createZeroStatistics(), ImmutableMap.of());
     protected static final PartitionStatistics BASIC_STATISTICS_1 = new PartitionStatistics(new HiveBasicStatistics(0, 20, 3, 0), ImmutableMap.of());
     protected static final PartitionStatistics BASIC_STATISTICS_2 = new PartitionStatistics(new HiveBasicStatistics(0, 30, 2, 0), ImmutableMap.of());
 
@@ -2738,7 +2738,7 @@ public abstract class AbstractTestHive
                 targetPath = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName);
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath, "q1");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, ZERO_TABLE_STATISTICS, false);
                 Optional<Table> tableHandle = transaction.getMetastore().getTable(schemaName, tableName);
                 assertTrue(tableHandle.isPresent());
                 transaction.commit();
@@ -2748,7 +2748,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_2"), "q2");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, EMPTY_TABLE_STATISTICS, false);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, ZERO_TABLE_STATISTICS, false);
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -2760,7 +2760,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_3"), "q3");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, ZERO_TABLE_STATISTICS, false);
                 transaction.commit();
             }
 
@@ -2769,7 +2769,7 @@ public abstract class AbstractTestHive
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_4"), "q4");
                 transaction.getMetastore()
-                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
+                        .createTable(session, table, privileges, Optional.empty(), Optional.empty(), true, ZERO_TABLE_STATISTICS, false);
                 transaction.commit();
                 fail("Expected exception");
             }
@@ -3116,7 +3116,7 @@ public abstract class AbstractTestHive
                             Optional.empty(),
                             Optional.empty(),
                             true,
-                            EMPTY_TABLE_STATISTICS,
+                            ZERO_TABLE_STATISTICS,
                             false);
                     transaction.commit();
 
@@ -3302,7 +3302,7 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("update_basic_table_statistics");
         try {
             doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
-            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, BASIC_STATISTICS_1, BASIC_STATISTICS_2);
+            testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, BASIC_STATISTICS_1, BASIC_STATISTICS_2);
         }
         finally {
             dropTable(tableName);
@@ -3316,7 +3316,7 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("update_table_column_statistics");
         try {
             doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
-            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2);
+            testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2);
         }
         finally {
             dropTable(tableName);
@@ -3330,7 +3330,7 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("update_table_column_statistics_empty_optional_fields");
         try {
             doCreateEmptyTable(tableName, ORC, STATISTICS_TABLE_COLUMNS);
-            testUpdateTableStatistics(tableName, EMPTY_TABLE_STATISTICS, STATISTICS_EMPTY_OPTIONAL_FIELDS);
+            testUpdateTableStatistics(tableName, ZERO_TABLE_STATISTICS, STATISTICS_EMPTY_OPTIONAL_FIELDS);
         }
         finally {
             dropTable(tableName);
@@ -3375,7 +3375,7 @@ public abstract class AbstractTestHive
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(
                     tableName,
-                    EMPTY_TABLE_STATISTICS,
+                    ZERO_TABLE_STATISTICS,
                     ImmutableList.of(BASIC_STATISTICS_1, BASIC_STATISTICS_2),
                     ImmutableList.of(BASIC_STATISTICS_2, BASIC_STATISTICS_1));
         }
@@ -3393,7 +3393,7 @@ public abstract class AbstractTestHive
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(
                     tableName,
-                    EMPTY_TABLE_STATISTICS,
+                    ZERO_TABLE_STATISTICS,
                     ImmutableList.of(STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2),
                     ImmutableList.of(STATISTICS_1_2, STATISTICS_1_1, STATISTICS_2));
         }
@@ -3411,7 +3411,7 @@ public abstract class AbstractTestHive
             createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
             testUpdatePartitionStatistics(
                     tableName,
-                    EMPTY_TABLE_STATISTICS,
+                    ZERO_TABLE_STATISTICS,
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS),
                     ImmutableList.of(STATISTICS_EMPTY_OPTIONAL_FIELDS));
         }
@@ -3499,7 +3499,7 @@ public abstract class AbstractTestHive
                             .setStorageFormat(StorageFormat.createNullable(null, null, null))
                             .setSerdeParameters(ImmutableMap.of()));
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, ZERO_TABLE_STATISTICS, false);
             transaction.commit();
         }
 
@@ -3563,8 +3563,8 @@ public abstract class AbstractTestHive
                 .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                 .collect(toImmutableList());
         metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> EMPTY_TABLE_STATISTICS);
+        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
+        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
     }
 
     protected void testUpdatePartitionStatistics(
@@ -3620,7 +3620,7 @@ public abstract class AbstractTestHive
     public void testStorePartitionWithStatistics()
             throws Exception
     {
-        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, EMPTY_TABLE_STATISTICS);
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, STATISTICS_1, STATISTICS_2, STATISTICS_1_1, ZERO_TABLE_STATISTICS);
     }
 
     protected void testStorePartitionWithStatistics(
@@ -5600,7 +5600,7 @@ public abstract class AbstractTestHive
                     .setSerdeParameters(ImmutableMap.of());
 
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), Optional.empty(), true, ZERO_TABLE_STATISTICS, false);
 
             transaction.commit();
         }

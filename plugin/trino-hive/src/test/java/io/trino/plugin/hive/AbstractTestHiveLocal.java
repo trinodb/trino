@@ -254,7 +254,7 @@ public abstract class AbstractTestHiveLocal
                     .setSerdeParameters(ImmutableMap.of());
 
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
-            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.of(externalLocation), Optional.empty(), true, EMPTY_TABLE_STATISTICS, false);
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.of(externalLocation), Optional.empty(), true, ZERO_TABLE_STATISTICS, false);
 
             transaction.commit();
         }
