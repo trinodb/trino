@@ -15,6 +15,13 @@ package io.trino.plugin.bigquery;
 
 import io.trino.spi.connector.ConnectorSession;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.Map;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 public interface IdentityCacheMapping
 {
     IdentityCacheKey getRemoteUserCacheKey(ConnectorSession session);
@@ -57,6 +64,71 @@ public interface IdentityCacheMapping
             public boolean equals(Object obj)
             {
                 return obj instanceof SingletonIdentityCacheKey;
+            }
+        }
+    }
+
+    final class ExtraCredentialsBasedIdentityCacheMapping
+            implements IdentityCacheMapping
+    {
+        private final MessageDigest sha256;
+
+        public ExtraCredentialsBasedIdentityCacheMapping()
+        {
+            try {
+                sha256 = MessageDigest.getInstance("SHA-256");
+            }
+            catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public IdentityCacheKey getRemoteUserCacheKey(ConnectorSession session)
+        {
+            Map<String, String> extraCredentials = session.getIdentity().getExtraCredentials();
+            byte[] userHash = hash(session.getUser());
+            String token = extraCredentials.get(CredentialsConfig.OAUTH_TOKEN_KEY);
+            byte[] tokenHash = token == null ? new byte[0] : hash(token);
+            return new ExtraCredentialsBasedIdentityCacheKey(userHash, tokenHash);
+        }
+
+        private byte[] hash(String value)
+        {
+            return sha256.digest(value.getBytes(UTF_8));
+        }
+
+        private static final class ExtraCredentialsBasedIdentityCacheKey
+                extends IdentityCacheKey
+        {
+            private final byte[] userHash;
+            private final byte[] tokenHash;
+
+            public ExtraCredentialsBasedIdentityCacheKey(byte[] userHash, byte[] tokenHash)
+            {
+                this.userHash = userHash;
+                this.tokenHash = tokenHash;
+            }
+
+            @Override
+            public boolean equals(Object o)
+            {
+                if (this == o) {
+                    return true;
+                }
+                if (o == null || getClass() != o.getClass()) {
+                    return false;
+                }
+                ExtraCredentialsBasedIdentityCacheKey that = (ExtraCredentialsBasedIdentityCacheKey) o;
+                return Arrays.equals(userHash, that.userHash) && Arrays.equals(tokenHash, that.tokenHash);
+            }
+
+            @Override
+            public int hashCode()
+            {
+                int result = Arrays.hashCode(userHash);
+                result = 31 * result + Arrays.hashCode(tokenHash);
+                return result;
             }
         }
     }

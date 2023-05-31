@@ -24,10 +24,12 @@ import javax.validation.constraints.AssertTrue;
 import java.io.IOException;
 import java.util.Optional;
 
-public class StaticCredentialsConfig
+public class CredentialsConfig
 {
+    public static final String OAUTH_TOKEN_KEY = "bigquery.oauth";
     private Optional<String> credentialsKey = Optional.empty();
     private Optional<String> credentialsFile = Optional.empty();
+    private boolean useAccessToken;
 
     @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
@@ -56,7 +58,7 @@ public class StaticCredentialsConfig
     @Config("bigquery.credentials-key")
     @ConfigDescription("The base64 encoded credentials key")
     @ConfigSecuritySensitive
-    public StaticCredentialsConfig setCredentialsKey(String credentialsKey)
+    public CredentialsConfig setCredentialsKey(String credentialsKey)
     {
         this.credentialsKey = Optional.ofNullable(credentialsKey);
         return this;
@@ -69,9 +71,22 @@ public class StaticCredentialsConfig
 
     @Config("bigquery.credentials-file")
     @ConfigDescription("The path to the JSON credentials file")
-    public StaticCredentialsConfig setCredentialsFile(String credentialsFile)
+    public CredentialsConfig setCredentialsFile(String credentialsFile)
     {
         this.credentialsFile = Optional.ofNullable(credentialsFile);
+        return this;
+    }
+
+    public boolean isUseAccessToken()
+    {
+        return useAccessToken;
+    }
+
+    @Config("bigquery.use-access-token")
+    @ConfigDescription("Use client-provided OAuth token to access Google BigQuery")
+    public CredentialsConfig setUseAccessToken(boolean useAccessToken)
+    {
+        this.useAccessToken = useAccessToken;
         return this;
     }
 }

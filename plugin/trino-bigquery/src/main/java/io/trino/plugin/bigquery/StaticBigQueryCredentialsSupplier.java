@@ -34,7 +34,7 @@ public class StaticBigQueryCredentialsSupplier
     private final Supplier<Optional<Credentials>> credentialsCreator;
 
     @Inject
-    public StaticBigQueryCredentialsSupplier(StaticCredentialsConfig config)
+    public StaticBigQueryCredentialsSupplier(CredentialsConfig config)
     {
         // lazy creation, cache once it's created
         Optional<Credentials> credentialsKey = config.getCredentialsKey()

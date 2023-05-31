@@ -35,9 +35,10 @@ public class TestStaticCredentialsConfig
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(StaticCredentialsConfig.class)
+        assertRecordedDefaults(recordDefaults(CredentialsConfig.class)
                 .setCredentialsKey(null)
-                .setCredentialsFile(null));
+                .setCredentialsFile(null)
+                .setUseAccessToken(false));
     }
 
     @Test
@@ -46,7 +47,7 @@ public class TestStaticCredentialsConfig
         Map<String, String> properties = ImmutableMap.of("bigquery.credentials-key", "key");
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
+        CredentialsConfig config = configurationFactory.build(CredentialsConfig.class);
 
         assertEquals(config.getCredentialsKey(), Optional.of("key"));
         assertEquals(config.getCredentialsFile(), Optional.empty());
@@ -61,7 +62,7 @@ public class TestStaticCredentialsConfig
             Map<String, String> properties = ImmutableMap.of("bigquery.credentials-file", file.toString());
 
             ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-            StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
+            CredentialsConfig config = configurationFactory.build(CredentialsConfig.class);
 
             assertEquals(config.getCredentialsKey(), Optional.empty());
             assertEquals(config.getCredentialsFile(), Optional.of(file.toString()));
@@ -80,7 +81,7 @@ public class TestStaticCredentialsConfig
                 .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
-        assertThatThrownBy(() -> configurationFactory.build(StaticCredentialsConfig.class))
+        assertThatThrownBy(() -> configurationFactory.build(CredentialsConfig.class))
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified");
     }

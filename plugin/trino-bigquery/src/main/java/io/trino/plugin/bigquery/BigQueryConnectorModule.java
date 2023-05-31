@@ -47,7 +47,7 @@ public class BigQueryConnectorModule
     public void setup(Binder binder)
     {
         install(new ClientModule());
-        install(new StaticCredentialsModule());
+        install(new CredentialsModule());
     }
 
     public static class ClientModule
@@ -134,13 +134,13 @@ public class BigQueryConnectorModule
         }
     }
 
-    public static class StaticCredentialsModule
+    public static class CredentialsModule
             extends AbstractConfigurationAwareModule
     {
         @Override
         protected void setup(Binder binder)
         {
-            configBinder(binder).bindConfig(StaticCredentialsConfig.class);
+            configBinder(binder).bindConfig(CredentialsConfig.class);
             // SingletonIdentityCacheMapping is safe to use with StaticBigQueryCredentialsSupplier
             // as credentials do not depend on actual connector session.
             newOptionalBinder(binder, IdentityCacheMapping.class)
@@ -152,6 +152,17 @@ public class BigQueryConnectorModule
                     .setDefault()
                     .to(StaticBigQueryCredentialsSupplier.class)
                     .in(Scopes.SINGLETON);
+
+            if (buildConfigObject(CredentialsConfig.class).isUseAccessToken()) {
+                newOptionalBinder(binder, IdentityCacheMapping.class)
+                        .setBinding()
+                        .to(IdentityCacheMapping.ExtraCredentialsBasedIdentityCacheMapping.class)
+                        .in(Scopes.SINGLETON);
+                newOptionalBinder(binder, BigQueryCredentialsSupplier.class)
+                        .setBinding()
+                        .to(OAuthBigQueryCredentialsSupplier.class)
+                        .in(Scopes.SINGLETON);
+            }
         }
     }
 }
