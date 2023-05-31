@@ -19,7 +19,9 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
+import io.trino.metadata.TableHandle;
 import io.trino.server.DynamicFilterService;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
@@ -154,14 +156,15 @@ public class SplitSourceFactory
         @Override
         public Map<PlanNodeId, SplitSource> visitTableScan(TableScanNode node, Void context)
         {
-            return visitScanAndFilter(node, Optional.empty());
+            SplitSource splitSource = createSplitSource(node.getTable(), node.getAssignments(), Optional.empty());
+
+            splitSources.add(splitSource);
+
+            return ImmutableMap.of(node.getId(), splitSource);
         }
 
-        private Map<PlanNodeId, SplitSource> visitScanAndFilter(TableScanNode node, Optional<FilterNode> filter)
+        private SplitSource createSplitSource(TableHandle table, Map<Symbol, ColumnHandle> assignments, Optional<Expression> filterPredicate)
         {
-            Optional<Expression> filterPredicate = filter
-                    .map(FilterNode::getPredicate);
-
             List<DynamicFilters.Descriptor> dynamicFilters = filterPredicate
                     .map(DynamicFilters::extractDynamicFilters)
                     .map(DynamicFilters.ExtractResult::getDynamicConjuncts)
@@ -170,26 +173,22 @@ public class SplitSourceFactory
             DynamicFilter dynamicFilter = EMPTY;
             if (!dynamicFilters.isEmpty()) {
                 log.debug("Dynamic filters: %s", dynamicFilters);
-                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, node.getAssignments(), typeProvider);
+                dynamicFilter = dynamicFilterService.createDynamicFilter(session.getQueryId(), dynamicFilters, assignments, typeProvider);
             }
 
             Constraint constraint = filterPredicate
                     .map(predicate -> filterConjuncts(plannerContext.getMetadata(), predicate, expression -> !DynamicFilters.isDynamicFilter(expression)))
-                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, node.getAssignments(), predicate))
+                    .map(predicate -> new LayoutConstraintEvaluator(plannerContext, typeAnalyzer, session, typeProvider, assignments, predicate))
                     .map(evaluator -> new Constraint(TupleDomain.all(), evaluator::isCandidate, evaluator.getArguments())) // we are interested only in functional predicate here, so we set the summary to ALL.
                     .orElse(alwaysTrue());
 
             // get dataSource for table
-            SplitSource splitSource = splitManager.getSplits(
+            return splitManager.getSplits(
                     session,
                     stageSpan,
-                    node.getTable(),
+                    table,
                     dynamicFilter,
                     constraint);
-
-            splitSources.add(splitSource);
-
-            return ImmutableMap.of(node.getId(), splitSource);
         }
 
         @Override
@@ -255,7 +254,11 @@ public class SplitSourceFactory
         public Map<PlanNodeId, SplitSource> visitFilter(FilterNode node, Void context)
         {
             if (node.getSource() instanceof TableScanNode scan) {
-                return visitScanAndFilter(scan, Optional.of(node));
+                SplitSource splitSource = createSplitSource(scan.getTable(), scan.getAssignments(), Optional.of(node.getPredicate()));
+
+                splitSources.add(splitSource);
+
+                return ImmutableMap.of(scan.getId(), splitSource);
             }
 
             return node.getSource().accept(this, context);
