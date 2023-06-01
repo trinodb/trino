@@ -46,7 +46,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "query-manager.initialization-timeout",
         "fault-tolerant-execution-target-task-split-count",
         "fault-tolerant-execution-target-task-input-size",
-        "query.remote-task.max-consecutive-error-count"})
+        "query.remote-task.max-consecutive-error-count",
+        "query.remote-task.min-error-duration",
+})
 public class QueryManagerConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
@@ -373,19 +375,6 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
     {
         this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
-        return this;
-    }
-
-    @Deprecated
-    public Duration getRemoteTaskMinErrorDuration()
-    {
-        return remoteTaskMaxErrorDuration;
-    }
-
-    @Deprecated
-    @Config("query.remote-task.min-error-duration")
-    public QueryManagerConfig setRemoteTaskMinErrorDuration(Duration remoteTaskMinErrorDuration)
-    {
         return this;
     }
 
