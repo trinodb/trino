@@ -304,9 +304,11 @@ public final class DeltaLakeSchemaSupport
         fields.put("type", "struct");
         fields.put("fields", rowType.getFields().stream()
                 .map(field -> {
+                    String fieldName = field.getName()
+                            .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Anonymous row type is not supported in Delta Lake connector"));
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(field.getName().orElse(null), fieldType, null, null, metadata);
+                    return serializeStructField(fieldName, fieldType, null, null, metadata);
                 })
                 .collect(toImmutableList()));
 
