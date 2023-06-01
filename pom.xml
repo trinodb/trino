@@ -58,7 +58,7 @@
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>195</dep.tempto.version>
+        <dep.tempto.version>196</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.errorprone.version>2.19.1</dep.errorprone.version>
         <dep.testcontainers.version>1.18.0</dep.testcontainers.version>
