@@ -1070,6 +1070,14 @@
             </dependency>
 
             <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-sdk-bom</artifactId>
+                <type>pom</type>
+                <version>1.2.13</version>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>com.clearspring.analytics</groupId>
                 <artifactId>stream</artifactId>
                 <version>2.9.5</version>
