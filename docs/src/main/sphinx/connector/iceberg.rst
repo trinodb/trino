@@ -238,18 +238,20 @@ In order to use a Nessie catalog, ensure to configure the catalog type with
 ``iceberg.catalog.type=nessie`` and provide further details with the following
 properties:
 
-==================================================== ============================================================
-Property Name                                        Description
-==================================================== ============================================================
-``iceberg.nessie-catalog.uri``                       Nessie API endpoint URI (required).
-                                                     Example: ``https://localhost:19120/api/v1``
+.. list-table:: Nessie catalog configuration properties
+  :widths: 40, 60
+  :header-rows: 1
 
-``iceberg.nessie-catalog.ref``                       The branch/tag to use for Nessie, defaults to ``main``.
-
-``iceberg.nessie-catalog.default-warehouse-dir``     Default warehouse directory for schemas created without an
-                                                     explicit ``location`` property.
-                                                     Example: ``/tmp``
-==================================================== ============================================================
+  * - Property name
+    - Description
+  * - ``iceberg.nessie-catalog.uri``
+    - Nessie API endpoint URI (required).
+      Example: ``https://localhost:19120/api/v1``
+  * - ``iceberg.nessie-catalog.ref``
+    - The branch/tag to use for Nessie, defaults to ``main``.
+  * - ``iceberg.nessie-catalog.default-warehouse-dir``
+    - Default warehouse directory for schemas created without an explicit
+      ``location`` property. Example: ``/tmp``
 
 .. code-block:: text
 
