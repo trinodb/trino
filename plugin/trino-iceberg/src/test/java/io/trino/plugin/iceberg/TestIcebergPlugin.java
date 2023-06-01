@@ -288,6 +288,59 @@ public class TestIcebergPlugin
                 .shutdown();
     }
 
+    @Test
+    public void testNessieCatalogWithBearerAuth()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.uri", "http://foo:1234",
+                                "iceberg.nessie-catalog.authentication.type", "BEARER",
+                                "iceberg.nessie-catalog.authentication.token", "someToken"),
+                        new TestingConnectorContext())
+                .shutdown();
+    }
+
+    @Test
+    public void testNessieCatalogWithNoAuthAndAccessToken()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.uri", "nessieUri",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.authentication.token", "someToken"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured only with 'iceberg.nessie-catalog.authentication.type' BEARER");
+    }
+
+    @Test
+    public void testNessieCatalogWithNoAccessToken()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+
+        assertThatThrownBy(() -> factory.create(
+                        "test",
+                        Map.of(
+                                "iceberg.catalog.type", "nessie",
+                                "iceberg.nessie-catalog.uri", "nessieUri",
+                                "iceberg.nessie-catalog.default-warehouse-dir", "/tmp",
+                                "iceberg.nessie-catalog.authentication.type", "BEARER"),
+                        new TestingConnectorContext())
+                .shutdown())
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("'iceberg.nessie-catalog.authentication.token' must be configured with 'iceberg.nessie-catalog.authentication.type' BEARER");
+    }
+
     private static ConnectorFactory getConnectorFactory()
     {
         return getOnlyElement(new IcebergPlugin().getConnectorFactories());
