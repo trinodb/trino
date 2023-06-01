@@ -32,6 +32,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.text.DateFormat;
@@ -1649,6 +1650,73 @@ public abstract class BaseTestHiveOnDataLake
         assertThat(actualTableLocation).isEqualTo(tableLocation);
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "invalidObjectNames")
+    public void testCreateSchemaInvalidName(String schemaName)
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE SCHEMA \"" + schemaName + "\""))
+                .hasMessage(format("Invalid object name: '%s'", schemaName));
+    }
+
+    @DataProvider
+    public Object[][] invalidObjectNames()
+    {
+        return new Object[][] {
+                {"."},
+                {".."},
+                {"foo/bar"}};
+    }
+
+    @Test
+    public void testCreateTableInvalidName()
+    {
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\".\" (col integer)"))
+                .hasMessageContaining("Invalid table name");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"..\" (col integer)"))
+                .hasMessageContaining("Invalid table name");
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"...\" (col integer)"))
+                .hasMessage("Invalid table name");
+
+        for (String tableName : Arrays.asList("foo/bar", "foo/./bar", "foo/../bar")) {
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"" + tableName + "\" (col integer)"))
+                    .hasMessage(format("Invalid object name: '%s'", tableName));
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + HIVE_TEST_SCHEMA + ".\"" + tableName + "\" (col) AS VALUES 1"))
+                    .hasMessage(format("Invalid object name: '%s'", tableName));
+        }
+    }
+
+    @Test
+    public void testRenameSchemaToInvalidObjectName()
+    {
+        String schemaName = "test_rename_schema_invalid_name_" + randomNameSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        for (String invalidSchemaName : Arrays.asList(".", "..", "foo/bar")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER SCHEMA hive." + schemaName + " RENAME TO  \"" + invalidSchemaName + "\""))
+                    .hasMessage(format("Invalid object name: '%s'", invalidSchemaName));
+        }
+
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testRenameTableToInvalidObjectName()
+    {
+        String tableName = "test_rename_table_invalid_name_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (a_varchar varchar)".formatted(getFullyQualifiedTestTableName(tableName)));
+
+        for (String invalidTableName : Arrays.asList(".", "..", "foo/bar")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + getFullyQualifiedTestTableName(tableName) + " RENAME TO  \"" + invalidTableName + "\""))
+                    .hasMessage(format("Invalid object name: '%s'", invalidTableName));
+        }
+
+        for (String invalidSchemaName : Arrays.asList(".", "..", "foo/bar")) {
+            assertThatThrownBy(() -> assertUpdate("ALTER TABLE " + getFullyQualifiedTestTableName(tableName) + " RENAME TO  \"" + invalidSchemaName + "\".validTableName"))
+                    .hasMessage(format("Invalid object name: '%s'", invalidSchemaName));
+        }
+
+        assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
     }
 
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
