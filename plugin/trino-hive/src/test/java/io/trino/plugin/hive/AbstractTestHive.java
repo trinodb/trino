@@ -584,7 +584,7 @@ public abstract class AbstractTestHive
                             .filter(entry -> entry.getKey().hashCode() % 2 == 1)
                             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
-    private static final PartitionStatistics STATISTICS_2 =
+    protected static final PartitionStatistics STATISTICS_2 =
             new PartitionStatistics(
                     BASIC_STATISTICS_2.getBasicStatistics(),
                     ImmutableMap.<String, HiveColumnStatistics>builder()
@@ -605,7 +605,7 @@ public abstract class AbstractTestHive
                             .put("t_long_decimal", createDecimalColumnStatistics(Optional.of(new BigDecimal("71234567890123456.123")), Optional.of(new BigDecimal("78123456789012345.123")), OptionalLong.of(2), OptionalLong.of(1)))
                             .buildOrThrow());
 
-    private static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
+    protected static final PartitionStatistics STATISTICS_EMPTY_OPTIONAL_FIELDS =
             new PartitionStatistics(
                     new HiveBasicStatistics(OptionalLong.of(0), OptionalLong.of(20), OptionalLong.empty(), OptionalLong.of(0)),
                     ImmutableMap.<String, HiveColumnStatistics>builder()
@@ -4267,7 +4267,7 @@ public abstract class AbstractTestHive
 
                 // statistics
                 HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(tableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * (i + 1));
+                assertEquals(tableStatistics.getRowCount().orElse(0), CREATE_TABLE_DATA.getRowCount() * (i + 1));
                 assertEquals(tableStatistics.getFileCount().getAsLong(), i + 1L);
                 assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                 assertGreaterThan(tableStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
