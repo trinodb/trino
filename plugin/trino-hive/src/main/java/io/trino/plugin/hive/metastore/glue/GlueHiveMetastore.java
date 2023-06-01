@@ -116,6 +116,7 @@ import org.weakref.jmx.Managed;
 import javax.annotation.Nullable;
 
 import java.time.Duration;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -318,10 +319,24 @@ public class GlueHiveMetastore
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        return columnStatisticsProvider.getPartitionColumnStatistics(partitions).entrySet().stream()
+        Map<String, PartitionStatistics> partitionBasicStatistics = columnStatisticsProvider.getPartitionColumnStatistics(partitions).entrySet().stream()
                 .collect(toImmutableMap(
                         entry -> makePartitionName(table, entry.getKey()),
                         entry -> new PartitionStatistics(getHiveBasicStatistics(entry.getKey().getParameters()), entry.getValue())));
+
+        long tableRowCount = partitionBasicStatistics.values().stream()
+                .mapToLong(partitionStatistics -> partitionStatistics.getBasicStatistics().getRowCount().orElse(0))
+                .sum();
+        if (!partitionBasicStatistics.isEmpty() && tableRowCount == 0) {
+            // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+            // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+            // used to ingest data into partitioned hive tables.
+            partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
+                    .map(key -> new SimpleEntry<>(key, PartitionStatistics.empty()))
+                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
+        }
+
+        return partitionBasicStatistics;
     }
 
     @Override

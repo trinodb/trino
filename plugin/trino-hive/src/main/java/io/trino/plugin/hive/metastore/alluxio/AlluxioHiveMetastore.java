@@ -63,6 +63,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.AbstractMap.SimpleEntry;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -160,6 +161,18 @@ public class AlluxioHiveMetastore
                             partition -> getHiveBasicStatistics(partition.getParameters())));
             Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
+
+            long tableRowCount = partitionRowCounts.values().stream()
+                    .mapToLong(count -> count.orElse(0))
+                    .sum();
+            if (!partitionRowCounts.isEmpty() && tableRowCount == 0) {
+                // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+                // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+                // used to ingest data into partitioned hive tables.
+                partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
+                        .map(key -> new SimpleEntry<>(key, HiveBasicStatistics.createEmptyStatistics()))
+                        .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
+            }
 
             Map<String, List<ColumnStatisticsInfo>> colStatsMap = client.getPartitionColumnStatistics(table.getDatabaseName(), table.getTableName(),
                     ImmutableList.copyOf(partitionBasicStatistics.keySet()), dataColumns);
