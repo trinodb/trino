@@ -435,6 +435,12 @@ properties:
   * - ``iceberg.nessie-catalog.enable-compression``
     - Configure whether compression should be enabled or not for
       requests to the Nessie server. Defaults to ``true``.
+  * - ``iceberg.nessie-catalog.authentication.type``
+    - The authentication type to use.
+      Available value is ``BEARER``. Defaults to no authentication.
+  * - ``iceberg.nessie-catalog.authentication.token``
+    - The token to use with ``BEARER`` authentication.
+      Example: ``SXVLUXUhIExFQ0tFUiEK``
 ```
 
 ```text

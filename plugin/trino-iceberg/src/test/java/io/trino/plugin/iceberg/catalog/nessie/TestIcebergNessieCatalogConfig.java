@@ -39,7 +39,9 @@ public class TestIcebergNessieCatalogConfig
                 .setDefaultReferenceName("main")
                 .setCompressionEnabled(true)
                 .setConnectionTimeout(new Duration(DEFAULT_CONNECT_TIMEOUT_MILLIS, MILLISECONDS))
-                .setReadTimeout(new Duration(DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS)));
+                .setReadTimeout(new Duration(DEFAULT_READ_TIMEOUT_MILLIS, MILLISECONDS))
+                .setSecurity(null)
+                .setBearerToken(null));
     }
 
     @Test
@@ -52,6 +54,8 @@ public class TestIcebergNessieCatalogConfig
                 .put("iceberg.nessie-catalog.enable-compression", "false")
                 .put("iceberg.nessie-catalog.connection-timeout", "2s")
                 .put("iceberg.nessie-catalog.read-timeout", "5m")
+                .put("iceberg.nessie-catalog.authentication.type", "BEARER")
+                .put("iceberg.nessie-catalog.authentication.token", "bearerToken")
                 .buildOrThrow();
 
         IcebergNessieCatalogConfig expected = new IcebergNessieCatalogConfig()
@@ -60,7 +64,9 @@ public class TestIcebergNessieCatalogConfig
                 .setDefaultReferenceName("someRef")
                 .setCompressionEnabled(false)
                 .setConnectionTimeout(new Duration(2, TimeUnit.SECONDS))
-                .setReadTimeout(new Duration(5, TimeUnit.MINUTES));
+                .setReadTimeout(new Duration(5, TimeUnit.MINUTES))
+                .setSecurity(IcebergNessieCatalogConfig.Security.BEARER)
+                .setBearerToken("bearerToken");
 
         assertFullMapping(properties, expected);
     }
