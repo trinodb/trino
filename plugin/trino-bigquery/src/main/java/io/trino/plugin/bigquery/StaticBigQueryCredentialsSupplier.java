@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.api.client.util.Base64;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Supplier;
@@ -26,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Base64;
 import java.util.Optional;
 
 public class StaticBigQueryCredentialsSupplier
@@ -55,7 +55,7 @@ public class StaticBigQueryCredentialsSupplier
     private static Credentials createCredentialsFromKey(String key)
     {
         try {
-            return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.decodeBase64(key)));
+            return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.getDecoder().decode(key)));
         }
         catch (IOException e) {
             throw new UncheckedIOException("Failed to create Credentials from key", e);
