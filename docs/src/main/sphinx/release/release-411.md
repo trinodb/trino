@@ -122,17 +122,17 @@
 ## Oracle connector
 
 * Improve performance of queries when the network latency between Trino and
-  Oracle is high, or when selecting or when selecting a small number of rows. ({issue}`16644`)
+  Oracle is high, or when selecting a small number of columns. ({issue}`16644`)
 
 ## PostgreSQL connector
 
 * Improve performance of queries when the network latency between Trino and
-  PostgreSQL is high, or when selecting or when selecting a small number of rows. ({issue}`16644`)
+  PostgreSQL is high, or when selecting a small number of columns. ({issue}`16644`)
 
 ## Redshift connector
 
 * Improve performance of queries when the network latency between Trino and
-  Redshift is high, or when selecting or when selecting a small number of rows. ({issue}`16644`)
+  Redshift is high, or when selecting a small number of columns. ({issue}`16644`)
 
 ## SingleStore connector
 
