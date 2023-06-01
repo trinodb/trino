@@ -44,6 +44,7 @@ import org.joda.time.chrono.ISOChronology;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -94,6 +95,7 @@ public class MongoPageSource
     private final List<Type> columnTypes;
     private Document currentDoc;
     private boolean finished;
+    private long totalBytes;
 
     private final PageBuilder pageBuilder;
 
@@ -113,7 +115,7 @@ public class MongoPageSource
     @Override
     public long getCompletedBytes()
     {
-        return 0;
+        return totalBytes;
     }
 
     @Override
@@ -144,6 +146,7 @@ public class MongoPageSource
                 break;
             }
             currentDoc = cursor.next();
+            totalBytes += currentDoc.toJson().getBytes(StandardCharsets.UTF_8).length;
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
