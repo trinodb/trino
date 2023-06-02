@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -122,12 +123,14 @@ public final class HiveQueryRunner
             super(defaultSession);
         }
 
+        @CanIgnoreReturnValue
         public SELF setSkipTimezoneSetup(boolean skipTimezoneSetup)
         {
             this.skipTimezoneSetup = skipTimezoneSetup;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setHiveProperties(Map<String, String> hiveProperties)
         {
             this.hiveProperties = ImmutableMap.<String, String>builder()
@@ -135,72 +138,84 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF addHiveProperty(String key, String value)
         {
             this.hiveProperties.put(key, value);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialTables(Iterable<TpchTable<?>> initialTables)
         {
             this.initialTables = ImmutableList.copyOf(requireNonNull(initialTables, "initialTables is null"));
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialSchemasLocationBase(String initialSchemasLocationBase)
         {
             this.initialSchemasLocationBase = Optional.of(initialSchemasLocationBase);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setInitialTablesSessionMutator(Function<Session, Session> initialTablesSessionMutator)
         {
             this.initialTablesSessionMutator = requireNonNull(initialTablesSessionMutator, "initialTablesSessionMutator is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = requireNonNull(metastore, "metastore is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setModule(Module module)
         {
             this.module = requireNonNull(module, "module is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setDirectoryLister(DirectoryLister directoryLister)
         {
             this.directoryLister = Optional.ofNullable(directoryLister);
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpcdsCatalogEnabled(boolean tpcdsCatalogEnabled)
         {
             this.tpcdsCatalogEnabled = tpcdsCatalogEnabled;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpchBucketedCatalogEnabled(boolean tpchBucketedCatalogEnabled)
         {
             this.tpchBucketedCatalogEnabled = tpchBucketedCatalogEnabled;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setCreateTpchSchemas(boolean createTpchSchemas)
         {
             this.createTpchSchemas = createTpchSchemas;
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
         {
             this.tpchColumnNaming = requireNonNull(tpchColumnNaming, "tpchColumnNaming is null");
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF setTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
         {
             this.tpchDecimalTypeMapping = requireNonNull(tpchDecimalTypeMapping, "tpchDecimalTypeMapping is null");
