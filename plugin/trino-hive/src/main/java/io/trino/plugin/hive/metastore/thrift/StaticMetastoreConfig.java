@@ -14,8 +14,12 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.inject.ConfigurationException;
+import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotNull;
 
 import java.net.URI;
@@ -66,5 +70,20 @@ public class StaticMetastoreConfig
     {
         this.metastoreUsername = metastoreUsername;
         return this;
+    }
+
+    @PostConstruct
+    public void checkConfig()
+    {
+        boolean hasHttpMetastore = metastoreUris.stream().anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
+        boolean hasHttpsMetastore = metastoreUris.stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
+        boolean hasThriftMetastore = metastoreUris.stream().anyMatch(uri -> "thrift".equalsIgnoreCase(uri.getScheme()));
+
+        if (hasHttpsMetastore && hasHttpMetastore) {
+            throw new ConfigurationException(ImmutableList.of(new Message("'hive.metastore.uri' cannot contain both http and https URI schemes")));
+        }
+        if (hasThriftMetastore && (hasHttpMetastore || hasHttpsMetastore)) {
+            throw new ConfigurationException(ImmutableList.of(new Message("'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes")));
+        }
     }
 }
