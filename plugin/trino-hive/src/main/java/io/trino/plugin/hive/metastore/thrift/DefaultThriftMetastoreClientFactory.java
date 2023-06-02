@@ -25,12 +25,15 @@ import javax.net.ssl.SSLContext;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static java.lang.Math.toIntExact;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultThriftMetastoreClientFactory
@@ -89,10 +92,17 @@ public class DefaultThriftMetastoreClientFactory
     }
 
     @Override
-    public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
             throws TTransportException
     {
-        return create(() -> createTransport(address, delegationToken), hostname);
+        return create(() -> getTransportSupplier(uri, delegationToken), hostname);
+    }
+
+    private TTransport getTransportSupplier(URI uri, Optional<String> delegationToken)
+            throws TTransportException
+    {
+        checkArgument(uri.getScheme().toLowerCase(ENGLISH).equals("thrift"), "Invalid metastore uri scheme %s", uri.getScheme());
+        return createTransport(HostAndPort.fromParts(uri.getHost(), uri.getPort()), delegationToken);
     }
 
     protected ThriftMetastoreClient create(TransportSupplier transportSupplier, String hostname)

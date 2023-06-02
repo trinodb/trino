@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.hive;
 
-import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.airlift.units.Duration;
@@ -50,8 +49,6 @@ public final class TestHiveMetastoreClientFactory
             throws TException
     {
         URI metastore = URI.create("thrift://" + metastoreHost + ":" + metastorePort);
-        return thriftMetastoreClientFactory.create(
-                HostAndPort.fromParts(metastore.getHost(), metastore.getPort()),
-                Optional.empty());
+        return thriftMetastoreClientFactory.create(metastore, Optional.empty());
     }
 }

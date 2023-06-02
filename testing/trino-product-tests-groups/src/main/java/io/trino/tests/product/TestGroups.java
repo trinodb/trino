@@ -91,6 +91,7 @@ public final class TestGroups
     public static final String DELTA_LAKE_DATABRICKS_104 = "delta-lake-databricks-104";
     public static final String DELTA_LAKE_DATABRICKS_113 = "delta-lake-databricks-113";
     public static final String DELTA_LAKE_DATABRICKS_122 = "delta-lake-databricks-122";
+    public static final String DATABRICKS_UNITY_HTTP_HMS = "databricks-unity-http-hms";
     public static final String DELTA_LAKE_EXCLUDE_91 = "delta-lake-exclude-91";
     public static final String DELTA_LAKE_ALLUXIO_CACHING = "delta-lake-alluxio-caching";
     public static final String HUDI = "hudi";

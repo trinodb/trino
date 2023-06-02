@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.net.HostAndPort;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -28,6 +27,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
+import java.net.URI;
 import java.util.Locale;
 import java.util.Map;
 
@@ -76,7 +76,7 @@ public final class S3HiveQueryRunner
     public static class Builder
             extends HiveQueryRunner.Builder<Builder>
     {
-        private HostAndPort hiveMetastoreEndpoint;
+        private URI hiveMetastoreEndpoint;
         private Duration thriftMetastoreTimeout = TestingTokenAwareMetastoreClientFactory.TIMEOUT;
         private ThriftMetastoreConfig thriftMetastoreConfig = new ThriftMetastoreConfig();
         private String s3Region;
@@ -86,7 +86,7 @@ public final class S3HiveQueryRunner
         private String bucketName;
 
         @CanIgnoreReturnValue
-        public Builder setHiveMetastoreEndpoint(HostAndPort hiveMetastoreEndpoint)
+        public Builder setHiveMetastoreEndpoint(URI hiveMetastoreEndpoint)
         {
             this.hiveMetastoreEndpoint = requireNonNull(hiveMetastoreEndpoint, "hiveMetastoreEndpoint is null");
             return this;
