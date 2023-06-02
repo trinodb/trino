@@ -38,16 +38,15 @@ import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificRecordBase;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,6 +59,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.files.FSUtils.LOG_FILE_PATTERN;
 import static io.trino.plugin.hudi.files.FSUtils.getPartitionLocation;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.groupingBy;
 
 public class HudiTableFileSystemView
@@ -80,7 +80,7 @@ public class HudiTableFileSystemView
     private Map<String, List<HudiFileGroup>> partitionToFileGroupsMap;
     private HudiTableMetaClient metaClient;
 
-    private Map<HudiFileGroupId, ImmutablePair<String, CompactionOperation>> fgIdToPendingCompaction;
+    private Map<HudiFileGroupId, Entry<String, CompactionOperation>> fgIdToPendingCompaction;
 
     private HudiTimeline visibleCommitsAndCompactionTimeline;
 
@@ -94,16 +94,16 @@ public class HudiTableFileSystemView
         resetFileGroupsReplaced(visibleCommitsAndCompactionTimeline);
         resetPendingCompactionOperations(getAllPendingCompactionOperations(metaClient)
                 .values().stream()
-                .map(pair -> ImmutablePair.of(pair.getKey(), CompactionOperation.convertFromAvroRecordInstance(pair.getValue()))));
+                .map(pair -> Map.entry(pair.getKey(), CompactionOperation.convertFromAvroRecordInstance(pair.getValue()))));
     }
 
-    private static Map<HudiFileGroupId, ImmutablePair<String, HudiCompactionOperation>> getAllPendingCompactionOperations(
+    private static Map<HudiFileGroupId, Entry<String, HudiCompactionOperation>> getAllPendingCompactionOperations(
             HudiTableMetaClient metaClient)
     {
-        List<ImmutablePair<HudiInstant, HudiCompactionPlan>> pendingCompactionPlanWithInstants =
+        List<Entry<HudiInstant, HudiCompactionPlan>> pendingCompactionPlanWithInstants =
                 getAllPendingCompactionPlans(metaClient);
 
-        Map<HudiFileGroupId, ImmutablePair<String, HudiCompactionOperation>> fgIdToPendingCompactionWithInstantMap = new HashMap<>();
+        Map<HudiFileGroupId, Entry<String, HudiCompactionOperation>> fgIdToPendingCompactionWithInstantMap = new HashMap<>();
         pendingCompactionPlanWithInstants.stream()
                 .flatMap(instantPlanPair -> getPendingCompactionOperations(instantPlanPair.getKey(), instantPlanPair.getValue()))
                 .forEach(pair -> {
@@ -122,7 +122,7 @@ public class HudiTableFileSystemView
         return fgIdToPendingCompactionWithInstantMap;
     }
 
-    private static List<ImmutablePair<HudiInstant, HudiCompactionPlan>> getAllPendingCompactionPlans(
+    private static List<Entry<HudiInstant, HudiCompactionPlan>> getAllPendingCompactionPlans(
             HudiTableMetaClient metaClient)
     {
         List<HudiInstant> pendingCompactionInstants =
@@ -133,7 +133,7 @@ public class HudiTableFileSystemView
         return pendingCompactionInstants.stream()
                 .map(instant -> {
                     try {
-                        return ImmutablePair.of(instant, getCompactionPlan(metaClient, instant.getTimestamp()));
+                        return Map.entry(instant, getCompactionPlan(metaClient, instant.getTimestamp()));
                     }
                     catch (IOException e) {
                         throw new TrinoException(HUDI_BAD_DATA, e);
@@ -185,27 +185,23 @@ public class HudiTableFileSystemView
         return fileReader.next();
     }
 
-    private static Stream<ImmutablePair<HudiFileGroupId, ImmutablePair<String, HudiCompactionOperation>>> getPendingCompactionOperations(
+    private static Stream<Entry<HudiFileGroupId, Entry<String, HudiCompactionOperation>>> getPendingCompactionOperations(
             HudiInstant instant, HudiCompactionPlan compactionPlan)
     {
         List<HudiCompactionOperation> ops = compactionPlan.getOperations();
         if (null != ops) {
-            return ops.stream()
-                    .map(op ->
-                            ImmutablePair.of(
-                                    new HudiFileGroupId(op.getPartitionPath(), op.getFileId()),
-                                    ImmutablePair.of(instant.getTimestamp(), op)));
+            return ops.stream().map(op -> Map.entry(
+                    new HudiFileGroupId(op.getPartitionPath(), op.getFileId()),
+                    Map.entry(instant.getTimestamp(), op)));
         }
         return Stream.empty();
     }
 
-    private void resetPendingCompactionOperations(Stream<ImmutablePair<String, CompactionOperation>> operations)
+    private void resetPendingCompactionOperations(Stream<Entry<String, CompactionOperation>> operations)
     {
-        this.fgIdToPendingCompaction = operations
-                .map(entry -> ImmutablePair.of(
-                        entry.getValue().getFileGroupId(),
-                        ImmutablePair.of(entry.getKey(), entry.getValue())))
-                .collect(toImmutableMap(ImmutablePair::getKey, ImmutablePair::getValue));
+        this.fgIdToPendingCompaction = operations.collect(toImmutableMap(
+                entry -> entry.getValue().getFileGroupId(),
+                identity()));
     }
 
     private void resetFileGroupsReplaced(HudiTimeline timeline)
@@ -221,14 +217,15 @@ public class HudiTableFileSystemView
                                 HudiReplaceCommitMetadata.class);
 
                         // get replace instant mapping for each partition, fileId
-                        return replaceMetadata.getPartitionToReplaceFileIds().entrySet().stream().flatMap(entry -> entry.getValue().stream().map(e ->
-                                new AbstractMap.SimpleEntry<>(new HudiFileGroupId(entry.getKey(), e), instant)));
+                        return replaceMetadata.getPartitionToReplaceFileIds().entrySet().stream()
+                                .flatMap(entry -> entry.getValue().stream().map(fileId ->
+                                        Map.entry(new HudiFileGroupId(entry.getKey(), fileId), instant)));
                     }
                     catch (IOException e) {
                         throw new TrinoException(HUDI_BAD_DATA, "error reading commit metadata for " + instant);
                     }
                 })
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
         fgIdToReplaceInstants = new ConcurrentHashMap<>(replacedFileGroups);
     }
 
@@ -348,19 +345,19 @@ public class HudiTableFileSystemView
             HudiTimeline timeline,
             boolean addPendingCompactionFileSlice)
     {
-        Map<ImmutablePair<String, String>, List<HudiBaseFile>> baseFiles = baseFileStream
+        Map<Entry<String, String>, List<HudiBaseFile>> baseFiles = baseFileStream
                 .collect(groupingBy(baseFile -> {
                     String partitionPathStr = getPartitionPathFor(baseFile);
-                    return ImmutablePair.of(partitionPathStr, baseFile.getFileId());
+                    return Map.entry(partitionPathStr, baseFile.getFileId());
                 }));
 
-        Map<ImmutablePair<String, String>, List<HudiLogFile>> logFiles = logFileStream
+        Map<Entry<String, String>, List<HudiLogFile>> logFiles = logFileStream
                 .collect(groupingBy((logFile) -> {
                     String partitionPathStr = getRelativePartitionPath(metaClient.getBasePath(), logFile.getPath().parentDirectory());
-                    return ImmutablePair.of(partitionPathStr, logFile.getFileId());
+                    return Map.entry(partitionPathStr, logFile.getFileId());
                 }));
 
-        Set<ImmutablePair<String, String>> fileIdSet = new HashSet<>(baseFiles.keySet());
+        Set<Entry<String, String>> fileIdSet = new HashSet<>(baseFiles.keySet());
         fileIdSet.addAll(logFiles.keySet());
 
         List<HudiFileGroup> fileGroups = new ArrayList<>();
@@ -376,12 +373,12 @@ public class HudiTableFileSystemView
             }
 
             if (addPendingCompactionFileSlice) {
-                Optional<ImmutablePair<String, CompactionOperation>> pendingCompaction =
+                Optional<Entry<String, CompactionOperation>> pendingCompaction =
                         getPendingCompactionOperationWithInstant(group.getFileGroupId());
                 // If there is no delta-commit after compaction request, this step would ensure a new file-slice appears
                 // so that any new ingestion uses the correct base-instant
-                pendingCompaction.ifPresent(stringCompactionOperationImmutablePair ->
-                        group.addNewFileSliceAtInstant(stringCompactionOperationImmutablePair.getKey()));
+                pendingCompaction.ifPresent(entry ->
+                        group.addNewFileSliceAtInstant(entry.getKey()));
             }
             fileGroups.add(group);
         });
@@ -410,7 +407,7 @@ public class HudiTableFileSystemView
         return fullPartitionPathStr.substring(partitionStartIndex + basePath.fileName().length() + 1);
     }
 
-    protected Optional<ImmutablePair<String, CompactionOperation>> getPendingCompactionOperationWithInstant(HudiFileGroupId fgId)
+    protected Optional<Entry<String, CompactionOperation>> getPendingCompactionOperationWithInstant(HudiFileGroupId fgId)
     {
         return Optional.ofNullable(fgIdToPendingCompaction.get(fgId));
     }
@@ -426,7 +423,7 @@ public class HudiTableFileSystemView
     {
         return fetchAllStoredFileGroups(partitionPath)
                 .filter(filGroup -> !isFileGroupReplaced(filGroup.getFileGroupId()))
-                .map(filGroup -> ImmutablePair.of(filGroup.getFileGroupId(), getLatestBaseFile(filGroup)))
+                .map(filGroup -> Map.entry(filGroup.getFileGroupId(), getLatestBaseFile(filGroup)))
                 .filter(pair -> pair.getValue().isPresent())
                 .map(pair -> pair.getValue().get());
     }
@@ -453,7 +450,7 @@ public class HudiTableFileSystemView
     {
         final String partitionPath = getPartitionPathFor(baseFile);
 
-        Optional<ImmutablePair<String, CompactionOperation>> compactionWithInstantTime =
+        Optional<Entry<String, CompactionOperation>> compactionWithInstantTime =
                 getPendingCompactionOperationWithInstant(new HudiFileGroupId(partitionPath, baseFile.getFileId()));
         return (compactionWithInstantTime.isPresent()) && (null != compactionWithInstantTime.get().getKey())
                 && baseFile.getCommitTime().equals(compactionWithInstantTime.get().getKey());
