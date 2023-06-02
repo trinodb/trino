@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.net.HostAndPort;
 import org.apache.thrift.transport.TTransportException;
 
 import java.net.URI;
@@ -26,27 +25,20 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 public class MockThriftMetastoreClientFactory
         implements ThriftMetastoreClientFactory
 {
-    private final Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
+    private final Map<URI, Optional<ThriftMetastoreClient>> clients;
 
     public MockThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
     {
         this.clients = clients.entrySet().stream()
-                .collect(toImmutableMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
+                .collect(toImmutableMap(entry -> URI.create(entry.getKey()), Map.Entry::getValue));
     }
 
     @Override
-    public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
             throws TTransportException
     {
         checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
-        return clients.getOrDefault(address, Optional.empty())
+        return clients.getOrDefault(uri, Optional.empty())
                 .orElseThrow(() -> new TTransportException(TTransportException.TIMED_OUT));
-    }
-
-    private static HostAndPort createHostAndPort(String url)
-    {
-        URI uri = URI.create(url);
-        checkArgument("thrift".equals(uri.getScheme()), "Invalid URL: %s", url);
-        return HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 }

@@ -26,6 +26,7 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.TokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.UgiBasedMetastoreClientFactory;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -49,7 +50,16 @@ public final class TestingThriftHiveMetastoreBuilder
 
     private TestingThriftHiveMetastoreBuilder() {}
 
-    public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address, Duration timeout)
+    public TestingThriftHiveMetastoreBuilder metastoreClient(URI metastoreUri)
+    {
+        requireNonNull(metastoreUri, "metastoreUri is null");
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(
+                HiveTestUtils.SOCKS_PROXY, metastoreUri);
+        return this;
+    }
+
+    public TestingThriftHiveMetastoreBuilder metastoreClient(URI address, Duration timeout)
     {
         requireNonNull(address, "address is null");
         requireNonNull(timeout, "timeout is null");
@@ -61,9 +71,7 @@ public final class TestingThriftHiveMetastoreBuilder
     public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address)
     {
         requireNonNull(address, "address is null");
-        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
-        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address);
-        return this;
+        return metastoreClient(URI.create("thrift://" + address.getHost() + ":" + address.getPort()));
     }
 
     public TestingThriftHiveMetastoreBuilder metastoreClient(ThriftMetastoreClient client)

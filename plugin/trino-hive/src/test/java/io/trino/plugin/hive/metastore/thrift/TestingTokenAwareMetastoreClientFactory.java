@@ -17,6 +17,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import org.apache.thrift.TException;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -29,16 +30,16 @@ public class TestingTokenAwareMetastoreClientFactory
     public static final Duration TIMEOUT = new Duration(20, SECONDS);
 
     private final DefaultThriftMetastoreClientFactory factory;
-    private final HostAndPort address;
+    private final URI address;
 
-    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address)
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI address)
     {
         this(socksProxy, address, TIMEOUT);
     }
 
-    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, HostAndPort address, Duration timeout)
+    public TestingTokenAwareMetastoreClientFactory(Optional<HostAndPort> socksProxy, URI address, Duration timeout)
     {
-        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost");
+        this.factory = new DefaultThriftMetastoreClientFactory(Optional.empty(), socksProxy, timeout, timeout, AUTHENTICATION, "localhost", Optional.empty());
         this.address = requireNonNull(address, "address is null");
     }
 
