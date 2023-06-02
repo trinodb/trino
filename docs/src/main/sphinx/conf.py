@@ -113,6 +113,9 @@ global_replacements = {
     "|trino_version|" : version
 }
 
+myst_enable_extensions = [
+    "colon_fence",
+]
 
 # -- Options for HTML output ---------------------------------------------------
 
