@@ -99,9 +99,10 @@ properties:
    * - ``hive.metastore.uri``
      - The URIs of the Hive metastore to connect to using the Thrift protocol.
        If a comma-separated list of URIs is provided, the first URI is used by
-       default, and the rest of the URIs are fallback metastores. This property
-       is required. Example: ``thrift://192.0.2.3:9083`` or
-       ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+       default, and the rest of the URIs are fallback metastores. To use http
+       based thrift server the url must have scheme ``http`` or ``https``.
+       This property is required. Example: ``thrift://192.0.2.3:9083`` or
+       ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083,https://192.0.3.4:443``
      -
    * - ``hive.metastore.username``
      - The username Trino uses to access the Hive metastore.
@@ -190,6 +191,26 @@ properties:
    * - ``hive.metastore.thrift.txn-lock-max-wait``
      - Maximum time to wait to acquire hive transaction lock.
      - ``10m``
+   * - ``hive.metastore.http.client.bearer-token``
+     - Bearer token used to authenticate with the metastore service
+       when https transport mode is used. This must not be set when
+       using http url.
+     -
+   * - ``hive.metastore.http.client.additional-headers``
+     - Additional headers which can be sent to the metastore service
+       http thrift requests when using the http transport mode. These
+       headers must be comma-separated and delimited using ``:``. E.g
+       header1:value1,header2:value2 sends two headers header1 and
+       header2 with their values as value1 and value2 respectively.
+       If you need to use a comma(``,``) or colon(``:``) in a header name
+       or value, escape it using a backslash (``\``).
+     -
+   * - ``hive.metastore.http.client.authentication.type``
+     - The authentication type to be used for the http metastore client.
+       Currently, the only supported type is ``BEARER``. When set to ``BEARER``
+       the token configured in ``hive.metastore.http.client.bearer-token``
+       is used to authenticate the client to the http metastore service.
+     -
 ```
 
 (hive-glue-metastore)=

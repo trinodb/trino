@@ -95,7 +95,7 @@ public class TestIcebergGcsConnectorSmokeTest
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "hive_metastore")
                         .put("hive.gcs.json-key", gcpCredentials)
-                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
                         .put("iceberg.writer-sort-buffer-size", "1MB")

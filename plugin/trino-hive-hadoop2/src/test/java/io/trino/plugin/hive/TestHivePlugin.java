@@ -376,6 +376,120 @@ public class TestHivePlugin
         connector.shutdown();
     }
 
+    @Test
+    public void testHttpMetastoreConfigs()
+    {
+        ConnectorFactory connectorFactory = getHiveConnectorFactory();
+
+        Connector connector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .buildOrThrow(),
+                new TestingConnectorContext());
+        connector.shutdown();
+
+        Connector httpConnector = connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "http://localhost:443")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .buildOrThrow(),
+                new TestingConnectorContext());
+        httpConnector.shutdown();
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "http://localhost:443")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "http://localhost:443, https://localhost:443")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.uri' cannot contain both http and https URI schemes");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "http://localhost:443, thrift://localhost:443")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.uri' cannot contain both http(s) and thrift URI schemes");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .put("hive.metastore.thrift.impersonation.enabled", "true")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.thrift.impersonation.enabled' is not supported when using http/https metastore URIs in 'hive.metastore.uri'");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .put("hive.metastore.username", "test")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.username' is not supported when using http/https metastore URIs in 'hive.metastore.uri'");
+
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.metastore.uri", "https://localhost:443")
+                        .put("hive.metastore.http.client.bearer-token", "token")
+                        .put("hive.metastore.http.client.additional-headers", "key:value")
+                        .put("hive.metastore.http.client.authentication.type", "BEARER")
+                        .put("hive.metastore.thrift.client.socks-proxy", "localhost:10000")
+                        .buildOrThrow(),
+                new TestingConnectorContext()))
+                .hasMessageContaining("'hive.metastore.thrift.client.socks-proxy' is not supported when using http/https metastore URIs in 'hive.metastore.uri'");
+    }
+
     private static ConnectorFactory getHiveConnectorFactory()
     {
         Plugin plugin = new HivePlugin();
