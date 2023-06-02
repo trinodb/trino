@@ -108,7 +108,6 @@ public final class HiveQueryRunner
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
         private boolean tpchBucketedCatalogEnabled;
-        private String security = SQL_STANDARD;
         private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
@@ -190,12 +189,6 @@ public final class HiveQueryRunner
             return self();
         }
 
-        public SELF setSecurity(String security)
-        {
-            this.security = requireNonNull(security, "security is null");
-            return self();
-        }
-
         public SELF setCreateTpchSchemas(boolean createTpchSchemas)
         {
             this.createTpchSchemas = createTpchSchemas;
@@ -246,7 +239,7 @@ public final class HiveQueryRunner
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
                 hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
-                hiveProperties.put("hive.security", security);
+                hiveProperties.put("hive.security", SQL_STANDARD);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
                 if (tpchBucketedCatalogEnabled) {
@@ -401,12 +394,12 @@ public final class HiveQueryRunner
 
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
                 .setHiveProperties(ImmutableMap.of())
                 .setInitialTables(TpchTable.getTables())
                 .setBaseDataDir(baseDataDir)
                 .setTpcdsCatalogEnabled(true)
-                .setSecurity(ALLOW_ALL)
                 // Uncomment to enable standard column naming (column names to be prefixed with the first letter of the table name, e.g.: o_orderkey vs orderkey)
                 // and standard column types (decimals vs double for some columns). This will allow running unmodified tpch queries on the cluster.
                 //.setTpchColumnNaming(ColumnNaming.STANDARD)
