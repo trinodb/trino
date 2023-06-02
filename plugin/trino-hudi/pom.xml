@@ -116,12 +116,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.linkedin.calcite</groupId>
-            <artifactId>calcite-core</artifactId>
-            <classifier>shaded</classifier>
-        </dependency>
-
-        <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
         </dependency>
