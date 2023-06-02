@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi.timeline;
 
 import io.trino.plugin.hudi.model.HudiInstant;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -53,7 +52,7 @@ public abstract class TimelineLayout
         @Override
         public Stream<HudiInstant> filterHoodieInstants(Stream<HudiInstant> instantStream)
         {
-            return instantStream.collect(Collectors.groupingBy(instant -> ImmutablePair.of(instant.getTimestamp(),
+            return instantStream.collect(Collectors.groupingBy(instant -> Map.entry(instant.getTimestamp(),
                             HudiInstant.getComparableAction(instant.getAction()))))
                     .values()
                     .stream()
