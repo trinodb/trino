@@ -222,6 +222,22 @@
                                         <match>@io.trino.spi.Unstable *;</match>
                                     </old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>
+                                        <matcher>java</matcher>
+                                        <match>@io.trino.spi.Unstable *;</match>
+                                    </old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.lang.String io.trino.spi.eventlistener.SplitCompletedEvent::getPayload()</old>
+                                    <new>method java.util.Optional&lt;java.lang.String&gt; io.trino.spi.eventlistener.SplitCompletedEvent::getPayload()</new>
+                                    <justification>The class is marked @Unstable</justification>
+                                </item>
+
                                 <!-- Allow removing things that were previously deprecated -->
                                 <item>
                                     <regex>true</regex>
