@@ -206,7 +206,7 @@ public final class HiveTestUtils
                 .add(new RegexPageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
-                .add(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, fileSystemFactory, stats, hiveConfig))
+                .add(new RcFilePageSourceFactory(fileSystemFactory, stats, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
