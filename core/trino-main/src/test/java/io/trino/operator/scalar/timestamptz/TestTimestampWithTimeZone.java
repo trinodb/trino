@@ -402,7 +402,7 @@ public class TestTimestampWithTimeZone
                 .hasType(createTimestampWithTimeZoneType(0))
                 .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 3, 4, 0, 0, getTimeZoneKey("+07:09")));
 
-        assertThat(assertions.expression("TIMESTAMP '2001-1-2+07:09'"))
+        assertThat(assertions.expression("TIMESTAMP '2001-1-2 +07:09'"))
                 .hasType(createTimestampWithTimeZoneType(0))
                 .isEqualTo(timestampWithTimeZone(0, 2001, 1, 2, 0, 0, 0, 0, getTimeZoneKey("+07:09")));
 
@@ -434,6 +434,11 @@ public class TestTimestampWithTimeZone
         assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '-123001-01-02 03:04:05.321 Europe/Berlin'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
                 .hasMessage("line 1:12: '-123001-01-02 03:04:05.321 Europe/Berlin' is not a valid TIMESTAMP literal");
+
+        // missing space after day
+        assertTrinoExceptionThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01-12'").evaluate())
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:12: '2020-13-01-12' is not a valid TIMESTAMP literal");
     }
 
     @Test
