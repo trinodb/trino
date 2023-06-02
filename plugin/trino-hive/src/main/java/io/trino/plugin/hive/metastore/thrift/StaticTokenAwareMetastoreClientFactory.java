@@ -76,8 +76,7 @@ public class StaticTokenAwareMetastoreClientFactory
         checkArgument(!metastoreUris.isEmpty(), "metastoreUris must specify at least one URI");
         this.backoffs = metastoreUris.stream()
                 .map(StaticTokenAwareMetastoreClientFactory::checkMetastoreUri)
-                .map(uri -> HostAndPort.fromParts(uri.getHost(), uri.getPort()))
-                .map(address -> new Backoff(address, ticker))
+                .map(uri -> new Backoff(uri, ticker))
                 .collect(toImmutableList());
 
         this.metastoreUsername = metastoreUsername;
@@ -105,7 +104,7 @@ public class StaticTokenAwareMetastoreClientFactory
         TException lastException = null;
         for (Backoff backoff : backoffsSorted) {
             try {
-                return getClient(backoff.getAddress(), backoff, delegationToken);
+                return getClient(backoff.getUri(), backoff, delegationToken);
             }
             catch (TException e) {
                 lastException = e;
@@ -116,10 +115,10 @@ public class StaticTokenAwareMetastoreClientFactory
         throw new TException("Failed connecting to Hive metastore: " + addresses, lastException);
     }
 
-    private ThriftMetastoreClient getClient(HostAndPort address, Backoff backoff, Optional<String> delegationToken)
+    private ThriftMetastoreClient getClient(URI uri, Backoff backoff, Optional<String> delegationToken)
             throws TException
     {
-        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(address, delegationToken), new Callback()
+        ThriftMetastoreClient client = new FailureAwareThriftMetastoreClient(clientFactory.create(uri, delegationToken), new Callback()
         {
             @Override
             public void success()
@@ -144,9 +143,9 @@ public class StaticTokenAwareMetastoreClientFactory
         requireNonNull(uri, "uri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
-        checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);
+        checkArgument(scheme.equals("thrift") || scheme.equals("https") || scheme.equals("http"), "metastoreUri scheme must be thrift, http or https: %s", uri);
         checkArgument(uri.getHost() != null, "metastoreUri host is missing: %s", uri);
-        checkArgument(uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
+        checkArgument(scheme.equals("https") || scheme.equals("http") || uri.getPort() != -1, "metastoreUri port is missing: %s", uri);
         return uri;
     }
 
@@ -156,20 +155,25 @@ public class StaticTokenAwareMetastoreClientFactory
         static final long MIN_BACKOFF = new Duration(50, MILLISECONDS).roundTo(NANOSECONDS);
         static final long MAX_BACKOFF = new Duration(60, SECONDS).roundTo(NANOSECONDS);
 
-        private final HostAndPort address;
+        private final URI uri;
         private final Ticker ticker;
         private long backoffDuration = MIN_BACKOFF;
         private OptionalLong lastFailureTimestamp = OptionalLong.empty();
 
-        Backoff(HostAndPort address, Ticker ticker)
+        Backoff(URI uri, Ticker ticker)
         {
-            this.address = requireNonNull(address, "address is null");
+            this.uri = requireNonNull(uri, "uri is null");
             this.ticker = requireNonNull(ticker, "ticker is null");
         }
 
         public HostAndPort getAddress()
         {
-            return address;
+            return HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        }
+
+        public URI getUri()
+        {
+            return uri;
         }
 
         synchronized void fail()

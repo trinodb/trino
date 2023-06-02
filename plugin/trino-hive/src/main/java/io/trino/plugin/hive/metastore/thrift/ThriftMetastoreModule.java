@@ -28,12 +28,17 @@ import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.ExecutorService;
+import java.util.function.Supplier;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
+import static io.trino.plugin.hive.metastore.thrift.ThriftHttpMetastoreConfig.AuthenticationMode.BEARER;
+import static java.lang.String.format;
 import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.function.Predicate.isEqual;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class ThriftMetastoreModule
@@ -47,7 +52,7 @@ public class ThriftMetastoreModule
         binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(StaticMetastoreConfig.class);
         configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
-
+        newOptionalBinder(binder, ThriftHttpMetastoreConfig.class);
         binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ThriftMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
@@ -61,9 +66,53 @@ public class ThriftMetastoreModule
                 .setDefault()
                 .toInstance(SIMPLE_USER_NAME_PROVIDER);
 
+        install(conditionalModule(
+                ThriftHttpMetastoreConfig.class,
+                config -> config.getAuthenticationMode()
+                        .filter(isEqual(BEARER))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(ThriftHttpMetastoreConfig.class)));
+
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
 
+        validateThriftHttpConfiguration();
         install(new ThriftMetastoreAuthenticationModule());
+    }
+
+    private void validateThriftHttpConfiguration()
+    {
+        StaticMetastoreConfig staticMetastoreConfig = buildConfigObject(StaticMetastoreConfig.class);
+        ThriftMetastoreConfig metastoreConfig = buildConfigObject(ThriftMetastoreConfig.class);
+        ThriftHttpMetastoreConfig httpMetastoreConfig = buildConfigObject(ThriftHttpMetastoreConfig.class);
+
+        if (!staticMetastoreConfig.getMetastoreUris().isEmpty()) {
+            boolean hasHttpMetastore = staticMetastoreConfig.getMetastoreUris().stream()
+                    .anyMatch(uri -> "http".equalsIgnoreCase(uri.getScheme()));
+            boolean hasHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream()
+                    .anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
+
+            if (hasHttpMetastore || hasHttpsMetastore) {
+                validateForHttpMetastore(() -> !metastoreConfig.isImpersonationEnabled(), "hive.metastore.thrift.impersonation.enabled");
+                validateForHttpMetastore(() -> metastoreConfig.getSocksProxy() == null, "hive.metastore.thrift.client.socks-proxy");
+                validateForHttpMetastore(() -> staticMetastoreConfig.getMetastoreUsername() == null, "hive.metastore.username");
+                if (hasHttpsMetastore && httpMetastoreConfig.getHttpBearerToken().isEmpty()) {
+                    throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
+                }
+                if (hasHttpMetastore && httpMetastoreConfig.getHttpBearerToken().isPresent()) {
+                    throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
+                }
+                if (httpMetastoreConfig.getAuthenticationMode().isEmpty()) {
+                    throw new IllegalStateException(("'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'"));
+                }
+            }
+        }
+    }
+
+    private void validateForHttpMetastore(Supplier<Boolean> isValid, String config)
+    {
+        if (!isValid.get()) {
+            throw new IllegalStateException(format("'%s' is not supported when using http/https metastore URIs in 'hive.metastore.uri'", config));
+        }
     }
 
     @Provides

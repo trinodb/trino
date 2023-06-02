@@ -13,12 +13,24 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.airlift.security.pem.PemReader;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.TransportSupplier;
 import io.trino.spi.NodeManager;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
+import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.core5.http.HttpHeaders;
+import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
@@ -34,6 +46,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -42,11 +55,15 @@ import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultThriftMetastoreClientFactory
@@ -58,6 +75,7 @@ public class DefaultThriftMetastoreClientFactory
     private final int readTimeoutMillis;
     private final HiveMetastoreAuthentication metastoreAuthentication;
     private final String hostname;
+    private final Optional<ThriftHttpContext> thriftHttpContext;
 
     private final MetastoreSupportsDateStatistics metastoreSupportsDateStatistics = new MetastoreSupportsDateStatistics();
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -74,7 +92,8 @@ public class DefaultThriftMetastoreClientFactory
             Duration connectTimeout,
             Duration readTimeout,
             HiveMetastoreAuthentication metastoreAuthentication,
-            String hostname)
+            String hostname,
+            Optional<ThriftHttpContext> thriftHttpContext)
     {
         this.sslContext = requireNonNull(sslContext, "sslContext is null");
         this.socksProxy = requireNonNull(socksProxy, "socksProxy is null");
@@ -82,11 +101,13 @@ public class DefaultThriftMetastoreClientFactory
         this.readTimeoutMillis = toIntExact(readTimeout.toMillis());
         this.metastoreAuthentication = requireNonNull(metastoreAuthentication, "metastoreAuthentication is null");
         this.hostname = requireNonNull(hostname, "hostname is null");
+        this.thriftHttpContext = requireNonNull(thriftHttpContext, "thriftHttpContext is null");
     }
 
     @Inject
     public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
+            ThriftHttpMetastoreConfig httpMetastoreConfig,
             HiveMetastoreAuthentication metastoreAuthentication,
             NodeManager nodeManager)
     {
@@ -101,14 +122,53 @@ public class DefaultThriftMetastoreClientFactory
                 config.getConnectTimeout(),
                 config.getReadTimeout(),
                 metastoreAuthentication,
-                nodeManager.getCurrentNode().getHost());
+                nodeManager.getCurrentNode().getHost(),
+                buildThriftHttpContext(httpMetastoreConfig));
     }
 
     @Override
-    public ThriftMetastoreClient create(HostAndPort address, Optional<String> delegationToken)
+    public ThriftMetastoreClient create(URI uri, Optional<String> delegationToken)
             throws TTransportException
     {
-        return create(() -> createTransport(address, delegationToken), hostname);
+        return create(() -> getTransportSupplier(uri, delegationToken), hostname);
+    }
+
+    private TTransport getTransportSupplier(URI uri, Optional<String> delegationToken)
+            throws TTransportException
+    {
+        switch (uri.getScheme().toLowerCase(ENGLISH)) {
+            case "thrift" -> {
+                return createTransport(HostAndPort.fromParts(uri.getHost(), uri.getPort()), delegationToken);
+            }
+            case "http", "https" -> {
+                return createHttpTransport(uri, thriftHttpContext.orElseThrow(() -> new IllegalArgumentException("Thrift http context is not set")));
+            }
+            default -> throw new IllegalArgumentException("Invalid metastore uri scheme " + uri.getScheme());
+        }
+    }
+
+    private TTransport createHttpTransport(URI uri, ThriftHttpContext httpThriftContext)
+            throws TTransportException
+    {
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
+        if (sslContext.isPresent()) {
+            checkArgument(uri.getScheme().toLowerCase(ENGLISH).equals("https"), "URI must be https when setting SSLContext");
+            checkArgument(httpThriftContext.token.isPresent(), "'hive.metastore.http.client.bearer-token' must be set when using https URI");
+            SSLConnectionSocketFactory socketFactory = new SSLConnectionSocketFactory(sslContext.get(), new DefaultHostnameVerifier(null));
+            Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("https", socketFactory)
+                    .build();
+            httpClientBuilder.setConnectionManager(new BasicHttpClientConnectionManager(registry));
+            httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> {
+                httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + httpThriftContext.token.get());
+            });
+        }
+
+        httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> {
+            httpThriftContext.additionalHeaders().forEach(httpRequest::addHeader);
+        });
+        httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom().setResponseTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS).build());
+        return new THttpClient(uri.toString(), httpClientBuilder.build());
     }
 
     protected ThriftMetastoreClient create(TransportSupplier transportSupplier, String hostname)
@@ -236,5 +296,25 @@ public class DefaultThriftMetastoreClientFactory
                 throw new CertificateNotYetValidException("KeyStore certificate is not yet valid: " + e.getMessage());
             }
         }
+    }
+
+    private record ThriftHttpContext(Optional<String> token, Map<String, String> additionalHeaders)
+    {
+        private ThriftHttpContext
+        {
+            requireNonNull(additionalHeaders, "additionalHeaders is null");
+            additionalHeaders = ImmutableMap.copyOf(additionalHeaders);
+        }
+    }
+
+    @VisibleForTesting
+    public static Optional<ThriftHttpContext> buildThriftHttpContext(ThriftHttpMetastoreConfig config)
+    {
+        if (config.getAdditionalHeaders().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ThriftHttpContext(
+                config.getHttpBearerToken(),
+                config.getAdditionalHeaders()));
     }
 }
