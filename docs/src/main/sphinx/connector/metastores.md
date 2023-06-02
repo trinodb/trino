@@ -183,6 +183,26 @@ properties:
 * - `hive.metastore.thrift.txn-lock-max-wait`
   - Maximum time to wait to acquire hive transaction lock.
   - `10m`
+* - ``hive.metastore.http.client.bearer-token``
+  - Bearer token used to authenticate with the metastore service
+    when https transport mode is used. This must not be set when
+    using http url.
+  -
+* - ``hive.metastore.http.client.additional-headers``
+  - Additional headers which can be sent to the metastore service
+    http thrift requests when using the http transport mode. These
+    headers must be comma-separated and delimited using ``:``. E.g
+    header1:value1,header2:value2 sends two headers header1 and
+    header2 with their values as value1 and value2 respectively.
+    If you need to use a comma(``,``) or colon(``:``) in a header name
+    or value, escape it using a backslash (``\``).
+  -
+* - ``hive.metastore.http.client.authentication.type``
+  - The authentication type to be used for the http metastore client.
+    Currently, the only supported type is ``BEARER``. When set to ``BEARER``
+    the token configured in ``hive.metastore.http.client.bearer-token``
+    is used to authenticate the client to the http metastore service.
+  -
 :::
 
 (hive-glue-metastore)=

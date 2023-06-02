@@ -97,7 +97,7 @@ public class TestIcebergGcsConnectorSmokeTest
                         .put("fs.hadoop.enabled", "false")
                         .put("fs.native-gcs.enabled", "true")
                         .put("gcs.json-key", gcpCredentials)
-                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .put("iceberg.file-format", format.name())
                         .put("iceberg.register-table-procedure.enabled", "true")
                         .put("iceberg.writer-sort-buffer-size", "1MB")

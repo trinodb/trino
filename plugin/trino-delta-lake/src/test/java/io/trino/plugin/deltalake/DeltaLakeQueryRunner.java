@@ -229,7 +229,7 @@ public final class DeltaLakeQueryRunner
                 .setCoordinatorProperties(coordinatorProperties)
                 .addExtraProperties(extraProperties)
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                        .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                         .putAll(connectorProperties)
                         .buildOrThrow())
                 .build();

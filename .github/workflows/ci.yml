@@ -831,6 +831,7 @@ jobs:
             - suite-delta-lake-databricks113
             - suite-delta-lake-databricks122
             - suite-delta-lake-databricks133
+            - suite-databricks-unity-http-hms
             - suite-gcs
             - suite-clients
             - suite-functions
@@ -875,6 +876,11 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks133
+              ignore exclusion if: >-
+                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
+            - suite: suite-databricks-unity-http-hms
+              config: hdp3
+            - suite: suite-databricks-unity-http-hms
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
 
@@ -923,6 +929,10 @@ jobs:
           DATABRICKS_113_JDBC_URL:
           DATABRICKS_122_JDBC_URL:
           DATABRICKS_133_JDBC_URL:
+          DATABRICKS_UNITY_JDBC_URL:
+          DATABRICKS_UNITY_CATALOG_NAME:
+          DATABRICKS_UNITY_EXTERNAL_LOCATION:
+          DATABRICKS_HOST:
           DATABRICKS_LOGIN:
           DATABRICKS_TOKEN:
           GCP_CREDENTIALS_KEY:
@@ -986,6 +996,10 @@ jobs:
           DATABRICKS_113_JDBC_URL: ${{ secrets.DATABRICKS_113_JDBC_URL }}
           DATABRICKS_122_JDBC_URL: ${{ secrets.DATABRICKS_122_JDBC_URL }}
           DATABRICKS_133_JDBC_URL: ${{ secrets.DATABRICKS_133_JDBC_URL }}
+          DATABRICKS_UNITY_JDBC_URL: ${{ secrets.DATABRICKS_UNITY_JDBC_URL }}
+          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
+          DATABRICKS_UNITY_EXTERNAL_LOCATION: ${{ vars.DATABRICKS_UNITY_EXTERNAL_LOCATION }}
+          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
