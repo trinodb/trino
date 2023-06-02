@@ -14,10 +14,11 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
-import com.google.inject.Provides;
+import com.google.inject.Provider;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
+import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.security.UserNameProvider;
@@ -33,6 +34,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -42,16 +44,44 @@ public class ThriftMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
-                .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(StaticMetastoreConfig.class);
-        configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
+        StaticMetastoreConfig staticMetastoreConfig = buildConfigObject(StaticMetastoreConfig.class);
+        requireNonNull(staticMetastoreConfig.getMetastoreUris(), "metastoreUris is null");
+        boolean hasHttpOrHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream()
+                .anyMatch(uri -> ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())));
 
-        binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        if (hasHttpOrHttpsMetastore) {
+            OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
+                    .setDefault().to(HttpThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(IdentityAwareMetastoreClientFactory.class).to(StaticTokenAwareHttpMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(ThriftMetastoreFactory.class).to(ThriftHttpMetastoreFactory.class).in(Scopes.SINGLETON);
+            newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))
+                    .setDefault().toInstance(newFixedThreadPool(1, threadsNamed("http-thrift-statistics-write-%s")));
+            ThriftHttpMetastoreConfig httpMetastoreConfig = buildConfigObject(ThriftHttpMetastoreConfig.class);
+            boolean hasHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
+            if (hasHttpsMetastore && httpMetastoreConfig.getHttpBearerToken().isEmpty()) {
+                throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
+            }
+
+            if (!hasHttpsMetastore && httpMetastoreConfig.getHttpBearerToken().isPresent()) {
+                throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
+            }
+            if (httpMetastoreConfig.getAuthenticationMode().isEmpty()) {
+                throw new IllegalStateException("'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
+            }
+        }
+        else {
+            OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
+                    .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
+            newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))
+                    .setDefault().toProvider(ThriftHiveMetastoreStatisticExecutorProvider.class).in(Scopes.SINGLETON);
+            install(new ThriftMetastoreAuthenticationModule());
+            binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
+        }
+
         newExporter(binder).export(ThriftMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
-
         binder.bind(HiveMetastoreFactory.class)
                 .annotatedWith(RawHiveMetastoreFactory.class)
                 .to(BridgingHiveMetastoreFactory.class)
@@ -60,23 +90,30 @@ public class ThriftMetastoreModule
         newOptionalBinder(binder, Key.get(UserNameProvider.class, ForHiveMetastore.class))
                 .setDefault()
                 .toInstance(SIMPLE_USER_NAME_PROVIDER);
-
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
-
-        install(new ThriftMetastoreAuthenticationModule());
-    }
-
-    @Provides
-    @Singleton
-    @ThriftHiveWriteStatisticsExecutor
-    public ExecutorService createWriteStatisticsExecutor(ThriftMetastoreConfig hiveConfig)
-    {
-        return newFixedThreadPool(hiveConfig.getWriteStatisticsThreads(), threadsNamed("hive-thrift-statistics-write-%s"));
     }
 
     @PreDestroy
     public void shutdownsWriteStatisticExecutor(@ThriftHiveWriteStatisticsExecutor ExecutorService executor)
     {
         executor.shutdownNow();
+    }
+
+    private static class ThriftHiveMetastoreStatisticExecutorProvider
+            implements Provider<ExecutorService>
+    {
+        private final int numWriteStatisticsThreads;
+
+        @Inject
+        private ThriftHiveMetastoreStatisticExecutorProvider(ThriftMetastoreConfig thriftMetastoreConfig)
+        {
+            this.numWriteStatisticsThreads = thriftMetastoreConfig.getWriteStatisticsThreads();
+        }
+
+        @Override
+        public ExecutorService get()
+        {
+            return newFixedThreadPool(numWriteStatisticsThreads, threadsNamed("hive-thrift-statistics-write-%s"));
+        }
     }
 }
