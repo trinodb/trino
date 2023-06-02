@@ -70,7 +70,8 @@ public class TestPrioritizedFifoExecutor
             futures.add(executor.submit(() -> {
                 try {
                     // wait for the go signal
-                    awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES);
+                    @SuppressWarnings("CheckReturnValue")
+                    boolean ignored = awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES);
 
                     assertFalse(futures.get(taskNumber).isDone());
 
@@ -90,7 +91,8 @@ public class TestPrioritizedFifoExecutor
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
+        @SuppressWarnings("CheckReturnValue")
+        boolean ignored = awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
 
         assertEquals(counter.get(), totalTasks);
         // since this is a fifo executor with one thread and completeLatch is decremented inside the future,
@@ -142,7 +144,8 @@ public class TestPrioritizedFifoExecutor
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
+        @SuppressWarnings("CheckReturnValue")
+        boolean ignored = awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
 
         assertFalse(failed.get());
     }
