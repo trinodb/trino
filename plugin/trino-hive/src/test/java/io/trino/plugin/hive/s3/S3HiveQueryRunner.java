@@ -170,9 +170,9 @@ public final class S3HiveQueryRunner
 
         DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
                 .setInitialTables(TpchTable.getTables())
-                .setSecurity(ALLOW_ALL)
                 .build();
         Logger log = Logger.get(S3HiveQueryRunner.class);
         log.info("======== SERVER STARTED ========");
