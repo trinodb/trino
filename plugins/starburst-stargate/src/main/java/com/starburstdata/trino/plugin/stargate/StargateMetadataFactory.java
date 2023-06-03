@@ -10,12 +10,11 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.DefaultJdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 

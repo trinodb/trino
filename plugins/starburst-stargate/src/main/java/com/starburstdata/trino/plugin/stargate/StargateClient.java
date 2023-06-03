@@ -13,6 +13,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -68,8 +69,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
