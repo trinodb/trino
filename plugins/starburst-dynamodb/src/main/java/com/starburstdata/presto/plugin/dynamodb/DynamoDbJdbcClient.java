@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.dynamodb;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
+import com.google.inject.Inject;
 import com.hubspot.jinjava.Jinjava;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -46,8 +47,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClientBuilder;
 import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
