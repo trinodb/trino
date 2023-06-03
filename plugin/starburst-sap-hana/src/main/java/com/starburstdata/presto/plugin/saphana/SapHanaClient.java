@@ -13,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -81,7 +82,6 @@ import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
