@@ -44,7 +44,6 @@ import org.joda.time.chrono.ISOChronology;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -82,6 +81,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
@@ -146,7 +146,7 @@ public class MongoPageSource
                 break;
             }
             currentDoc = cursor.next();
-            totalBytes += currentDoc.toJson().getBytes(StandardCharsets.UTF_8).length;
+            totalBytes += currentDoc.toBsonDocument().toJson().getBytes(UTF_8).length;
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {

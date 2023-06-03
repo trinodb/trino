@@ -18,6 +18,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import com.mongodb.ConnectionString;
+import com.mongodb.DBRefCodecProvider;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -25,6 +26,10 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.mongodb.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.codecs.pojo.Conventions;
+import org.bson.codecs.pojo.PojoCodecProvider;
 
 import javax.inject.Singleton;
 
@@ -38,6 +43,15 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class MongoClientModule
         extends AbstractConfigurationAwareModule
 {
+    private final CodecRegistry codecRegistry = CodecRegistries.fromRegistries(
+            MongoClientSettings.getDefaultCodecRegistry(),
+            CodecRegistries.fromProviders(
+                    PojoCodecProvider.builder()
+                            .conventions(Conventions.DEFAULT_CONVENTIONS)
+                            .automatic(true)
+                            .build(),
+                    new DBRefCodecProvider()));
+
     @Override
     public void setup(Binder binder)
     {
@@ -91,6 +105,7 @@ public class MongoClientModule
                 options.applyToClusterSettings(builder -> builder.requiredReplicaSetName(config.getRequiredReplicaSetName()));
             }
             options.applyConnectionString(new ConnectionString(config.getConnectionUrl()));
+            options.codecRegistry(codecRegistry);
         };
     }
 }
