@@ -115,6 +115,7 @@ global_replacements = {
 
 myst_enable_extensions = [
     "colon_fence",
+    "deflist"
 ]
 
 # -- Options for HTML output ---------------------------------------------------
