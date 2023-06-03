@@ -10,15 +10,14 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
-import javax.inject.Qualifier;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -75,7 +74,7 @@ public class CatalogOverridingModule
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface ForCatalogOverriding
     {
     }

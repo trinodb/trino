@@ -9,14 +9,13 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.google.inject.Inject;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.presto.plugin.toolkit.authtolocal.AuthToLocal;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;

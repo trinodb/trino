@@ -9,13 +9,12 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
+import com.google.inject.Inject;
 import com.starburstdata.managed.statistics.CollectedStatisticsType;
 import com.starburstdata.presto.plugin.jdbc.statistics.JdbcCollectingStatisticsProvider;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 public class SqlServerCollectingStatisticsProvider
         extends JdbcCollectingStatisticsProvider
