@@ -35,7 +35,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.bson.BsonBinaryWriter;
+import org.bson.BsonDocument;
 import org.bson.Document;
+import org.bson.codecs.BsonDocumentCodec;
+import org.bson.codecs.EncoderContext;
+import org.bson.io.BasicOutputBuffer;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
@@ -81,7 +86,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
 
 public class MongoPageSource
@@ -146,7 +150,7 @@ public class MongoPageSource
                 break;
             }
             currentDoc = cursor.next();
-            totalBytes += currentDoc.toBsonDocument().toJson().getBytes(UTF_8).length;
+            totalBytes += calculateBytes(currentDoc.toBsonDocument());
 
             pageBuilder.declarePosition();
             for (int column = 0; column < columnTypes.size(); column++) {
@@ -158,6 +162,14 @@ public class MongoPageSource
         Page page = pageBuilder.build();
         pageBuilder.reset();
         return page;
+    }
+
+    private long calculateBytes(BsonDocument bsonDocument)
+    {
+        BasicOutputBuffer outputBuffer = new BasicOutputBuffer();
+        BsonBinaryWriter writer = new BsonBinaryWriter(outputBuffer);
+        new BsonDocumentCodec().encode(writer, bsonDocument, EncoderContext.builder().build());
+        return outputBuffer.size();
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
