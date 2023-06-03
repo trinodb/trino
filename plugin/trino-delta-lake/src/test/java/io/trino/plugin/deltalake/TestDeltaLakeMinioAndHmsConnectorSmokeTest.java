@@ -71,7 +71,7 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
                 .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
                 .put("s3.path-style-access", "true")
                 .put("s3.streaming.part-size", "5MB") // minimize memory usage
-                .put("s3.max-connections", "2") // verify no leaks
+                .put("s3.max-connections", "4") // verify no leaks
                 .put("delta.enable-non-concurrent-writes", "true")
                 .buildOrThrow();
     }
