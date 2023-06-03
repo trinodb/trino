@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.salesforce;
 
+import com.google.inject.Inject;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -37,8 +38,6 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.math.RoundingMode;
 import java.sql.Connection;

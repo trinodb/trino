@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.salesforce;
 
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -18,8 +19,6 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
 
 /*
  * The OEM key requires a com.starburstdata.* class to be on the stack trace when making calls to Salesforce.
