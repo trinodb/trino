@@ -37,7 +37,6 @@ public class TestExchangeHdfsConfig
     @Test
     public void testExplicitPropertyMappings()
     {
-
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("exchange.hdfs.proxy-user", "work")
                 .put("exchange.hdfs.block-size", "8MB")

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.exchange.hdfs;
 
+import com.google.inject.Inject;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -20,13 +21,12 @@ import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import javax.inject.Inject;
 import java.io.IOException;
 
 import static java.util.Objects.requireNonNull;
 
-public class ExchangeHdfsEnvironment {
-
+public class ExchangeHdfsEnvironment
+{
     private final HdfsEnvironment hdfsEnvironment;
     private final ExchangeHdfsConfig exchangeHdfsConfig;
 
