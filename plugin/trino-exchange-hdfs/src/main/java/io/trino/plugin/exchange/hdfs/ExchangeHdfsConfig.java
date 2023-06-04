@@ -13,27 +13,21 @@
  */
 package io.trino.plugin.exchange.hdfs;
 
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 
 import javax.validation.constraints.NotNull;
+import java.util.Optional;
 
-import java.io.File;
-import java.util.List;
-
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 public class ExchangeHdfsConfig
 {
     private DataSize hdfsStorageBlockSize = DataSize.of(4, MEGABYTE);
-    private List<File> resourceConfigFiles = ImmutableList.of();
+    private Optional<String> hdfsProxyUser = Optional.empty();
 
     @NotNull
     @MinDataSize("4MB")
@@ -51,18 +45,16 @@ public class ExchangeHdfsConfig
         return this;
     }
 
-    @NotNull
-    public List<@FileExists File> getResourceConfigFiles()
+    public Optional<String> getHdfsProxyUser()
     {
-        return resourceConfigFiles;
+        return hdfsProxyUser;
     }
 
-    @Config("hdfs.config.resources")
-    public ExchangeHdfsConfig setResourceConfigFiles(String files)
+    @Config("exchange.hdfs.proxy-user")
+    @ConfigDescription("Proxy user for HDFS storage")
+    public ExchangeHdfsConfig setHdfsProxyUser(String hdfsProxyUser)
     {
-        this.resourceConfigFiles = Splitter.on(',').trimResults().omitEmptyStrings().splitToList(files).stream()
-                .map(File::new)
-                .collect(toImmutableList());
+        this.hdfsProxyUser = Optional.ofNullable(hdfsProxyUser);
         return this;
     }
 }
