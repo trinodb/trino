@@ -24,7 +24,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
+            <artifactId>trino-hdfs</artifactId>
         </dependency>
 
         <dependency>

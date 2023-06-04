@@ -23,7 +23,6 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -33,7 +32,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -42,12 +40,10 @@ import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -55,18 +51,12 @@ public class HadoopFileSystemExchangeStorage
         implements FileSystemExchangeStorage
 {
     private final int blockSize;
-    private final FileSystem fileSystem;
+    private final ExchangeHdfsEnvironment exchangeHdfsEnvironment;
 
     @Inject
-    public HadoopFileSystemExchangeStorage(ExchangeHdfsConfig config)
-            throws IOException
+    public HadoopFileSystemExchangeStorage(ExchangeHdfsConfig config, ExchangeHdfsEnvironment exchangeHdfsEnvironment)
     {
-        Configuration hdfsConfig = newEmptyConfiguration();
-        for (File resourcePath : config.getResourceConfigFiles()) {
-            checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
-            hdfsConfig.addResource(new Path(resourcePath.getPath()));
-        }
-        fileSystem = FileSystem.get(hdfsConfig);
+        this.exchangeHdfsEnvironment = requireNonNull(exchangeHdfsEnvironment, "exchangeHdfsEnvironment is null");
         blockSize = toIntExact(config.getHdfsStorageBlockSize().toBytes());
     }
 
@@ -74,26 +64,30 @@ public class HadoopFileSystemExchangeStorage
     public void createDirectories(URI dir)
             throws IOException
     {
-        fileSystem.mkdirs(new Path(dir));
+        Path path = new Path(dir);
+        FileSystem fileSystem = exchangeHdfsEnvironment.getFileSystem(path);
+        fileSystem.mkdirs(path);
     }
 
     @Override
     public ExchangeStorageReader createExchangeStorageReader(List<ExchangeSourceFile> sourceFiles, int maxPageStorageSize)
     {
-        return new HadoopExchangeStorageReader(fileSystem, sourceFiles, blockSize);
+        return new HadoopExchangeStorageReader(exchangeHdfsEnvironment, sourceFiles, blockSize);
     }
 
     @Override
     public ExchangeStorageWriter createExchangeStorageWriter(URI file)
     {
-        return new HadoopExchangeStorageWriter(fileSystem, file);
+        return new HadoopExchangeStorageWriter(exchangeHdfsEnvironment, file);
     }
 
     @Override
     public ListenableFuture<Void> createEmptyFile(URI file)
     {
         try {
-            fileSystem.createNewFile(new Path(file));
+            Path path = new Path(file);
+            FileSystem fileSystem = exchangeHdfsEnvironment.getFileSystem(path);
+            fileSystem.createNewFile(path);
         }
         catch (IOException e) {
             return immediateFailedFuture(e);
@@ -106,7 +100,9 @@ public class HadoopFileSystemExchangeStorage
     {
         for (URI dir : directories) {
             try {
-                fileSystem.delete(new Path(dir), true);
+                Path path = new Path(dir);
+                FileSystem fileSystem = exchangeHdfsEnvironment.getFileSystem(path);
+                fileSystem.delete(path, true);
             }
             catch (IOException | RuntimeException e) {
                 return immediateFailedFuture(e);
@@ -120,8 +116,10 @@ public class HadoopFileSystemExchangeStorage
     {
         ImmutableList.Builder<FileStatus> builder = ImmutableList.builder();
         try {
+            Path path = new Path(dir);
+            FileSystem fileSystem = exchangeHdfsEnvironment.getFileSystem(path);
             RemoteIterator<LocatedFileStatus> fileStatusListIterator = fileSystem.listFiles(
-                    new Path(dir), true);
+                    path, true);
             while (fileStatusListIterator.hasNext()) {
                 LocatedFileStatus fileStatus = fileStatusListIterator.next();
                 builder.add(new FileStatus(fileStatus.getPath().toString(), fileStatus.getLen()));
@@ -150,7 +148,7 @@ public class HadoopFileSystemExchangeStorage
     {
         private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
 
-        private final FileSystem fileSystem;
+        private final ExchangeHdfsEnvironment exchangeHdfsEnvironment;
         @GuardedBy("this")
         private final Queue<ExchangeSourceFile> sourceFiles;
         private final int blockSize;
@@ -160,9 +158,9 @@ public class HadoopFileSystemExchangeStorage
         @GuardedBy("this")
         private boolean closed;
 
-        public HadoopExchangeStorageReader(FileSystem fileSystem, List<ExchangeSourceFile> sourceFiles, int blockSize)
+        public HadoopExchangeStorageReader(ExchangeHdfsEnvironment exchangeHdfsEnvironment, List<ExchangeSourceFile> sourceFiles, int blockSize)
         {
-            this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+            this.exchangeHdfsEnvironment = requireNonNull(exchangeHdfsEnvironment, "exchangeHdfsEnvironment is null");
             this.sourceFiles = new ArrayDeque<>(requireNonNull(sourceFiles, "sourceFiles is null"));
             this.blockSize = blockSize;
         }
@@ -224,7 +222,7 @@ public class HadoopFileSystemExchangeStorage
                 throws IOException
         {
             Path fileURL = new Path(sourceFile.getFileUri());
-            return new InputStreamSliceInput(fileSystem.open(fileURL), blockSize);
+            return new InputStreamSliceInput(exchangeHdfsEnvironment.getFileSystem(fileURL).open(fileURL), blockSize);
         }
     }
 
@@ -235,10 +233,11 @@ public class HadoopFileSystemExchangeStorage
         private static final int INSTANCE_SIZE = instanceSize(HadoopExchangeStorageReader.class);
         private final OutputStream outputStream;
 
-        public HadoopExchangeStorageWriter(FileSystem fileSystem, URI file)
+        public HadoopExchangeStorageWriter(ExchangeHdfsEnvironment exchangeHdfsEnvironment, URI file)
         {
             try {
-                this.outputStream = fileSystem.create(new Path(file), true);
+                Path path = new Path(file);
+                this.outputStream = exchangeHdfsEnvironment.getFileSystem(path).create(path, true);
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
