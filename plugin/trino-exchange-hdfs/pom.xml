@@ -24,12 +24,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
+            <artifactId>trino-hdfs</artifactId>
         </dependency>
 
         <dependency>

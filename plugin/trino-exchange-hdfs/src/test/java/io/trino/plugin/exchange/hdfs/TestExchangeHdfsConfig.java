@@ -18,8 +18,6 @@ import io.airlift.units.DataSize;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -33,7 +31,6 @@ public class TestExchangeHdfsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ExchangeHdfsConfig.class)
-                .setResourceConfigFiles("")
                 .setHdfsStorageBlockSize(DataSize.of(4, MEGABYTE)));
     }
 
@@ -41,16 +38,12 @@ public class TestExchangeHdfsConfig
     public void testExplicitPropertyMappings()
             throws IOException
     {
-        Path resource1 = Files.createTempFile(null, null);
-        Path resource2 = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hdfs.config.resources", resource1 + "," + resource2)
                 .put("exchange.hdfs.block-size", "8MB")
                 .buildOrThrow();
 
         ExchangeHdfsConfig expected = new ExchangeHdfsConfig()
-                .setResourceConfigFiles(resource1 + "," + resource2)
                 .setHdfsStorageBlockSize(DataSize.of(8, MEGABYTE));
 
         assertFullMapping(properties, expected);
