@@ -47,7 +47,7 @@ public class ParquetReaderOptions
         maxBufferSize = DEFAULT_MAX_BUFFER_SIZE;
         useColumnIndex = true;
         useBloomFilter = true;
-        nativeZstdDecompressorEnabled = false;
+        nativeZstdDecompressorEnabled = true;
         nativeSnappyDecompressorEnabled = false;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
     }
