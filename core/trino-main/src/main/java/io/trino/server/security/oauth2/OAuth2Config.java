@@ -48,6 +48,7 @@ public class OAuth2Config
     private List<String> additionalAudiences = Collections.emptyList();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Duration maxClockSkew = new Duration(1, TimeUnit.MINUTES);
+    private Optional<String> jwtType = Optional.empty();
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
@@ -192,6 +193,19 @@ public class OAuth2Config
     public OAuth2Config setMaxClockSkew(Duration maxClockSkew)
     {
         this.maxClockSkew = maxClockSkew;
+        return this;
+    }
+    
+    public Optional<String> getJwtType()
+    { 
+        return jwtType; 
+    }
+
+    @Config("http-server.authentication.oauth2.jwt-type")
+    @ConfigDescription("Custom JWT type for server to use")
+    public OAuth2Config setJwtType(String jwtType)
+    {
+        this.jwtType = Optional.ofNullable(jwtType);
         return this;
     }
 
