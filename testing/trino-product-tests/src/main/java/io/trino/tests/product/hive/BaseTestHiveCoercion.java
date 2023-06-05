@@ -399,10 +399,20 @@ public abstract class BaseTestHiveCoercion
                     "timestamp_to_varchar",
                     "id");
 
+            Map<String, List<Object>> expectedRows = ImmutableMap.of(
+                    "timestamp_to_varchar", ImmutableList.of(
+                            "2121-07-15 15:30:12.123499",
+                            "2121-07-15 15:30:12.1235",
+                            "2121-07-15 15:30:12.123501",
+                            "2121-07-15 15:30:12.123499999",
+                            "2121-07-15 15:30:12.1235",
+                            "2121-07-15 15:30:12.123500001"),
+                    "id", nCopies(6, 1));
+
             // For Trino, remove unsupported columns
             List<String> trinoReadColumns = removeUnsupportedColumnsForTrino(allColumns, tableName);
             Map<String, List<Object>> expectedTinoResults = Maps.filterKeys(
-                    expectedRowsForEngineProvider(Engine.TRINO, hiveTimestampPrecision),
+                    expectedRows,
                     trinoReadColumns::contains);
 
             String trinoReadQuery = format("SELECT %s FROM %s", String.join(", ", trinoReadColumns), tableName);
@@ -410,7 +420,7 @@ public abstract class BaseTestHiveCoercion
 
             List<String> hiveReadColumns = removeUnsupportedColumnsForHive(allColumns, tableName);
             Map<String, List<Object>> expectedHiveResults = Maps.filterKeys(
-                    expectedRowsForEngineProvider(Engine.HIVE, hiveTimestampPrecision),
+                    expectedRows,
                     hiveReadColumns::contains);
 
             String hiveSelectQuery = format("SELECT %s FROM %s", String.join(", ", hiveReadColumns), tableName);
@@ -418,7 +428,7 @@ public abstract class BaseTestHiveCoercion
         }
     }
 
-    protected Map<String, List<Object>> expectedRowsForEngineProvider(Engine engine, HiveTimestampPrecision hiveTimestampPrecision)
+    protected Map<String, List<Object>> expectedRowsForEngineProvider()
     {
         ImmutableMap.Builder<String, List<Object>> rowBuilder = ImmutableMap.<String, List<Object>>builder()
                 .put("timestamp_to_varchar", ImmutableList.of(

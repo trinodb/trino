@@ -95,6 +95,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -306,7 +307,7 @@ public class HivePageSource
 
         // Hive treats TIMESTAMP with NANOSECONDS precision and when we try to coerce from a timestamp column,
         // we read it as TIMESTAMP(9) column and coerce accordingly.
-        Type fromType = fromHiveType.getType(typeManager, HiveTimestampPrecision.NANOSECONDS);
+        Type fromType = fromHiveType.getType(typeManager, timestampPrecision);
         Type toType = toHiveType.getType(typeManager, timestampPrecision);
 
         if (toType instanceof VarcharType toVarcharType && (fromHiveType.equals(HIVE_BYTE) || fromHiveType.equals(HIVE_SHORT) || fromHiveType.equals(HIVE_INT) || fromHiveType.equals(HIVE_LONG))) {
@@ -360,8 +361,8 @@ public class HivePageSource
         if (fromType == REAL && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
         }
-        if (fromType instanceof TimestampType timestampType && toType instanceof VarcharType varcharType) {
-            return Optional.of(new LongTimestampToVarcharCoercer(timestampType, varcharType));
+        if (fromType instanceof TimestampType && toType instanceof VarcharType varcharType) {
+            return Optional.of(new LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
