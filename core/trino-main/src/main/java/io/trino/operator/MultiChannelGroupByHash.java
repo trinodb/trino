@@ -230,20 +230,20 @@ public class MultiChannelGroupByHash
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels)
+    public boolean contains(int position, Page page)
     {
         long rawHash = hashStrategy.hashRow(position, page);
-        return contains(position, page, hashChannels, rawHash);
+        return contains(position, page, rawHash);
     }
 
     @Override
-    public boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    public boolean contains(int position, Page page, long rawHash)
     {
         int hashPosition = getHashPosition(rawHash, mask);
 
         // look for a slot containing this key
         while (groupIdsByHash[hashPosition] != -1) {
-            if (positionNotDistinctFromCurrentRow(groupIdsByHash[hashPosition], hashPosition, position, page, (byte) rawHash, hashChannels)) {
+            if (positionNotDistinctFromCurrentRow(groupIdsByHash[hashPosition], hashPosition, position, page, (byte) rawHash, channels)) {
                 // found an existing slot for this key
                 return true;
             }

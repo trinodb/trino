@@ -21,7 +21,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 
-import java.util.List;
 import java.util.Optional;
 
 import static io.trino.operator.GroupByHash.createGroupByHash;
@@ -32,13 +31,11 @@ public class ChannelSet
 {
     private final GroupByHash hash;
     private final boolean containsNull;
-    private final int[] hashChannels;
 
-    public ChannelSet(GroupByHash hash, boolean containsNull, int[] hashChannels)
+    private ChannelSet(GroupByHash hash, boolean containsNull)
     {
         this.hash = hash;
         this.containsNull = containsNull;
-        this.hashChannels = hashChannels;
     }
 
     public Type getType()
@@ -68,53 +65,44 @@ public class ChannelSet
 
     public boolean contains(int position, Page page)
     {
-        return hash.contains(position, page, hashChannels);
+        return hash.contains(position, page);
     }
 
     public boolean contains(int position, Page page, long rawHash)
     {
-        return hash.contains(position, page, hashChannels, rawHash);
+        return hash.contains(position, page, rawHash);
     }
 
     public static class ChannelSetBuilder
     {
         private static final int[] HASH_CHANNELS = {0};
 
-        private final GroupByHash hash;
-        private final Page nullBlockPage;
+        private final Type type;
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
+        private final GroupByHash hash;
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, TypeOperators typeOperators)
+        public ChannelSetBuilder(Type type, boolean hasHashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, TypeOperators typeOperators)
         {
-            List<Type> types = ImmutableList.of(type);
+            this.type = requireNonNull(type, "type is null");
+            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.localMemoryContext = operatorContext.localUserMemoryContext();
             this.hash = createGroupByHash(
                     operatorContext.getSession(),
-                    types,
+                    ImmutableList.of(type),
                     HASH_CHANNELS,
-                    hashChannel,
+                    hasHashChannel ? Optional.of(1) : Optional.empty(),
                     expectedPositions,
                     joinCompiler,
                     typeOperators,
                     this::updateMemoryReservation);
-            this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
-            this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-            this.localMemoryContext = operatorContext.localUserMemoryContext();
         }
 
         public ChannelSet build()
         {
-            return new ChannelSet(hash, hash.contains(0, nullBlockPage, HASH_CHANNELS), HASH_CHANNELS);
-        }
-
-        public long getEstimatedSize()
-        {
-            return hash.getEstimatedSize();
-        }
-
-        public int size()
-        {
-            return hash.getGroupCount();
+            Page nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
+            boolean containsNull = hash.contains(0, nullBlockPage);
+            return new ChannelSet(hash, containsNull);
         }
 
         public Work<?> addPage(Page page)

@@ -77,11 +77,11 @@ public interface GroupByHash
      */
     Work<int[]> getGroupIds(Page page);
 
-    boolean contains(int position, Page page, int[] hashChannels);
+    boolean contains(int position, Page page);
 
-    default boolean contains(int position, Page page, int[] hashChannels, long rawHash)
+    default boolean contains(int position, Page page, long rawHash)
     {
-        return contains(position, page, hashChannels);
+        return contains(position, page);
     }
 
     long getRawHash(int groupId);
