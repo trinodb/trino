@@ -151,11 +151,10 @@ public class SetBuilderOperator
         else {
             this.sourceChannels = new int[] {setChannel};
         }
-        // Set builder is has a single channel which goes in channel 0, if hash is present, add a hachBlock to channel 1
-        Optional<Integer> channelSetHashChannel = hashChannel.isPresent() ? Optional.of(1) : Optional.empty();
+        // Set builder has a single channel which goes in channel 0, if hash is present, add a hashBlock to channel 1
         this.channelSetBuilder = new ChannelSetBuilder(
                 setSupplier.getType(),
-                channelSetHashChannel,
+                hashChannel.isPresent(),
                 expectedPositions,
                 requireNonNull(operatorContext, "operatorContext is null"),
                 requireNonNull(joinCompiler, "joinCompiler is null"),
