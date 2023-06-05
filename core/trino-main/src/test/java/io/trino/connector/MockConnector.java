@@ -481,18 +481,6 @@ public class MockConnector
         }
 
         @Override
-        public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner) {}
-
-        @Override
-        public void renameSchema(ConnectorSession session, String source, String target) {}
-
-        @Override
-        public void setSchemaAuthorization(ConnectorSession session, String schemaName, TrinoPrincipal principal) {}
-
-        @Override
-        public void dropSchema(ConnectorSession session, String schemaName) {}
-
-        @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
         {
             return getTableHandle.apply(session, tableName);
@@ -570,60 +558,6 @@ public class MockConnector
         }
 
         @Override
-        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting) {}
-
-        @Override
-        public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle) {}
-
-        @Override
-        public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName) {}
-
-        @Override
-        public void setTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Optional<Object>> properties) {}
-
-        @Override
-        public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment) {}
-
-        @Override
-        public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment) {}
-
-        @Override
-        public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment) {}
-
-        @Override
-        public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment) {}
-
-        @Override
-        public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column) {}
-
-        @Override
-        public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type) {}
-
-        @Override
-        public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal) {}
-
-        @Override
-        public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target) {}
-
-        @Override
-        public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column) {}
-
-        @Override
-        public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace) {}
-
-        @Override
-        public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
-
-        @Override
-        public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal) {}
-
-        @Override
-        public void dropView(ConnectorSession session, SchemaTableName viewName) {}
-
-        @Override
-        public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting) {}
-
-        @Override
         public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
         {
             return Optional.ofNullable(getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
@@ -636,9 +570,6 @@ public class MockConnector
             checkArgument(view != null, "Materialized view %s does not exist", viewName);
             return new MaterializedViewFreshness(view.getStorageTable().isPresent() ? FRESH : STALE);
         }
-
-        @Override
-        public void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target) {}
 
         @Override
         public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
@@ -669,12 +600,6 @@ public class MockConnector
         {
             return Optional.empty();
         }
-
-        @Override
-        public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName) {}
-
-        @Override
-        public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties) {}
 
         @Override
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
@@ -770,12 +695,6 @@ public class MockConnector
             MockConnectorTableHandle connectorTableHandle = (MockConnectorTableHandle) tableHandle;
             return Optional.of(new MockConnectorTableExecuteHandle(0, connectorTableHandle.getTableName()));
         }
-
-        @Override
-        public void executeTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle) {}
-
-        @Override
-        public void finishTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle, Collection<Slice> fragments, List<Object> tableExecuteState) {}
 
         @Override
         public Set<String> listRoles(ConnectorSession session)
@@ -896,7 +815,10 @@ public class MockConnector
         }
 
         @Override
-        public void storeMergedRows(Page page) {}
+        public void storeMergedRows(Page page)
+        {
+            throw new UnsupportedOperationException();
+        }
 
         @Override
         public CompletableFuture<Collection<Slice>> finish()
