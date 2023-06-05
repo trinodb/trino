@@ -39,7 +39,7 @@ public class TestOrcReaderConfig
                 .setMaxBlockSize(DataSize.of(16, Unit.MEGABYTE))
                 .setLazyReadSmallRanges(true)
                 .setNestedLazy(true)
-                .setNativeZstdDecompressorEnabled(false)
+                .setNativeZstdDecompressorEnabled(true)
                 .setReadLegacyShortZoneId(false));
     }
 
@@ -56,7 +56,7 @@ public class TestOrcReaderConfig
                 .put("hive.orc.max-read-block-size", "66kB")
                 .put("hive.orc.lazy-read-small-ranges", "false")
                 .put("hive.orc.nested-lazy", "false")
-                .put("hive.orc.native-zstd-decompressor.enabled", "true")
+                .put("hive.orc.native-zstd-decompressor.enabled", "false")
                 .put("hive.orc.read-legacy-short-zone-id", "true")
                 .buildOrThrow();
 
@@ -70,7 +70,7 @@ public class TestOrcReaderConfig
                 .setMaxBlockSize(DataSize.of(66, Unit.KILOBYTE))
                 .setLazyReadSmallRanges(false)
                 .setNestedLazy(false)
-                .setNativeZstdDecompressorEnabled(true)
+                .setNativeZstdDecompressorEnabled(false)
                 .setReadLegacyShortZoneId(true);
 
         assertFullMapping(properties, expected);

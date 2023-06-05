@@ -28,7 +28,7 @@ public class OrcReaderOptions
     private static final DataSize DEFAULT_MAX_BLOCK_SIZE = DataSize.of(16, MEGABYTE);
     private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = true;
     private static final boolean DEFAULT_NESTED_LAZY = true;
-    private static final boolean DEFAULT_NATIVE_ZSTD_DECOMPRESSOR_ENABLED = false;
+    private static final boolean DEFAULT_NATIVE_ZSTD_DECOMPRESSOR_ENABLED = true;
     private static final boolean DEFAULT_READ_LEGACY_SHORT_ZONE_ID = false;
 
     private final boolean bloomFiltersEnabled;
