@@ -198,7 +198,7 @@ public class ParquetTester
     {
         return new ParquetTester(
                 ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZO, LZ4, ZSTD),
-                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, ZSTD),
+                ImmutableSet.of(GZIP, UNCOMPRESSED, SNAPPY, LZ4, ZSTD),
                 ImmutableSet.copyOf(WriterVersion.values()),
                 ImmutableSet.of(SESSION, SESSION_USE_NAME, SESSION_OPTIMIZED_READER),
                 StandardFileFormats.TRINO_PARQUET);

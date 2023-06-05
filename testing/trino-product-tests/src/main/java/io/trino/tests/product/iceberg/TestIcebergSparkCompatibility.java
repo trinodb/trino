@@ -1451,12 +1451,6 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery("SET SESSION iceberg.compression_codec = '" + compressionCodec + "'");
 
         String createTable = "CREATE TABLE " + trinoTableName + " WITH (format = '" + storageFormat + "') AS TABLE tpch.tiny.nation";
-        if (storageFormat == StorageFormat.PARQUET && "LZ4".equals(compressionCodec)) {
-            // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
-            assertQueryFailure(() -> onTrino().executeQuery(createTable))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
-            return;
-        }
         if (storageFormat == StorageFormat.AVRO && (compressionCodec.equals("LZ4"))) {
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported compression codec: " + compressionCodec);

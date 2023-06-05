@@ -345,29 +345,22 @@ public class TestDeltaLakeDatabricksInsertCompatibility
                 "AS TABLE tpch.tiny.nation WITH NO DATA");
 
         try {
-            if ("LZ4".equals(compressionCodec)) {
-                // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
-                assertQueryFailure(() -> onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'"))
-                        .hasMessageMatching("Query failed .* Unsupported codec: LZ4");
+            onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'");
+
+            onTrino().executeQuery("INSERT INTO " + trinoTableName + " TABLE tpch.tiny.nation");
+            List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
+                    .map(row -> row(row.toArray()))
+                    .collect(toImmutableList());
+            assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                    .containsOnly(expected);
+
+            if ("ZSTD".equals(compressionCodec) && databricksRuntimeVersion.orElseThrow().isOlderThan(DATABRICKS_104_RUNTIME_VERSION)) {
+                assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM default." + tableName))
+                        .hasMessageContaining("java.lang.ClassNotFoundException: org.apache.hadoop.io.compress.ZStandardCodec");
             }
             else {
-                onTrino().executeQuery("SET SESSION delta.compression_codec = '" + compressionCodec + "'");
-
-                onTrino().executeQuery("INSERT INTO " + trinoTableName + " TABLE tpch.tiny.nation");
-                List<Row> expected = onTrino().executeQuery("TABLE tpch.tiny.nation").rows().stream()
-                        .map(row -> row(row.toArray()))
-                        .collect(toImmutableList());
-                assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
                         .containsOnly(expected);
-
-                if ("ZSTD".equals(compressionCodec) && databricksRuntimeVersion.orElseThrow().isOlderThan(DATABRICKS_104_RUNTIME_VERSION)) {
-                    assertQueryFailure(() -> onDelta().executeQuery("SELECT * FROM default." + tableName))
-                            .hasMessageContaining("java.lang.ClassNotFoundException: org.apache.hadoop.io.compress.ZStandardCodec");
-                }
-                else {
-                    assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
-                            .containsOnly(expected);
-                }
             }
         }
         finally {

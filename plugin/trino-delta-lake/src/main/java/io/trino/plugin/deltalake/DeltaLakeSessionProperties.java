@@ -190,11 +190,6 @@ public final class DeltaLakeSessionProperties
                         "Compression codec to use when writing new data files",
                         HiveCompressionCodec.class,
                         deltaLakeConfig.getCompressionCodec(),
-                        value -> {
-                            if (value == HiveCompressionCodec.LZ4) {
-                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
-                            }
-                        },
                         false),
                 booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,

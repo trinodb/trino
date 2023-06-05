@@ -102,6 +102,7 @@ public class BenchmarkHiveFileFormat
 
     @Param({
             "NONE",
+            "LZ4",
             "SNAPPY",
             "GZIP"})
     private HiveCompressionCodec compression;

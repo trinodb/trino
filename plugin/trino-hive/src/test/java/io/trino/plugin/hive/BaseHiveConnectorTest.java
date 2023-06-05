@@ -2078,10 +2078,6 @@ public abstract class BaseHiveConnectorTest
                 if ((storageFormat == HiveStorageFormat.AVRO) && (compressionCodec == HiveCompressionCodec.LZ4)) {
                     continue;
                 }
-                if ((storageFormat == HiveStorageFormat.PARQUET) && (compressionCodec == HiveCompressionCodec.LZ4)) {
-                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                    continue;
-                }
                 testEmptyBucketedTable(storageFormat, compressionCodec, true);
             }
             testEmptyBucketedTable(storageFormat, HiveCompressionCodec.GZIP, false);
@@ -7723,13 +7719,6 @@ public abstract class BaseHiveConnectorTest
     public void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         testWithAllStorageFormats((session, hiveStorageFormat) -> {
-            if (isNativeParquetWriter(session, hiveStorageFormat) && compressionCodec == HiveCompressionCodec.LZ4) {
-                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
-                        .hasMessage("Unsupported codec: LZ4");
-                return;
-            }
-
             if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
                 assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
                         .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);

@@ -14,8 +14,10 @@
 package io.trino.parquet.writer;
 
 import io.airlift.compress.Compressor;
+import io.airlift.compress.lz4.Lz4Compressor;
 import io.airlift.compress.snappy.SnappyCompressor;
 import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.BytesInput;
 import org.apache.parquet.format.CompressionCodec;
@@ -43,13 +45,13 @@ interface ParquetCompressor
                 return new AirLiftCompressor(new ZstdCompressor());
             case UNCOMPRESSED:
                 return null;
-            case LZO:
             case LZ4:
+                // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW.
+                // However, LZ4 is the more widely supported encoding in other engines.
+                return new Lz4FramedCompressor();
+            // When using airlift LZO compressor, decompressing page in reader throws exception.
+            case LZO:
             case LZ4_RAW:
-                // TODO Support LZO and LZ4_RAW compression
-                // Note: LZ4 compression scheme has been deprecated by parquet-format in favor of LZ4_RAW
-                // When using airlift LZO or LZ4 compressor, decompressing page in reader throws exception.
-                break;
             case BROTLI:
                 // unsupported
                 break;
@@ -69,6 +71,25 @@ interface ParquetCompressor
                 outputStream.write(input, 0, input.length);
             }
             return createDataOutput(BytesInput.from(byteArrayOutputStream));
+        }
+    }
+
+    class Lz4FramedCompressor
+            implements ParquetCompressor
+    {
+        private final Compressor compressor = new Lz4Compressor();
+
+        @Override
+        public ParquetDataOutput compress(byte[] input)
+                throws IOException
+        {
+            int minCompressionBufferSize = compressor.maxCompressedLength(input.length);
+            byte[] compressionBuffer = new byte[8 + minCompressionBufferSize];
+            int compressedDataSize = compressor.compress(input, 0, input.length, compressionBuffer, 8, minCompressionBufferSize);
+            Slice output = Slices.wrappedBuffer(compressionBuffer, 0, 8 + compressedDataSize);
+            output.setInt(0, Integer.reverseBytes(input.length));
+            output.setInt(4, Integer.reverseBytes(compressedDataSize));
+            return createDataOutput(output);
         }
     }
 
