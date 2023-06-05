@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>
-        <dep.airlift.version>232</dep.airlift.version>
+        <dep.airlift.version>233-SNAPSHOT</dep.airlift.version>
         <dep.arrow.version>11.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -60,6 +60,7 @@
         <dep.drift.version>1.19</dep.drift.version>
         <dep.tempto.version>196</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
+
         <dep.errorprone.version>2.19.1</dep.errorprone.version>
         <dep.testcontainers.version>1.18.0</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
@@ -75,6 +76,8 @@
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
         <dep.jackson.version>2.15.1</dep.jackson.version>
+        <!-- TODO: update in Airbase -->
+        <dep.guice.version>7.0.0</dep.guice.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
 
@@ -881,7 +884,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>1.34-SNAPSHOT</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.airlift</groupId>
@@ -1301,10 +1304,10 @@
             </dependency>
 
             <dependency>
-                 <groupId>commons-codec</groupId>
-                 <artifactId>commons-codec</artifactId>
-                 <version>1.15</version>
-             </dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>1.15</version>
+            </dependency>
 
             <dependency>
                 <groupId>dev.failsafe</groupId>
@@ -1422,18 +1425,6 @@
                         <groupId>com.fasterxml.jackson.core</groupId>
                         <artifactId>jackson-databind</artifactId>
                     </exclusion>
-                    <!--
-                        This library depends on conflicting:
-                        - com.sun.activation:jakarta.activation and jakarta.activation:jakarta.activation-api
-                        - jakarta.el:jakarta.el-api and org.glassfish:jakarta.el
-                        This library depends on:
-                        - org.glassfish.hk2.external:jakarta.inject that conflicts with javax.inject:javax.inject
-                        - jakarta.validation:jakarta.validation-api that conflicts with javax.validation:validation-api
-                        - jakarta.annotation:jakarta.annotation-api that conflicts with javax.annotation:javax.annotation-api
-                        - com.sun.activation:jakarta.activation that conflicts with javax.activation:javax.activation-api
-                        - jakarta.ws.rs:jakarta.ws.rs-api that conflicts with javax.ws.rs:javax.ws.rs-api
-                        - jakarta.xml.bind:jakarta.xml.bind-api that conflicts with javax.xml.bind:jaxb-api
-                    -->
                     <exclusion>
                         <groupId>com.sun.activation</groupId>
                         <artifactId>jakarta.activation</artifactId>
@@ -1441,22 +1432,6 @@
                     <exclusion>
                         <groupId>jakarta.activation</groupId>
                         <artifactId>jakarta.activation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.annotation</groupId>
-                        <artifactId>jakarta.annotation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.validation</groupId>
-                        <artifactId>jakarta.validation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.ws.rs</groupId>
-                        <artifactId>jakarta.ws.rs-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.xml.bind</groupId>
-                        <artifactId>jakarta.xml.bind-api</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.glassfish</groupId>
@@ -1533,10 +1508,25 @@
                 <version>8.3.0</version>
             </dependency>
 
+            <!-- TODO: move to Airbase -->
             <dependency>
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>2.3.1</version>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <version>2.1.1</version>
+            </dependency>
+
+            <!-- TODO: move to Airbase -->
+            <dependency>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>3.1.0</version>
+            </dependency>
+
+            <!-- TODO: move to Airbase -->
+            <dependency>
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>4.0.0</version>
             </dependency>
 
             <dependency>
@@ -1796,16 +1786,17 @@
                 <version>3.5.1</version>
             </dependency>
 
+            <!-- TODO: move to Airbase -->
+            <dependency>
+                <groupId>org.eclipse.jetty.toolchain</groupId>
+                <artifactId>jetty-jakarta-servlet-api</artifactId>
+                <version>5.0.2</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
                 <version>7.15.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.glassfish.jersey.core</groupId>
-                <artifactId>jersey-common</artifactId>
-                <version>2.39</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->

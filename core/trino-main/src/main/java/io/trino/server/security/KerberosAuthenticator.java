@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import com.sun.security.auth.module.Krb5LoginModule;
 import io.airlift.log.Logger;
 import io.trino.spi.security.Identity;
+import jakarta.ws.rs.container.ContainerRequestContext;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
@@ -31,7 +32,6 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
-import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
