@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.inject.Inject;
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.jwk.source.RemoteJWKSet;
 import com.nimbusds.jose.proc.BadJOSEException;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import com.nimbusds.jose.proc.JWSKeySelector;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -92,6 +94,7 @@ public class NimbusOAuth2Client
     private final String principalField;
     private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
+    private final Optional<String> jwtType;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
     private volatile boolean loaded;
@@ -111,6 +114,7 @@ public class NimbusOAuth2Client
         scope = Scope.parse(oauthConfig.getScopes());
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
+        jwtType = oauthConfig.getJwtType();
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
@@ -137,6 +141,9 @@ public class NimbusOAuth2Client
         }
 
         DefaultJWTProcessor<SecurityContext> processor = new DefaultJWTProcessor<>();
+        if (jwtType.isPresent()) {
+            processor.setJWSTypeVerifier(new DefaultJOSEObjectTypeVerifier<>(new JOSEObjectType(jwtType.get())));
+        }
         processor.setJWSKeySelector(jwsKeySelector);
         DefaultJWTClaimsVerifier<SecurityContext> accessTokenVerifier = new DefaultJWTClaimsVerifier<>(
                 accessTokenAudiences,
