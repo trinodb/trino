@@ -302,6 +302,8 @@ public class OracleClient
         String dropTableSql = "DROP TABLE " + quotedTable;
         try (Connection connection = connectionFactory.openConnection(session)) {
             if (temporaryTable) {
+                // Turn off auto-commit so the lock is held until after the DROP
+                connection.setAutoCommit(false);
                 // By default, when dropping a table, oracle does not wait for the table lock.
                 // If another transaction is using the table at the same time, DROP TABLE will throw.
                 // The solution is to first lock the table, waiting for other active transactions to complete.
@@ -315,6 +317,9 @@ public class OracleClient
                 dropTableSql += " PURGE";
             }
             execute(session, connection, dropTableSql);
+            // Commit the transaction (for temporaryTables), or a no-op for regular tables.
+            // This is better than connection.commit() because you're not supposed to commit() if autoCommit is true.
+            connection.setAutoCommit(true);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
