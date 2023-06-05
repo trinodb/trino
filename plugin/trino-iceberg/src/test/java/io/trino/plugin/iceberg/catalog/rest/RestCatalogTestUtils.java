@@ -51,7 +51,7 @@ public final class RestCatalogTestUtils
         HdfsContext context = new HdfsContext(connectorSession);
 
         JdbcCatalog catalog = new JdbcCatalog();
-        catalog.setConf((Object) hdfsEnvironment.getConfiguration(context, new Path(warehouseLocation.getAbsolutePath())));
+        catalog.setConf(hdfsEnvironment.getConfiguration(context, new Path(warehouseLocation.getAbsolutePath())));
         catalog.initialize("backend_jdbc", properties.buildOrThrow());
 
         return catalog;
