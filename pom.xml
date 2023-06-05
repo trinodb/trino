@@ -61,7 +61,7 @@
         <dep.tempto.version>196</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
         <dep.errorprone.version>2.19.1</dep.errorprone.version>
-        <dep.testcontainers.version>1.18.0</dep.testcontainers.version>
+        <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.coral.version>2.0.153</dep.coral.version>
         <dep.confluent.version>7.3.1</dep.confluent.version>
@@ -1127,7 +1127,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.3.0</version>
+                <version>3.3.1</version>
             </dependency>
 
             <dependency>
@@ -1646,7 +1646,7 @@
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-compress</artifactId>
-                <version>1.22</version>
+                <version>1.23.0</version>
             </dependency>
 
             <dependency>
