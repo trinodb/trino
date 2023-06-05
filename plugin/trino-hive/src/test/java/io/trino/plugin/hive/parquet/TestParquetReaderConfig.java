@@ -39,7 +39,7 @@ public class TestParquetReaderConfig
                 .setUseColumnIndex(true)
                 .setUseBloomFilter(true)
                 .setNativeZstdDecompressorEnabled(true)
-                .setNativeSnappyDecompressorEnabled(false)
+                .setNativeSnappyDecompressorEnabled(true)
                 .setSmallFileThreshold(DataSize.of(3, MEGABYTE)));
     }
 
@@ -55,7 +55,7 @@ public class TestParquetReaderConfig
                 .put("parquet.use-column-index", "false")
                 .put("parquet.use-bloom-filter", "false")
                 .put("parquet.native-zstd-decompressor.enabled", "false")
-                .put("parquet.native-snappy-decompressor.enabled", "true")
+                .put("parquet.native-snappy-decompressor.enabled", "false")
                 .put("parquet.small-file-threshold", "1kB")
                 .buildOrThrow();
 
@@ -68,7 +68,7 @@ public class TestParquetReaderConfig
                 .setUseColumnIndex(false)
                 .setUseBloomFilter(false)
                 .setNativeZstdDecompressorEnabled(false)
-                .setNativeSnappyDecompressorEnabled(true)
+                .setNativeSnappyDecompressorEnabled(false)
                 .setSmallFileThreshold(DataSize.of(1, KILOBYTE));
 
         assertFullMapping(properties, expected);

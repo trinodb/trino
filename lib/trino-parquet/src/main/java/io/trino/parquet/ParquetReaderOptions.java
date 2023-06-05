@@ -48,7 +48,7 @@ public class ParquetReaderOptions
         useColumnIndex = true;
         useBloomFilter = true;
         nativeZstdDecompressorEnabled = true;
-        nativeSnappyDecompressorEnabled = false;
+        nativeSnappyDecompressorEnabled = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
     }
 
