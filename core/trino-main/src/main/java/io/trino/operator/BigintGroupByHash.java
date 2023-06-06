@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -24,10 +23,8 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.Type;
 
 import java.util.Arrays;
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -50,8 +47,6 @@ public class BigintGroupByHash
     private static final int BATCH_SIZE = 1024;
 
     private static final float FILL_RATIO = 0.75f;
-    private static final List<Type> TYPES = ImmutableList.of(BIGINT);
-    private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
     private final boolean outputRawHash;
 
@@ -106,12 +101,6 @@ public class BigintGroupByHash
                 sizeOf(values) +
                 sizeOf(valuesByGroupId) +
                 preallocatedMemoryInBytes;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return outputRawHash ? TYPES_WITH_RAW_HASH : TYPES;
     }
 
     @Override
