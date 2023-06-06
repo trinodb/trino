@@ -258,7 +258,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
                         "Determine the number of partitions based on amount of data read and processed by the query for write queries",
-                        false,
+                        queryManagerConfig.isDeterminePartitionCountForWriteEnabled(),
                         false),
                 integerProperty(
                         MAX_HASH_PARTITION_COUNT,
