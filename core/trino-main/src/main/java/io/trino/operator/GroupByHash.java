@@ -58,8 +58,6 @@ public interface GroupByHash
 
     long getEstimatedSize();
 
-    List<Type> getTypes();
-
     int getGroupCount();
 
     void appendValuesTo(int groupId, PageBuilder pageBuilder);

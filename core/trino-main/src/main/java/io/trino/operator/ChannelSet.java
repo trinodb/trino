@@ -36,11 +36,6 @@ public class ChannelSet
         this.containsNull = containsNull;
     }
 
-    public Type getType()
-    {
-        return hash.getTypes().get(0);
-    }
-
     public long getEstimatedSizeInBytes()
     {
         return hash.getEstimatedSize();

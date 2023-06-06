@@ -98,7 +98,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        PageBuilder pageBuilder = new PageBuilder(data.getTypes());
         for (int groupId = 0; groupId < groupByHash.getGroupCount(); groupId++) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(groupId, pageBuilder);

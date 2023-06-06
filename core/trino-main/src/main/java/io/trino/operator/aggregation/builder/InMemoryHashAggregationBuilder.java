@@ -53,6 +53,7 @@ public class InMemoryHashAggregationBuilder
 {
     private final int[] groupByChannels;
     private final GroupByHash groupByHash;
+    private final List<Type> groupByOutputTypes;
     private final List<GroupedAggregator> groupedAggregators;
     private final boolean partial;
     private final OptionalLong maxPartialMemory;
@@ -102,6 +103,10 @@ public class InMemoryHashAggregationBuilder
             UpdateMemory updateMemory)
     {
         if (hashChannel.isPresent()) {
+            this.groupByOutputTypes = ImmutableList.<Type>builder()
+                    .addAll(groupByTypes)
+                    .add(BIGINT)
+                    .build();
             this.groupByChannels = new int[groupByChannels.size() + 1];
             for (int i = 0; i < groupByChannels.size(); i++) {
                 this.groupByChannels[i] = groupByChannels.get(i);
@@ -109,6 +114,7 @@ public class InMemoryHashAggregationBuilder
             this.groupByChannels[groupByChannels.size()] = hashChannel.get();
         }
         else {
+            this.groupByOutputTypes = ImmutableList.copyOf(groupByTypes);
             this.groupByChannels = Ints.toArray(groupByChannels);
         }
 
@@ -222,7 +228,7 @@ public class InMemoryHashAggregationBuilder
 
     public int getKeyChannels()
     {
-        return groupByHash.getTypes().size();
+        return groupByChannels.length;
     }
 
     public long getGroupCount()
@@ -246,7 +252,7 @@ public class InMemoryHashAggregationBuilder
 
     public List<Type> buildSpillTypes()
     {
-        ArrayList<Type> types = new ArrayList<>(groupByHash.getTypes());
+        ArrayList<Type> types = new ArrayList<>(groupByOutputTypes);
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             types.add(groupedAggregator.getSpillType());
         }
@@ -269,7 +275,6 @@ public class InMemoryHashAggregationBuilder
 
             pageBuilder.reset();
 
-            List<Type> types = groupByHash.getTypes();
             while (!pageBuilder.isFull() && groupIds.hasNext()) {
                 int groupId = groupIds.nextInt();
 
@@ -278,7 +283,7 @@ public class InMemoryHashAggregationBuilder
                 pageBuilder.declarePosition();
                 for (int i = 0; i < groupedAggregators.size(); i++) {
                     GroupedAggregator groupedAggregator = groupedAggregators.get(i);
-                    BlockBuilder output = pageBuilder.getBlockBuilder(types.size() + i);
+                    BlockBuilder output = pageBuilder.getBlockBuilder(groupByChannels.length + i);
                     groupedAggregator.evaluate(groupId, output);
                 }
             }
@@ -289,7 +294,7 @@ public class InMemoryHashAggregationBuilder
 
     public List<Type> buildTypes()
     {
-        ArrayList<Type> types = new ArrayList<>(groupByHash.getTypes());
+        ArrayList<Type> types = new ArrayList<>(groupByOutputTypes);
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             types.add(groupedAggregator.getType());
         }

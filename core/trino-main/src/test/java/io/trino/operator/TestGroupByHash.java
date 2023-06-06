@@ -229,14 +229,6 @@ public class TestGroupByHash
         }
     }
 
-    @Test
-    public void testTypes()
-    {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), true, 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
-        // Additional bigint channel for hash
-        assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
-    }
-
     @Test(dataProvider = "groupByHashType")
     public void testAppendTo(GroupByHashType groupByHashType)
     {
@@ -252,14 +244,14 @@ public class TestGroupByHash
         }
         assertEquals(groupByHash.getGroupCount(), 100);
 
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(i, pageBuilder);
         }
         Page page = pageBuilder.build();
         // Ensure that all blocks have the same positionCount
-        for (int i = 0; i < groupByHash.getTypes().size(); i++) {
+        for (int i = 0; i < page.getChannelCount(); i++) {
             assertEquals(page.getBlock(i).getPositionCount(), 100);
         }
         assertEquals(page.getPositionCount(), 100);
@@ -281,7 +273,7 @@ public class TestGroupByHash
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
         assertEquals(groupByHash.getGroupCount(), 50);
 
-        PageBuilder pageBuilder = new PageBuilder(groupByHash.getTypes());
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(BIGINT, BIGINT));
         for (int i = 0; i < groupByHash.getGroupCount(); i++) {
             pageBuilder.declarePosition();
             groupByHash.appendValuesTo(i, pageBuilder);
