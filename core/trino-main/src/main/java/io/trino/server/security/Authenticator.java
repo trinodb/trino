@@ -14,8 +14,7 @@
 package io.trino.server.security;
 
 import io.trino.spi.security.Identity;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 public interface Authenticator
 {

@@ -37,10 +37,10 @@ import io.trino.metadata.InternalNodeManager.NodesSnapshot;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.assertj.core.util.VisibleForTesting;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.time.Duration;

@@ -17,8 +17,8 @@ import com.google.common.reflect.ClassPath;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;

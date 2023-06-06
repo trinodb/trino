@@ -26,10 +26,9 @@ import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.exchange.ExchangeId;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
