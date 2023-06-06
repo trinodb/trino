@@ -15,7 +15,6 @@ package io.trino.plugin.spanner;
 
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -32,13 +31,14 @@ public class SpannerSinkProvider
     private final SpannerClient client;
     private final RemoteQueryModifier modifier;
     private final SpannerTableProperties spannerTableProperties;
+    private final SpannerConfig config;
 
     @Inject
     public SpannerSinkProvider(
             ConnectionFactory connectionFactory,
-            JdbcClient jdbcClient,
             RemoteQueryModifier modifier,
             SpannerClient client,
+            SpannerConfig config,
             SpannerTableProperties propertiesProvider)
     {
         System.out.println("Called Spanner Sink provider");
@@ -46,17 +46,18 @@ public class SpannerSinkProvider
         this.modifier = modifier;
         System.out.println("TABLE PROPS in SINK " + propertiesProvider.getTableProperties());
         this.spannerTableProperties = propertiesProvider;
+        this.config = config;
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new SpannerSink(session, (JdbcOutputTableHandle) outputTableHandle, pageSinkId);
+        return new SpannerSink(config, session, (JdbcOutputTableHandle) outputTableHandle, pageSinkId);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, ConnectorPageSinkId pageSinkId)
     {
-        return new SpannerSink(session, (JdbcOutputTableHandle) tableHandle, pageSinkId);
+        return new SpannerSink(config, session, (JdbcOutputTableHandle) tableHandle, pageSinkId);
     }
 }

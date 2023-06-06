@@ -14,33 +14,32 @@
 package io.trino.plugin.spanner;
 
 import com.google.cloud.NoCredentials;
-import com.google.cloud.Timestamp;
+import com.google.cloud.spanner.AbortedException;
 import com.google.cloud.spanner.DatabaseClient;
 import com.google.cloud.spanner.DatabaseId;
-import com.google.cloud.spanner.ErrorCode;
 import com.google.cloud.spanner.Mutation;
-import com.google.cloud.spanner.SpannerException;
 import com.google.cloud.spanner.SpannerOptions;
+import com.google.cloud.spanner.TransactionContext;
+import com.google.cloud.spanner.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.grpc.Status;
-import io.grpc.StatusRuntimeException;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
-import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.Page;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
@@ -54,27 +53,33 @@ public class SpannerSink
     private final DatabaseClient client;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
-    private final String project = "spanner-project";
-    private final String instance = "spanner-instance";
-    private final String database = "spanner-database";
     private final String table;
     private final ConnectorPageSinkId pageSinkId;
     private final SpannerSessionProperties.Mode writeMode;
+    private final boolean isEmulatedHost;
+    private final Logger LOG = LoggerFactory.getLogger(SpannerSink.class);
+    int maxRetries = 3;
+    int retry = 0;
     private List<Mutation> mutations = new LinkedList<>();
 
-    public SpannerSink(ConnectorSession session, JdbcOutputTableHandle handle,
+    public SpannerSink(SpannerConfig config, ConnectorSession session, JdbcOutputTableHandle handle,
             ConnectorPageSinkId pageSinkId)
     {
-        this.options = SpannerOptions
+        isEmulatedHost = config.isEmulator();
+        SpannerOptions.Builder builder = SpannerOptions
                 .newBuilder()
-                .setEmulatorHost("0.0.0.0:9010")
-                .setCredentials(NoCredentials.getInstance())
-                .setProjectId(project)
-                .build();
+                .setProjectId(config.getProjectId());
+        if (isEmulatedHost) {
+            builder.setEmulatorHost(config.getHost())
+                    .setCredentials(NoCredentials.getInstance());
+        }
+        else {
+            //builder.setCredentials(Credentials);
+        }
+        this.options = builder.build();
         this.pageSinkId = pageSinkId;
         this.maxBatchSize = getWriteBatchSize(session);
-
-        this.client = options.getService().getDatabaseClient(DatabaseId.of(project, instance, database));
+        this.client = options.getService().getDatabaseClient(DatabaseId.of(config.getProjectId(), config.getInstanceId(), config.getDatabase()));
         columnTypes = handle.getColumnTypes();
         columnNames = handle.getColumnNames();
         table = handle.getTableName();
@@ -141,20 +146,32 @@ public class SpannerSink
     private void write()
     {
         if (!mutations.isEmpty()) {
-            try {
-                Timestamp write = client.write(mutations);
-                System.out.println("Batch write completed " + write + " " + mutations.size() + " records flushed");
-            }
-            catch (Exception e) {
-                System.out.println(e);
-                if (e instanceof SpannerException spannerEx) {
-                    if (spannerEx.getErrorCode().equals(ErrorCode.ALREADY_EXISTS)) {
-                        throw new TrinoException(SpannerClient.SpannerErrorCode.SPANNER_ERROR_CODE, String.format("%s Try changing %s to %s and retry this query ", spannerEx.getMessage(), SpannerSessionProperties.WRITE_MODE,
-                                SpannerSessionProperties.Mode.UPSERT));
+            try (TransactionManager manager = client.transactionManager()) {
+                TransactionContext transaction = manager.begin();
+                while (true) {
+                    try {
+                        transaction.buffer(mutations);
+                        manager.commit();
+                        break;
+                    }
+                    catch (AbortedException e) {
+                        blockFor(e.getRetryDelayInMillis());
+                        transaction = manager.resetForRetry();
                     }
                 }
             }
-            mutations = new LinkedList<>();
+        }
+        mutations = new LinkedList<>();
+    }
+
+    private void blockFor(long delay)
+    {
+        try {
+            if (delay > 0L) {
+                TimeUnit.MILLISECONDS.sleep(delay);
+            }
+        }
+        catch (InterruptedException ignored) {
         }
     }
 

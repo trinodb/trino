@@ -54,6 +54,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 
+import javax.inject.Inject;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -69,6 +71,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -119,9 +122,13 @@ public class SpannerClient
     private final IdentifierMapping identifierMapping;
     private final String tableTypes[] = {"BASE TABLE", "VIEW"};
 
-    public SpannerClient(BaseJdbcConfig config, SpannerConfig spannerConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
+    @Inject
+    public SpannerClient(
+            SpannerConfig spannerConfig, JdbcStatisticsConfig statisticsConfig, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super("`", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
+        super("`", connectionFactory, queryBuilder,
+                new LinkedHashSet<>(),
+                identifierMapping, queryModifier, true);
         this.config = spannerConfig;
         this.identifierMapping = identifierMapping;
     }

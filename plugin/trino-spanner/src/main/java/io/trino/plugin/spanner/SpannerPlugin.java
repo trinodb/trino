@@ -13,16 +13,18 @@
  */
 package io.trino.plugin.spanner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.JdbcPlugin;
 import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 public class SpannerPlugin
-        extends JdbcPlugin
         implements Plugin
 {
 
-    public SpannerPlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("spanner", new SpannerModule());
+        return ImmutableList.of(new SpannerConnectorFactory(SpannerPlugin.class.getClassLoader()));
     }
 }

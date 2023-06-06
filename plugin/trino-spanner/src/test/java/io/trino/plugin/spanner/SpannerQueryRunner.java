@@ -47,7 +47,7 @@ public final class SpannerQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createSpannerQueryRunner(instance, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
+        return createSpannerQueryRunner(instance, extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
     }
 
     public static DistributedQueryRunner createSpannerQueryRunner(
@@ -61,7 +61,8 @@ public final class SpannerQueryRunner
     {
         DistributedQueryRunner queryRunner = null;
         try {
-            queryRunner = DistributedQueryRunner.builder(createSession())
+            queryRunner = DistributedQueryRunner.builder(
+                            createSession())
                     .setExtraProperties(extraProperties)
                     .setCoordinatorProperties(coordinatorProperties)
                     .setAdditionalSetup(moreSetup)
@@ -72,14 +73,26 @@ public final class SpannerQueryRunner
 
             // note: additional copy via ImmutableList so that if fails on nulls
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
-            //connectorProperties.putIfAbsent("connection-url", instance.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-url", "jdbc:cloudspanner://0.0.0.0:9010/projects/spanner-project/instances/spanner-instance/databases/spanner-database;autoConfigEmulator=true");
-            connectorProperties.putIfAbsent("connection-user", "");
-            connectorProperties.putIfAbsent("connection-password", "");
             connectorProperties.putIfAbsent("spanner.credentials.file", "credentials.json");
+            connectorProperties.putIfAbsent("spanner.instanceId", instance.getInstanceId());
+            connectorProperties.putIfAbsent("spanner.projectId", instance.getProjectId());
+            connectorProperties.putIfAbsent("spanner.database", instance.getDatabaseId());
+            connectorProperties.putIfAbsent("spanner.emulated", "true");
+            connectorProperties.putIfAbsent("spanner.emulated.host", instance.getHost());
+           /* connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("spanner.credentials.file", "credentials.json");
+            connectorProperties.putIfAbsent("spanner.instanceId", "spanner-instance");
+            connectorProperties.putIfAbsent("spanner.projectId", "spanner-project");
+            connectorProperties.putIfAbsent("spanner.database", "spanner-database");
+            connectorProperties.putIfAbsent("spanner.emulated", "true");
+            connectorProperties.putIfAbsent("spanner.emulated.host", "localhost:9010");*/
             queryRunner.installPlugin(new SpannerPlugin());
             queryRunner.createCatalog("spanner", "spanner", connectorProperties);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME,createSession(), tables);
+            MaterializedResult execute1 = queryRunner.execute("create table emp WITH (PRIMARY_KEYS = ARRAY['id']) as select 1 as id,'T' as name");
+            System.out.println(execute1);
+            MaterializedResult execute2 = queryRunner.execute("select * from emp");
+            System.out.println(execute2);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             MaterializedResult execute = queryRunner.execute("SHOW TABLES FROM spanner.default");
             System.out.println(execute);
 /*
@@ -99,7 +112,9 @@ public final class SpannerQueryRunner
         return testSessionBuilder()
                 .setCatalog("spanner")
                 .setSchema("default")
-                .setCatalogSessionProperty("spanner",SpannerSessionProperties.WRITE_MODE, SpannerSessionProperties.Mode.UPSERT.name())
+                .setCatalogSessionProperty("spanner",
+                        SpannerSessionProperties.WRITE_MODE,
+                        SpannerSessionProperties.Mode.UPSERT.name())
                 .build();
     }
 
@@ -150,6 +165,7 @@ public final class SpannerQueryRunner
         System.out.println(sql);
         LOG.debug("Running import for %s %s", target, sql);
         long rows = queryRunner.execute(session, sql).getUpdateCount().getAsLong();
+
         LOG.debug("%s rows loaded into %s", rows, target);
     }
 }

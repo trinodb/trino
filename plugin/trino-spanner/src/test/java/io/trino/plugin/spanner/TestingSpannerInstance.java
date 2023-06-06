@@ -18,8 +18,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
@@ -29,20 +29,24 @@ public class TestingSpannerInstance
     private final String SPANNER_IMAGE = "gcr.io/cloud-spanner-emulator/emulator:latest";
 
     private final SpannerEmulatorContainer emulatorContainer;
-    private final SpannerOptions options=null;
     private final String PROJECT = "test-project";
     private final String INSTANCE = "test-instance";
     private final String DATABASE = "trinodb";
-    private final Spanner spanner=null;
-    private final DatabaseId databaseId=null;
-    private final InstanceId instanceId=null;
+    private Database database;
+    private SpannerOptions options;
+    private Spanner spanner;
+    private DatabaseId databaseId;
+    private InstanceId instanceId;
+    private String host = null;
 
     public TestingSpannerInstance()
             throws ExecutionException, InterruptedException
     {
-        this.emulatorContainer = new SpannerEmulatorContainer(DockerImageName.parse(SPANNER_IMAGE));
-        emulatorContainer.setExposedPorts(Arrays.asList(9010));
-        /*emulatorContainer.start();
+        this.emulatorContainer = new SpannerEmulatorContainer(DockerImageName.parse(SPANNER_IMAGE))
+                .withExposedPorts(9010, 9020);
+        emulatorContainer.start();
+        //this.host = "0.0.0.0:" + emulatorContainer.getEmulatorGrpcEndpoint().split(":")[1];
+        this.host=emulatorContainer.getEmulatorGrpcEndpoint();
         options = SpannerOptions
                 .newBuilder()
                 .setEmulatorHost(emulatorContainer.getEmulatorGrpcEndpoint())
@@ -51,8 +55,9 @@ public class TestingSpannerInstance
                 .build();
         this.spanner = options.getService();
         this.instanceId = createInstance();
-        Database database = createDatabase();
-        this.databaseId = DatabaseId.of(instanceId, DATABASE);*/
+        this.database = createDatabase();
+
+        this.databaseId = DatabaseId.of(instanceId, DATABASE);
     }
 
     private static void execute(String url, String sql)
@@ -64,6 +69,33 @@ public class TestingSpannerInstance
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static void main(String[] args)
+            throws ExecutionException, InterruptedException
+    {
+        TestingSpannerInstance spannerInstance = new TestingSpannerInstance();
+        Thread.sleep(Duration.ofHours(1).toMillis());
+    }
+
+    public String getDatabaseId()
+    {
+        return DATABASE;
+    }
+
+    public String getInstanceId()
+    {
+        return INSTANCE;
+    }
+
+    public String getProjectId()
+    {
+        return PROJECT;
+    }
+
+    public String getHost()
+    {
+        return host;
     }
 
     private Database createDatabase()

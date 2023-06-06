@@ -18,6 +18,67 @@ import io.airlift.configuration.Config;
 public class SpannerConfig
 {
     private String credentialsFile;
+    private String projectId;
+
+    public String getHost()
+    {
+        return host;
+    }
+    @Config("spanner.emulated.host")
+    public void setHost(String host)
+    {
+        this.host = host;
+    }
+
+    private String host = "";
+
+    public boolean isEmulator()
+    {
+        return isEmulator;
+    }
+
+    @Config("spanner.emulated")
+    public void setEmulator(boolean emulator)
+    {
+        isEmulator = emulator;
+    }
+
+    private boolean isEmulator = false;
+    private String instanceId;
+    private String database;
+
+    public String getProjectId()
+    {
+        return projectId;
+    }
+
+    @Config("spanner.projectId")
+    public void setProjectId(String projectId)
+    {
+        this.projectId = projectId;
+    }
+
+
+    public String getInstanceId()
+    {
+        return instanceId;
+    }
+    @Config("spanner.instanceId")
+    public void setInstanceId(String instanceId)
+    {
+        this.instanceId = instanceId;
+    }
+
+    public String getDatabase()
+    {
+        return database;
+    }
+
+    @Config("spanner.database")
+    public void setDatabase(String database)
+    {
+        this.database = database;
+    }
     /*private int minSessions = 100;
     private int maxSessions = 400;
     private int numChannels = 4;
