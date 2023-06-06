@@ -496,7 +496,7 @@
         </profile>
 
         <profile>
-	    <!-- Tests which require third party cloud services are separated from the main test profile -->
+            <!-- Tests which require third party cloud services are separated from the main test profile -->
             <id>cloud-tests</id>
             <build>
                 <plugins>
