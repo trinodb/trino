@@ -128,6 +128,7 @@ class ArbitraryDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     partitionAssignment.getPartitionId(),
                     planNodeId,
+                    false,
                     splits,
                     noMoreSplits));
         }
@@ -153,6 +154,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
@@ -160,6 +162,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             partitionedSourceId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -173,6 +176,7 @@ class ArbitraryDistributionSplitAssigner
                             assignment.updatePartition(new PartitionUpdate(
                                     partitionAssignment.getPartitionId(),
                                     partitionedSourceNodeId,
+                                    false,
                                     ImmutableList.of(),
                                     true));
                         }
@@ -203,6 +207,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             partitionAssignment.getPartitionId(),
                             partitionedSourceNodeId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -232,6 +237,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             partitionAssignment.getPartitionId(),
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             completedSources.contains(replicatedSourceId)));
                 }
@@ -239,6 +245,7 @@ class ArbitraryDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     partitionAssignment.getPartitionId(),
                     planNodeId,
+                    true,
                     ImmutableList.of(split),
                     false));
             partitionAssignment.assignSplit(splitSizeInBytes);
@@ -257,6 +264,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
@@ -264,6 +272,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             partitionedSourceId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -277,6 +286,7 @@ class ArbitraryDistributionSplitAssigner
                         assignment.updatePartition(new PartitionUpdate(
                                 partitionAssignment.getPartitionId(),
                                 partitionedSourceNodeId,
+                                false,
                                 ImmutableList.of(),
                                 true));
                     }
