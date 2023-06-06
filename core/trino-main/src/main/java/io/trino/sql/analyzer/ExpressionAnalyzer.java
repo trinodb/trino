@@ -997,7 +997,7 @@ public class ExpressionAnalyzer
                 if (!indexType.equals(INTEGER)) {
                     throw semanticException(TYPE_MISMATCH, node.getIndex(), "Subscript expression on ROW requires integer index, found %s", indexType);
                 }
-                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getValue());
+                int indexValue = toIntExact(((LongLiteral) node.getIndex()).getParsedValue());
                 if (indexValue <= 0) {
                     throw semanticException(INVALID_FUNCTION_ARGUMENT, node.getIndex(), "Invalid subscript index: %s. ROW indices start at 1", indexValue);
                 }
@@ -1043,7 +1043,7 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitLongLiteral(LongLiteral node, StackableAstVisitorContext<Context> context)
         {
-            if (node.getValue() >= Integer.MIN_VALUE && node.getValue() <= Integer.MAX_VALUE) {
+            if (node.getParsedValue() >= Integer.MIN_VALUE && node.getParsedValue() <= Integer.MAX_VALUE) {
                 return setExpressionType(node, INTEGER);
             }
 
@@ -1686,7 +1686,7 @@ public class ExpressionAnalyzer
                         if (!(node.getArguments().get(1) instanceof LongLiteral)) {
                             throw semanticException(INVALID_FUNCTION_ARGUMENT, node, "%s pattern recognition navigation function requires a number as the second argument", node.getName());
                         }
-                        long offset = ((LongLiteral) node.getArguments().get(1)).getValue();
+                        long offset = ((LongLiteral) node.getArguments().get(1)).getParsedValue();
                         if (offset < 0) {
                             throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "%s pattern recognition navigation function requires a non-negative number as the second argument (actual: %s)", node.getName(), offset);
                         }

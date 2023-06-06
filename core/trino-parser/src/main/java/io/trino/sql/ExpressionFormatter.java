@@ -312,7 +312,7 @@ public final class ExpressionFormatter
         {
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> Long.toString(node.getValue()));
+                    .orElseGet(node::getValue);
         }
 
         @Override

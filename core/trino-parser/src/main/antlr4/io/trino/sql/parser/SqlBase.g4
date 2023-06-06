@@ -1223,12 +1223,12 @@ BINARY_LITERAL
     ;
 
 INTEGER_VALUE
-    : DIGIT+
+    : DECIMAL_INTEGER
     ;
 
 DECIMAL_VALUE
-    : DIGIT+ '.' DIGIT*
-    | '.' DIGIT+
+    : DECIMAL_INTEGER '.' DECIMAL_INTEGER?
+    | '.' DECIMAL_INTEGER
     ;
 
 DOUBLE_VALUE
@@ -1250,6 +1250,10 @@ QUOTED_IDENTIFIER
 
 BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
+    ;
+
+fragment DECIMAL_INTEGER
+    : DIGIT ('_'? DIGIT)*
     ;
 
 fragment EXPONENT

@@ -45,7 +45,7 @@ public final class Decimals
     public static final int MAX_PRECISION = 38;
     public static final int MAX_SHORT_PRECISION = 18;
 
-    private static final Pattern DECIMAL_PATTERN = Pattern.compile("(\\+?|-?)((0*)(\\d*))(\\.(\\d*))?");
+    private static final Pattern DECIMAL_PATTERN = Pattern.compile("([+-]?)(\\d(?:_?\\d)*)?(?:\\.(\\d(?:_?\\d)*)?)?");
 
     private static final int LONG_POWERS_OF_TEN_TABLE_LENGTH = 19;
     private static final int BIG_INTEGER_POWERS_OF_TEN_TABLE_LENGTH = 100;
@@ -84,13 +84,15 @@ public final class Decimals
         if (sign.isEmpty()) {
             sign = "+";
         }
-        String leadingZeros = getMatcherGroup(matcher, 3);
-        String integralPart = getMatcherGroup(matcher, 4);
-        String fractionalPart = getMatcherGroup(matcher, 6);
+        String integralPart = getMatcherGroup(matcher, 2);
+        String fractionalPart = getMatcherGroup(matcher, 3);
 
-        if (leadingZeros.isEmpty() && integralPart.isEmpty() && fractionalPart.isEmpty()) {
+        if (integralPart.isEmpty() && fractionalPart.isEmpty()) {
             throw new IllegalArgumentException("Invalid DECIMAL value '" + stringValue + "'");
         }
+
+        integralPart = stripLeadingZeros(integralPart.replace("_", ""));
+        fractionalPart = fractionalPart.replace("_", "");
 
         int scale = fractionalPart.length();
         int precision = integralPart.length() + scale;
@@ -98,7 +100,7 @@ public final class Decimals
             precision = 1;
         }
 
-        String unscaledValue = sign + leadingZeros + integralPart + fractionalPart;
+        String unscaledValue = sign + (integralPart.isEmpty() ? "0" : "") + integralPart + fractionalPart;
         Object value;
         if (precision <= MAX_SHORT_PRECISION) {
             value = Long.parseLong(unscaledValue);
@@ -112,6 +114,17 @@ public final class Decimals
         }
 
         return new DecimalParseResult(value, createDecimalType(precision, scale));
+    }
+
+    private static String stripLeadingZeros(String number)
+    {
+        for (int i = 0; i < number.length(); i++) {
+            if (number.charAt(i) != '0') {
+                return number.substring(i);
+            }
+        }
+
+        return "";
     }
 
     private static String getMatcherGroup(MatchResult matcher, int group)
