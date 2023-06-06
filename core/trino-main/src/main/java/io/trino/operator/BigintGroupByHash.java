@@ -53,7 +53,6 @@ public class BigintGroupByHash
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final List<Type> TYPES_WITH_RAW_HASH = ImmutableList.of(BIGINT, BIGINT);
 
-    private final int hashChannel;
     private final boolean outputRawHash;
 
     private int hashCapacity;
@@ -78,12 +77,10 @@ public class BigintGroupByHash
     private long preallocatedMemoryInBytes;
     private long currentPageSizeInBytes;
 
-    public BigintGroupByHash(int hashChannel, boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
+    public BigintGroupByHash(boolean outputRawHash, int expectedSize, UpdateMemory updateMemory)
     {
-        checkArgument(hashChannel >= 0, "hashChannel must be at least zero");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.hashChannel = hashChannel;
         this.outputRawHash = outputRawHash;
 
         hashCapacity = arraySize(expectedSize, FILL_RATIO);
@@ -150,7 +147,7 @@ public class BigintGroupByHash
     public Work<?> addPage(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
+        Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new AddRunLengthEncodedPageWork(rleBlock);
         }
@@ -165,7 +162,7 @@ public class BigintGroupByHash
     public Work<int[]> getGroupIds(Page page)
     {
         currentPageSizeInBytes = page.getRetainedSizeInBytes();
-        Block block = page.getBlock(hashChannel);
+        Block block = page.getBlock(0);
         if (block instanceof RunLengthEncodedBlock rleBlock) {
             return new GetRunLengthEncodedGroupIdsWork(rleBlock);
         }
@@ -179,7 +176,7 @@ public class BigintGroupByHash
     @Override
     public boolean contains(int position, Page page)
     {
-        Block block = page.getBlock(hashChannel);
+        Block block = page.getBlock(0);
         if (block.isNull(position)) {
             return nullGroupId >= 0;
         }

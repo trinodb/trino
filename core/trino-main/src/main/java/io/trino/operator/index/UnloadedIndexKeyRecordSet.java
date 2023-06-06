@@ -33,7 +33,6 @@ import it.unimi.dsi.fastutil.ints.IntListIterator;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -63,15 +62,13 @@ public class UnloadedIndexKeyRecordSet
         requireNonNull(requests, "requests is null");
 
         int[] distinctChannels = Ints.toArray(channelsForDistinct);
-        int[] normalizedDistinctChannels = new int[distinctChannels.length];
         List<Type> distinctChannelTypes = new ArrayList<>(distinctChannels.length);
         for (int i = 0; i < distinctChannels.length; i++) {
-            normalizedDistinctChannels[i] = i;
             distinctChannelTypes.add(types.get(distinctChannels[i]));
         }
 
         ImmutableList.Builder<PageAndPositions> builder = ImmutableList.builder();
-        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, normalizedDistinctChannels, Optional.empty(), 10_000, joinCompiler, typeOperators, NOOP);
+        GroupByHash groupByHash = createGroupByHash(session, distinctChannelTypes, false, 10_000, joinCompiler, typeOperators, NOOP);
         for (UpdateRequest request : requests) {
             Page page = request.getPage();
 

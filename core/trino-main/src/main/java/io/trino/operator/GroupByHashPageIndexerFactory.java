@@ -39,7 +39,7 @@ public class GroupByHashPageIndexerFactory
     }
 
     @Override
-    public PageIndexer createPageIndexer(List<? extends Type> types)
+    public PageIndexer createPageIndexer(List<Type> types)
     {
         if (types.isEmpty()) {
             return new NoHashPageIndexer();

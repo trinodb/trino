@@ -29,7 +29,6 @@ import io.trino.sql.gen.JoinCompiler;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -121,8 +120,7 @@ public class DistinctAccumulatorFactory
             this.hash = new MarkDistinctHash(
                     session,
                     inputTypes,
-                    IntStream.range(0, inputTypes.size()).toArray(),
-                    Optional.empty(),
+                    false,
                     joinCompiler,
                     typeOperators,
                     UpdateMemory.NOOP);
@@ -201,8 +199,7 @@ public class DistinctAccumulatorFactory
                             .add(INTEGER) // group id column
                             .addAll(inputTypes)
                             .build(),
-                    IntStream.range(0, inputTypes.size() + 1).toArray(),
-                    Optional.empty(),
+                    false,
                     joinCompiler,
                     typeOperators,
                     UpdateMemory.NOOP);

@@ -125,6 +125,7 @@ public class RowNumberOperator
     private final List<Type> types;
 
     private int[] partitionIds;
+    private int[] groupByChannels;
     private final Optional<GroupByHash> groupByHash;
 
     private Page inputPage;
@@ -167,8 +168,17 @@ public class RowNumberOperator
             this.groupByHash = Optional.empty();
         }
         else {
-            int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler, typeOperators, this::updateMemoryReservation));
+            if (hashChannel.isPresent()) {
+                this.groupByChannels = new int[partitionChannels.size() + 1];
+                for (int i = 0; i < partitionChannels.size(); i++) {
+                    this.groupByChannels[i] = partitionChannels.get(i);
+                }
+                this.groupByChannels[partitionChannels.size()] = hashChannel.get();
+            }
+            else {
+                this.groupByChannels = Ints.toArray(partitionChannels);
+            }
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, hashChannel.isPresent(), expectedPositions, joinCompiler, typeOperators, this::updateMemoryReservation));
         }
     }
 
@@ -215,7 +225,7 @@ public class RowNumberOperator
         checkState(!hasUnfinishedInput());
         inputPage = page;
         if (groupByHash.isPresent()) {
-            unfinishedWork = groupByHash.get().getGroupIds(inputPage);
+            unfinishedWork = groupByHash.get().getGroupIds(inputPage.getColumns(groupByChannels));
             processUnfinishedWork();
         }
         updateMemoryReservation();
