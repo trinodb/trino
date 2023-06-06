@@ -35,13 +35,13 @@ import io.trino.client.FailureInfo;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.HostAddress;
 import io.trino.util.Failures;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.joda.time.DateTime;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 

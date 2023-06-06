@@ -31,10 +31,9 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.failuredetector.HeartbeatFailureDetector.Stats;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.security.SecurityConfig;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;

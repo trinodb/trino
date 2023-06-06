@@ -70,8 +70,8 @@ public class TestPrioritizedFifoExecutor
             futures.add(executor.submit(() -> {
                 try {
                     // wait for the go signal
-                    awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES);
 
+                    assertTrue(awaitUninterruptibly(startLatch, 1, TimeUnit.MINUTES));
                     assertFalse(futures.get(taskNumber).isDone());
 
                     // intentional distinct read and write calls
@@ -90,7 +90,7 @@ public class TestPrioritizedFifoExecutor
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
+        assertTrue(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES));
 
         assertEquals(counter.get(), totalTasks);
         // since this is a fifo executor with one thread and completeLatch is decremented inside the future,
@@ -142,7 +142,7 @@ public class TestPrioritizedFifoExecutor
 
         // signal go and wait for tasks to complete
         startLatch.countDown();
-        awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES);
+        assertTrue(awaitUninterruptibly(completeLatch, 1, TimeUnit.MINUTES));
 
         assertFalse(failed.get());
     }

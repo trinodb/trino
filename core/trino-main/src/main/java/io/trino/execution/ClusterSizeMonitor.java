@@ -23,10 +23,10 @@ import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.PriorityQueue;

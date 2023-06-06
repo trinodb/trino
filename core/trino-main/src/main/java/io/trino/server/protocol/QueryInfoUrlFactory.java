@@ -16,8 +16,7 @@ package io.trino.server.protocol;
 import com.google.inject.Inject;
 import io.trino.server.ServerConfig;
 import io.trino.spi.QueryId;
-
-import javax.ws.rs.core.UriInfo;
+import jakarta.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.net.URISyntaxException;

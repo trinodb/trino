@@ -21,8 +21,7 @@ import io.airlift.log.Logger;
 import io.trino.plugin.kinesis.s3config.S3TableConfigClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.nio.file.DirectoryIteratorException;
