@@ -13,12 +13,8 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.type.Type;
-
-import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 
@@ -33,12 +29,6 @@ public class NoChannelGroupByHash
     public long getEstimatedSize()
     {
         return INSTANCE_SIZE;
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return ImmutableList.of();
     }
 
     @Override

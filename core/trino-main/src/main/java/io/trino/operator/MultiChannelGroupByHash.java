@@ -65,7 +65,6 @@ public class MultiChannelGroupByHash
     private static final int VALUES_PAGE_MASK = VALUES_PAGE_MAX_ROW_COUNT - 1;
 
     private final List<Type> types;
-    private final List<Type> hashTypes;
     private final int[] channels;
 
     private final PagesHashStrategy hashStrategy;
@@ -103,7 +102,6 @@ public class MultiChannelGroupByHash
             TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
-        this.hashTypes = ImmutableList.copyOf(requireNonNull(hashTypes, "hashTypes is null"));
         this.hasPrecomputedHash = hasPrecomputedHash;
 
         requireNonNull(joinCompiler, "joinCompiler is null");
@@ -113,7 +111,7 @@ public class MultiChannelGroupByHash
         for (int i = 0; i < hashTypes.size(); i++) {
             channels[i] = i;
         }
-        this.types = hasPrecomputedHash ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
+        this.types = ImmutableList.copyOf(hasPrecomputedHash ? Iterables.concat(hashTypes, ImmutableList.of(BIGINT)) : hashTypes);
 
         this.hashGenerator = hasPrecomputedHash ? new PrecomputedHashGenerator(hashTypes.size()) : createPagePrefixHashGenerator(hashTypes, typeOperators);
         this.processDictionary = processDictionary && hashTypes.size() == 1;
@@ -133,7 +131,7 @@ public class MultiChannelGroupByHash
             this.precomputedHashChannel = OptionalInt.empty();
         }
         this.channelBuilders = channelBuilders.build();
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(this.types, Ints.asList(channels));
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, Ints.asList(channels));
         hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(this.channelBuilders, this.precomputedHashChannel);
 
         startNewPage();
@@ -171,12 +169,6 @@ public class MultiChannelGroupByHash
                 sizeOf(rawHashByHashPosition) +
                 preallocatedMemoryInBytes +
                 (dictionaryLookBack != null ? dictionaryLookBack.getRetainedSizeInBytes() : 0);
-    }
-
-    @Override
-    public List<Type> getTypes()
-    {
-        return types;
     }
 
     @Override
