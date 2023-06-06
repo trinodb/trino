@@ -11,11 +11,10 @@ package com.starburstdata.trino.plugins.synapse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.jdbc.CachingJdbcClient;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 

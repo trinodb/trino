@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -19,8 +20,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.sql.CallableStatement;
