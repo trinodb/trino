@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM ghcr.io/airlift/jvmkill:latest AS jvmkill
+FROM ghcr.io/airlift/jvmkill@sha256:7297eb25c9011daee5f577784c82622e25d6c4ca16bbbb12079b56a186e8aebf AS jvmkill
 
 # Use Eclipse Temurin as they have base Docker images for more architectures.
 FROM eclipse-temurin:17-jdk
