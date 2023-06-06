@@ -162,9 +162,6 @@ public final class GroupByHashYieldAssertion
                 assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
 
                 expectedReservedExtraBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
-                if (hashKeyType == BIGINT) {
-                    expectedReservedExtraBytes += page.getRetainedSizeInBytes();
-                }
                 // Increased memory is no smaller than the hash table size and no greater than the hash table size + the memory used by aggregator
                 assertBetweenInclusive(actualIncreasedMemory, expectedReservedExtraBytes, expectedReservedExtraBytes + additionalMemoryInBytes);
 

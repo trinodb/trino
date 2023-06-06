@@ -87,11 +87,10 @@ public class TestGroupByHash
         public GroupByHash createGroupByHash(int expectedSize, UpdateMemory updateMemory)
         {
             return switch (this) {
-                case BIGINT -> new BigintGroupByHash(0, true, expectedSize, updateMemory);
+                case BIGINT -> new BigintGroupByHash(true, expectedSize, updateMemory);
                 case MULTI_CHANNEL -> new MultiChannelGroupByHash(
                         ImmutableList.of(BigintType.BIGINT),
-                        new int[]{0},
-                        Optional.of(1),
+                        true,
                         expectedSize,
                         true,
                         JOIN_COMPILER,
@@ -233,7 +232,7 @@ public class TestGroupByHash
     @Test
     public void testTypes()
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), true, 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         // Additional bigint channel for hash
         assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
     }
@@ -315,8 +314,7 @@ public class TestGroupByHash
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
         Block stringValuesBlock = createStringSequenceBlock(0, 10);
         Block hashBlock = getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
-        int[] hashChannels = {0, 1};
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), true, 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock)).process();
 
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
@@ -363,8 +361,7 @@ public class TestGroupByHash
         AtomicInteger rehashCount = new AtomicInteger();
         GroupByHash groupByHash = createGroupByHash(
                 ImmutableList.of(type),
-                new int[] {0},
-                Optional.of(1),
+                true,
                 1,
                 false,
                 JOIN_COMPILER,
@@ -408,7 +405,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -435,7 +432,7 @@ public class TestGroupByHash
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -542,8 +539,7 @@ public class TestGroupByHash
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT),
-                new int[] {0, 1},
-                Optional.empty(),
+                false,
                 100,
                 JOIN_COMPILER,
                 TYPE_OPERATORS,
@@ -572,8 +568,7 @@ public class TestGroupByHash
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
-                new int[] {0, 1, 2, 3, 4},
-                Optional.empty(),
+                false,
                 100,
                 JOIN_COMPILER,
                 TYPE_OPERATORS,
@@ -582,8 +577,7 @@ public class TestGroupByHash
         GroupByHash lowCardinalityGroupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT),
-                new int[] {0, 1, 2, 3},
-                Optional.empty(),
+                false,
                 100,
                 JOIN_COMPILER,
                 TYPE_OPERATORS,
@@ -617,8 +611,7 @@ public class TestGroupByHash
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT),
-                new int[] {0, 1},
-                Optional.empty(),
+                false,
                 100,
                 JOIN_COMPILER,
                 TYPE_OPERATORS,
@@ -688,8 +681,7 @@ public class TestGroupByHash
     {
         GroupByHash groupByHash = createGroupByHash(
                 types,
-                IntStream.range(0, types.size()).toArray(),
-                Optional.empty(),
+                false,
                 100,
                 true,
                 JOIN_COMPILER,

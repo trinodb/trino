@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -23,7 +22,6 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
@@ -63,6 +61,7 @@ public class TestGroupedTopNRowNumberBuilder
                 },
                 5,
                 false,
+                new int[0],
                 new NoChannelGroupByHash());
         assertFalse(groupedTopNBuilder.buildResult().hasNext());
     }
@@ -92,12 +91,13 @@ public class TestGroupedTopNRowNumberBuilder
             page.compact();
         }
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), NOOP);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 2,
                 produceRowNumbers,
+                new int[] {0},
                 groupByHash);
 
         // add 4 rows for the first page and created three heaps with 1, 1, 2 rows respectively
@@ -163,6 +163,7 @@ public class TestGroupedTopNRowNumberBuilder
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 produceRowNumbers,
+                new int[0],
                 new NoChannelGroupByHash());
 
         // add 4 rows for the first page and created a single heap with 4 rows
@@ -210,12 +211,13 @@ public class TestGroupedTopNRowNumberBuilder
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), unblock::get);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRowNumberBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 false,
+                new int[] {0},
                 groupByHash);
 
         Work<?> work = groupedTopNBuilder.processPage(input);
@@ -236,13 +238,12 @@ public class TestGroupedTopNRowNumberBuilder
         assertPageEquals(types, output.get(0), expected);
     }
 
-    private static GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory)
+    private static GroupByHash createGroupByHash(List<Type> partitionTypes, UpdateMemory updateMemory)
     {
         TypeOperators typeOperators = new TypeOperators();
         return GroupByHash.createGroupByHash(
                 partitionTypes,
-                Ints.toArray(partitionChannels),
-                Optional.empty(),
+                false,
                 1,
                 false,
                 new JoinCompiler(typeOperators),

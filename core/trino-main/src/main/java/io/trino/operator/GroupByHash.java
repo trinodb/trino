@@ -22,7 +22,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -31,31 +30,30 @@ public interface GroupByHash
 {
     static GroupByHash createGroupByHash(
             Session session,
-            List<? extends Type> hashTypes,
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
+            List<Type> types,
+            boolean hasPrecomputedHash,
             int expectedSize,
             JoinCompiler joinCompiler,
             TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
-        return createGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, isDictionaryAggregationEnabled(session), joinCompiler, typeOperators, updateMemory);
+        boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
+        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, typeOperators, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
-            List<? extends Type> hashTypes,
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
+            List<Type> types,
+            boolean hasPrecomputedHash,
             int expectedSize,
-            boolean processDictionary,
+            boolean dictionaryAggregationEnabled,
             JoinCompiler joinCompiler,
             TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
-        if (hashTypes.size() == 1 && hashTypes.get(0).equals(BIGINT) && hashChannels.length == 1) {
-            return new BigintGroupByHash(hashChannels[0], inputHashChannel.isPresent(), expectedSize, updateMemory);
+        if (types.size() == 1 && types.get(0).equals(BIGINT)) {
+            return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        return new MultiChannelGroupByHash(hashTypes, hashChannels, inputHashChannel, expectedSize, processDictionary, joinCompiler, typeOperators, updateMemory);
+        return new MultiChannelGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, typeOperators, updateMemory);
     }
 
     long getEstimatedSize();
