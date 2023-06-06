@@ -233,6 +233,27 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.Set&lt;io.trino.spi.ptf.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</old>
+                                    <new>method java.util.Set&lt;io.trino.spi.function.table.ConnectorTableFunction&gt; io.trino.spi.connector.Connector::getTableFunctions()</new>
+                                    <justification>Relocate table function infrastructure</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.ptf.ConnectorTableFunctionHandle===)</old>
+                                    <new>parameter java.util.Optional&lt;io.trino.spi.connector.TableFunctionApplicationResult&lt;io.trino.spi.connector.ConnectorTableHandle&gt;&gt; io.trino.spi.connector.ConnectorMetadata::applyTableFunction(io.trino.spi.connector.ConnectorSession, ===io.trino.spi.function.table.ConnectorTableFunctionHandle===)</new>
+                                    <parameterIndex>1</parameterIndex>
+                                    <justification>Relocate table function infrastructure</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.ptf.TableFunctionDataProcessor</old>
+                                    <justification>Relocate table function infrastructure</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

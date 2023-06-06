@@ -17,17 +17,17 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.ptf.TableFunctionDataProcessor;
-import io.trino.spi.ptf.TableFunctionProcessorState;
-import io.trino.spi.ptf.TableFunctionProcessorState.Blocked;
-import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
+import io.trino.spi.function.table.TableFunctionDataProcessor;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
+import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

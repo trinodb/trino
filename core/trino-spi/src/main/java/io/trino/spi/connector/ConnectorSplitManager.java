@@ -14,7 +14,7 @@
 package io.trino.spi.connector;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
 public interface ConnectorSplitManager
 {

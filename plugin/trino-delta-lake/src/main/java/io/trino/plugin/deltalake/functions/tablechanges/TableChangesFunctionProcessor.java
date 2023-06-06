@@ -29,9 +29,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.ptf.TableFunctionProcessorState;
-import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import org.joda.time.DateTimeZone;
 
 import java.util.List;
@@ -50,8 +50,8 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOpti
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetOptimizedReaderEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
 import static io.trino.plugin.deltalake.functions.tablechanges.TableChangesFileType.CDF_FILE;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;

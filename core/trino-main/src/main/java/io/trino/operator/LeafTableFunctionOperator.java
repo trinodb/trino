@@ -20,12 +20,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
-import io.trino.spi.ptf.TableFunctionProcessorState;
-import io.trino.spi.ptf.TableFunctionProcessorState.Blocked;
-import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
-import io.trino.spi.ptf.TableFunctionSplitProcessor;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
+import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -35,7 +35,7 @@ import java.util.Deque;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.util.Objects.requireNonNull;
 
 public class LeafTableFunctionOperator
