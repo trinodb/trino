@@ -79,7 +79,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object groupByHashPreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATORS, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATORS, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -116,7 +116,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object addPagePreCompute(BenchmarkData data)
     {
-        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.getChannels(), data.getHashChannel(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATORS, NOOP);
+        GroupByHash groupByHash = new MultiChannelGroupByHash(data.getTypes(), data.isHashEnabled(), EXPECTED_SIZE, false, getJoinCompiler(), TYPE_OPERATORS, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -137,7 +137,7 @@ public class BenchmarkGroupByHash
     @OperationsPerInvocation(POSITIONS)
     public Object bigintGroupByHash(SingleChannelBenchmarkData data)
     {
-        GroupByHash groupByHash = new BigintGroupByHash(0, data.getHashEnabled(), EXPECTED_SIZE, NOOP);
+        GroupByHash groupByHash = new BigintGroupByHash(data.getHashEnabled(), EXPECTED_SIZE, NOOP);
         addInputPagesToHash(groupByHash, data.getPages());
 
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
@@ -392,9 +392,7 @@ public class BenchmarkGroupByHash
         private String dataType = "VARCHAR";
 
         private List<Page> pages;
-        private Optional<Integer> hashChannel;
         private List<Type> types;
-        private int[] channels;
 
         @Setup
         public void setup()
@@ -410,11 +408,6 @@ public class BenchmarkGroupByHash
                 }
                 default -> throw new UnsupportedOperationException("Unsupported dataType");
             }
-            hashChannel = hashEnabled ? Optional.of(channelCount) : Optional.empty();
-            channels = new int[channelCount];
-            for (int i = 0; i < channelCount; i++) {
-                channels[i] = i;
-            }
         }
 
         public List<Page> getPages()
@@ -422,19 +415,14 @@ public class BenchmarkGroupByHash
             return pages;
         }
 
-        public Optional<Integer> getHashChannel()
+        public boolean isHashEnabled()
         {
-            return hashChannel;
+            return hashEnabled;
         }
 
         public List<Type> getTypes()
         {
             return types;
-        }
-
-        public int[] getChannels()
-        {
-            return channels;
         }
     }
 

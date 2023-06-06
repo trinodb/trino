@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -31,7 +32,6 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +70,7 @@ public class MultiChannelGroupByHash
 
     private final PagesHashStrategy hashStrategy;
     private final List<ObjectArrayList<Block>> channelBuilders;
-    private final Optional<Integer> inputHashChannel;
+    private final boolean hasPrecomputedHash;
     private final HashGenerator hashGenerator;
     private final OptionalInt precomputedHashChannel;
     private final boolean processDictionary;
@@ -95,9 +95,8 @@ public class MultiChannelGroupByHash
     private long currentPageSizeInBytes;
 
     public MultiChannelGroupByHash(
-            List<? extends Type> hashTypes,
-            int[] hashChannels,
-            Optional<Integer> inputHashChannel,
+            List<Type> hashTypes,
+            boolean hasPrecomputedHash,
             int expectedSize,
             boolean processDictionary,
             JoinCompiler joinCompiler,
@@ -105,37 +104,36 @@ public class MultiChannelGroupByHash
             UpdateMemory updateMemory)
     {
         this.hashTypes = ImmutableList.copyOf(requireNonNull(hashTypes, "hashTypes is null"));
+        this.hasPrecomputedHash = hasPrecomputedHash;
 
         requireNonNull(joinCompiler, "joinCompiler is null");
-        requireNonNull(hashChannels, "hashChannels is null");
-        checkArgument(hashTypes.size() == hashChannels.length, "hashTypes and hashChannels have different sizes");
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        this.inputHashChannel = requireNonNull(inputHashChannel, "inputHashChannel is null");
-        this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
-        this.channels = hashChannels.clone();
+        this.channels = new int[hashTypes.size()];
+        for (int i = 0; i < hashTypes.size(); i++) {
+            channels[i] = i;
+        }
+        this.types = hasPrecomputedHash ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
 
-        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : createPagePrefixHashGenerator(this.hashTypes, typeOperators);
-        this.processDictionary = processDictionary;
+        this.hashGenerator = hasPrecomputedHash ? new PrecomputedHashGenerator(hashTypes.size()) : createPagePrefixHashGenerator(hashTypes, typeOperators);
+        this.processDictionary = processDictionary && hashTypes.size() == 1;
 
         // For each hashed channel, create an appendable list to hold the blocks (builders).  As we
         // add new values we append them to the existing block builder until it fills up and then
         // we add a new block builder to each list.
-        ImmutableList.Builder<Integer> outputChannels = ImmutableList.builder();
         ImmutableList.Builder<ObjectArrayList<Block>> channelBuilders = ImmutableList.builder();
-        for (int i = 0; i < hashChannels.length; i++) {
-            outputChannels.add(i);
+        for (int i = 0; i < channels.length; i++) {
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
-        if (inputHashChannel.isPresent()) {
-            this.precomputedHashChannel = OptionalInt.of(hashChannels.length);
+        if (hasPrecomputedHash) {
+            this.precomputedHashChannel = OptionalInt.of(hashTypes.size());
             channelBuilders.add(ObjectArrayList.wrap(new Block[1024], 0));
         }
         else {
             this.precomputedHashChannel = OptionalInt.empty();
         }
         this.channelBuilders = channelBuilders.build();
-        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(this.types, outputChannels.build());
+        PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(this.types, Ints.asList(channels));
         hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(this.channelBuilders, this.precomputedHashChannel);
 
         startNewPage();
@@ -295,9 +293,7 @@ public class MultiChannelGroupByHash
     {
         // add the row to the open page
         for (int i = 0; i < channels.length; i++) {
-            int hashChannel = channels[i];
-            Type type = types.get(i);
-            type.appendTo(page.getBlock(hashChannel), position, currentPageBuilder.getBlockBuilder(i));
+            types.get(i).appendTo(page.getBlock(i), position, currentPageBuilder.getBlockBuilder(i));
         }
         if (precomputedHashChannel.isPresent()) {
             BIGINT.writeLong(currentPageBuilder.getBlockBuilder(precomputedHashChannel.getAsInt()), rawHash);
@@ -454,36 +450,32 @@ public class MultiChannelGroupByHash
     private Page createPageWithExtractedDictionary(Page page)
     {
         Block[] blocks = new Block[page.getChannelCount()];
-        Block dictionary = ((DictionaryBlock) page.getBlock(channels[0])).getDictionary();
+        Block dictionary = ((DictionaryBlock) page.getBlock(0)).getDictionary();
 
         // extract data dictionary
-        blocks[channels[0]] = dictionary;
+        blocks[0] = dictionary;
 
         // extract hash dictionary
-        inputHashChannel.ifPresent(integer -> blocks[integer] = ((DictionaryBlock) page.getBlock(integer)).getDictionary());
+        if (hasPrecomputedHash) {
+            blocks[1] = ((DictionaryBlock) page.getBlock(1)).getDictionary();
+        }
 
         return new Page(dictionary.getPositionCount(), blocks);
     }
 
     private boolean canProcessDictionary(Page page)
     {
-        if (!this.processDictionary || channels.length > 1 || !(page.getBlock(channels[0]) instanceof DictionaryBlock)) {
+        if (!processDictionary || !(page.getBlock(0) instanceof DictionaryBlock inputDictionary)) {
             return false;
         }
 
-        if (inputHashChannel.isPresent()) {
-            Block inputHashBlock = page.getBlock(inputHashChannel.get());
-            DictionaryBlock inputDataBlock = (DictionaryBlock) page.getBlock(channels[0]);
-
-            if (!(inputHashBlock instanceof DictionaryBlock)) {
-                // data channel is dictionary encoded but hash channel is not
-                return false;
-            }
-            // dictionarySourceIds of data block and hash block do not match
-            return ((DictionaryBlock) inputHashBlock).getDictionarySourceId().equals(inputDataBlock.getDictionarySourceId());
+        if (!hasPrecomputedHash) {
+            return true;
         }
 
-        return true;
+        // dictionarySourceIds of data block and hash block must match
+        return page.getBlock(1) instanceof DictionaryBlock hashDictionary &&
+                hashDictionary.getDictionarySourceId().equals(inputDictionary.getDictionarySourceId());
     }
 
     private boolean canProcessLowCardinalityDictionary(Page page)
@@ -491,11 +483,11 @@ public class MultiChannelGroupByHash
         // We don't have to rely on 'optimizer.dictionary-aggregations' here since there is little to none chance of regression
         int positionCount = page.getPositionCount();
         long cardinality = 1;
-        for (int channel : channels) {
-            if (!(page.getBlock(channel) instanceof DictionaryBlock)) {
+        for (int channel = 0; channel < channels.length; channel++) {
+            if (!(page.getBlock(channel) instanceof DictionaryBlock dictionaryBlock)) {
                 return false;
             }
-            cardinality = multiplyExact(cardinality, ((DictionaryBlock) page.getBlock(channel)).getDictionary().getPositionCount());
+            cardinality = multiplyExact(cardinality, dictionaryBlock.getDictionary().getPositionCount());
             if (cardinality > positionCount * SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO
                     || cardinality > Short.MAX_VALUE) { // Need to fit into short array
                 return false;
@@ -507,7 +499,7 @@ public class MultiChannelGroupByHash
 
     private boolean isRunLengthEncoded(Page page)
     {
-        for (int channel : channels) {
+        for (int channel = 0; channel < channels.length; channel++) {
             if (!(page.getBlock(channel) instanceof RunLengthEncodedBlock)) {
                 return false;
             }
@@ -624,7 +616,7 @@ public class MultiChannelGroupByHash
         {
             verify(canProcessDictionary(page), "invalid call to addDictionaryPage");
             this.page = requireNonNull(page, "page is null");
-            this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
+            this.dictionaryBlock = (DictionaryBlock) page.getBlock(0);
             updateDictionaryLookBack(dictionaryBlock.getDictionary());
             this.dictionaryPage = createPageWithExtractedDictionary(page);
         }
@@ -881,7 +873,7 @@ public class MultiChannelGroupByHash
             this.page = requireNonNull(page, "page is null");
             verify(canProcessDictionary(page), "invalid call to processDictionary");
 
-            this.dictionaryBlock = (DictionaryBlock) page.getBlock(channels[0]);
+            this.dictionaryBlock = (DictionaryBlock) page.getBlock(0);
             updateDictionaryLookBack(dictionaryBlock.getDictionary());
             this.dictionaryPage = createPageWithExtractedDictionary(page);
             groupIds = new int[page.getPositionCount()];
@@ -997,7 +989,7 @@ public class MultiChannelGroupByHash
 
         int maxCardinality = 1;
         for (int channel = 0; channel < channels.length; channel++) {
-            Block block = page.getBlock(channels[channel]);
+            Block block = page.getBlock(channel);
             verify(block instanceof DictionaryBlock, "Only dictionary blocks are supported");
             DictionaryBlock dictionaryBlock = (DictionaryBlock) block;
             int dictionarySize = dictionaryBlock.getDictionary().getPositionCount();

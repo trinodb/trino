@@ -48,7 +48,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -90,8 +89,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
                 data.getTypes(),
-                data.getChannels(),
-                Optional.empty(),
+                false,
                 EXPECTED_GROUP_COUNT,
                 false,
                 joinCompiler,
@@ -238,7 +236,6 @@ public class BenchmarkGroupByHashOnSimulatedData
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
-        private int[] channels;
 
         public BenchmarkContext()
         {
@@ -259,7 +256,6 @@ public class BenchmarkGroupByHashOnSimulatedData
             types = query.getChannels().stream()
                     .map(channel -> channel.columnType.type)
                     .collect(toImmutableList());
-            channels = IntStream.range(0, query.getChannels().size()).toArray();
             pages = createPages(query);
         }
 
@@ -295,11 +291,6 @@ public class BenchmarkGroupByHashOnSimulatedData
         public List<Type> getTypes()
         {
             return types;
-        }
-
-        public int[] getChannels()
-        {
-            return channels;
         }
 
         public WorkType getWorkType()

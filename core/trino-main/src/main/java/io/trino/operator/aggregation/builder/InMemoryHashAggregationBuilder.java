@@ -51,6 +51,7 @@ import static java.util.Objects.requireNonNull;
 public class InMemoryHashAggregationBuilder
         implements HashAggregationBuilder
 {
+    private final int[] groupByChannels;
     private final GroupByHash groupByHash;
     private final List<GroupedAggregator> groupedAggregators;
     private final boolean partial;
@@ -100,11 +101,21 @@ public class InMemoryHashAggregationBuilder
             TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
+        if (hashChannel.isPresent()) {
+            this.groupByChannels = new int[groupByChannels.size() + 1];
+            for (int i = 0; i < groupByChannels.size(); i++) {
+                this.groupByChannels[i] = groupByChannels.get(i);
+            }
+            this.groupByChannels[groupByChannels.size()] = hashChannel.get();
+        }
+        else {
+            this.groupByChannels = Ints.toArray(groupByChannels);
+        }
+
         this.groupByHash = createGroupByHash(
                 operatorContext.getSession(),
                 groupByTypes,
-                Ints.toArray(groupByChannels),
-                hashChannel,
+                hashChannel.isPresent(),
                 expectedGroups,
                 joinCompiler,
                 typeOperators,
@@ -135,10 +146,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return groupByHash.addPage(page);
+            return groupByHash.addPage(page.getColumns(groupByChannels));
         }
         return new TransformWork<>(
-                groupByHash.getGroupIds(page),
+                groupByHash.getGroupIds(page.getColumns(groupByChannels)),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {

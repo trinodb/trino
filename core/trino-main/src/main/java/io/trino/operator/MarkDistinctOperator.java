@@ -94,6 +94,7 @@ public class MarkDistinctOperator
     private final OperatorContext operatorContext;
     private final MarkDistinctHash markDistinctHash;
     private final LocalMemoryContext localUserMemoryContext;
+    private final int[] markDistinctChannels;
 
     private Page inputPage;
     private boolean finishing;
@@ -112,7 +113,18 @@ public class MarkDistinctOperator
         for (int channel : markDistinctChannels) {
             distinctTypes.add(types.get(channel));
         }
-        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), Ints.toArray(markDistinctChannels), hashChannel, joinCompiler, typeOperators, this::updateMemoryReservation);
+        if (hashChannel.isPresent()) {
+            this.markDistinctChannels = new int[markDistinctChannels.size() + 1];
+            for (int i = 0; i < markDistinctChannels.size(); i++) {
+                this.markDistinctChannels[i] = markDistinctChannels.get(i);
+            }
+            this.markDistinctChannels[markDistinctChannels.size()] = hashChannel.get();
+        }
+        else {
+            this.markDistinctChannels = Ints.toArray(markDistinctChannels);
+        }
+
+        this.markDistinctHash = new MarkDistinctHash(operatorContext.getSession(), distinctTypes.build(), hashChannel.isPresent(), joinCompiler, typeOperators, this::updateMemoryReservation);
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
     }
 
@@ -148,7 +160,7 @@ public class MarkDistinctOperator
 
         inputPage = page;
 
-        unfinishedWork = markDistinctHash.markDistinctRows(page);
+        unfinishedWork = markDistinctHash.markDistinctRows(page.getColumns(markDistinctChannels));
         updateMemoryReservation();
     }
 

@@ -21,8 +21,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 
-import java.util.Optional;
-
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
@@ -75,14 +73,12 @@ public class ChannelSet
 
     public static class ChannelSetBuilder
     {
-        private static final int[] HASH_CHANNELS = {0};
-
         private final Type type;
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
         private final GroupByHash hash;
 
-        public ChannelSetBuilder(Type type, boolean hasHashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, TypeOperators typeOperators)
+        public ChannelSetBuilder(Type type, boolean hasPrecomputedHash, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, TypeOperators typeOperators)
         {
             this.type = requireNonNull(type, "type is null");
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -90,8 +86,7 @@ public class ChannelSet
             this.hash = createGroupByHash(
                     operatorContext.getSession(),
                     ImmutableList.of(type),
-                    HASH_CHANNELS,
-                    hasHashChannel ? Optional.of(1) : Optional.empty(),
+                    hasPrecomputedHash,
                     expectedPositions,
                     joinCompiler,
                     typeOperators,

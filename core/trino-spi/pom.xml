@@ -278,6 +278,12 @@
                                     <code>java.method.addedToInterface</code>
                                     <new>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>parameter io.trino.spi.PageIndexer io.trino.spi.PageIndexerFactory::createPageIndexer(===java.util.List&lt;? extends io.trino.spi.type.Type&gt;===)</old>
+                                    <new>parameter io.trino.spi.PageIndexer io.trino.spi.PageIndexerFactory::createPageIndexer(===java.util.List&lt;io.trino.spi.type.Type&gt;===)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
