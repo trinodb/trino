@@ -40,6 +40,7 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import jakarta.annotation.PreDestroy;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -78,7 +79,6 @@ import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
 import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;

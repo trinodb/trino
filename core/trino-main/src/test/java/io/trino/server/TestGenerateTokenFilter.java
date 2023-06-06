@@ -24,13 +24,12 @@ import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.testing.TestingTrinoServer;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.Path;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -45,8 +44,8 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

@@ -177,8 +177,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -507,7 +507,7 @@
 
         <dependency>
             <groupId>org.eclipse.jetty.toolchain</groupId>
-            <artifactId>jetty-servlet-api</artifactId>
+            <artifactId>jetty-jakarta-servlet-api</artifactId>
             <scope>test</scope>
         </dependency>
 

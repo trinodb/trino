@@ -22,13 +22,12 @@ import io.trino.hdfs.authentication.GenericExceptionAction;
 import io.trino.hdfs.authentication.HdfsAuthentication;
 import io.trino.spi.Plugin;
 import io.trino.spi.security.ConnectorIdentity;
+import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileSystemManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-
-import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.lang.reflect.Field;

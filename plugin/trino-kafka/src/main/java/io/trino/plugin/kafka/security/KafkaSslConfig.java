@@ -21,8 +21,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.util.Map;
 import java.util.Optional;

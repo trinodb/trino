@@ -58,12 +58,11 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.phoenix.jdbc.PhoenixDriver;
 import org.apache.phoenix.jdbc.PhoenixEmbeddedDriver;
-
-import javax.annotation.PreDestroy;
 
 import java.sql.SQLException;
 import java.util.Map;

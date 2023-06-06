@@ -39,9 +39,9 @@ import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.units.Duration.nanosSince;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
 
 @ThreadSafe
 public class RemoteNodeState

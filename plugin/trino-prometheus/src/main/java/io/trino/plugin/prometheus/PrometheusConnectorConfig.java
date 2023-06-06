@@ -21,8 +21,8 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
+import jakarta.annotation.PostConstruct;
 
-import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;

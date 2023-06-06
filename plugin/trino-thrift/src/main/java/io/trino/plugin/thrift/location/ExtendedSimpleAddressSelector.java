@@ -14,7 +14,6 @@
 package io.trino.plugin.thrift.location;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.drift.client.address.AddressSelector;
 import io.airlift.drift.client.address.SimpleAddressSelector.SimpleAddress;
@@ -34,12 +33,6 @@ public class ExtendedSimpleAddressSelector
     public ExtendedSimpleAddressSelector(AddressSelector<SimpleAddress> delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
-    }
-
-    @Override
-    public Optional<SimpleAddress> selectAddress(Optional<String> context)
-    {
-        return selectAddress(context, ImmutableSet.of());
     }
 
     @Override

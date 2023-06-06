@@ -33,11 +33,10 @@ import io.trino.metadata.ForNodeManager;
 import io.trino.server.InternalCommunicationConfig;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 
 import java.net.URI;
 import java.net.URISyntaxException;

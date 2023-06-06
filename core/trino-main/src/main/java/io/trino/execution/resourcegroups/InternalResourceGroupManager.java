@@ -29,12 +29,12 @@ import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;

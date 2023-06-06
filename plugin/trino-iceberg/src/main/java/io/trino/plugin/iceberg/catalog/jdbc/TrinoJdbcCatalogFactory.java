@@ -24,10 +24,9 @@ import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.jdbc.JdbcClientPool;
-
-import javax.annotation.PreDestroy;
 
 import java.util.Map;
 

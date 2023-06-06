@@ -26,12 +26,11 @@ import io.trino.server.security.oauth2.OAuth2ServerConfigProvider.OAuth2ServerCo
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.OAuth2WebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiAuthenticationFilter;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.net.URI;
@@ -41,10 +40,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
+import static jakarta.ws.rs.core.HttpHeaders.CONTENT_TYPE;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

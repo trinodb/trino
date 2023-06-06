@@ -13,17 +13,17 @@
  */
 package io.trino.server.ui;
 
-import javax.ws.rs.core.Cookie;
-import javax.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.Cookie;
+import jakarta.ws.rs.core.NewCookie;
 
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static jakarta.ws.rs.core.Cookie.DEFAULT_VERSION;
+import static jakarta.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 import static java.util.function.Predicate.not;
-import static javax.ws.rs.core.Cookie.DEFAULT_VERSION;
-import static javax.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 
 public final class OAuthWebUiCookie
 {

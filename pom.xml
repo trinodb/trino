@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>139</version>
+        <version>141</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -49,7 +49,7 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.13.0</dep.antlr.version>
-        <dep.airlift.version>231</dep.airlift.version>
+        <dep.airlift.version>233</dep.airlift.version>
         <dep.arrow.version>11.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -57,9 +57,10 @@
         <dep.aws-sdk-v2.version>2.20.78</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
-        <dep.drift.version>1.14</dep.drift.version>
-        <dep.tempto.version>196</dep.tempto.version>
+        <dep.drift.version>1.19</dep.drift.version>
+        <dep.tempto.version>197</dep.tempto.version>
         <dep.gcs.version>2.2.8</dep.gcs.version>
+
         <dep.errorprone.version>2.19.1</dep.errorprone.version>
         <dep.testcontainers.version>1.18.3</dep.testcontainers.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
@@ -888,7 +889,7 @@
             <dependency>
                 <groupId>io.airlift.discovery</groupId>
                 <artifactId>discovery-server</artifactId>
-                <version>1.33</version>
+                <version>1.34</version>
                 <exclusions>
                     <exclusion>
                         <groupId>io.airlift</groupId>
@@ -1437,18 +1438,6 @@
                         <groupId>com.fasterxml.jackson.core</groupId>
                         <artifactId>jackson-databind</artifactId>
                     </exclusion>
-                    <!--
-                        This library depends on conflicting:
-                        - com.sun.activation:jakarta.activation and jakarta.activation:jakarta.activation-api
-                        - jakarta.el:jakarta.el-api and org.glassfish:jakarta.el
-                        This library depends on:
-                        - org.glassfish.hk2.external:jakarta.inject that conflicts with javax.inject:javax.inject
-                        - jakarta.validation:jakarta.validation-api that conflicts with javax.validation:validation-api
-                        - jakarta.annotation:jakarta.annotation-api that conflicts with javax.annotation:javax.annotation-api
-                        - com.sun.activation:jakarta.activation that conflicts with javax.activation:javax.activation-api
-                        - jakarta.ws.rs:jakarta.ws.rs-api that conflicts with javax.ws.rs:javax.ws.rs-api
-                        - jakarta.xml.bind:jakarta.xml.bind-api that conflicts with javax.xml.bind:jaxb-api
-                    -->
                     <exclusion>
                         <groupId>com.sun.activation</groupId>
                         <artifactId>jakarta.activation</artifactId>
@@ -1456,22 +1445,6 @@
                     <exclusion>
                         <groupId>jakarta.activation</groupId>
                         <artifactId>jakarta.activation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.annotation</groupId>
-                        <artifactId>jakarta.annotation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.validation</groupId>
-                        <artifactId>jakarta.validation-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.ws.rs</groupId>
-                        <artifactId>jakarta.ws.rs-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>jakarta.xml.bind</groupId>
-                        <artifactId>jakarta.xml.bind-api</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.glassfish</groupId>
@@ -1546,12 +1519,6 @@
                 <groupId>it.unimi.dsi</groupId>
                 <artifactId>fastutil</artifactId>
                 <version>8.3.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>2.3.1</version>
             </dependency>
 
             <dependency>
@@ -1815,12 +1782,6 @@
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-core</artifactId>
                 <version>7.15.0</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.glassfish.jersey.core</groupId>
-                <artifactId>jersey-common</artifactId>
-                <version>2.39</version>
             </dependency>
 
             <!-- force newer version to be used for dependencies -->

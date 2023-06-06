@@ -16,8 +16,7 @@ package io.trino.plugin.raptor.legacy.backup;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.io.File;
 import java.io.FileInputStream;

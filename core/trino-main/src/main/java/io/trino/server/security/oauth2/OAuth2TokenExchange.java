@@ -21,9 +21,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
+import jakarta.annotation.PreDestroy;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-
-import javax.annotation.PreDestroy;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;

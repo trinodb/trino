@@ -42,6 +42,14 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
@@ -53,14 +61,6 @@ import org.testng.annotations.Test;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.ws.rs.GET;
-import javax.ws.rs.container.ContainerRequestContext;
-import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
 
 import java.io.File;
 import java.io.IOException;
@@ -106,15 +106,15 @@ import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_SEE_OTHER;
+import static jakarta.servlet.http.HttpServletResponse.SC_TEMPORARY_REDIRECT;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
-import static javax.servlet.http.HttpServletResponse.SC_TEMPORARY_REDIRECT;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -402,7 +402,7 @@ public class TestWebUi
         }
     }
 
-    @javax.ws.rs.Path("/ui/username")
+    @jakarta.ws.rs.Path("/ui/username")
     public static class TestResource
     {
         private final HttpRequestSessionContextFactory sessionContextFactory;
@@ -419,10 +419,10 @@ public class TestWebUi
 
         @ResourceSecurity(WEB_UI)
         @GET
-        public javax.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+        public jakarta.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
             Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
-            return javax.ws.rs.core.Response.ok()
+            return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
         }

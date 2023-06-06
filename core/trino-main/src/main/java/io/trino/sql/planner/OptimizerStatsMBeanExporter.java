@@ -19,12 +19,12 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.RuleStats;
 import io.trino.sql.planner.optimizations.OptimizerStats;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.MBeanExport;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.ObjectNames;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
