@@ -1131,15 +1131,16 @@ public class EventDrivenFaultTolerantQueryScheduler
             StageExecution stageExecution = getStageExecution(event.getStageId());
             AssignmentResult assignment = event.getAssignmentResult();
             for (Partition partition : assignment.partitionsAdded()) {
-                Optional<PrioritizedScheduledTask> scheduledTask = stageExecution.addPartition(partition.partitionId(), partition.nodeRequirements());
-                scheduledTask.ifPresent(schedulingQueue::addOrUpdate);
+                stageExecution.addPartition(partition.partitionId(), partition.nodeRequirements());
             }
             for (PartitionUpdate partitionUpdate : assignment.partitionUpdates()) {
-                stageExecution.updatePartition(
+                Optional<PrioritizedScheduledTask> scheduledTask = stageExecution.updatePartition(
                         partitionUpdate.partitionId(),
                         partitionUpdate.planNodeId(),
+                        partitionUpdate.readyForScheduling(),
                         partitionUpdate.splits(),
                         partitionUpdate.noMoreSplits());
+                scheduledTask.ifPresent(schedulingQueue::addOrUpdate);
             }
             assignment.sealedPartitions().forEach(partitionId -> {
                 Optional<PrioritizedScheduledTask> scheduledTask = stageExecution.sealPartition(partitionId);
@@ -1300,10 +1301,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             return exchangeClosed;
         }
 
-        public Optional<PrioritizedScheduledTask> addPartition(int partitionId, NodeRequirements nodeRequirements)
+        public void addPartition(int partitionId, NodeRequirements nodeRequirements)
         {
             if (getState().isDone()) {
-                return Optional.empty();
+                return;
             }
 
             ExchangeSinkHandle exchangeSinkHandle = exchange.addSink(partitionId);
@@ -1323,18 +1324,28 @@ public class EventDrivenFaultTolerantQueryScheduler
             checkState(partitions.putIfAbsent(partitionId, partition) == null, "partition with id %s already exist in stage %s", partitionId, stage.getStageId());
             getSourceOutputSelectors().forEach((partition::updateExchangeSourceOutputSelector));
             remainingPartitions.add(partitionId);
-
-            return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority));
         }
 
-        public void updatePartition(int partitionId, PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+        public Optional<PrioritizedScheduledTask> updatePartition(
+                int partitionId,
+                PlanNodeId planNodeId,
+                boolean readyForScheduling,
+                List<Split> splits,
+                boolean noMoreSplits)
         {
             if (getState().isDone()) {
-                return;
+                return Optional.empty();
             }
 
             StagePartition partition = getStagePartition(partitionId);
             partition.addSplits(planNodeId, splits, noMoreSplits);
+            if (readyForScheduling && !partition.isTaskScheduled()) {
+                partition.setTaskScheduled(true);
+                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), partitionId, schedulingPriority));
+            }
+            else {
+                return Optional.empty();
+            }
         }
 
         public Optional<PrioritizedScheduledTask> sealPartition(int partitionId)
@@ -1760,6 +1771,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final Set<TaskId> runningTasks = new HashSet<>();
         private final Set<PlanNodeId> finalSelectors = new HashSet<>();
         private final Set<PlanNodeId> noMoreSplits = new HashSet<>();
+        private boolean taskScheduled;
         private boolean finished;
 
         public StagePartition(
@@ -1955,6 +1967,17 @@ public class EventDrivenFaultTolerantQueryScheduler
         public boolean isRunning()
         {
             return !runningTasks.isEmpty();
+        }
+
+        public boolean isTaskScheduled()
+        {
+            return taskScheduled;
+        }
+
+        public void setTaskScheduled(boolean taskScheduled)
+        {
+            checkArgument(taskScheduled, "taskScheduled must be true");
+            this.taskScheduled = taskScheduled;
         }
 
         public boolean isFinished()
