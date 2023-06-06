@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 public class LongLiteral
         extends Literal
 {
-    private final long value;
+    private final String value;
+    private final long parsedValue;
 
     public LongLiteral(String value)
     {
@@ -39,16 +40,22 @@ public class LongLiteral
         super(location);
         requireNonNull(value, "value is null");
         try {
-            this.value = Long.parseLong(value);
+            this.value = value;
+            this.parsedValue = Long.parseLong(value.replace("_", ""));
         }
         catch (NumberFormatException e) {
             throw new ParsingException("Invalid numeric literal: " + value);
         }
     }
 
-    public long getValue()
+    public String getValue()
     {
         return value;
+    }
+
+    public long getParsedValue()
+    {
+        return parsedValue;
     }
 
     @Override
@@ -69,7 +76,7 @@ public class LongLiteral
 
         LongLiteral that = (LongLiteral) o;
 
-        if (value != that.value) {
+        if (parsedValue != that.parsedValue) {
             return false;
         }
 
@@ -79,7 +86,7 @@ public class LongLiteral
     @Override
     public int hashCode()
     {
-        return (int) (value ^ (value >>> 32));
+        return (int) (parsedValue ^ (parsedValue >>> 32));
     }
 
     @Override
@@ -89,6 +96,6 @@ public class LongLiteral
             return false;
         }
 
-        return value == ((LongLiteral) other).value;
+        return parsedValue == ((LongLiteral) other).parsedValue;
     }
 }

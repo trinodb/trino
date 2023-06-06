@@ -114,7 +114,7 @@ public final class LiteralInterpreter
         @Override
         protected Long visitLongLiteral(LongLiteral node, Void context)
         {
-            return node.getValue();
+            return node.getParsedValue();
         }
 
         @Override

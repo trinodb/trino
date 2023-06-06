@@ -59,7 +59,7 @@ public class UnwrapRowSubscript
                     break;
                 }
 
-                int index = (int) ((LongLiteral) node.getIndex()).getValue();
+                int index = (int) ((LongLiteral) node.getIndex()).getParsedValue();
                 DataType type = rowType.getFields().get(index - 1).getType();
                 if (!(type instanceof GenericDataType) || !((GenericDataType) type).getName().getValue().equalsIgnoreCase(UnknownType.NAME)) {
                     coercions.push(new Coercion(type, cast.isTypeOnly(), cast.isSafe()));
@@ -69,7 +69,7 @@ public class UnwrapRowSubscript
             }
 
             if (base instanceof Row row) {
-                int index = (int) ((LongLiteral) node.getIndex()).getValue();
+                int index = (int) ((LongLiteral) node.getIndex()).getParsedValue();
                 Expression result = row.getItems().get(index - 1);
 
                 while (!coercions.isEmpty()) {

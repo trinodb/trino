@@ -4039,7 +4039,7 @@ class StatementAnalyzer
                         for (Expression column : groupingElement.getExpressions()) {
                             // simple GROUP BY expressions allow ordinals or arbitrary expressions
                             if (column instanceof LongLiteral) {
-                                long ordinal = ((LongLiteral) column).getValue();
+                                long ordinal = ((LongLiteral) column).getParsedValue();
                                 if (ordinal < 1 || ordinal > outputExpressions.size()) {
                                     throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY position %s is not in select list", ordinal);
                                 }
@@ -5206,7 +5206,7 @@ class StatementAnalyzer
                 if (expression instanceof LongLiteral) {
                     // this is an ordinal in the output tuple
 
-                    long ordinal = ((LongLiteral) expression).getValue();
+                    long ordinal = ((LongLiteral) expression).getParsedValue();
                     if (ordinal < 1 || ordinal > orderByScope.getRelationType().getVisibleFieldCount()) {
                         throw semanticException(INVALID_COLUMN_REFERENCE, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
@@ -5241,7 +5241,7 @@ class StatementAnalyzer
         {
             long rowCount;
             if (node.getRowCount() instanceof LongLiteral) {
-                rowCount = ((LongLiteral) node.getRowCount()).getValue();
+                rowCount = ((LongLiteral) node.getRowCount()).getParsedValue();
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected OFFSET rowCount: " + node.getRowCount().getClass().getSimpleName());
@@ -5275,7 +5275,7 @@ class StatementAnalyzer
             if (node.getRowCount().isPresent()) {
                 Expression count = node.getRowCount().get();
                 if (count instanceof LongLiteral) {
-                    rowCount = ((LongLiteral) count).getValue();
+                    rowCount = ((LongLiteral) count).getParsedValue();
                 }
                 else {
                     checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: " + count.getClass().getSimpleName());
@@ -5300,7 +5300,7 @@ class StatementAnalyzer
                 rowCount = OptionalLong.empty();
             }
             else if (node.getRowCount() instanceof LongLiteral) {
-                rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getValue());
+                rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getParsedValue());
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());
