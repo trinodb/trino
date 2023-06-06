@@ -456,6 +456,35 @@ public class TestSqlParser
                 .isEqualTo(new DecimalLiteral(location, "1.2"));
         assertThat(expression("-1.2"))
                 .isEqualTo(new DecimalLiteral(location, "-1.2"));
+
+        assertThat(expression("123_456_789"))
+                .isEqualTo(new LongLiteral(new NodeLocation(1, 1), "123_456_789"))
+                .satisfies(value -> assertThat(((LongLiteral) value).getParsedValue()).isEqualTo(123456789L));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_789_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThat(expression("123_456.789_0123"))
+                .isEqualTo(new DecimalLiteral(new NodeLocation(1, 1), "123_456.789_0123"));
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456.789_0123_", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("_123_456.789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456_.789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+
+        assertThatThrownBy(() -> SQL_PARSER.createExpression("123_456._789_0123", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class);
+    }
+
+    @Test
+    public void testIdentifier()
+    {
+        assertThat(expression("_123_456"))
+                .isEqualTo(new Identifier(new NodeLocation(1, 1), "_123_456", false));
     }
 
     @Test

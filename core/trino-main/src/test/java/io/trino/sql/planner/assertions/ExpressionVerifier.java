@@ -177,7 +177,7 @@ public final class ExpressionVerifier
     private static String getValueFromLiteral(Node expression)
     {
         if (expression instanceof LongLiteral) {
-            return String.valueOf(((LongLiteral) expression).getValue());
+            return String.valueOf(((LongLiteral) expression).getParsedValue());
         }
 
         if (expression instanceof BooleanLiteral) {

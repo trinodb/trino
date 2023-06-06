@@ -124,7 +124,7 @@ public class PatternRecognitionAnalyzer
                 .filter(RangeQuantifier.class::isInstance)
                 .map(RangeQuantifier.class::cast)
                 .forEach(quantifier -> {
-                    Optional<Long> atLeast = quantifier.getAtLeast().map(LongLiteral::getValue);
+                    Optional<Long> atLeast = quantifier.getAtLeast().map(LongLiteral::getParsedValue);
                     atLeast.ifPresent(value -> {
                         if (value < 0) {
                             throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must be greater than or equal to 0");
@@ -133,7 +133,7 @@ public class PatternRecognitionAnalyzer
                             throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier lower bound must not exceed " + Integer.MAX_VALUE);
                         }
                     });
-                    Optional<Long> atMost = quantifier.getAtMost().map(LongLiteral::getValue);
+                    Optional<Long> atMost = quantifier.getAtMost().map(LongLiteral::getParsedValue);
                     atMost.ifPresent(value -> {
                         if (value < 1) {
                             throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, quantifier, "Pattern quantifier upper bound must be greater than or equal to 1");
