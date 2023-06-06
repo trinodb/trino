@@ -25,8 +25,8 @@ import io.trino.connector.TestingTableFunctions.TestingTableFunctionPushdownHand
 import io.trino.connector.TestingTableFunctions.TwoScalarArgumentsFunction;
 import io.trino.connector.TestingTableFunctions.TwoTableArgumentsFunction;
 import io.trino.spi.connector.TableFunctionApplicationResult;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.Descriptor.Field;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.Descriptor.Field;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.plan.TableFunctionProcessorNode;

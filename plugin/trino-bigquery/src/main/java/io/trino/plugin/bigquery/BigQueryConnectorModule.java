@@ -27,7 +27,7 @@ import io.trino.plugin.base.logging.SessionInterpolatedValues;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.bigquery.ptf.Query;
 import io.trino.spi.NodeManager;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.lang.annotation.Target;
 import java.lang.management.ManagementFactory;

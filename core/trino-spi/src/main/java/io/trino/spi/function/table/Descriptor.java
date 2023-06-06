@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.ptf;
+package io.trino.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Experimental(eta = "2022-10-31")
@@ -37,7 +36,7 @@ public class Descriptor
     public Descriptor(@JsonProperty("fields") List<Field> fields)
     {
         requireNonNull(fields, "fields is null");
-        checkArgument(!fields.isEmpty(), "descriptor has no fields");
+        Preconditions.checkArgument(!fields.isEmpty(), "descriptor has no fields");
         this.fields = List.copyOf(fields);
     }
 
@@ -53,7 +52,7 @@ public class Descriptor
     {
         requireNonNull(names, "names is null");
         requireNonNull(types, "types is null");
-        checkArgument(names.size() == types.size(), "names and types lists do not match");
+        Preconditions.checkArgument(names.size() == types.size(), "names and types lists do not match");
         List<Field> fields = new ArrayList<>();
         for (int i = 0; i < names.size(); i++) {
             fields.add(new Field(names.get(i), Optional.of(types.get(i))));
@@ -105,7 +104,7 @@ public class Descriptor
         public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Optional<Type> type)
         {
             this.name = requireNonNull(name, "name is null");
-            name.ifPresent(nameValue -> checkArgument(!nameValue.isEmpty(), "name is empty"));
+            name.ifPresent(nameValue -> Preconditions.checkArgument(!nameValue.isEmpty(), "name is empty"));
             this.type = requireNonNull(type, "type is null");
         }
 

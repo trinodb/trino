@@ -14,8 +14,8 @@
 package io.trino.spi.function;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 
 @Experimental(eta = "2023-03-31")
 public interface FunctionProvider

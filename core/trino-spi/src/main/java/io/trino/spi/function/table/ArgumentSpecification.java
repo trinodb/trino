@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.ptf;
+package io.trino.spi.function.table;
 
 import io.trino.spi.Experimental;
 
 import javax.annotation.Nullable;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
-import static io.trino.spi.ptf.Preconditions.checkNotNullOrEmpty;
+import static io.trino.spi.function.table.Preconditions.checkArgument;
+import static io.trino.spi.function.table.Preconditions.checkNotNullOrEmpty;
 
 /**
  * Abstract class to capture the three supported argument types for a table function:

@@ -26,7 +26,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;

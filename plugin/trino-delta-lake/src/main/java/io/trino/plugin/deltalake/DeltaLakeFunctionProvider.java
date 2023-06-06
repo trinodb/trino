@@ -17,8 +17,8 @@ import com.google.inject.Inject;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesProcessorProvider;
 import io.trino.plugin.deltalake.functions.tablechanges.TableChangesTableFunctionHandle;
 import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 
 import static java.util.Objects.requireNonNull;
 

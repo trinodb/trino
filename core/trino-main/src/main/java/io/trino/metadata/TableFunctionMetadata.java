@@ -14,7 +14,7 @@
 package io.trino.metadata;
 
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static java.util.Objects.requireNonNull;
 
