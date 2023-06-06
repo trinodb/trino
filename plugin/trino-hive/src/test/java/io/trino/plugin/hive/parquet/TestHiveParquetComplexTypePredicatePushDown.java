@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.testing.BaseTestFileFormatComplexTypesPredicatePushDown;
+import io.trino.testing.BaseComplexTypesPredicatePushDownTest;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
@@ -22,7 +22,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveParquetComplexTypePredicatePushDown
-        extends BaseTestFileFormatComplexTypesPredicatePushDown
+        extends BaseComplexTypesPredicatePushDownTest
 {
     @Override
     protected QueryRunner createQueryRunner()

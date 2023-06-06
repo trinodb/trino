@@ -18,7 +18,7 @@ import org.testng.annotations.Test;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseTestFileFormatComplexTypesPredicatePushDown
+public abstract class BaseComplexTypesPredicatePushDownTest
         extends AbstractTestQueryFramework
 {
     @Test
