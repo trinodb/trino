@@ -22,7 +22,7 @@ import com.google.inject.Singleton;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import org.h2.Driver;
 
 import java.util.Map;

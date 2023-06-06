@@ -34,8 +34,8 @@ import io.trino.connector.system.jdbc.UdtJdbcTable;
 import io.trino.operator.table.ExcludeColumns;
 import io.trino.operator.table.Sequence;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
-import io.trino.spi.ptf.ConnectorTableFunction;
 
 public class SystemConnectorModule
         implements Module
