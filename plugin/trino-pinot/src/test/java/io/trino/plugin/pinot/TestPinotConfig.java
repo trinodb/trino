@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -34,6 +35,7 @@ public class TestPinotConfig
         ConfigAssertions.assertRecordedDefaults(
                 ConfigAssertions.recordDefaults(PinotConfig.class)
                         .setControllerUrls("")
+                        .setBrokerUrl(null)
                         .setEstimatedSizeInBytesForNonNumericColumn(20)
                         .setConnectionTimeout(new Duration(1, TimeUnit.MINUTES))
                         .setMetadataCacheExpiry(new Duration(2, TimeUnit.MINUTES))
@@ -55,6 +57,7 @@ public class TestPinotConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", "https://host1:1111,https://host2:1111")
+                .put("pinot.broker-url", "host1:1111")
                 .put("pinot.estimated-size-in-bytes-for-non-numeric-column", "30")
                 .put("pinot.connection-timeout", "8m")
                 .put("pinot.metadata-expiry", "1m")
@@ -73,6 +76,7 @@ public class TestPinotConfig
 
         PinotConfig expected = new PinotConfig()
                 .setControllerUrls("https://host1:1111,https://host2:1111")
+                .setBrokerUrl(HostAndPort.fromString("host1:1111"))
                 .setEstimatedSizeInBytesForNonNumericColumn(30)
                 .setConnectionTimeout(new Duration(8, TimeUnit.MINUTES))
                 .setMetadataCacheExpiry(new Duration(1, TimeUnit.MINUTES))
