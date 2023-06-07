@@ -111,6 +111,30 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery("DROP TABLE " + icebergTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "fileFormats")
+    public void testMigrateHiveTableWithComplexType(String fileFormat)
+    {
+        String tableName = "test_migrate_complex_" + randomNameSuffix();
+        String hiveTableName = "hive.default." + tableName;
+        String icebergTableName = "iceberg.default." + tableName;
+        String sparkTableName = "iceberg_test.default." + tableName;
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+        onTrino().executeQuery("CREATE TABLE " + hiveTableName + " WITH (format='" + fileFormat + "') AS " +
+                "SELECT 1 x, " +
+                "array[2, 3] a, " +
+                "CAST(map(array['key'], array['value']) AS map(varchar, varchar)) b, " +
+                "CAST(row(1) AS row(d integer)) c");
+
+        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
+
+        assertThat(onTrino().executeQuery("SELECT x, a[1], a[2], b['key'], c.d FROM " + icebergTableName))
+                .containsOnly(row(1, 2, 3, "value", 1));
+        assertThat(onSpark().executeQuery("SELECT x, element_at(a, 1), element_at(a, 2), element_at(b, 'key'), c.d FROM " + sparkTableName))
+                .containsOnly(row(1, 2, 3, "value", 1));
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testMigrateHivePartitionedTable()
     {
