@@ -90,6 +90,7 @@ public class BigQueryConnectorModule
             optionsConfigurers.addBinding().to(CredentialsOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(HeaderOptionsConfigurer.class).in(Scopes.SINGLETON);
             optionsConfigurers.addBinding().to(RetryOptionsConfigurer.class).in(Scopes.SINGLETON);
+            newOptionalBinder(binder, ProxyTransportFactory.class);
 
             install(conditionalModule(
                     BigQueryConfig.class,
@@ -97,6 +98,7 @@ public class BigQueryConnectorModule
                     proxyBinder -> {
                         configBinder(proxyBinder).bindConfig(BigQueryProxyConfig.class);
                         newSetBinder(proxyBinder, BigQueryOptionsConfigurer.class).addBinding().to(ProxyOptionsConfigurer.class).in(Scopes.SINGLETON);
+                        newOptionalBinder(binder, ProxyTransportFactory.class).setDefault().to(ProxyTransportFactory.DefaultProxyTransportFactory.class).in(Scopes.SINGLETON);
                     }));
         }
 
