@@ -16,8 +16,7 @@ package io.trino.filesystem.azure;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

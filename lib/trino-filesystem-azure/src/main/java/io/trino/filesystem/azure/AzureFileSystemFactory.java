@@ -14,12 +14,11 @@
 package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.inject.Inject;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
