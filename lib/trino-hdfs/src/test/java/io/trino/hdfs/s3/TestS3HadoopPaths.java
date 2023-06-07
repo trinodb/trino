@@ -25,6 +25,13 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 public class TestS3HadoopPaths
 {
     @Test
+    public void testHdfsPath()
+    {
+        assertThat(hadoopPath(Location.of("hdfs://test/abc/xyz")))
+                .isEqualTo(new Path("hdfs://test/abc/xyz"));
+    }
+
+    @Test
     public void testNonS3Path()
     {
         assertThat(hadoopPath(Location.of("gcs://test/abc//xyz")))
