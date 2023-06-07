@@ -17,8 +17,7 @@ import com.azure.identity.ClientSecretCredential;
 import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.file.datalake.DataLakeServiceClientBuilder;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 public class AzureAuthOauth
         implements AzureAuth
