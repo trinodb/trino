@@ -325,7 +325,7 @@ public class ThreadEquivalence
     private static List<LogicalIndexNavigation> allPositionsToCompare(LogicalIndexNavigation navigation)
     {
         if (navigation.isLast()) {
-            List<LogicalIndexNavigation> result = new ArrayList<>();
+            ImmutableList.Builder<LogicalIndexNavigation> result = ImmutableList.builder();
             for (int offset = 0; offset <= navigation.getLogicalOffset(); offset++) {
                 result.add(navigation.withLogicalOffset(offset));
             }
@@ -336,7 +336,7 @@ public class ThreadEquivalence
             for (int tail = navigation.getPhysicalOffset() + 1; tail < 0; tail++) {
                 result.add(navigation.withoutLogicalOffset().withPhysicalOffset(tail));
             }
-            return result;
+            return result.build();
         }
 
         return ImmutableList.of(navigation);

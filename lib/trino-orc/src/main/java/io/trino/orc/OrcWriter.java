@@ -381,7 +381,7 @@ public final class OrcWriter
 
         columnWriters.forEach(ColumnWriter::close);
 
-        List<OrcDataOutput> outputData = new ArrayList<>();
+        ImmutableList.Builder<OrcDataOutput> outputData = ImmutableList.builder();
         List<Stream> allStreams = new ArrayList<>(columnWriters.size() * 3);
 
         // get index streams
@@ -444,7 +444,7 @@ public final class OrcWriter
         recordValidation(validation -> validation.addStripe(stripeInformation.getNumberOfRows()));
         stats.recordStripeWritten(flushReason, stripeInformation.getTotalLength(), stripeInformation.getNumberOfRows(), dictionaryCompressionOptimizer.getDictionaryMemoryBytes());
 
-        return outputData;
+        return outputData.build();
     }
 
     @Override

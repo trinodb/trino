@@ -1323,7 +1323,7 @@ class QueryPlanner
             }
         }
 
-        return allSets;
+        return ImmutableList.copyOf(allSets);
     }
 
     private PlanBuilder planGroupingOperations(PlanBuilder subPlan, QuerySpecification node, Optional<Symbol> groupIdSymbol, List<Set<FieldId>> groupingSets)

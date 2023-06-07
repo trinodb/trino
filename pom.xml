@@ -2339,6 +2339,7 @@
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
                                     -Xep:MissingSummary:OFF <!-- Sometimes our javadoc contains just a @see directive --> \
+                                    -Xep:MixedMutabilityReturnType:ERROR \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \

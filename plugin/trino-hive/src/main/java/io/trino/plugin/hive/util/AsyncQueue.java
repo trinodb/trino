@@ -22,7 +22,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -142,7 +141,7 @@ public class AsyncQueue<T>
         if (reduceBy == 0) {
             return ImmutableList.of();
         }
-        List<T> result = new ArrayList<>(reduceBy);
+        ImmutableList.Builder<T> result = ImmutableList.builderWithExpectedSize(reduceBy);
         for (int i = 0; i < reduceBy; i++) {
             result.add(elements.remove());
         }
@@ -151,7 +150,7 @@ public class AsyncQueue<T>
             completeAsync(executor, notFullSignal);
             notFullSignal = SettableFuture.create();
         }
-        return result;
+        return result.build();
     }
 
     public synchronized ListenableFuture<List<T>> getBatchAsync(int maxSize)

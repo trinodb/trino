@@ -41,7 +41,6 @@ import org.apache.hadoop.io.Text;
 import javax.annotation.PreDestroy;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -389,14 +388,14 @@ public class ColumnCardinalityCache
 
                 // Create a new map to hold our cardinalities for each range, returning a default of
                 // Zero for each non-existent Key
-                Map<CacheKey, Long> rangeValues = new HashMap<>();
+                ImmutableMap.Builder<CacheKey, Long> rangeValues = ImmutableMap.builder();
                 stream(keys).forEach(key -> rangeValues.put(key, 0L));
 
                 for (Entry<Key, Value> entry : scanner) {
                     rangeValues.put(rangeToKey.get(Range.exact(entry.getKey().getRow())), parseLong(entry.getValue().toString()));
                 }
 
-                return rangeValues;
+                return rangeValues.buildKeepingLast();
             }
             finally {
                 if (scanner != null) {

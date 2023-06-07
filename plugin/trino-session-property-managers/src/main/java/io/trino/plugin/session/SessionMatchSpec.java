@@ -25,7 +25,6 @@ import org.jdbi.v3.core.statement.StatementContext;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -160,12 +159,12 @@ public class SessionMatchSpec
             checkArgument(sessionPropertyNames.size() == sessionPropertyValues.size(),
                     "The number of property names and values should be the same");
 
-            Map<String, String> sessionProperties = new HashMap<>();
+            ImmutableMap.Builder<String, String> sessionProperties = ImmutableMap.builder();
             for (int i = 0; i < sessionPropertyNames.size(); i++) {
                 sessionProperties.put(sessionPropertyNames.get(i), sessionPropertyValues.get(i));
             }
 
-            return sessionProperties;
+            return sessionProperties.buildOrThrow();
         }
     }
 }

@@ -125,11 +125,11 @@ public class ThriftIndexedTpchService
             return ImmutableList.of();
         }
         List<TrinoThriftBlock> blocks = page.getColumnBlocks();
-        List<List<String>> result = new ArrayList<>(blocks.size());
+        ImmutableList.Builder<List<String>> result = ImmutableList.builderWithExpectedSize(blocks.size());
         for (TrinoThriftBlock block : blocks) {
             result.add(blockAsList(block, begin, end));
         }
-        return result;
+        return result.build();
     }
 
     private static List<String> blockAsList(TrinoThriftBlock block, int begin, int end)

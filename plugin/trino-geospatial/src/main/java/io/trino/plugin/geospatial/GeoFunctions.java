@@ -130,6 +130,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.Math.toRadians;
 import static java.lang.String.format;
 import static java.util.Arrays.setAll;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static org.locationtech.jts.simplify.TopologyPreservingSimplifier.simplify;
 
@@ -731,7 +732,7 @@ public final class GeoFunctions
             interpolatedPoints.add(path.getPoint(path.getPointCount() - 1));
         }
 
-        return interpolatedPoints;
+        return unmodifiableList(interpolatedPoints);
     }
 
     @SqlNullable

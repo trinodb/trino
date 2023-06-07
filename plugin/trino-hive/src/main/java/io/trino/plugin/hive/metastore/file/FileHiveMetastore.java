@@ -68,7 +68,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -1090,7 +1089,7 @@ public class FileHiveMetastore
         try {
             String directoryPrefix = partitionColumns.get(0).getName() + '=';
 
-            List<ArrayDeque<String>> partitionValues = new ArrayList<>();
+            ImmutableList.Builder<ArrayDeque<String>> partitionValues = ImmutableList.builder();
             for (FileStatus fileStatus : metadataFileSystem.listStatus(director)) {
                 if (!fileStatus.isDirectory()) {
                     continue;
@@ -1113,7 +1112,7 @@ public class FileHiveMetastore
                     partitionValues.add(childPartition);
                 }
             }
-            return partitionValues;
+            return partitionValues.build();
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Error listing partition directories", e);
