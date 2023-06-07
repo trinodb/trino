@@ -22,6 +22,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -71,10 +72,12 @@ public class BigQueryFilterQueryBuilder
         }
         ImmutableList.Builder<String> clauses = ImmutableList.builder();
         for (BigQueryColumnHandle column : columns) {
-            Domain domain = tupleDomain.getDomains().get().get(column);
-            if (domain != null) {
-                toPredicate(toBigQueryColumnName(column.getName()), domain, column).ifPresent(clauses::add);
-            }
+            tupleDomain.getDomains()
+                    .filter(domains -> domains.containsKey(column))
+                    .map(domains -> domains.get(column))
+                    .filter(Objects::nonNull)
+                    .flatMap(domain -> toPredicate(toBigQueryColumnName(column.getName()), domain, column))
+                    .ifPresent(clauses::add);
         }
         return clauses.build();
     }
@@ -145,10 +148,7 @@ public class BigQueryFilterQueryBuilder
 
     private Optional<String> toPredicate(String columnName, String operator, Object value, BigQueryColumnHandle column)
     {
-        Optional<String> valueAsString = convertToString(column.getTrinoType(), column.getBigqueryType(), value);
-        if (valueAsString.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(quote(columnName) + " " + operator + " " + valueAsString.get());
+        return convertToString(column.getTrinoType(), column.getBigqueryType(), value)
+                    .map(v -> quote(columnName) + " " + operator + " " + v);
     }
 }
