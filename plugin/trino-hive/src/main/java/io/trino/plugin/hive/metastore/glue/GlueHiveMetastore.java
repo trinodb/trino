@@ -383,12 +383,12 @@ public class GlueHiveMetastore
                 .collect(toImmutableMap(HiveUtil::toPartitionValues, identity()));
 
         List<Partition> partitions = batchGetPartition(table, ImmutableList.copyOf(updates.keySet()));
-        Map<Partition, Map<String, HiveColumnStatistics>> statisticsPerPartition = columnStatisticsProvider.getPartitionColumnStatistics(partitions);
+        Map<String, PartitionStatistics> partitionsStatistics = getPartitionStatistics(table, partitions);
 
-        statisticsPerPartition.forEach((partition, columnStatistics) -> {
+        partitions.forEach(partition -> {
             Function<PartitionStatistics, PartitionStatistics> update = updates.get(partitionValuesToName.get(partition.getValues()));
 
-            PartitionStatistics currentStatistics = new PartitionStatistics(getHiveBasicStatistics(partition.getParameters()), columnStatistics);
+            PartitionStatistics currentStatistics = partitionsStatistics.get(makePartitionName(table, partition));
             PartitionStatistics updatedStatistics = update.apply(currentStatistics);
 
             Map<String, String> updatedStatisticsParameters = updateStatisticsParameters(partition.getParameters(), updatedStatistics.getBasicStatistics());
