@@ -15,6 +15,7 @@ package io.trino.plugin.pinot;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
@@ -29,6 +30,7 @@ import javax.validation.constraints.NotNull;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -49,6 +51,8 @@ public class PinotConfig
     private static final Splitter LIST_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings();
 
     private List<URI> controllerUrls = ImmutableList.of();
+
+    private Optional<HostAndPort> brokerUrl = Optional.empty();
 
     private Duration connectionTimeout = new Duration(1, TimeUnit.MINUTES);
 
@@ -79,6 +83,19 @@ public class PinotConfig
         this.controllerUrls = LIST_SPLITTER.splitToList(controllerUrl).stream()
                 .map(PinotConfig::stringToUri)
                 .collect(toImmutableList());
+        return this;
+    }
+
+    public Optional<HostAndPort> getBrokerUrl()
+    {
+        return brokerUrl;
+    }
+
+    @Config("pinot.broker-url")
+    @ConfigDescription("Provide global Broker URL. Setting this property will disable broker discovery mechanism.")
+    public PinotConfig setBrokerUrl(HostAndPort brokerUrl)
+    {
+        this.brokerUrl = Optional.ofNullable(brokerUrl);
         return this;
     }
 
