@@ -16,6 +16,7 @@ package io.trino.tests.product.utils;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
+import io.trino.tempto.query.JdbcQueryExecutor;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -24,6 +25,7 @@ import java.sql.Connection;
 import java.time.temporal.ChronoUnit;
 
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.trino.tests.product.utils.DeltaQueryExecutors.configureJar;
 import static io.trino.tests.product.utils.HadoopTestUtils.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
 
 public final class QueryExecutors
@@ -126,7 +128,7 @@ public final class QueryExecutors
 
         return new QueryExecutor()
         {
-            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "delta");
+            private final QueryExecutor delegate = configureJar((JdbcQueryExecutor) testContext().getDependency(QueryExecutor.class, "delta"));
 
             @Override
             public QueryResult executeQuery(String sql, QueryParam... params)

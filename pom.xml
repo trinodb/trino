@@ -411,12 +411,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.databricks</groupId>
-                <artifactId>databricks-jdbc</artifactId>
-                <version>2.6.32</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.datastax.oss</groupId>
                 <artifactId>java-driver-core</artifactId>
                 <version>${dep.casandra.version}</version>
