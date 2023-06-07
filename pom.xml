@@ -2050,7 +2050,8 @@
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
                                     <!-- 1.x versions are banned due to https://www.cve.org/CVERecord?id=CVE-2022-1471 -->
                                     <exclude>org.yaml:snakeyaml</exclude>
-                                    <exclude>javax.inject:javax.inject:*</exclude>
+                                    <!-- use Guice version -->
+                                    <exclude>javax.inject:javax.inject</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
