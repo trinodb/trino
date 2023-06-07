@@ -133,7 +133,8 @@ Configuration properties
 Property                                              Description                                                    Default
 ===================================================== ============================================================== ======================================================
 ``bigquery.project-id``                               The Google Cloud Project ID where the data reside              Taken from the service account
-``bigquery.parent-project-id``                        The project ID Google Cloud Project to bill for the export     Taken from the service account
+``bigquery.parent-project-id``                        The project ID Google Cloud Project that will be used for      Taken from the service account
+                                                      billing and quota limits.
 ``bigquery.parallelism``                              The number of partitions to split the data into                The number of executors
 ``bigquery.views-enabled``                            Enables the connector to read from views and not only tables.  ``false``
                                                       Please read `this section <#reading-from-views>`_ before

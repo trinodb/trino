@@ -200,7 +200,7 @@ public class BigQueryClient
 
     /**
      * The Google Cloud Project ID that will be used to create the underlying BigQuery read session.
-     * Effectively, this is the project that will be used for billing attribution.
+     * Effectively, this is the project that will be used for billing and quota attribution.
      */
     public String getParentProjectId()
     {

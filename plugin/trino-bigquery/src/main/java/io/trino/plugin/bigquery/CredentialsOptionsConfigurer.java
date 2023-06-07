@@ -46,6 +46,7 @@ public class CredentialsOptionsConfigurer
         String billingProjectId = calculateBillingProjectId(parentProjectId, credentials);
         credentials.ifPresent(builder::setCredentials);
         builder.setProjectId(billingProjectId);
+        builder.setQuotaProjectId(billingProjectId);
         return builder;
     }
 
