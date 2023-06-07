@@ -140,6 +140,9 @@ public class Analysis
     private final Map<NodeRef<QuerySpecification>, Scope> implicitFromScopes = new LinkedHashMap<>();
 
     private final Map<NodeRef<Node>, Scope> scopes = new LinkedHashMap<>();
+
+    private final Set<Scope> topLevelWithScopes = new HashSet<>();
+
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
@@ -217,7 +220,6 @@ public class Analysis
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
     private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
-
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
@@ -600,6 +602,16 @@ public class Analysis
     public void setScope(Node node, Scope scope)
     {
         scopes.put(NodeRef.of(node), scope);
+    }
+
+    public void markScopeAsWithinTopLevelWith(Scope scope)
+    {
+        topLevelWithScopes.add(scope);
+    }
+
+    public boolean isScopeWithinTopLevelWith(Scope scope)
+    {
+        return scope.findLocally(topLevelWithScopes::contains).isPresent();
     }
 
     public RelationType getOutputDescriptor()

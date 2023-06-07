@@ -140,7 +140,7 @@ public class Scope
      * Starting from this, finds the closest scope which satisfies given predicate,
      * within the query boundary.
      */
-    private Optional<Scope> findLocally(Predicate<Scope> match)
+    Optional<Scope> findLocally(Predicate<Scope> match)
     {
         Scope scope = this;
 

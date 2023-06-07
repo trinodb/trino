@@ -1491,10 +1491,10 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
-                if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if (isOrderByRedundant(node, queryBodyScope)) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
-                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery or in the WITH clause may have no effect"));
                 }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
@@ -2986,10 +2986,10 @@ class StatementAnalyzer
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
 
-                if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if (isOrderByRedundant(node, sourceScope)) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
-                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
+                    warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery or in the WITH clause may have no effect"));
                 }
             }
             analysis.setOrderByExpressions(node, orderByExpressions);
@@ -3504,6 +3504,21 @@ class StatementAnalyzer
             createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
+        }
+
+        /*
+            ORDER BY clause is considered as redundant when two conditions are satisfied:
+                * there is no LIMIT and no OFFSET
+                * there exists outer scope or local parental scope is top level CTE
+         */
+        private boolean isOrderByRedundant(Query node, Scope queryBodyScope)
+        {
+            return (queryBodyScope.getOuterQueryParent().isPresent() || analysis.isScopeWithinTopLevelWith(queryBodyScope)) && node.getLimit().isEmpty() && node.getOffset().isEmpty();
+        }
+
+        private boolean isOrderByRedundant(QuerySpecification node, Scope queryBodyScope)
+        {
+            return (queryBodyScope.getOuterQueryParent().isPresent() || analysis.isScopeWithinTopLevelWith(queryBodyScope)) && node.getLimit().isEmpty() && node.getOffset().isEmpty();
         }
 
         private void createMergeAnalysis(Table table, TableHandle handle, TableSchema tableSchema, Scope tableScope, Scope joinScope, List<List<ColumnHandle>> updatedColumns)
@@ -4898,7 +4913,9 @@ class StatementAnalyzer
 
                 if (!isRecursive) {
                     Query query = withQuery.getQuery();
-                    process(query, withScopeBuilder.build());
+                    Scope withScope = withScopeBuilder.build();
+                    analysis.markScopeAsWithinTopLevelWith(withScope);
+                    process(query, withScope);
 
                     // check if all or none of the columns are explicitly alias
                     if (withQuery.getColumnNames().isPresent()) {
@@ -4984,6 +5001,7 @@ class StatementAnalyzer
 
             // shape validation complete - process query as expandable query
             Scope parentScope = withScopeBuilder.build();
+            analysis.markScopeAsWithinTopLevelWith(parentScope); // check
             // process expandable query -- anchor
             Scope anchorScope = process(anchor, parentScope);
             // set aliases in anchor scope as defined for WITH query. Recursion step will refer to anchor fields by aliases.
