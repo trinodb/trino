@@ -839,6 +839,13 @@
                 <groupId>io.trino.tpcds</groupId>
                 <artifactId>tpcds</artifactId>
                 <version>1.4</version>
+                <exclusions>
+                    <!-- not used in the runtime -->
+                    <exclusion>
+                        <groupId>javax.inject</groupId>
+                        <artifactId>javax.inject</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -2043,11 +2050,11 @@
                                     <exclude>org.apache.logging.log4j:log4j-core</exclude>
                                     <!-- 1.x versions are banned due to https://www.cve.org/CVERecord?id=CVE-2022-1471 -->
                                     <exclude>org.yaml:snakeyaml</exclude>
+                                    <exclude>javax.inject:javax.inject:*</exclude>
                                 </excludes>
                                 <includes combine.children="append">
                                     <!-- 2.x versions are not affected by CVE-2022-1471 -->
                                     <include>org.yaml:snakeyaml:2.0</include>
-                                    <include>javax.inject:inject:*</include>
                                 </includes>
                             </bannedDependencies>
                             <requireProfileIdsExist />
