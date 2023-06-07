@@ -178,6 +178,7 @@ public class PinotSplitManager
     private static boolean isBrokerQuery(ConnectorSession session, PinotTableHandle tableHandle)
     {
         return tableHandle.getQuery().isPresent() ||
-                (isPreferBrokerQueries(session) && tableHandle.getLimit().orElse(Integer.MAX_VALUE) < getNonAggregateLimitForBrokerQueries(session));
+                tableHandle.getLimit().orElse(Integer.MAX_VALUE) < getNonAggregateLimitForBrokerQueries(session) ||
+                isPreferBrokerQueries(session);
     }
 }
