@@ -21,6 +21,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.logging.FormatInterpolator;
 import io.trino.plugin.base.logging.SessionInterpolatedValues;
@@ -166,10 +167,19 @@ public class BigQueryConnectorModule
                     .to(IdentityCacheMapping.SingletonIdentityCacheMapping.class)
                     .in(Scopes.SINGLETON);
 
-            newOptionalBinder(binder, BigQueryCredentialsSupplier.class)
+            OptionalBinder<BigQueryCredentialsSupplier> credentialsSupplierBinder = newOptionalBinder(binder, BigQueryCredentialsSupplier.class);
+            credentialsSupplierBinder
                     .setDefault()
-                    .to(StaticBigQueryCredentialsSupplier.class)
+                    .to(DefaultBigQueryCredentialsProvider.class)
                     .in(Scopes.SINGLETON);
+
+            StaticCredentialsConfig staticCredentialsConfig = buildConfigObject(StaticCredentialsConfig.class);
+            if (staticCredentialsConfig.getCredentialsFile().isPresent() || staticCredentialsConfig.getCredentialsKey().isPresent()) {
+                credentialsSupplierBinder
+                        .setBinding()
+                        .to(StaticBigQueryCredentialsSupplier.class)
+                        .in(Scopes.SINGLETON);
+            }
         }
     }
 
