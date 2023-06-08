@@ -34,7 +34,7 @@ public class TestCoordinatorDynamicFiltering
                         "retry-policy", getRetryPolicy().name(),
                         // keep limits lower to test edge cases
                         "dynamic-filtering.small-partitioned.max-distinct-values-per-driver", "10",
-                        "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "10"))
+                        "dynamic-filtering.small.max-distinct-values-per-driver", "10"))
                 .build();
     }
 

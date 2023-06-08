@@ -412,21 +412,21 @@ public class LocalExecutionPlanner
     private final JoinCompiler joinCompiler;
     private final OperatorFactories operatorFactories;
     private final OrderingCompiler orderingCompiler;
-    private final int largeBroadcastMaxDistinctValuesPerDriver;
+    private final int largeMaxDistinctValuesPerDriver;
     private final int largePartitionedMaxDistinctValuesPerDriver;
-    private final int smallBroadcastMaxDistinctValuesPerDriver;
+    private final int smallMaxDistinctValuesPerDriver;
     private final int smallPartitionedMaxDistinctValuesPerDriver;
-    private final DataSize largeBroadcastMaxSizePerDriver;
+    private final DataSize largeMaxSizePerDriver;
     private final DataSize largePartitionedMaxSizePerDriver;
-    private final DataSize smallBroadcastMaxSizePerDriver;
+    private final DataSize smallMaxSizePerDriver;
     private final DataSize smallPartitionedMaxSizePerDriver;
-    private final int largeBroadcastRangeRowLimitPerDriver;
+    private final int largeRangeRowLimitPerDriver;
     private final int largePartitionedRangeRowLimitPerDriver;
-    private final int smallBroadcastRangeRowLimitPerDriver;
+    private final int smallRangeRowLimitPerDriver;
     private final int smallPartitionedRangeRowLimitPerDriver;
-    private final DataSize largeBroadcastMaxSizePerOperator;
+    private final DataSize largeMaxSizePerOperator;
     private final DataSize largePartitionedMaxSizePerOperator;
-    private final DataSize smallBroadcastMaxSizePerOperator;
+    private final DataSize smallMaxSizePerOperator;
     private final DataSize smallPartitionedMaxSizePerOperator;
     private final BlockTypeOperators blockTypeOperators;
     private final TableExecuteContextManager tableExecuteContextManager;
@@ -493,20 +493,20 @@ public class LocalExecutionPlanner
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
         this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
-        this.largeBroadcastMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargeBroadcastMaxDistinctValuesPerDriver();
-        this.smallBroadcastMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallBroadcastMaxDistinctValuesPerDriver();
+        this.largeMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargeMaxDistinctValuesPerDriver();
+        this.smallMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallMaxDistinctValuesPerDriver();
         this.smallPartitionedMaxDistinctValuesPerDriver = dynamicFilterConfig.getSmallPartitionedMaxDistinctValuesPerDriver();
-        this.largeBroadcastMaxSizePerDriver = dynamicFilterConfig.getLargeBroadcastMaxSizePerDriver();
+        this.largeMaxSizePerDriver = dynamicFilterConfig.getLargeMaxSizePerDriver();
         this.largePartitionedMaxSizePerDriver = dynamicFilterConfig.getLargePartitionedMaxSizePerDriver();
-        this.smallBroadcastMaxSizePerDriver = dynamicFilterConfig.getSmallBroadcastMaxSizePerDriver();
+        this.smallMaxSizePerDriver = dynamicFilterConfig.getSmallMaxSizePerDriver();
         this.smallPartitionedMaxSizePerDriver = dynamicFilterConfig.getSmallPartitionedMaxSizePerDriver();
-        this.largeBroadcastRangeRowLimitPerDriver = dynamicFilterConfig.getLargeBroadcastRangeRowLimitPerDriver();
+        this.largeRangeRowLimitPerDriver = dynamicFilterConfig.getLargeRangeRowLimitPerDriver();
         this.largePartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getLargePartitionedRangeRowLimitPerDriver();
-        this.smallBroadcastRangeRowLimitPerDriver = dynamicFilterConfig.getSmallBroadcastRangeRowLimitPerDriver();
+        this.smallRangeRowLimitPerDriver = dynamicFilterConfig.getSmallRangeRowLimitPerDriver();
         this.smallPartitionedRangeRowLimitPerDriver = dynamicFilterConfig.getSmallPartitionedRangeRowLimitPerDriver();
-        this.largeBroadcastMaxSizePerOperator = dynamicFilterConfig.getLargeBroadcastMaxSizePerOperator();
+        this.largeMaxSizePerOperator = dynamicFilterConfig.getLargeMaxSizePerOperator();
         this.largePartitionedMaxSizePerOperator = dynamicFilterConfig.getLargePartitionedMaxSizePerOperator();
-        this.smallBroadcastMaxSizePerOperator = dynamicFilterConfig.getSmallBroadcastMaxSizePerOperator();
+        this.smallMaxSizePerOperator = dynamicFilterConfig.getSmallMaxSizePerOperator();
         this.smallPartitionedMaxSizePerOperator = dynamicFilterConfig.getSmallPartitionedMaxSizePerOperator();
         this.largePartitionedMaxDistinctValuesPerDriver = dynamicFilterConfig.getLargePartitionedMaxDistinctValuesPerDriver();
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
@@ -2647,14 +2647,14 @@ public class LocalExecutionPlanner
             checkArgument(partitionCount == 1, "Expected local execution to not be parallel");
 
             int operatorId = buildContext.getNextOperatorId();
-            boolean isReplicatedJoin = isBuildSideReplicated(node);
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
+            boolean partitioned = !isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, partitioned);
             if (localDynamicFilter.isPresent()) {
                 buildSource = createDynamicFilterSourceOperatorFactory(
                         operatorId,
                         localDynamicFilter.get(),
                         node,
-                        isReplicatedJoin,
+                        partitioned,
                         buildContext.getDriverInstanceCount().orElse(1) == 1,
                         buildSource,
                         buildContext);
@@ -2886,14 +2886,14 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
             List<Type> buildTypes = buildSource.getTypes();
             int operatorId = buildContext.getNextOperatorId();
-            boolean isReplicatedJoin = isBuildSideReplicated(node);
-            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, isReplicatedJoin);
+            boolean partitioned = !isBuildSideReplicated(node);
+            Optional<LocalDynamicFilterConsumer> localDynamicFilter = createDynamicFilter(buildSource, node, context, localDynamicFilters, partitioned);
             if (localDynamicFilter.isPresent()) {
                 buildSource = createDynamicFilterSourceOperatorFactory(
                         operatorId,
                         localDynamicFilter.get(),
                         node,
-                        isReplicatedJoin,
+                        partitioned,
                         buildContext.getDriverInstanceCount().orElse(1) == 1,
                         buildSource,
                         buildContext);
@@ -3054,12 +3054,12 @@ public class LocalExecutionPlanner
                     // In fault-tolerant execution, all tasks need to collect dynamic filters even if the join has
                     // broadcast distribution type because the collection takes place before the remote exchange
                     ImmutableList.of(taskContext::updateDomains),
-                    getDynamicFilteringMaxSizePerOperator(session, false));
+                    getDynamicFilteringMaxSizePerOperator(session, true));
             return createDynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
                     dynamicFilterSourceConsumer,
                     node,
-                    false,
+                    true,
                     false,
                     source,
                     context);
@@ -3069,7 +3069,7 @@ public class LocalExecutionPlanner
                 int operatorId,
                 LocalDynamicFilterConsumer dynamicFilter,
                 PlanNode node,
-                boolean isReplicatedJoin,
+                boolean partitioned,
                 boolean isBuildSideSingle,
                 PhysicalOperation buildSource,
                 LocalExecutionPlanContext context)
@@ -3089,9 +3089,9 @@ public class LocalExecutionPlanner
                             node.getId(),
                             dynamicFilter,
                             filterBuildChannels,
-                            multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
-                            multipleIf(getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
-                            multipleIf(getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getDynamicFilteringMaxDistinctValuesPerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getDynamicFilteringMaxSizePerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
+                            multipleIf(getDynamicFilteringRangeRowLimitPerDriver(session, partitioned), taskConcurrency, isBuildSideSingle),
                             blockTypeOperators),
                     buildSource.getLayout(),
                     context,
@@ -3113,7 +3113,7 @@ public class LocalExecutionPlanner
                 JoinNode node,
                 LocalExecutionPlanContext context,
                 Set<DynamicFilterId> localDynamicFilters,
-                boolean isReplicatedJoin)
+                boolean partitioned)
         {
             Set<DynamicFilterId> coordinatorDynamicFilters = getCoordinatorDynamicFilters(node.getDynamicFilters().keySet(), node, context.getTaskId());
             Set<DynamicFilterId> collectedDynamicFilters = ImmutableSet.<DynamicFilterId>builder()
@@ -3137,7 +3137,7 @@ public class LocalExecutionPlanner
                     buildSource.getTypes(),
                     collectedDynamicFilters,
                     collectors.build(),
-                    getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
+                    getDynamicFilteringMaxSizePerOperator(session, partitioned));
 
             return Optional.of(filterConsumer);
         }
@@ -3204,21 +3204,21 @@ public class LocalExecutionPlanner
                 if (isCoordinatorDynamicFilter) {
                     collectors.add(getCoordinatorDynamicFilterDomainsCollector(taskContext, ImmutableSet.of(filterId)));
                 }
-                boolean isReplicatedJoin = isBuildSideReplicated(node);
+                boolean partitioned = !isBuildSideReplicated(node);
                 LocalDynamicFilterConsumer filterConsumer = new LocalDynamicFilterConsumer(
                         ImmutableMap.of(filterId, buildChannel),
                         ImmutableMap.of(filterId, buildSource.getTypes().get(buildChannel)),
                         collectors.build(),
-                        getDynamicFilteringMaxSizePerOperator(session, isReplicatedJoin));
+                        getDynamicFilteringMaxSizePerOperator(session, partitioned));
                 buildSource = new PhysicalOperation(
                         new DynamicFilterSourceOperatorFactory(
                                 operatorId,
                                 node.getId(),
                                 filterConsumer,
                                 ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
-                                getDynamicFilteringMaxDistinctValuesPerDriver(session, isReplicatedJoin),
-                                getDynamicFilteringMaxSizePerDriver(session, isReplicatedJoin),
-                                getDynamicFilteringRangeRowLimitPerDriver(session, isReplicatedJoin),
+                                getDynamicFilteringMaxDistinctValuesPerDriver(session, partitioned),
+                                getDynamicFilteringMaxSizePerDriver(session, partitioned),
+                                getDynamicFilteringRangeRowLimitPerDriver(session, partitioned),
                                 blockTypeOperators),
                         buildSource.getLayout(),
                         buildContext,
@@ -4069,60 +4069,60 @@ public class LocalExecutionPlanner
                 Optional.empty();
     }
 
-    private int getDynamicFilteringMaxDistinctValuesPerDriver(Session session, boolean isReplicatedJoin)
+    private int getDynamicFilteringMaxDistinctValuesPerDriver(Session session, boolean partitioned)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            if (isReplicatedJoin) {
-                return largeBroadcastMaxDistinctValuesPerDriver;
+            if (partitioned) {
+                return largePartitionedMaxDistinctValuesPerDriver;
             }
-            return largePartitionedMaxDistinctValuesPerDriver;
+            return largeMaxDistinctValuesPerDriver;
         }
-        if (isReplicatedJoin) {
-            return smallBroadcastMaxDistinctValuesPerDriver;
+        if (partitioned) {
+            return smallPartitionedMaxDistinctValuesPerDriver;
         }
-        return smallPartitionedMaxDistinctValuesPerDriver;
+        return smallMaxDistinctValuesPerDriver;
     }
 
-    private DataSize getDynamicFilteringMaxSizePerDriver(Session session, boolean isReplicatedJoin)
+    private DataSize getDynamicFilteringMaxSizePerDriver(Session session, boolean partitioned)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            if (isReplicatedJoin) {
-                return largeBroadcastMaxSizePerDriver;
+            if (partitioned) {
+                return largePartitionedMaxSizePerDriver;
             }
-            return largePartitionedMaxSizePerDriver;
+            return largeMaxSizePerDriver;
         }
-        if (isReplicatedJoin) {
-            return smallBroadcastMaxSizePerDriver;
+        if (partitioned) {
+            return smallPartitionedMaxSizePerDriver;
         }
-        return smallPartitionedMaxSizePerDriver;
+        return smallMaxSizePerDriver;
     }
 
-    private int getDynamicFilteringRangeRowLimitPerDriver(Session session, boolean isReplicatedJoin)
+    private int getDynamicFilteringRangeRowLimitPerDriver(Session session, boolean partitioned)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            if (isReplicatedJoin) {
-                return largeBroadcastRangeRowLimitPerDriver;
+            if (partitioned) {
+                return largePartitionedRangeRowLimitPerDriver;
             }
-            return largePartitionedRangeRowLimitPerDriver;
+            return largeRangeRowLimitPerDriver;
         }
-        if (isReplicatedJoin) {
-            return smallBroadcastRangeRowLimitPerDriver;
+        if (partitioned) {
+            return smallPartitionedRangeRowLimitPerDriver;
         }
-        return smallPartitionedRangeRowLimitPerDriver;
+        return smallRangeRowLimitPerDriver;
     }
 
-    private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean isReplicatedJoin)
+    private DataSize getDynamicFilteringMaxSizePerOperator(Session session, boolean partitioned)
     {
         if (isEnableLargeDynamicFilters(session)) {
-            if (isReplicatedJoin) {
-                return largeBroadcastMaxSizePerOperator;
+            if (partitioned) {
+                return largePartitionedMaxSizePerOperator;
             }
-            return largePartitionedMaxSizePerOperator;
+            return largeMaxSizePerOperator;
         }
-        if (isReplicatedJoin) {
-            return smallBroadcastMaxSizePerOperator;
+        if (partitioned) {
+            return smallPartitionedMaxSizePerOperator;
         }
-        return smallPartitionedMaxSizePerOperator;
+        return smallMaxSizePerOperator;
     }
 
     private static List<Type> getTypes(List<Expression> expressions, Map<NodeRef<Expression>, Type> expressionTypes)
