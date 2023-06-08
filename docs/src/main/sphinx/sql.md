@@ -51,6 +51,7 @@ sql/revoke
 sql/revoke-roles
 sql/rollback
 sql/select
+sql/set-path
 sql/set-role
 sql/set-session
 sql/set-time-zone
