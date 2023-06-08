@@ -21,6 +21,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import java.util.Objects;
 import java.util.Optional;
 
+import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -40,7 +41,7 @@ public class DescriptorArgument
     public DescriptorArgument(@JsonProperty("descriptor") Optional<Descriptor> descriptor)
     {
         this.descriptor = requireNonNull(descriptor, "descriptor is null");
-        descriptor.ifPresent(descriptorValue -> Preconditions.checkArgument(
+        descriptor.ifPresent(descriptorValue -> checkArgument(
                 descriptorValue.getFields().stream().allMatch(field -> field.getName().isPresent()),
                 "All fields of a descriptor argument must have names"));
     }

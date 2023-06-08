@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -50,7 +51,7 @@ public final class TableFunctionAnalysis
     private TableFunctionAnalysis(Optional<Descriptor> returnedType, Map<String, List<Integer>> requiredColumns, ConnectorTableFunctionHandle handle)
     {
         this.returnedType = requireNonNull(returnedType, "returnedType is null");
-        returnedType.ifPresent(descriptor -> Preconditions.checkArgument(descriptor.isTyped(), "field types not specified"));
+        returnedType.ifPresent(descriptor -> checkArgument(descriptor.isTyped(), "field types not specified"));
         this.requiredColumns = Map.copyOf(requiredColumns.entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, entry -> List.copyOf(entry.getValue()))));
         this.handle = requireNonNull(handle, "handle is null");
