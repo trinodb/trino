@@ -530,6 +530,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
+                                <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -584,6 +585,7 @@
                         <configuration>
                             <includes>
                                 <include>**/TestHiveGlueMetastore.java</include>
+                                <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestTrinoS3FileSystemAwsS3.java</include>
                             </includes>
                         </configuration>

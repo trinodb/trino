@@ -478,6 +478,7 @@
                                 <exclude>**/TestDeltaLakeAdlsStorage.java</exclude>
                                 <exclude>**/TestDeltaLakeAdlsConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDeltaLakeGlueMetastore.java</exclude>
+                                <exclude>**/TestDeltaS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestDeltaLakeCleanUpGlueMetastore.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreViews.java</exclude>
                                 <exclude>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</exclude>
@@ -508,6 +509,7 @@
                                 <include>**/TestDeltaLakeAdlsStorage.java</include>
                                 <include>**/TestDeltaLakeAdlsConnectorSmokeTest.java</include>
                                 <include>**/TestDeltaLakeGlueMetastore.java</include>
+                                <include>**/TestDeltaS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestDeltaLakeCleanUpGlueMetastore.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreViews.java</include>
                                 <include>**/TestDeltaLakeSharedGlueMetastoreWithTableRedirections.java</include>
