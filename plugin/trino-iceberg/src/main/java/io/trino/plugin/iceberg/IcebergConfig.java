@@ -223,7 +223,7 @@ public class IcebergConfig
     }
 
     @Config("iceberg.projection-pushdown-enabled")
-    @ConfigDescription("Read only required fields from a struct")
+    @ConfigDescription("Read only required fields from a row type")
     public IcebergConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
