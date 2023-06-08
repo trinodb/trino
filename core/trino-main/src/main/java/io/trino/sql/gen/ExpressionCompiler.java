@@ -28,6 +28,9 @@ import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
 import io.trino.spi.TrinoException;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.PageFilterEvaluator;
 import io.trino.sql.relational.RowExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -48,6 +51,7 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.invoke;
+import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.util.CompilerUtils.defineClass;
 import static io.trino.util.CompilerUtils.makeClassName;
@@ -56,14 +60,16 @@ import static java.util.Objects.requireNonNull;
 public class ExpressionCompiler
 {
     private final PageFunctionCompiler pageFunctionCompiler;
+    private final ColumnarFilterCompiler columnarFilterCompiler;
     private final NonEvictableLoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
-    public ExpressionCompiler(FunctionManager functionManager, PageFunctionCompiler pageFunctionCompiler)
+    public ExpressionCompiler(FunctionManager functionManager, PageFunctionCompiler pageFunctionCompiler, ColumnarFilterCompiler columnarFilterCompiler)
     {
         requireNonNull(functionManager, "functionManager is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
+        this.columnarFilterCompiler = requireNonNull(columnarFilterCompiler, "columnarFilterCompiler is null");
         this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
                         .recordStats()
                         .maximumSize(1000),
@@ -99,40 +105,53 @@ public class ExpressionCompiler
         };
     }
 
-    public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
+    public Supplier<PageProcessor> compilePageProcessor(boolean columnarFilterEvaluationEnabled, Optional<RowExpression> filter, List<? extends RowExpression> projections, Optional<String> classNameSuffix)
     {
-        return compilePageProcessor(filter, projections, classNameSuffix, OptionalInt.empty());
+        return compilePageProcessor(columnarFilterEvaluationEnabled, filter, projections, classNameSuffix, OptionalInt.empty());
     }
 
     private Supplier<PageProcessor> compilePageProcessor(
+            boolean columnarFilterEvaluationEnabled,
             Optional<RowExpression> filter,
             List<? extends RowExpression> projections,
             Optional<String> classNameSuffix,
             OptionalInt initialBatchSize)
     {
-        Optional<Supplier<PageFilter>> filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        Optional<Supplier<PageFilter>> filterFunctionSupplier = Optional.empty();
+        Optional<Supplier<FilterEvaluator>> columnarFilterEvaluatorSupplier = createColumnarFilterEvaluator(columnarFilterEvaluationEnabled, filter, columnarFilterCompiler);
+        if (columnarFilterEvaluatorSupplier.isEmpty()) {
+            filterFunctionSupplier = filter.map(expression -> pageFunctionCompiler.compileFilter(expression, classNameSuffix));
+        }
+
         List<Supplier<PageProjection>> pageProjectionSuppliers = projections.stream()
                 .map(projection -> pageFunctionCompiler.compileProjection(projection, classNameSuffix))
                 .collect(toImmutableList());
 
+        Optional<Supplier<PageFilter>> finalFilterFunctionSupplier = filterFunctionSupplier;
         return () -> {
-            Optional<PageFilter> filterFunction = filterFunctionSupplier.map(Supplier::get);
+            Optional<FilterEvaluator> filterEvaluator = columnarFilterEvaluatorSupplier.map(Supplier::get);
+            if (filterEvaluator.isEmpty()) {
+                filterEvaluator = finalFilterFunctionSupplier
+                        .map(Supplier::get)
+                        .map(PageFilterEvaluator::new);
+            }
             List<PageProjection> pageProjections = pageProjectionSuppliers.stream()
                     .map(Supplier::get)
                     .collect(toImmutableList());
-            return new PageProcessor(filterFunction, pageProjections, initialBatchSize);
+            return new PageProcessor(filterEvaluator, pageProjections, initialBatchSize);
         };
     }
 
+    @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections)
     {
-        return compilePageProcessor(filter, projections, Optional.empty());
+        return compilePageProcessor(true, filter, projections, Optional.empty());
     }
 
     @VisibleForTesting
     public Supplier<PageProcessor> compilePageProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, int initialBatchSize)
     {
-        return compilePageProcessor(filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
+        return compilePageProcessor(true, filter, projections, Optional.empty(), OptionalInt.of(initialBatchSize));
     }
 
     private <T> Class<? extends T> compile(Optional<RowExpression> filter, List<RowExpression> projections, BodyCompiler bodyCompiler, Class<? extends T> superType)

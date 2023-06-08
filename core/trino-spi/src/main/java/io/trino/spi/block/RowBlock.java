@@ -492,4 +492,10 @@ public final class RowBlock
     {
         return this;
     }
+
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(rowIsNull, 0, positionCount);
+    }
 }

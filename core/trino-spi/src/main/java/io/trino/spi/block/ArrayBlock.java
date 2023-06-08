@@ -416,6 +416,12 @@ public final class ArrayBlock
         return this;
     }
 
+    @Override
+    public Optional<ByteArrayBlock> getNulls()
+    {
+        return BlockUtil.getNulls(valueIsNull, arrayOffset, positionCount);
+    }
+
     public <T> T apply(ArrayBlockFunction<T> function, int position)
     {
         checkReadablePosition(this, position);
