@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
@@ -38,12 +37,6 @@ public final class MongoQueryRunner
     private static final String TPCH_SCHEMA = "tpch";
 
     private MongoQueryRunner() {}
-
-    public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createMongoQueryRunner(server, ImmutableMap.of(), ImmutableList.copyOf(tables));
-    }
 
     public static DistributedQueryRunner createMongoQueryRunner(MongoServer server, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
             throws Exception
