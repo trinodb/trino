@@ -41,7 +41,7 @@ public class LongLiteral
         requireNonNull(value, "value is null");
         try {
             this.value = value;
-            this.parsedValue = Long.parseLong(value.replace("_", ""));
+            this.parsedValue = parse(value);
         }
         catch (NumberFormatException e) {
             throw new ParsingException("Invalid numeric literal: " + value);
@@ -97,5 +97,23 @@ public class LongLiteral
         }
 
         return parsedValue == ((LongLiteral) other).parsedValue;
+    }
+
+    private static long parse(String value)
+    {
+        value = value.replace("_", "");
+
+        if (value.startsWith("0x") || value.startsWith("0X")) {
+            return Long.parseLong(value.substring(2), 16);
+        }
+        else if (value.startsWith("0b") || value.startsWith("0B")) {
+            return Long.parseLong(value.substring(2), 2);
+        }
+        else if (value.startsWith("0o") || value.startsWith("0O")) {
+            return Long.parseLong(value.substring(2), 8);
+        }
+        else {
+            return Long.parseLong(value);
+        }
     }
 }
