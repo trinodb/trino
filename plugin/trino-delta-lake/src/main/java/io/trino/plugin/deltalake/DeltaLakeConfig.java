@@ -483,7 +483,7 @@ public class DeltaLakeConfig
     }
 
     @Config("delta.projection-pushdown-enabled")
-    @ConfigDescription("Read only required fields from a struct")
+    @ConfigDescription("Read only required fields from a row type")
     public DeltaLakeConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
