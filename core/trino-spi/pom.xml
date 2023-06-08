@@ -497,6 +497,18 @@
                                     <newValue>"lastEndTimeScaledDistribution"</newValue>
                                     <justification>added new stats</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.util.Optional&lt;io.trino.spi.block.ByteArrayBlock&gt; io.trino.spi.block.ValueBlock::getNulls()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <new>method byte[] io.trino.spi.block.ByteArrayBlock::getRawValues()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <new>method int io.trino.spi.block.ByteArrayBlock::getRawValuesOffset()</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

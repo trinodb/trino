@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
@@ -35,6 +36,8 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -76,6 +79,16 @@ public abstract class AbstractTestBlock
 
         if (block instanceof ValueBlock valueBlock) {
             assertBlockClassImplementation(valueBlock.getClass());
+            Optional<ByteArrayBlock> isNull = valueBlock.getNulls();
+            if (valueBlock.mayHaveNull() && IntStream.range(0, valueBlock.getPositionCount()).anyMatch(valueBlock::isNull)) {
+                assertThat(isNull).isPresent();
+                for (int i = 0; i < valueBlock.getPositionCount(); i++) {
+                    assertThat(isNull.get().getByte(i) == 1).isEqualTo(valueBlock.isNull(i));
+                }
+            }
+            else {
+                assertThat(isNull).isEmpty();
+            }
         }
     }
 
