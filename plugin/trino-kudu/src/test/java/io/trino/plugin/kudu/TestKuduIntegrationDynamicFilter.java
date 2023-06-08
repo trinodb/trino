@@ -69,8 +69,8 @@ public class TestKuduIntegrationDynamicFilter
                 Optional.of(""),
                 ImmutableMap.of("dynamic_filtering_wait_timeout", "1h"),
                 ImmutableMap.of(
-                        "dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "100",
-                        "dynamic-filtering.small-broadcast.range-row-limit-per-driver", "100"),
+                        "dynamic-filtering.small.max-distinct-values-per-driver", "100",
+                        "dynamic-filtering.small.range-row-limit-per-driver", "100"),
                 TpchTable.getTables());
     }
 
