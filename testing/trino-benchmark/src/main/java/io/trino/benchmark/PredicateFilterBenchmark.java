@@ -20,6 +20,7 @@ import io.trino.operator.OperatorFactory;
 import io.trino.operator.project.PageProcessor;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.testing.LocalQueryRunner;
@@ -51,7 +52,10 @@ public class PredicateFilterBenchmark
                 localQueryRunner.getMetadata().resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(DOUBLE, DOUBLE)),
                 constant(50000.0, DOUBLE),
                 field(0, DOUBLE));
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(localQueryRunner.getFunctionManager(), new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
+                localQueryRunner.getFunctionManager(),
+                new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0),
+                new ColumnarFilterCompiler(localQueryRunner.getFunctionManager(), 0));
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, DOUBLE)));
 
         OperatorFactory filterAndProjectOperator = FilterAndProjectOperator.createOperatorFactory(

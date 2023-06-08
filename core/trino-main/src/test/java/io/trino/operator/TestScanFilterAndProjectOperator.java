@@ -37,6 +37,7 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.testing.LocalQueryRunner;
@@ -96,7 +97,10 @@ public class TestScanFilterAndProjectOperator
     public final void initTestFunctions()
     {
         runner = LocalQueryRunner.builder(session).build();
-        expressionCompiler = new ExpressionCompiler(runner.getFunctionManager(), new PageFunctionCompiler(runner.getFunctionManager(), 0));
+        expressionCompiler = new ExpressionCompiler(
+                runner.getFunctionManager(),
+                new PageFunctionCompiler(runner.getFunctionManager(), 0),
+                new ColumnarFilterCompiler(runner.getFunctionManager(), 0));
     }
 
     @AfterAll
@@ -285,7 +289,10 @@ public class TestScanFilterAndProjectOperator
         runner.addFunctions(new InternalFunctionBundle(functions.build()));
 
         // match each column with a projection
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(runner.getFunctionManager(), new PageFunctionCompiler(runner.getFunctionManager(), 0));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
+                runner.getFunctionManager(),
+                new PageFunctionCompiler(runner.getFunctionManager(), 0),
+                new ColumnarFilterCompiler(runner.getFunctionManager(), 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
             projections.add(call(runner.getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
@@ -350,7 +357,10 @@ public class TestScanFilterAndProjectOperator
             return value;
         })));
         FunctionManager functionManager = runner.getFunctionManager();
-        ExpressionCompiler expressionCompiler = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0));
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(
+                functionManager,
+                new PageFunctionCompiler(functionManager, 0),
+                new ColumnarFilterCompiler(functionManager, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
                 runner.getMetadata().resolveBuiltinFunction("generic_long_record_cursor", fromTypes(BIGINT)),

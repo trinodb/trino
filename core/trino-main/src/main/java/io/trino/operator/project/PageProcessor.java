@@ -27,6 +27,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.ExpressionProfiler;
+import io.trino.sql.gen.columnar.ExpressionEvaluator;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -57,17 +58,28 @@ public class PageProcessor
     private final ExpressionProfiler expressionProfiler;
     private final DictionarySourceIdFunction dictionarySourceIdFunction = new DictionarySourceIdFunction();
     private final Optional<PageFilter> filter;
+    private final Optional<ExpressionEvaluator> columnarFilterEvaluator;
     private final List<PageProjection> projections;
 
     private int projectBatchSize;
 
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
     {
-        this(filter, projections, initialBatchSize, new ExpressionProfiler());
+        this(filter, Optional.empty(), projections, initialBatchSize, new ExpressionProfiler());
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, Optional<ExpressionEvaluator> columnarFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize)
+    {
+        this(filter, columnarFilterEvaluator, projections, initialBatchSize, new ExpressionProfiler());
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    {
+        this(filter, Optional.empty(), projections, initialBatchSize, expressionProfiler);
     }
 
     @VisibleForTesting
-    public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
+    public PageProcessor(Optional<PageFilter> filter, Optional<ExpressionEvaluator> columnarFilterEvaluator, List<? extends PageProjection> projections, OptionalInt initialBatchSize, ExpressionProfiler expressionProfiler)
     {
         this.filter = filter.map(pageFilter -> {
             if (pageFilter.getInputChannels().size() == 1 && pageFilter.isDeterministic()) {
@@ -75,6 +87,7 @@ public class PageProcessor
             }
             return pageFilter;
         });
+        this.columnarFilterEvaluator = requireNonNull(columnarFilterEvaluator, "columnarFilterEvaluator is null");
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
@@ -90,6 +103,11 @@ public class PageProcessor
     public PageProcessor(Optional<PageFilter> filter, List<? extends PageProjection> projections)
     {
         this(filter, projections, OptionalInt.of(1));
+    }
+
+    public PageProcessor(Optional<PageFilter> filter, Optional<ExpressionEvaluator> columnarFilterEvaluator, List<? extends PageProjection> projections)
+    {
+        this(filter, columnarFilterEvaluator, projections, OptionalInt.of(1));
     }
 
     @VisibleForTesting
@@ -118,6 +136,25 @@ public class PageProcessor
             long start = System.nanoTime();
             SelectedPositions selectedPositions = filter.get().filter(session, inputPage);
             metrics.recordFilterTimeSince(start);
+            if (selectedPositions.isEmpty()) {
+                return WorkProcessor.of();
+            }
+
+            if (projections.isEmpty()) {
+                // retained memory for empty page is negligible
+                return WorkProcessor.of(new Page(selectedPositions.size()));
+            }
+
+            if (selectedPositions.size() != page.getPositionCount()) {
+                return WorkProcessor.create(new ProjectSelectedPositions(session, yieldSignal, memoryContext, metrics, page, selectedPositions));
+            }
+        }
+        else if (columnarFilterEvaluator.isPresent()) {
+            long start = System.nanoTime();
+            SelectedPositions activePositions = SelectedPositions.positionsRange(0, page.getPositionCount());
+            SelectedPositions selectedPositions = columnarFilterEvaluator.get().evaluate(activePositions, page);
+            metrics.recordFilterTimeSince(start);
+
             if (selectedPositions.isEmpty()) {
                 return WorkProcessor.of();
             }

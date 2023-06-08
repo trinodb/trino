@@ -107,6 +107,8 @@ public class FeaturesConfig
     private boolean hideInaccessibleColumns;
     private boolean forceSpillingJoin;
 
+    private boolean columnarFilterEvaluationEnabled;
+
     private boolean faultTolerantExecutionExchangeEncryptionEnabled = true;
 
     public enum DataIntegrityVerification
@@ -483,6 +485,19 @@ public class FeaturesConfig
     public FeaturesConfig setForceSpillingJoin(boolean forceSpillingJoin)
     {
         this.forceSpillingJoin = forceSpillingJoin;
+        return this;
+    }
+
+    public boolean isColumnarFilterEvaluationEnabled()
+    {
+        return columnarFilterEvaluationEnabled;
+    }
+
+    @Config("columnar-filter-evaluation.enabled")
+    @ConfigDescription("Enables columnar evaluation of filters")
+    public FeaturesConfig setColumnarFilterEvaluationEnabled(boolean columnarFilterEvaluationEnabled)
+    {
+        this.columnarFilterEvaluationEnabled = columnarFilterEvaluationEnabled;
         return this;
     }
 
