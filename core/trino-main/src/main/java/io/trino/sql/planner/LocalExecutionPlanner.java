@@ -3054,12 +3054,12 @@ public class LocalExecutionPlanner
                     // In fault-tolerant execution, all tasks need to collect dynamic filters even if the join has
                     // broadcast distribution type because the collection takes place before the remote exchange
                     ImmutableList.of(taskContext::updateDomains),
-                    getDynamicFilteringMaxSizePerOperator(session, true));
+                    getDynamicFilteringMaxSizePerOperator(session, false));
             return createDynamicFilterSourceOperatorFactory(
                     context.getNextOperatorId(),
                     dynamicFilterSourceConsumer,
                     node,
-                    true,
+                    false,
                     false,
                     source,
                     context);
