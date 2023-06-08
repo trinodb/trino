@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 @Experimental(eta = "2022-10-31")
@@ -36,7 +37,7 @@ public class Descriptor
     public Descriptor(@JsonProperty("fields") List<Field> fields)
     {
         requireNonNull(fields, "fields is null");
-        Preconditions.checkArgument(!fields.isEmpty(), "descriptor has no fields");
+        checkArgument(!fields.isEmpty(), "descriptor has no fields");
         this.fields = List.copyOf(fields);
     }
 
@@ -52,7 +53,7 @@ public class Descriptor
     {
         requireNonNull(names, "names is null");
         requireNonNull(types, "types is null");
-        Preconditions.checkArgument(names.size() == types.size(), "names and types lists do not match");
+        checkArgument(names.size() == types.size(), "names and types lists do not match");
         List<Field> fields = new ArrayList<>();
         for (int i = 0; i < names.size(); i++) {
             fields.add(new Field(names.get(i), Optional.of(types.get(i))));
@@ -104,7 +105,7 @@ public class Descriptor
         public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Optional<Type> type)
         {
             this.name = requireNonNull(name, "name is null");
-            name.ifPresent(nameValue -> Preconditions.checkArgument(!nameValue.isEmpty(), "name is empty"));
+            name.ifPresent(nameValue -> checkArgument(!nameValue.isEmpty(), "name is empty"));
             this.type = requireNonNull(type, "type is null");
         }
 
