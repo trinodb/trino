@@ -266,7 +266,7 @@ public final class IcebergSessionProperties
                         false))
                 .add(booleanProperty(
                         PROJECTION_PUSHDOWN_ENABLED,
-                        "Read only required fields from a struct",
+                        "Read only required fields from a row type",
                         icebergConfig.isProjectionPushdownEnabled(),
                         false))
                 .add(dataSizeProperty(
