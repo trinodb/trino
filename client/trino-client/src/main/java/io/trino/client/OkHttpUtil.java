@@ -25,6 +25,7 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -315,16 +316,19 @@ public final class OkHttpUtil
             Optional<File> kerberosConfig,
             Optional<File> keytab,
             Optional<File> credentialCache,
-            boolean delegatedKerberos)
+            boolean delegatedKerberos,
+            Optional<GSSCredential> gssCredential)
     {
-        SubjectProvider subjectProvider;
-        if (delegatedKerberos) {
-            subjectProvider = new ContextBasedSubjectProvider();
+        SubjectProvider subjectProvider = null;
+        if (!gssCredential.isPresent()) {
+            if (delegatedKerberos) {
+                subjectProvider = new ContextBasedSubjectProvider();
+            }
+            else {
+                subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+            }
         }
-        else {
-            subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
-        }
-        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider, gssCredential);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }

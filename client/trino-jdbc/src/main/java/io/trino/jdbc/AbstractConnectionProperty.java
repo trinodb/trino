@@ -14,6 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.reflect.TypeToken;
+import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
 import java.sql.DriverPropertyInfo;
@@ -168,6 +169,11 @@ abstract class AbstractConnectionProperty<T>
                 return false;
         }
         throw new IllegalArgumentException("value must be 'true' or 'false'");
+    };
+
+    protected static final Converter<GSSCredential> GSS_CREDENTIAL_CONVERTER = value -> {
+        //TODO implement
+        return null;
     };
 
     protected interface CheckedPredicate<T>

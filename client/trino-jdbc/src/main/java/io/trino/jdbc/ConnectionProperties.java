@@ -21,6 +21,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
 import java.util.List;
@@ -77,6 +78,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
+    public static final ConnectionProperty<GSSCredential> KERBEROS_GSS_CREDENTIAL = new KerberosGssCredential();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
@@ -510,6 +512,15 @@ final class ConnectionProperties
         public KerberosDelegation()
         {
             super("KerberosDelegation", Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class KerberosGssCredential
+            extends AbstractConnectionProperty<GSSCredential>
+    {
+        public KerberosGssCredential()
+        {
+            super("KerberosGssCredential", Optional.of("false"), isKerberosEnabled(), ALLOWED, GSS_CREDENTIAL_CONVERTER);
         }
     }
 

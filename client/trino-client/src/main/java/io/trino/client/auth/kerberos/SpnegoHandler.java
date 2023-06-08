@@ -39,6 +39,7 @@ import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Optional;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -78,12 +79,15 @@ public class SpnegoHandler
             String servicePrincipalPattern,
             String remoteServiceName,
             boolean useCanonicalHostname,
-            SubjectProvider subjectProvider)
+            SubjectProvider subjectProvider,
+            Optional<GSSCredential> gssCredential)
     {
         this.servicePrincipalPattern = requireNonNull(servicePrincipalPattern, "servicePrincipalPattern is null");
         this.remoteServiceName = requireNonNull(remoteServiceName, "remoteServiceName is null");
         this.useCanonicalHostname = useCanonicalHostname;
-        this.subjectProvider = requireNonNull(subjectProvider, "subjectProvider is null");
+//        this.subjectProvider = requireNonNull(subjectProvider, "subjectProvider is null");
+        this.subjectProvider = subjectProvider;
+        this.clientCredential = gssCredential.orElse(null);
     }
 
     @Override
@@ -133,19 +137,34 @@ public class SpnegoHandler
         GSSContext context = null;
         try {
             GSSCredential clientCredential = getGssCredential();
-            context = doAs(subjectProvider.getSubject(), () -> {
-                GSSContext result = GSS_MANAGER.createContext(
+
+            if (subjectProvider == null) {
+                context = GSS_MANAGER.createContext(
                         GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
                         SPNEGO_OID,
                         clientCredential,
                         INDEFINITE_LIFETIME);
 
-                result.requestMutualAuth(true);
-                result.requestConf(true);
-                result.requestInteg(true);
-                result.requestCredDeleg(true);
-                return result;
-            });
+                context.requestMutualAuth(true);
+                context.requestConf(true);
+                context.requestInteg(true);
+                context.requestCredDeleg(true);
+            }
+            else {
+                context = doAs(subjectProvider.getSubject(), () -> {
+                    GSSContext result = GSS_MANAGER.createContext(
+                            GSS_MANAGER.createName(servicePrincipal, NT_HOSTBASED_SERVICE),
+                            SPNEGO_OID,
+                            clientCredential,
+                            INDEFINITE_LIFETIME);
+
+                    result.requestMutualAuth(true);
+                    result.requestConf(true);
+                    result.requestInteg(true);
+                    result.requestCredDeleg(true);
+                    return result;
+                });
+            }
 
             byte[] token = context.initSecContext(new byte[0], 0, 0);
             if (token == null) {
