@@ -1827,6 +1827,12 @@ public class EventDrivenFaultTolerantQueryScheduler
             // a task may finish before task descriptor is sealed
             if (!finished) {
                 taskDescriptorStorage.put(stageId, taskDescriptor);
+
+                // update speculative flag for running tasks
+                for (TaskId runningTaskId : runningTasks) {
+                    RemoteTask runningTask = tasks.get(runningTaskId);
+                    runningTask.setSpeculative(false);
+                }
             }
         }
 
