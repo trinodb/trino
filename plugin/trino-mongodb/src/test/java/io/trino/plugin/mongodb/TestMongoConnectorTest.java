@@ -32,6 +32,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -72,9 +73,16 @@ public class TestMongoConnectorTest
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
+    @BeforeClass
+    public void initTestSchema()
+    {
+        assertUpdate("CREATE SCHEMA test");
+    }
+
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
+        assertUpdate("DROP SCHEMA test");
         server.close();
         server = null;
         client.close();
