@@ -76,13 +76,12 @@ public class TestMongoConnectorTest
     @BeforeClass
     public void initTestSchema()
     {
-        assertUpdate("CREATE SCHEMA test");
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS test");
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        assertUpdate("DROP SCHEMA test");
         server.close();
         server = null;
         client.close();
