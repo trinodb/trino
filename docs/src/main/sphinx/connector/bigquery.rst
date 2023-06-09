@@ -157,6 +157,7 @@ Property                                              Description               
                                                       from BigQuery.
                                                       Please read this `section <#arrow-serialization-support>`_
                                                       before enabling this feature.
+``bigquery.rpc-proxy.enabled``                        Use a proxy for communication with BigQuery.                   ``false``
 ``bigquery.rpc-proxy.uri``                            Proxy URI to use if connecting through a proxy.
 ``bigquery.rpc-proxy.username``                       Proxy user name to use if connecting through a proxy.
 ``bigquery.rpc-proxy.password``                       Proxy password to use if connecting through a proxy.
