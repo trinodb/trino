@@ -25,6 +25,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.mongodb.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
+import org.bson.codecs.configuration.CodecRegistries;
+import org.bson.codecs.configuration.CodecRegistry;
+import org.bson.codecs.pojo.PojoCodecProvider;
 
 import javax.inject.Singleton;
 
@@ -61,7 +64,12 @@ public class MongoClientModule
     @Provides
     public static MongoSession createMongoSession(TypeManager typeManager, MongoClientConfig config, Set<MongoClientSettingConfigurator> configurators)
     {
-        MongoClientSettings.Builder options = MongoClientSettings.builder();
+        CodecRegistry pojoCodecRegistry = CodecRegistries.fromRegistries(
+                MongoClientSettings.getDefaultCodecRegistry(),
+                CodecRegistries.fromProviders(PojoCodecProvider.builder().automatic(true).build()));
+
+        MongoClientSettings.Builder options = MongoClientSettings.builder()
+                .codecRegistry(pojoCodecRegistry);
         configurators.forEach(configurator -> configurator.configure(options));
         MongoClient client = MongoClients.create(options.build());
 
