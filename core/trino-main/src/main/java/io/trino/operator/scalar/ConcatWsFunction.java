@@ -31,7 +31,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collections;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -55,7 +54,6 @@ public final class ConcatWsFunction
         extends SqlScalarFunction
 {
     public static final ConcatWsFunction CONCAT_WS = new ConcatWsFunction();
-    private static final int MAX_INPUT_VALUES = 254;
     private static final int MAX_OUTPUT_LENGTH = DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 
     @ScalarFunction("concat_ws")
@@ -146,10 +144,6 @@ public final class ConcatWsFunction
 
     private static Slice concatWs(Slice separator, SliceArray values)
     {
-        if (values.getCount() > MAX_INPUT_VALUES) {
-            throw new TrinoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
-        }
-
         // Validate size of output
         int length = 0;
         boolean requiresSeparator = false;
