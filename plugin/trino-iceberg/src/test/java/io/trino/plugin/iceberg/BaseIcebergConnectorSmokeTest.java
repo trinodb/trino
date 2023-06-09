@@ -636,11 +636,6 @@ public abstract class BaseIcebergConnectorSmokeTest
         return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*/[^/]*$', '') FROM " + tableName);
     }
 
-    protected String getColumnComment(String tableName, String columnName)
-    {
-        return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_schema = '" + getSession().getSchema().orElseThrow() + "' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");
-    }
-
     protected abstract void dropTableFromMetastore(String tableName);
 
     protected abstract String getMetadataLocation(String tableName);

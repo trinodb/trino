@@ -1243,6 +1243,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        trinoViewHiveMetastore.updateViewColumnComment(session, viewName, columnName, comment);
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata)
     {
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
