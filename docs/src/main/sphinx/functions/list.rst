@@ -31,6 +31,7 @@ A
 - :ref:`AND <logical-operators>`
 - :ref:`ANY <quantified-comparison-predicates>`
 - :func:`any_match`
+- :func:`any_value`
 - :func:`approx_distinct`
 - :func:`approx_most_frequent`
 - :func:`approx_percentile`
