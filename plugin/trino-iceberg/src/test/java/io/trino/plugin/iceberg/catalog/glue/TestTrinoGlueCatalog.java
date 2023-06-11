@@ -13,11 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.CreateDatabaseRequest;
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -36,6 +31,10 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
 
 import java.io.File;
 import java.io.IOException;
@@ -45,6 +44,7 @@ import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -61,7 +61,7 @@ public class TestTrinoGlueCatalog
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
@@ -87,11 +87,11 @@ public class TestTrinoGlueCatalog
         // Trino schema names are always lowercase (until https://github.com/trinodb/trino/issues/17)
         String trinoSchemaName = databaseName.toLowerCase(ENGLISH);
 
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
-        glueClient.createDatabase(new CreateDatabaseRequest()
-                .withDatabaseInput(new DatabaseInput()
-                        // Currently this is actually stored in lowercase
-                        .withName(databaseName)));
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
+        awsSyncRequest(glueClient::createDatabase, CreateDatabaseRequest.builder()
+                        .databaseInput(DatabaseInput.builder()
+                                // Currently this is actually stored in lowercase
+                                .name(databaseName).build()).build(), null);
         try {
             TrinoCatalog catalog = createTrinoCatalog(false);
             assertThat(catalog.namespaceExists(SESSION, databaseName)).as("catalog.namespaceExists(databaseName)")
@@ -122,8 +122,9 @@ public class TestTrinoGlueCatalog
                     .contains(trinoSchemaName);
         }
         finally {
-            glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                    .withName(databaseName));
+            awsSyncRequest(glueClient::deleteDatabase, DeleteDatabaseRequest.builder()
+                    .name(databaseName)
+                    .build(), null);
         }
     }
 
@@ -135,7 +136,7 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,

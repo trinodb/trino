@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nullable;
+import software.amazon.awssdk.services.glue.model.TableInput;
+
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,36 +35,39 @@ public final class GlueIcebergUtil
 
     public static TableInput getTableInput(String tableName, Optional<String> owner, Map<String, String> parameters)
     {
-        return new TableInput()
-                .withName(tableName)
-                .withOwner(owner.orElse(null))
-                .withParameters(ImmutableMap.<String, String>builder()
+        return TableInput.builder()
+                .name(tableName)
+                .owner(owner.orElse(null))
+                .parameters(ImmutableMap.<String, String>builder()
                         .putAll(parameters)
                         .put(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                         .buildKeepingLast())
                 // Iceberg does not distinguish managed and external tables, all tables are treated the same and marked as EXTERNAL
-                .withTableType(EXTERNAL_TABLE.name());
+                .tableType(EXTERNAL_TABLE.name())
+                .build();
     }
 
     public static TableInput getViewTableInput(String viewName, String viewOriginalText, @Nullable String owner, Map<String, String> parameters)
     {
-        return new TableInput()
-                .withName(viewName)
-                .withTableType(VIRTUAL_VIEW.name())
-                .withViewOriginalText(viewOriginalText)
-                .withViewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
-                .withOwner(owner)
-                .withParameters(parameters);
+        return TableInput.builder()
+                .name(viewName)
+                .tableType(VIRTUAL_VIEW.name())
+                .viewOriginalText(viewOriginalText)
+                .viewExpandedText(PRESTO_VIEW_EXPANDED_TEXT_MARKER)
+                .owner(owner)
+                .parameters(parameters)
+                .build();
     }
 
     public static TableInput getMaterializedViewTableInput(String viewName, String viewOriginalText, String owner, Map<String, String> parameters)
     {
-        return new TableInput()
-                .withName(viewName)
-                .withTableType(VIRTUAL_VIEW.name())
-                .withViewOriginalText(viewOriginalText)
-                .withViewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
-                .withOwner(owner)
-                .withParameters(parameters);
+        return TableInput.builder()
+                .name(viewName)
+                .tableType(VIRTUAL_VIEW.name())
+                .viewOriginalText(viewOriginalText)
+                .viewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                .owner(owner)
+                .parameters(parameters)
+                .build();
     }
 }

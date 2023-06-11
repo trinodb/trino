@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import io.trino.Session;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
@@ -29,6 +26,9 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -74,14 +74,14 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toUri().toString());
 
-        AWSGlueAsync glueClient = createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector());
-        AWSGlueAsync proxiedGlueClient = newProxy(AWSGlueAsync.class, (proxy, method, args) -> {
+        GlueAsyncClient glueClient = createAsyncGlueClient(glueConfig, DefaultCredentialsProvider.create(), Optional.empty(), stats.newRequestMetricsPublisher());
+        GlueAsyncClient proxiedGlueClient = newProxy(GlueAsyncClient.class, (proxy, method, args) -> {
             Object result;
             try {
                 if (method.getName().equals("deleteTable") && failNextGlueDeleteTableCall.get()) {
                     // Simulate concurrent modifications on the table that is about to be dropped
                     failNextGlueDeleteTableCall.set(false);
-                    throw new TrinoException(HIVE_METASTORE_ERROR, new ConcurrentModificationException("Test-simulated metastore concurrent modification exception"));
+                    throw new TrinoException(HIVE_METASTORE_ERROR, ConcurrentModificationException.builder().message("Test-simulated metastore concurrent modification exception").build());
                 }
                 result = method.invoke(glueClient, args);
             }

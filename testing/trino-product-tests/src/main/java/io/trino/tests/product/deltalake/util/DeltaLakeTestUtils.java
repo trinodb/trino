@@ -13,7 +13,6 @@
  */
 package io.trino.tests.product.deltalake.util;
 
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
@@ -24,6 +23,7 @@ import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.tempto.query.QueryResult;
 import org.intellij.lang.annotations.Language;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;

@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 public class DisabledGlueColumnStatisticsProviderFactory
         implements GlueColumnStatisticsProviderFactory
 {
     @Override
-    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
+    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(GlueAsyncClient glueClient, GlueMetastoreStats stats)
     {
         return new DisabledGlueColumnStatisticsProvider();
     }

@@ -13,17 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.InvalidInputException;
-import com.amazonaws.services.glue.model.ResourceNumberLimitExceededException;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -36,6 +25,17 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.InvalidInputException;
+import software.amazon.awssdk.services.glue.model.ResourceNumberLimitExceededException;
+import software.amazon.awssdk.services.glue.model.Table;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +43,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -56,14 +57,14 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_
 public class GlueIcebergTableOperations
         extends AbstractIcebergTableOperations
 {
-    private final AWSGlueAsync glueClient;
+    private final GlueAsyncClient glueClient;
     private final GlueMetastoreStats stats;
 
     @Nullable
     private String glueVersionId;
 
     protected GlueIcebergTableOperations(
-            AWSGlueAsync glueClient,
+            GlueAsyncClient glueClient,
             GlueMetastoreStats stats,
             FileIO fileIo,
             ConnectorSession session,
@@ -81,7 +82,7 @@ public class GlueIcebergTableOperations
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
         Table table = getTable();
-        glueVersionId = table.getVersionId();
+        glueVersionId = table.versionId();
 
         Map<String, String> parameters = getTableParameters(table);
         if (isPrestoView(parameters) && isHiveOrPrestoView(getTableType(table))) {
@@ -106,11 +107,12 @@ public class GlueIcebergTableOperations
         String newMetadataLocation = writeNewMetadata(metadata, 0);
         TableInput tableInput = getTableInput(tableName, owner, ImmutableMap.of(METADATA_LOCATION_PROP, newMetadataLocation));
 
-        CreateTableRequest createTableRequest = new CreateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput);
+        CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                .databaseName(database)
+                .tableInput(tableInput)
+                .build();
         try {
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            awsSyncRequest(glueClient::createTable, createTableRequest, stats.getCreateTable());
         }
         catch (AlreadyExistsException
                | EntityNotFoundException
@@ -134,12 +136,13 @@ public class GlueIcebergTableOperations
                         METADATA_LOCATION_PROP, newMetadataLocation,
                         PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation));
 
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-                .withDatabaseName(database)
-                .withTableInput(tableInput)
-                .withVersionId(glueVersionId);
+        UpdateTableRequest updateTableRequest = UpdateTableRequest.builder()
+                .databaseName(database)
+                .tableInput(tableInput)
+                .versionId(glueVersionId)
+                .build();
         try {
-            stats.getUpdateTable().call(() -> glueClient.updateTable(updateTableRequest));
+            awsSyncRequest(glueClient::updateTable, updateTableRequest, stats.getUpdateTable());
         }
         catch (ConcurrentModificationException e) {
             // CommitFailedException is handled as a special case in the Iceberg library. This commit will automatically retry
@@ -160,10 +163,11 @@ public class GlueIcebergTableOperations
     private Table getTable()
     {
         try {
-            GetTableRequest getTableRequest = new GetTableRequest()
-                    .withDatabaseName(database)
-                    .withName(tableName);
-            return stats.getGetTable().call(() -> glueClient.getTable(getTableRequest).getTable());
+            GetTableRequest getTableRequest = GetTableRequest.builder()
+                    .databaseName(database)
+                    .name(tableName)
+                    .build();
+            return awsSyncRequest(glueClient::getTable, getTableRequest, stats.getGetTable()).table();
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(getSchemaTableName(), e);

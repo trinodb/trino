@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 import java.util.concurrent.Executor;
 
@@ -36,7 +36,7 @@ public class DefaultGlueColumnStatisticsProviderFactory
     }
 
     @Override
-    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats)
+    public GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(GlueAsyncClient glueClient, GlueMetastoreStats stats)
     {
         return new DefaultGlueColumnStatisticsProvider(
                 glueClient,

@@ -13,23 +13,27 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.internal.util.EC2MetadataUtils;
+import software.amazon.awssdk.services.sts.StsClient;
+import software.amazon.awssdk.services.sts.StsClientBuilder;
+import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
+import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 
-import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
+import java.net.URI;
+
 import static java.lang.String.format;
 
 public class GlueCredentialsProvider
-        implements Provider<AWSCredentialsProvider>
+        implements Provider<AwsCredentialsProvider>
 {
-    private final AWSCredentialsProvider credentialsProvider;
+    private final AwsCredentialsProvider credentialsProvider;
 
     @Inject
     public GlueCredentialsProvider(GlueHiveMetastoreConfig config)
@@ -38,33 +42,37 @@ public class GlueCredentialsProvider
             this.credentialsProvider = getCustomAWSCredentialsProvider(config.getAwsCredentialsProvider().get());
         }
         else {
-            AWSCredentialsProvider provider;
+            AwsCredentialsProvider provider;
             if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
-                provider = new AWSStaticCredentialsProvider(
-                        new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
+                provider = StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));
             }
             else {
-                provider = DefaultAWSCredentialsProviderChain.getInstance();
+                provider = DefaultCredentialsProvider.create();
             }
             if (config.getIamRole().isPresent()) {
-                AWSSecurityTokenServiceClientBuilder stsClientBuilder = AWSSecurityTokenServiceClientBuilder
-                        .standard()
-                        .withCredentials(provider);
+                StsClientBuilder stsClientBuilder = StsClient.builder()
+                        .credentialsProvider(provider);
 
                 if (config.getGlueStsEndpointUrl().isPresent() && config.getGlueStsRegion().isPresent()) {
-                    stsClientBuilder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(config.getGlueStsEndpointUrl().get(), config.getGlueStsRegion().get()));
+                    stsClientBuilder.endpointOverride(URI.create(config.getGlueStsEndpointUrl().get()))
+                            .region(Region.of(config.getGlueStsRegion().get()));
                 }
                 else if (config.getGlueStsRegion().isPresent()) {
-                    stsClientBuilder.setRegion(config.getGlueStsRegion().get());
+                    stsClientBuilder.region(Region.of(config.getGlueStsRegion().get()));
                 }
                 else if (config.getPinGlueClientToCurrentRegion()) {
-                    stsClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+                    stsClientBuilder.region(Region.of(EC2MetadataUtils.getEC2InstanceRegion()));
                 }
 
-                provider = new STSAssumeRoleSessionCredentialsProvider
-                        .Builder(config.getIamRole().get(), "trino-session")
-                        .withExternalId(config.getExternalId().orElse(null))
-                        .withStsClient(stsClientBuilder.build())
+                provider = StsAssumeRoleCredentialsProvider.builder()
+                        .refreshRequest(() -> AssumeRoleRequest
+                                .builder()
+                                .roleArn(config.getIamRole().get())
+                                .roleSessionName("trino-session")
+                                .externalId(config.getExternalId().orElse(null))
+                                .build())
+                        .stsClient(stsClientBuilder.build())
                         .build();
             }
             this.credentialsProvider = provider;
@@ -72,19 +80,19 @@ public class GlueCredentialsProvider
     }
 
     @Override
-    public AWSCredentialsProvider get()
+    public AwsCredentialsProvider get()
     {
         return credentialsProvider;
     }
 
-    private static AWSCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
+    private static AwsCredentialsProvider getCustomAWSCredentialsProvider(String providerClass)
     {
         try {
             Object instance = Class.forName(providerClass).getConstructor().newInstance();
-            if (!(instance instanceof AWSCredentialsProvider)) {
+            if (!(instance instanceof AwsCredentialsProvider)) {
                 throw new RuntimeException("Invalid credentials provider class: " + instance.getClass().getName());
             }
-            return (AWSCredentialsProvider) instance;
+            return (AwsCredentialsProvider) instance;
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(format("Error creating an instance of %s", providerClass), e);

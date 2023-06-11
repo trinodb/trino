@@ -13,18 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.BoundedExecutor;
@@ -66,9 +54,23 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.MaterializedResult;
+import io.trino.util.AutoCloseableCloser;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -100,6 +102,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
@@ -193,14 +196,14 @@ public class TestHiveGlueMetastore
             OptionalLong.of(2));
 
     private HiveMetastoreClosure metastore;
-    private AWSGlueAsync glueClient;
+    private GlueAsyncClient glueClient;
 
     public TestHiveGlueMetastore()
     {
         super(TEST_DATABASE_NAME_PREFIX + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
 
-    protected AWSGlueAsync getGlueClient()
+    protected GlueAsyncClient getGlueClient()
     {
         return glueClient;
     }
@@ -220,7 +223,17 @@ public class TestHiveGlueMetastore
     public void setup()
     {
         metastore = new HiveMetastoreClosure(metastoreClient);
-        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        glueClient = GlueAsyncClient.create();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void close()
+            throws Exception
+    {
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            closer.register(glueClient);
+        }
+        glueClient = null;
     }
 
     @Override
@@ -237,7 +250,7 @@ public class TestHiveGlueMetastore
                 glueConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector()),
+                createAsyncGlueClient(glueConfig, DefaultCredentialsProvider.create(), Optional.empty(), stats.newRequestMetricsPublisher()),
                 stats,
                 new DefaultGlueMetastoreTableFilterProvider(true).get());
     }
@@ -250,22 +263,24 @@ public class TestHiveGlueMetastore
         GlueMetastoreStats stats = metastore.getStats();
         List<String> orphanedDatabases = getPaginatedResults(
                 glueClient::getDatabases,
-                new GetDatabasesRequest(),
-                GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken,
+                GetDatabasesRequest.builder(),
+                GetDatabasesRequest.Builder::nextToken,
+                GetDatabasesRequest.Builder::build,
+                GetDatabasesResponse::nextToken,
                 stats.getGetDatabases())
-                .map(GetDatabasesResult::getDatabaseList)
+                .map(GetDatabasesResponse::databaseList)
                 .flatMap(List::stream)
-                .filter(database -> database.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
-                        database.getCreateTime().getTime() <= creationTimeMillisThreshold)
-                .map(Database::getName)
+                .filter(database -> database.name().startsWith(TEST_DATABASE_NAME_PREFIX) &&
+                        database.createTime().toEpochMilli() <= creationTimeMillisThreshold)
+                .map(Database::name)
                 .collect(toImmutableList());
 
         log.info("Found %s %s* databases that look orphaned, removing", orphanedDatabases.size(), TEST_DATABASE_NAME_PREFIX);
         orphanedDatabases.forEach(database -> {
             try {
-                glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                        .withName(database));
+                awsSyncRequest(glueClient::deleteDatabase, DeleteDatabaseRequest.builder()
+                                .name(database)
+                                .build(), null);
             }
             catch (EntityNotFoundException e) {
                 log.info("Database [%s] not found, could be removed by other cleanup process", database);
@@ -1325,14 +1340,13 @@ public class TestHiveGlueMetastore
 
             Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).get();
             TableInput tableInput = GlueInputConverter.convertTable(table);
-            tableInput.setParameters(ImmutableMap.<String, String>builder()
-                    .putAll(tableInput.getParameters())
+            tableInput = tableInput.toBuilder().parameters(ImmutableMap.<String, String>builder()
+                    .putAll(tableInput.parameters())
                     .put("column_stats_bad_data", "bad data")
-                    .buildOrThrow());
-            getGlueClient().updateTable(new UpdateTableRequest()
-                    .withDatabaseName(tableName.getSchemaName())
-                    .withTableInput(tableInput));
-
+                    .buildOrThrow()).build();
+            awsSyncRequest(getGlueClient()::updateTable, UpdateTableRequest.builder()
+                    .databaseName(tableName.getSchemaName())
+                    .tableInput(tableInput).build(), null);
             assertThat(metastore.getTableStatistics(tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(partitionStatistics);
         }
@@ -1346,51 +1360,52 @@ public class TestHiveGlueMetastore
     {
         // StorageDescriptor is an Optional field for Glue tables.
         SchemaTableName table = temporaryTable("test_missing_storage_descriptor");
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
-                .withDatabaseName(table.getSchemaName())
-                .withName(table.getTableName());
+        DeleteTableRequest deleteTableRequest = DeleteTableRequest.builder()
+                .databaseName(table.getSchemaName())
+                .name(table.getTableName())
+                .build();
 
         try {
-            Supplier<TableInput> resetTableInput = () -> new TableInput()
-                    .withStorageDescriptor(null)
-                    .withName(table.getTableName())
-                    .withTableType(EXTERNAL_TABLE.name());
+            Supplier<TableInput.Builder> resetTableInput = () -> TableInput.builder()
+                    .storageDescriptor((StorageDescriptor) null)
+                    .name(table.getTableName())
+                    .tableType(EXTERNAL_TABLE.name());
 
-            TableInput tableInput = resetTableInput.get();
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            TableInput tableInput = resetTableInput.get().build();
+            awsSyncRequest(glueClient::createTable, CreateTableRequest.builder()
+                    .databaseName(database)
+                    .tableInput(tableInput).build(), null);
 
             assertThatThrownBy(() -> metastore.getTable(table.getSchemaName(), table.getTableName()))
                     .hasMessageStartingWith("Table StorageDescriptor is null for table");
-            glueClient.deleteTable(deleteTableRequest);
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
 
             // Iceberg table
-            tableInput = resetTableInput.get().withParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            tableInput = resetTableInput.get().parameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE)).build();
+            awsSyncRequest(glueClient::createTable, CreateTableRequest.builder()
+                    .databaseName(database)
+                    .tableInput(tableInput).build(), null);
             assertTrue(isIcebergTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
-            glueClient.deleteTable(deleteTableRequest);
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
 
             // Delta Lake table
-            tableInput = resetTableInput.get().withParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+            tableInput = resetTableInput.get().parameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER)).build();
+            awsSyncRequest(glueClient::createTable, CreateTableRequest.builder()
+                    .databaseName(database)
+                    .tableInput(tableInput).build(), null);
             assertTrue(isDeltaLakeTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
-            glueClient.deleteTable(deleteTableRequest);
+            awsSyncRequest(glueClient::deleteTable, deleteTableRequest, null);
 
             // Iceberg materialized view
-            tableInput = resetTableInput.get().withTableType(VIRTUAL_VIEW.name())
-                    .withViewOriginalText("/* Presto Materialized View: eyJvcmlnaW5hbFNxbCI6IlNFTEVDVCAxIiwiY29sdW1ucyI6W3sibmFtZSI6ImEiLCJ0eXBlIjoiaW50ZWdlciJ9XX0= */")
-                    .withViewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
-                    .withParameters(ImmutableMap.of(
+            tableInput = resetTableInput.get().tableType(VIRTUAL_VIEW.name())
+                    .viewOriginalText("/* Presto Materialized View: eyJvcmlnaW5hbFNxbCI6IlNFTEVDVCAxIiwiY29sdW1ucyI6W3sibmFtZSI6ImEiLCJ0eXBlIjoiaW50ZWdlciJ9XX0= */")
+                    .viewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                    .parameters(ImmutableMap.of(
                             PRESTO_VIEW_FLAG, "true",
-                            TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT));
-            glueClient.createTable(new CreateTableRequest()
-                    .withDatabaseName(database)
-                    .withTableInput(tableInput));
+                            TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)).build();
+            awsSyncRequest(glueClient::createTable, CreateTableRequest.builder()
+                    .databaseName(database)
+                    .tableInput(tableInput).build(), null);
             assertTrue(isTrinoMaterializedView(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
             materializedViews.add(table);
             try (Transaction transaction = newTransaction()) {
@@ -1409,9 +1424,10 @@ public class TestHiveGlueMetastore
         }
         finally {
             // Table cannot be dropped through HiveMetastore since a TableHandle cannot be created
-            glueClient.deleteTable(new DeleteTableRequest()
-                    .withDatabaseName(table.getSchemaName())
-                    .withName(table.getTableName()));
+            awsSyncRequest(glueClient::deleteTable, DeleteTableRequest.builder()
+                    .databaseName(table.getSchemaName())
+                    .name(table.getTableName())
+                    .build(), null);
         }
     }
 

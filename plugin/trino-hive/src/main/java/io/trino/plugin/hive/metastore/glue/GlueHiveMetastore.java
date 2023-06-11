@@ -13,49 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.handlers.AsyncHandler;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.AccessDeniedException;
-import com.amazonaws.services.glue.model.AlreadyExistsException;
-import com.amazonaws.services.glue.model.BatchCreatePartitionRequest;
-import com.amazonaws.services.glue.model.BatchCreatePartitionResult;
-import com.amazonaws.services.glue.model.BatchGetPartitionRequest;
-import com.amazonaws.services.glue.model.BatchGetPartitionResult;
-import com.amazonaws.services.glue.model.BatchUpdatePartitionRequest;
-import com.amazonaws.services.glue.model.BatchUpdatePartitionRequestEntry;
-import com.amazonaws.services.glue.model.BatchUpdatePartitionResult;
-import com.amazonaws.services.glue.model.ConcurrentModificationException;
-import com.amazonaws.services.glue.model.CreateDatabaseRequest;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.DatabaseInput;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.DeletePartitionRequest;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.ErrorDetail;
-import com.amazonaws.services.glue.model.GetDatabaseRequest;
-import com.amazonaws.services.glue.model.GetDatabaseResult;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
-import com.amazonaws.services.glue.model.GetPartitionRequest;
-import com.amazonaws.services.glue.model.GetPartitionResult;
-import com.amazonaws.services.glue.model.GetPartitionsRequest;
-import com.amazonaws.services.glue.model.GetPartitionsResult;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.GetTableResult;
-import com.amazonaws.services.glue.model.GetTablesRequest;
-import com.amazonaws.services.glue.model.GetTablesResult;
-import com.amazonaws.services.glue.model.PartitionError;
-import com.amazonaws.services.glue.model.PartitionInput;
-import com.amazonaws.services.glue.model.PartitionValueList;
-import com.amazonaws.services.glue.model.Segment;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
-import com.amazonaws.services.glue.model.UpdatePartitionRequest;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -113,6 +70,48 @@ import jakarta.annotation.Nullable;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.AccessDeniedException;
+import software.amazon.awssdk.services.glue.model.AlreadyExistsException;
+import software.amazon.awssdk.services.glue.model.BatchCreatePartitionRequest;
+import software.amazon.awssdk.services.glue.model.BatchCreatePartitionResponse;
+import software.amazon.awssdk.services.glue.model.BatchGetPartitionRequest;
+import software.amazon.awssdk.services.glue.model.BatchGetPartitionResponse;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequest;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequestEntry;
+import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionResponse;
+import software.amazon.awssdk.services.glue.model.ConcurrentModificationException;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DeletePartitionRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.ErrorDetail;
+import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabaseResponse;
+import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
+import software.amazon.awssdk.services.glue.model.GetPartitionRequest;
+import software.amazon.awssdk.services.glue.model.GetPartitionResponse;
+import software.amazon.awssdk.services.glue.model.GetPartitionsRequest;
+import software.amazon.awssdk.services.glue.model.GetPartitionsResponse;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTableResponse;
+import software.amazon.awssdk.services.glue.model.GetTablesRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesResponse;
+import software.amazon.awssdk.services.glue.model.GlueResponse;
+import software.amazon.awssdk.services.glue.model.PartitionError;
+import software.amazon.awssdk.services.glue.model.PartitionInput;
+import software.amazon.awssdk.services.glue.model.PartitionValueList;
+import software.amazon.awssdk.services.glue.model.Segment;
+import software.amazon.awssdk.services.glue.model.TableInput;
+import software.amazon.awssdk.services.glue.model.UpdateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.UpdatePartitionRequest;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
@@ -124,6 +123,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -145,6 +145,7 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
@@ -177,7 +178,7 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
-    private static final Predicate<com.amazonaws.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
+    private static final Predicate<software.amazon.awssdk.services.glue.model.Table> VIEWS_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
     private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
             .handleIf(throwable -> Throwables.getRootCause(throwable) instanceof ConcurrentModificationException)
             .withDelay(Duration.ofMillis(100))
@@ -186,14 +187,14 @@ public class GlueHiveMetastore
 
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
-    private final AWSGlueAsync glueClient;
+    private final GlueAsyncClient glueClient;
     private final Optional<String> defaultDir;
     private final int partitionSegments;
     private final Executor partitionsReadExecutor;
     private final GlueMetastoreStats stats;
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
-    private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
+    private final Predicate<software.amazon.awssdk.services.glue.model.Table> tableFilter;
 
     @Inject
     public GlueHiveMetastore(
@@ -201,9 +202,9 @@ public class GlueHiveMetastore
             GlueHiveMetastoreConfig glueConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
             GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
-            AWSGlueAsync glueClient,
+            GlueAsyncClient glueClient,
             @ForGlueHiveMetastore GlueMetastoreStats stats,
-            @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
+            @ForGlueHiveMetastore Predicate<software.amazon.awssdk.services.glue.model.Table> tableFilter)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
@@ -231,7 +232,7 @@ public class GlueHiveMetastore
                 glueConfig,
                 directExecutor(),
                 new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), Optional.empty(), stats.newRequestMetricsCollector()),
+                createAsyncGlueClient(glueConfig, DefaultCredentialsProvider.create(), Optional.empty(), stats.newRequestMetricsPublisher()),
                 stats,
                 table -> true);
     }
@@ -247,14 +248,15 @@ public class GlueHiveMetastore
     public Optional<Database> getDatabase(String databaseName)
     {
         try {
-            GetDatabaseResult result = stats.getGetDatabase().call(() ->
-                    glueClient.getDatabase(new GetDatabaseRequest().withName(databaseName)));
-            return Optional.of(GlueToTrinoConverter.convertDatabase(result.getDatabase()));
+            GetDatabaseResponse result = awsSyncRequest(glueClient::getDatabase,
+                    GetDatabaseRequest.builder().name(databaseName).build(),
+                    stats.getGetDatabase());
+            return Optional.of(GlueToTrinoConverter.convertDatabase(result.database()));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -265,17 +267,18 @@ public class GlueHiveMetastore
         try {
             List<String> databaseNames = getPaginatedResults(
                     glueClient::getDatabases,
-                    new GetDatabasesRequest(),
-                    GetDatabasesRequest::setNextToken,
-                    GetDatabasesResult::getNextToken,
+                    GetDatabasesRequest.builder(),
+                    GetDatabasesRequest.Builder::nextToken,
+                    GetDatabasesRequest.Builder::build,
+                    GetDatabasesResponse::nextToken,
                     stats.getGetDatabases())
-                    .map(GetDatabasesResult::getDatabaseList)
+                    .map(GetDatabasesResponse::databaseList)
                     .flatMap(List::stream)
-                    .map(com.amazonaws.services.glue.model.Database::getName)
+                    .map(software.amazon.awssdk.services.glue.model.Database::name)
                     .collect(toImmutableList());
             return databaseNames;
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -284,16 +287,15 @@ public class GlueHiveMetastore
     public Optional<Table> getTable(String databaseName, String tableName)
     {
         try {
-            GetTableResult result = stats.getGetTable().call(() ->
-                    glueClient.getTable(new GetTableRequest()
-                            .withDatabaseName(databaseName)
-                            .withName(tableName)));
-            return Optional.of(GlueToTrinoConverter.convertTable(result.getTable(), databaseName));
+            GetTableResponse result = awsSyncRequest(glueClient::getTable,
+                    GetTableRequest.builder().databaseName(databaseName).name(tableName).build(),
+                    stats.getGetTable());
+            return Optional.of(GlueToTrinoConverter.convertTable(result.table(), databaseName));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -352,17 +354,17 @@ public class GlueHiveMetastore
         try {
             TableInput tableInput = GlueInputConverter.convertTable(table);
             final Map<String, String> statisticsParameters = updateStatisticsParameters(table.getParameters(), updatedStatistics.getBasicStatistics());
-            tableInput.setParameters(statisticsParameters);
             table = Table.builder(table).setParameters(statisticsParameters).build();
-            stats.getUpdateTable().call(() -> glueClient.updateTable(new UpdateTableRequest()
-                    .withDatabaseName(databaseName)
-                    .withTableInput(tableInput)));
+            awsSyncRequest(glueClient::updateTable, UpdateTableRequest.builder()
+                            .databaseName(databaseName)
+                            .tableInput(tableInput.toBuilder().parameters(statisticsParameters).build())
+                            .build(), stats.getUpdateTable());
             columnStatisticsProvider.updateTableColumnStatistics(table, updatedStatistics.getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -397,23 +399,31 @@ public class GlueHiveMetastore
             Map<String, HiveColumnStatistics> updatedColumnStatistics = updatedStatistics.getColumnStatistics();
 
             PartitionInput partitionInput = GlueInputConverter.convertPartition(partition);
-            partitionInput.setParameters(partition.getParameters());
 
-            partitionUpdateRequests.add(new BatchUpdatePartitionRequestEntry()
-                    .withPartitionValueList(partition.getValues())
-                    .withPartitionInput(partitionInput));
+            partitionUpdateRequests.add(BatchUpdatePartitionRequestEntry.builder()
+                    .partitionValueList(partition.getValues())
+                    .partitionInput(partitionInput.toBuilder().parameters(partition.getParameters()).build())
+                    .build());
             columnStatisticsUpdates.add(new GlueColumnStatisticsProvider.PartitionStatisticsUpdate(partition, updatedColumnStatistics));
         });
 
         List<List<BatchUpdatePartitionRequestEntry>> partitionUpdateRequestsPartitioned = Lists.partition(partitionUpdateRequests.build(), BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE);
-        List<Future<BatchUpdatePartitionResult>> partitionUpdateRequestsFutures = new ArrayList<>();
+        List<CompletableFuture<BatchUpdatePartitionResponse>> partitionUpdateRequestsFutures = new ArrayList<>();
         partitionUpdateRequestsPartitioned.forEach(partitionUpdateRequestsPartition -> {
             // Update basic statistics
-            partitionUpdateRequestsFutures.add(glueClient.batchUpdatePartitionAsync(new BatchUpdatePartitionRequest()
-                            .withDatabaseName(table.getDatabaseName())
-                            .withTableName(table.getTableName())
-                            .withEntries(partitionUpdateRequestsPartition),
-                    new StatsRecordingAsyncHandler<>(stats.getBatchUpdatePartition())));
+            StatsRecordingAsyncHandler statsRecorder = new StatsRecordingAsyncHandler(stats.getBatchUpdatePartition());
+            partitionUpdateRequestsFutures.add(glueClient.batchUpdatePartition(BatchUpdatePartitionRequest.builder()
+                            .databaseName(table.getDatabaseName())
+                            .tableName(table.getTableName())
+                            .entries(partitionUpdateRequestsPartition).build())
+                    .whenCompleteAsync((result, error) -> {
+                        if (result != null) {
+                            statsRecorder.onSuccess(result);
+                        }
+                        else if (error != null) {
+                            statsRecorder.onError(error);
+                        }
+                    }));
         });
 
         try {
@@ -422,7 +432,7 @@ public class GlueHiveMetastore
             // Don't block on the batch update call until the column statistics have finished updating
             partitionUpdateRequestsFutures.forEach(MoreFutures::getFutureValue);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -433,15 +443,15 @@ public class GlueHiveMetastore
         try {
             List<String> tableNames = getPaginatedResults(
                     glueClient::getTables,
-                    new GetTablesRequest()
-                            .withDatabaseName(databaseName),
-                    GetTablesRequest::setNextToken,
-                    GetTablesResult::getNextToken,
+                    GetTablesRequest.builder().databaseName(databaseName),
+                    GetTablesRequest.Builder::nextToken,
+                    GetTablesRequest.Builder::build,
+                    GetTablesResponse::nextToken,
                     stats.getGetTables())
-                    .map(GetTablesResult::getTableList)
+                    .map(GetTablesResponse::tableList)
                     .flatMap(List::stream)
                     .filter(tableFilter)
-                    .map(com.amazonaws.services.glue.model.Table::getName)
+                    .map(software.amazon.awssdk.services.glue.model.Table::name)
                     .collect(toImmutableList());
             return tableNames;
         }
@@ -449,7 +459,7 @@ public class GlueHiveMetastore
             // database does not exist or permission denied
             return ImmutableList.of();
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -478,20 +488,20 @@ public class GlueHiveMetastore
         return Optional.empty();
     }
 
-    private List<String> getAllViews(String databaseName, Predicate<com.amazonaws.services.glue.model.Table> additionalFilter)
+    private List<String> getAllViews(String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> additionalFilter)
     {
         try {
             List<String> views = getPaginatedResults(
                     glueClient::getTables,
-                    new GetTablesRequest()
-                            .withDatabaseName(databaseName),
-                    GetTablesRequest::setNextToken,
-                    GetTablesResult::getNextToken,
+                    GetTablesRequest.builder().databaseName(databaseName),
+                    GetTablesRequest.Builder::nextToken,
+                    GetTablesRequest.Builder::build,
+                    GetTablesResponse::nextToken,
                     stats.getGetTables())
-                    .map(GetTablesResult::getTableList)
+                    .map(GetTablesResponse::tableList)
                     .flatMap(List::stream)
                     .filter(VIEWS_FILTER.and(additionalFilter))
-                    .map(com.amazonaws.services.glue.model.Table::getName)
+                    .map(software.amazon.awssdk.services.glue.model.Table::name)
                     .collect(toImmutableList());
             return views;
         }
@@ -499,7 +509,7 @@ public class GlueHiveMetastore
             // database does not exist or permission denied
             return ImmutableList.of();
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -516,13 +526,14 @@ public class GlueHiveMetastore
 
         try {
             DatabaseInput databaseInput = GlueInputConverter.convertDatabase(database);
-            stats.getCreateDatabase().call(() ->
-                    glueClient.createDatabase(new CreateDatabaseRequest().withDatabaseInput(databaseInput)));
+            awsSyncRequest(glueClient::createDatabase, CreateDatabaseRequest.builder()
+                    .databaseInput(databaseInput)
+                    .build(), stats.getCreateDatabase());
         }
         catch (AlreadyExistsException e) {
             throw new SchemaAlreadyExistsException(database.getDatabaseName());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
 
@@ -543,13 +554,14 @@ public class GlueHiveMetastore
         }
 
         try {
-            stats.getDeleteDatabase().call(() ->
-                    glueClient.deleteDatabase(new DeleteDatabaseRequest().withName(databaseName)));
+            awsSyncRequest(glueClient::deleteDatabase, DeleteDatabaseRequest.builder()
+                    .name(databaseName)
+                    .build(), stats.getDeleteDatabase());
         }
         catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(databaseName);
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
 
@@ -563,13 +575,13 @@ public class GlueHiveMetastore
     {
         try {
             Database database = getDatabase(databaseName).orElseThrow(() -> new SchemaNotFoundException(databaseName));
-            DatabaseInput renamedDatabase = GlueInputConverter.convertDatabase(database).withName(newDatabaseName);
-            stats.getUpdateDatabase().call(() ->
-                    glueClient.updateDatabase(new UpdateDatabaseRequest()
-                            .withName(databaseName)
-                            .withDatabaseInput(renamedDatabase)));
+            DatabaseInput renamedDatabase = GlueInputConverter.convertDatabase(database);
+            awsSyncRequest(glueClient::updateDatabase, UpdateDatabaseRequest.builder()
+                            .name(databaseName)
+                            .databaseInput(renamedDatabase.toBuilder().name(newDatabaseName).build())
+                            .build(), stats.getUpdateDatabase());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -585,10 +597,10 @@ public class GlueHiveMetastore
     {
         try {
             TableInput input = GlueInputConverter.convertTable(table);
-            stats.getCreateTable().call(() ->
-                    glueClient.createTable(new CreateTableRequest()
-                            .withDatabaseName(table.getDatabaseName())
-                            .withTableInput(input)));
+            awsSyncRequest(glueClient::createTable, CreateTableRequest.builder()
+                    .databaseName(table.getDatabaseName())
+                    .tableInput(input)
+                    .build(), stats.getCreateTable());
         }
         catch (AlreadyExistsException e) {
             throw new TableAlreadyExistsException(new SchemaTableName(table.getDatabaseName(), table.getTableName()));
@@ -596,7 +608,7 @@ public class GlueHiveMetastore
         catch (EntityNotFoundException e) {
             throw new SchemaNotFoundException(table.getDatabaseName());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -605,15 +617,15 @@ public class GlueHiveMetastore
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
         Table table = getExistingTable(databaseName, tableName);
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
-                .withDatabaseName(databaseName)
-                .withName(tableName);
+
         try {
             Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
-                    .run(() -> stats.getDeleteTable().call(() ->
-                            glueClient.deleteTable(deleteTableRequest)));
+                    .run(() -> awsSyncRequest(glueClient::deleteTable, DeleteTableRequest.builder()
+                            .databaseName(databaseName)
+                            .name(tableName)
+                            .build(), stats.getDeleteTable()));
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
 
@@ -648,15 +660,15 @@ public class GlueHiveMetastore
         }
         try {
             TableInput newTableInput = GlueInputConverter.convertTable(newTable);
-            stats.getUpdateTable().call(() ->
-                    glueClient.updateTable(new UpdateTableRequest()
-                            .withDatabaseName(databaseName)
-                            .withTableInput(newTableInput)));
+            awsSyncRequest(glueClient::updateTable, UpdateTableRequest.builder()
+                    .databaseName(databaseName)
+                    .tableInput(newTableInput)
+                    .build(), stats.getUpdateTable());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -666,14 +678,15 @@ public class GlueHiveMetastore
     {
         boolean newTableCreated = false;
         try {
-            GetTableRequest getTableRequest = new GetTableRequest().withDatabaseName(databaseName)
-                    .withName(tableName);
-            GetTableResult glueTable = glueClient.getTable(getTableRequest);
-            TableInput tableInput = convertGlueTableToTableInput(glueTable.getTable(), newTableName);
-            CreateTableRequest createTableRequest = new CreateTableRequest()
-                    .withDatabaseName(newDatabaseName)
-                    .withTableInput(tableInput);
-            stats.getCreateTable().call(() -> glueClient.createTable(createTableRequest));
+            GetTableRequest getTableRequest = GetTableRequest.builder()
+                    .databaseName(databaseName).name(tableName).build();
+            GetTableResponse glueTable = awsSyncRequest(glueClient::getTable, getTableRequest, stats.getGetTable());
+            TableInput tableInput = convertGlueTableToTableInput(glueTable.table(), newTableName);
+            CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                    .databaseName(newDatabaseName)
+                    .tableInput(tableInput)
+                    .build();
+            awsSyncRequest(glueClient::createTable, createTableRequest, stats.getCreateTable());
             newTableCreated = true;
             dropTable(databaseName, tableName, false);
         }
@@ -692,22 +705,22 @@ public class GlueHiveMetastore
         }
     }
 
-    private TableInput convertGlueTableToTableInput(com.amazonaws.services.glue.model.Table glueTable, String newTableName)
+    private TableInput convertGlueTableToTableInput(software.amazon.awssdk.services.glue.model.Table glueTable, String newTableName)
     {
-        return new TableInput()
-                .withName(newTableName)
-                .withDescription(glueTable.getDescription())
-                .withOwner(glueTable.getOwner())
-                .withLastAccessTime(glueTable.getLastAccessTime())
-                .withLastAnalyzedTime(glueTable.getLastAnalyzedTime())
-                .withRetention(glueTable.getRetention())
-                .withStorageDescriptor(glueTable.getStorageDescriptor())
-                .withPartitionKeys(glueTable.getPartitionKeys())
-                .withViewOriginalText(glueTable.getViewOriginalText())
-                .withViewExpandedText(glueTable.getViewExpandedText())
-                .withTableType(getTableTypeNullable(glueTable))
-                .withTargetTable(glueTable.getTargetTable())
-                .withParameters(getTableParameters(glueTable));
+        return TableInput.builder()
+                .name(newTableName)
+                .description(glueTable.description())
+                .owner(glueTable.owner())
+                .lastAccessTime(glueTable.lastAccessTime())
+                .lastAnalyzedTime(glueTable.lastAnalyzedTime())
+                .retention(glueTable.retention())
+                .storageDescriptor(glueTable.storageDescriptor())
+                .partitionKeys(glueTable.partitionKeys())
+                .viewOriginalText(glueTable.viewOriginalText())
+                .viewExpandedText(glueTable.viewExpandedText())
+                .tableType(getTableTypeNullable(glueTable))
+                .targetTable(glueTable.targetTable())
+                .parameters(getTableParameters(glueTable)).build();
     }
 
     @Override
@@ -727,17 +740,16 @@ public class GlueHiveMetastore
         try {
             Table table = getExistingTable(databaseName, tableName);
             TableInput newTableInput = GlueInputConverter.convertTable(table);
-            newTableInput.setOwner(principal.getName());
-
-            stats.getUpdateTable().call(() ->
-                    glueClient.updateTable(new UpdateTableRequest()
-                            .withDatabaseName(databaseName)
-                            .withTableInput(newTableInput)));
+            UpdateTableRequest updateTableRequest = UpdateTableRequest.builder()
+                    .databaseName(databaseName)
+                    .tableInput(newTableInput.toBuilder().owner(principal.getName()).build())
+                    .build();
+            awsSyncRequest(glueClient::updateTable, updateTableRequest, stats.getUpdateTable());
         }
         catch (EntityNotFoundException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -808,17 +820,17 @@ public class GlueHiveMetastore
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
         try {
-            GetPartitionResult result = stats.getGetPartition().call(() ->
-                    glueClient.getPartition(new GetPartitionRequest()
-                            .withDatabaseName(table.getDatabaseName())
-                            .withTableName(table.getTableName())
-                            .withPartitionValues(partitionValues)));
-            return Optional.of(new GluePartitionConverter(table).apply(result.getPartition()));
+            GetPartitionRequest getPartitionRequest = GetPartitionRequest.builder()
+                    .databaseName(table.getDatabaseName())
+                    .tableName(table.getTableName())
+                    .partitionValues(partitionValues).build();
+            GetPartitionResponse result = awsSyncRequest(glueClient::getPartition, getPartitionRequest, stats.getGetPartition());
+            return Optional.of(new GluePartitionConverter(table).apply(result.partition()));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -850,7 +862,7 @@ public class GlueHiveMetastore
         List<List<String>> partitions = new ArrayList<>();
         try {
             for (int i = 0; i < partitionSegments; i++) {
-                Segment segment = new Segment().withSegmentNumber(i).withTotalSegments(partitionSegments);
+                Segment segment = Segment.builder().segmentNumber(i).totalSegments(partitionSegments).build();
                 futures.add(completionService.submit(() -> getPartitionValues(databaseName, tableName, expression, segment)));
             }
             for (int i = 0; i < partitionSegments; i++) {
@@ -881,24 +893,25 @@ public class GlueHiveMetastore
             // Reuse immutable field instances opportunistically between partitions
             return getPaginatedResults(
                     glueClient::getPartitions,
-                    new GetPartitionsRequest()
-                            .withDatabaseName(databaseName)
-                            .withTableName(tableName)
-                            .withExpression(expression)
-                            .withSegment(segment)
+                    GetPartitionsRequest.builder()
+                            .databaseName(databaseName)
+                            .tableName(tableName)
+                            .expression(expression)
+                            .segment(segment)
                             // We are interested in the partition values and excluding column schema
                             // avoids the problem of a large response.
-                            .withExcludeColumnSchema(true)
-                            .withMaxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
-                    GetPartitionsRequest::setNextToken,
-                    GetPartitionsResult::getNextToken,
+                            .excludeColumnSchema(true)
+                            .maxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
+                    GetPartitionsRequest.Builder::nextToken,
+                    GetPartitionsRequest.Builder::build,
+                    GetPartitionsResponse::nextToken,
                     stats.getGetPartitions())
-                    .map(GetPartitionsResult::getPartitions)
+                    .map(GetPartitionsResponse::partitions)
                     .flatMap(List::stream)
-                    .map(com.amazonaws.services.glue.model.Partition::getValues)
+                    .map(software.amazon.awssdk.services.glue.model.Partition::values)
                     .collect(toImmutableList());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -947,10 +960,10 @@ public class GlueHiveMetastore
 
     private List<Partition> batchGetPartition(Table table, List<String> partitionNames)
     {
-        List<Future<BatchGetPartitionResult>> batchGetPartitionFutures = new ArrayList<>();
+        List<CompletableFuture<BatchGetPartitionResponse>> batchGetPartitionFutures = new ArrayList<>();
         try {
             List<PartitionValueList> pendingPartitions = partitionNames.stream()
-                    .map(partitionName -> new PartitionValueList().withValues(toPartitionValues(partitionName)))
+                    .map(partitionName -> PartitionValueList.builder().values(toPartitionValues(partitionName)).build())
                     .collect(toCollection(ArrayList::new));
 
             ImmutableList.Builder<Partition> resultsBuilder = ImmutableList.builderWithExpectedSize(partitionNames.size());
@@ -960,18 +973,26 @@ public class GlueHiveMetastore
 
             while (!pendingPartitions.isEmpty()) {
                 for (List<PartitionValueList> partitions : Lists.partition(pendingPartitions, BATCH_GET_PARTITION_MAX_PAGE_SIZE)) {
-                    batchGetPartitionFutures.add(glueClient.batchGetPartitionAsync(new BatchGetPartitionRequest()
-                                    .withDatabaseName(table.getDatabaseName())
-                                    .withTableName(table.getTableName())
-                                    .withPartitionsToGet(partitions),
-                            new StatsRecordingAsyncHandler<>(stats.getGetPartitions())));
+                    StatsRecordingAsyncHandler statsRecorder = new StatsRecordingAsyncHandler(stats.getGetPartitions());
+                    batchGetPartitionFutures.add(glueClient.batchGetPartition(BatchGetPartitionRequest.builder()
+                                    .databaseName(table.getDatabaseName())
+                                    .tableName(table.getTableName())
+                                    .partitionsToGet(partitions).build())
+                            .whenCompleteAsync((result, error) -> {
+                                if (result != null) {
+                                    statsRecorder.onSuccess(result);
+                                }
+                                else if (error != null) {
+                                    statsRecorder.onError(error);
+                                }
+                            }));
                 }
                 pendingPartitions.clear();
 
-                for (Future<BatchGetPartitionResult> future : batchGetPartitionFutures) {
-                    BatchGetPartitionResult batchGetPartitionResult = future.get();
-                    List<com.amazonaws.services.glue.model.Partition> partitions = batchGetPartitionResult.getPartitions();
-                    List<PartitionValueList> unprocessedKeys = batchGetPartitionResult.getUnprocessedKeys();
+                for (Future<BatchGetPartitionResponse> futureResponse : batchGetPartitionFutures) {
+                    BatchGetPartitionResponse batchGetPartitionResponse = futureResponse.get();
+                    List<software.amazon.awssdk.services.glue.model.Partition> partitions = batchGetPartitionResponse.partitions();
+                    List<PartitionValueList> unprocessedKeys = batchGetPartitionResponse.unprocessedKeys();
 
                     // In the unlikely scenario where batchGetPartition call cannot make progress on retrieving partitions, avoid infinite loop
                     if (partitions.isEmpty()) {
@@ -989,7 +1010,7 @@ public class GlueHiveMetastore
 
             return resultsBuilder.build();
         }
-        catch (AmazonServiceException | InterruptedException | ExecutionException e) {
+        catch (AwsServiceException | InterruptedException | ExecutionException e) {
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
@@ -1006,22 +1027,28 @@ public class GlueHiveMetastore
     {
         try {
             stats.getCreatePartitions().call(() -> {
-                List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
+                List<CompletableFuture<BatchCreatePartitionResponse>> futures = new ArrayList<>();
 
                 for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
                     List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, GlueInputConverter::convertPartition);
-                    futures.add(glueClient.batchCreatePartitionAsync(
-                            new BatchCreatePartitionRequest()
-                                    .withDatabaseName(databaseName)
-                                    .withTableName(tableName)
-                                    .withPartitionInputList(partitionInputs),
-                            new StatsRecordingAsyncHandler<>(stats.getBatchCreatePartition())));
+                    StatsRecordingAsyncHandler statsRecorder = new StatsRecordingAsyncHandler(stats.getBatchCreatePartition());
+                    futures.add(glueClient.batchCreatePartition(BatchCreatePartitionRequest.builder()
+                                    .databaseName(databaseName)
+                                    .tableName(tableName)
+                                    .partitionInputList(partitionInputs).build())
+                            .whenCompleteAsync((result, error) -> {
+                                if (result != null) {
+                                    statsRecorder.onSuccess(result);
+                                }
+                                else if (error != null) {
+                                    statsRecorder.onError(error);
+                                }
+                            }));
                 }
-
-                for (Future<BatchCreatePartitionResult> future : futures) {
+                for (Future<BatchCreatePartitionResponse> futureResponse : futures) {
                     try {
-                        BatchCreatePartitionResult result = future.get();
-                        propagatePartitionErrorToTrinoException(databaseName, tableName, result.getErrors());
+                        BatchCreatePartitionResponse result = futureResponse.get();
+                        propagatePartitionErrorToTrinoException(databaseName, tableName, result.errors());
                     }
                     catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -1039,7 +1066,7 @@ public class GlueHiveMetastore
                 return null;
             });
         }
-        catch (AmazonServiceException | ExecutionException e) {
+        catch (AwsServiceException | ExecutionException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -1047,16 +1074,16 @@ public class GlueHiveMetastore
     private static void propagatePartitionErrorToTrinoException(String databaseName, String tableName, List<PartitionError> partitionErrors)
     {
         if (partitionErrors != null && !partitionErrors.isEmpty()) {
-            ErrorDetail errorDetail = partitionErrors.get(0).getErrorDetail();
-            String glueExceptionCode = errorDetail.getErrorCode();
+            ErrorDetail errorDetail = partitionErrors.get(0).errorDetail();
+            String glueExceptionCode = errorDetail.errorCode();
 
             switch (glueExceptionCode) {
                 case "AlreadyExistsException":
-                    throw new TrinoException(ALREADY_EXISTS, errorDetail.getErrorMessage());
+                    throw new TrinoException(ALREADY_EXISTS, errorDetail.errorMessage());
                 case "EntityNotFoundException":
-                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), errorDetail.getErrorMessage());
+                    throw new TableNotFoundException(new SchemaTableName(databaseName, tableName), errorDetail.errorMessage());
                 default:
-                    throw new TrinoException(HIVE_METASTORE_ERROR, errorDetail.getErrorCode() + ": " + errorDetail.getErrorMessage());
+                    throw new TrinoException(HIVE_METASTORE_ERROR, errorDetail.errorCode() + ": " + errorDetail.errorMessage());
             }
         }
     }
@@ -1069,13 +1096,13 @@ public class GlueHiveMetastore
                 .orElseThrow(() -> new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts));
 
         try {
-            stats.getDeletePartition().call(() ->
-                    glueClient.deletePartition(new DeletePartitionRequest()
-                            .withDatabaseName(databaseName)
-                            .withTableName(tableName)
-                            .withPartitionValues(parts)));
+            awsSyncRequest(glueClient::deletePartition, DeletePartitionRequest.builder()
+                    .databaseName(databaseName)
+                    .tableName(tableName)
+                    .partitionValues(parts)
+                    .build(), stats.getDeletePartition());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
 
@@ -1090,12 +1117,11 @@ public class GlueHiveMetastore
     {
         try {
             PartitionInput newPartition = convertPartition(partition);
-            stats.getUpdatePartition().call(() ->
-                    glueClient.updatePartition(new UpdatePartitionRequest()
-                            .withDatabaseName(databaseName)
-                            .withTableName(tableName)
-                            .withPartitionInput(newPartition)
-                            .withPartitionValueList(partition.getPartition().getValues())));
+            awsSyncRequest(glueClient::updatePartition, UpdatePartitionRequest.builder()
+                    .databaseName(databaseName)
+                    .tableName(tableName)
+                    .partitionInput(newPartition)
+                    .partitionValueList(partition.getPartition().getValues()).build(), stats.getUpdatePartition());
             columnStatisticsProvider.updatePartitionStatistics(
                     partition.getPartition(),
                     partition.getStatistics().getColumnStatistics());
@@ -1103,7 +1129,7 @@ public class GlueHiveMetastore
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues());
         }
-        catch (AmazonServiceException e) {
+        catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
@@ -1177,8 +1203,7 @@ public class GlueHiveMetastore
         throw new TrinoException(NOT_SUPPORTED, "Glue does not support ACID tables");
     }
 
-    static class StatsRecordingAsyncHandler<Request extends AmazonWebServiceRequest, Result>
-            implements AsyncHandler<Request, Result>
+    static class StatsRecordingAsyncHandler
     {
         private final AwsApiCallStats stats;
         private final Stopwatch stopwatch;
@@ -1189,14 +1214,12 @@ public class GlueHiveMetastore
             this.stopwatch = Stopwatch.createStarted();
         }
 
-        @Override
-        public void onError(Exception e)
+        public void onError(Throwable e)
         {
             stats.recordCall(stopwatch.elapsed(NANOSECONDS), true);
         }
 
-        @Override
-        public void onSuccess(AmazonWebServiceRequest request, Object o)
+        public void onSuccess(GlueResponse response)
         {
             stats.recordCall(stopwatch.elapsed(NANOSECONDS), false);
         }

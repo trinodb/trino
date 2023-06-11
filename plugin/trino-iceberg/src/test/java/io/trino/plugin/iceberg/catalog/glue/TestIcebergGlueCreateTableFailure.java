@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.InvalidInputException;
-import com.amazonaws.services.glue.model.OperationTimeoutException;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
@@ -33,6 +30,9 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.InvalidInputException;
+import software.amazon.awssdk.services.glue.model.OperationTimeoutException;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -82,7 +82,7 @@ public class TestIcebergGlueCreateTableFailure
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
-        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(AWSGlueAsync.class, (proxy, method, methodArgs) -> {
+        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(GlueAsyncClient.class, (proxy, method, methodArgs) -> {
             Object result;
             if (method.getName().equals("createTable")) {
                 throw testException.get();
@@ -143,7 +143,7 @@ public class TestIcebergGlueCreateTableFailure
             throws Exception
     {
         final String exceptionMessage = "Test-simulated metastore invalid input exception";
-        testException.set(new InvalidInputException(exceptionMessage));
+        testException.set(InvalidInputException.builder().message(exceptionMessage).build());
         testCreateTableFailure(exceptionMessage, false);
     }
 
@@ -152,7 +152,7 @@ public class TestIcebergGlueCreateTableFailure
             throws Exception
     {
         final String exceptionMessage = "Test-simulated metastore operation timeout exception";
-        testException.set(new OperationTimeoutException(exceptionMessage));
+        testException.set(OperationTimeoutException.builder().message(exceptionMessage).build());
         testCreateTableFailure(exceptionMessage, true);
     }
 

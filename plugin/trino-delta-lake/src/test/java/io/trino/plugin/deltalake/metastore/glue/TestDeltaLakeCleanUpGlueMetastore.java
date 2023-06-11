@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -39,19 +39,20 @@ public class TestDeltaLakeCleanUpGlueMetastore
     @Test
     public void cleanupOrphanedDatabases()
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueAsyncClient glueClient = GlueAsyncClient.builder().build();
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
         List<String> orphanedDatabases = getPaginatedResults(
                 glueClient::getDatabases,
-                new GetDatabasesRequest(),
-                GetDatabasesRequest::setNextToken,
-                GetDatabasesResult::getNextToken,
+                GetDatabasesRequest.builder(),
+                GetDatabasesRequest.Builder::nextToken,
+                GetDatabasesRequest.Builder::build,
+                GetDatabasesResponse::nextToken,
                 new AwsApiCallStats())
-                .map(GetDatabasesResult::getDatabaseList)
+                .map(GetDatabasesResponse::databaseList)
                 .flatMap(List::stream)
-                .filter(glueDatabase -> glueDatabase.getName().startsWith(TEST_DATABASE_NAME_PREFIX) &&
-                        glueDatabase.getCreateTime().getTime() <= creationTimeMillisThreshold)
-                .map(com.amazonaws.services.glue.model.Database::getName)
+                .filter(glueDatabase -> glueDatabase.name().startsWith(TEST_DATABASE_NAME_PREFIX) &&
+                        glueDatabase.createTime().toEpochMilli() <= creationTimeMillisThreshold)
+                .map(software.amazon.awssdk.services.glue.model.Database::name)
                 .collect(toImmutableList());
 
         if (!orphanedDatabases.isEmpty()) {
@@ -59,8 +60,8 @@ public class TestDeltaLakeCleanUpGlueMetastore
             orphanedDatabases.forEach(database -> {
                 try {
                     log.info("Deleting %s database", database);
-                    glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                            .withName(database));
+                    awsSyncRequest(glueClient::deleteDatabase, DeleteDatabaseRequest.builder()
+                            .name(database).build(), null);
                 }
                 catch (EntityNotFoundException e) {
                     log.info("Database [%s] not found, could be removed by other cleanup process", database);

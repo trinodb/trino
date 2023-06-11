@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
@@ -28,6 +27,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 import java.util.Optional;
 
@@ -42,7 +42,7 @@ public class TrinoGlueCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
-    private final AWSGlueAsync glueClient;
+    private final GlueAsyncClient glueClient;
     private final boolean isUniqueTableLocation;
     private final GlueMetastoreStats stats;
 
@@ -56,7 +56,7 @@ public class TrinoGlueCatalogFactory
             GlueHiveMetastoreConfig glueConfig,
             IcebergConfig icebergConfig,
             GlueMetastoreStats stats,
-            AWSGlueAsync glueClient)
+            GlueAsyncClient glueClient)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");

@@ -13,57 +13,63 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.metrics.RequestMetricCollector;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.google.common.collect.ImmutableList;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.metrics.MetricPublisher;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.internal.util.EC2MetadataUtils;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueAsyncClientBuilder;
 
+import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 
 public final class GlueClientUtil
 {
     private GlueClientUtil() {}
 
-    public static AWSGlueAsync createAsyncGlueClient(
+    public static GlueAsyncClient createAsyncGlueClient(
             GlueHiveMetastoreConfig config,
-            AWSCredentialsProvider credentialsProvider,
-            Optional<RequestHandler2> requestHandler,
-            RequestMetricCollector metricsCollector)
+            AwsCredentialsProvider credentialsProvider,
+            Optional<ExecutionInterceptor> requestHandler,
+            MetricPublisher metricPublisher)
     {
-        ClientConfiguration clientConfig = new ClientConfiguration()
-                .withMaxConnections(config.getMaxGlueConnections())
-                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
-        AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
-                .withMetricsCollector(metricsCollector)
-                .withClientConfiguration(clientConfig);
+        NettyNioAsyncHttpClient.Builder nettyBuilder = NettyNioAsyncHttpClient.builder()
+                .maxConcurrency(config.getMaxGlueConnections());
+        RetryPolicy.Builder retryPolicy = RetryPolicy.builder().numRetries(config.getMaxGlueErrorRetries());
+        ClientOverrideConfiguration.Builder clientOverrideConfiguration = ClientOverrideConfiguration.builder()
+                .addMetricPublisher(metricPublisher)
+                .retryPolicy(retryPolicy.build());
 
-        ImmutableList.Builder<RequestHandler2> requestHandlers = ImmutableList.builder();
+        ImmutableList.Builder<ExecutionInterceptor> requestHandlers = ImmutableList.builder();
         requestHandler.ifPresent(requestHandlers::add);
         config.getCatalogId().ifPresent(catalogId -> requestHandlers.add(new GlueCatalogIdRequestHandler(catalogId)));
-        asyncGlueClientBuilder.setRequestHandlers(requestHandlers.build().toArray(RequestHandler2[]::new));
+        clientOverrideConfiguration.executionInterceptors(requestHandlers.build());
+        GlueAsyncClientBuilder glueAsyncClientBuilder = GlueAsyncClient.builder()
+                .httpClient(nettyBuilder.build())
+                .overrideConfiguration(clientOverrideConfiguration.build());
 
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
-            asyncGlueClientBuilder.setEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(
-                    config.getGlueEndpointUrl().get(),
-                    config.getGlueRegion().get()));
+            glueAsyncClientBuilder
+                    .endpointOverride(URI.create(config.getGlueEndpointUrl().get()))
+                    .region(Region.of(config.getGlueRegion().get()));
         }
         else if (config.getGlueRegion().isPresent()) {
-            asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
+            glueAsyncClientBuilder.region(Region.of(config.getGlueRegion().get()));
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
-            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            glueAsyncClientBuilder.region(Region.of(EC2MetadataUtils.getEC2InstanceRegion()));
         }
 
-        asyncGlueClientBuilder.setCredentials(credentialsProvider);
+        glueAsyncClientBuilder.credentialsProvider(credentialsProvider);
 
-        return asyncGlueClientBuilder.build();
+        return glueAsyncClientBuilder.build();
     }
 }

@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.metrics.RequestMetricCollector;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
-import io.trino.plugin.hive.aws.AwsSdkClientCoreStats;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
+import software.amazon.awssdk.metrics.MetricPublisher;
 
 public class GlueMetastoreStats
 {
@@ -48,7 +47,7 @@ public class GlueMetastoreStats
     private final AwsApiCallStats updateColumnStatisticsForPartition = new AwsApiCallStats();
     private final AwsApiCallStats deleteColumnStatisticsForPartition = new AwsApiCallStats();
 
-    private final AwsSdkClientCoreStats clientCoreStats = new AwsSdkClientCoreStats();
+    private final GlueSdkClientStats clientCoreStats = new GlueSdkClientStats();
 
     @Managed
     @Nested
@@ -227,13 +226,13 @@ public class GlueMetastoreStats
 
     @Managed
     @Flatten
-    public AwsSdkClientCoreStats getClientCoreStats()
+    public GlueSdkClientStats getClientCoreStats()
     {
         return clientCoreStats;
     }
 
-    public RequestMetricCollector newRequestMetricsCollector()
+    public MetricPublisher newRequestMetricsPublisher()
     {
-        return clientCoreStats.newRequestMetricCollector();
+        return clientCoreStats.newRequestMetricsPublisher();
     }
 }

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 public interface GlueColumnStatisticsProviderFactory
 {
-    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(AWSGlueAsync glueClient, GlueMetastoreStats stats);
+    GlueColumnStatisticsProvider createGlueColumnStatisticsProvider(GlueAsyncClient glueClient, GlueMetastoreStats stats);
 }

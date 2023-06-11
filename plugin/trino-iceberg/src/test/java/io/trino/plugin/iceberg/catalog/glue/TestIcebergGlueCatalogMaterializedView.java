@@ -13,13 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.BatchDeleteTableRequest;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.GetTablesRequest;
-import com.amazonaws.services.glue.model.GetTablesResult;
-import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
@@ -28,6 +21,12 @@ import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.BatchDeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesResponse;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -35,6 +34,7 @@ import java.util.Collection;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
@@ -80,21 +80,22 @@ public class TestIcebergGlueCatalogMaterializedView
 
     private static void cleanUpSchema(String schema)
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
         Set<String> tableNames = getPaginatedResults(
                 glueClient::getTables,
-                new GetTablesRequest().withDatabaseName(schema),
-                GetTablesRequest::setNextToken,
-                GetTablesResult::getNextToken,
+                GetTablesRequest.builder().databaseName(schema),
+                GetTablesRequest.Builder::nextToken,
+                GetTablesRequest.Builder::build,
+                GetTablesResponse::nextToken,
                 new AwsApiCallStats())
-                .map(GetTablesResult::getTableList)
+                .map(GetTablesResponse::tableList)
                 .flatMap(Collection::stream)
-                .map(Table::getName)
+                .map(Table::name)
                 .collect(toImmutableSet());
-        glueClient.batchDeleteTable(new BatchDeleteTableRequest()
-                .withDatabaseName(schema)
-                .withTablesToDelete(tableNames));
-        glueClient.deleteDatabase(new DeleteDatabaseRequest()
-                .withName(schema));
+        awsSyncRequest(glueClient::batchDeleteTable, BatchDeleteTableRequest.builder()
+                .databaseName(schema)
+                .tablesToDelete(tableNames).build(), null);
+        awsSyncRequest(glueClient::deleteDatabase, DeleteDatabaseRequest.builder()
+                .name(schema).build(), null);
     }
 }

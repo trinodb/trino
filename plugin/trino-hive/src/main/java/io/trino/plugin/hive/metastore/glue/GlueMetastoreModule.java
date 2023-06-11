@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -30,6 +26,10 @@ import io.trino.plugin.hive.AllowHiveTableRename;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.concurrent.Executor;
 import java.util.function.Predicate;
@@ -50,11 +50,11 @@ public class GlueMetastoreModule
     {
         GlueHiveMetastoreConfig glueConfig = buildConfigObject(GlueHiveMetastoreConfig.class);
         glueConfig.getGlueProxyApiId().ifPresent(glueProxyApiId -> binder
-                .bind(Key.get(RequestHandler2.class, ForGlueHiveMetastore.class))
+                .bind(Key.get(ExecutionInterceptor.class, ForGlueHiveMetastore.class))
                 .toInstance(new ProxyApiRequestHandler(glueProxyApiId)));
         configBinder(binder).bindConfig(HiveConfig.class);
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
+        binder.bind(AwsCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ExecutionInterceptor.class, ForGlueHiveMetastore.class));
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
@@ -68,7 +68,7 @@ public class GlueMetastoreModule
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
-        binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
+        binder.bind(GlueAsyncClient.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);

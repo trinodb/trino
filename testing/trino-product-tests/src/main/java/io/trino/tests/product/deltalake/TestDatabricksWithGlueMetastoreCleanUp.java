@@ -13,16 +13,15 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -31,6 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -54,7 +54,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testCleanUpOldTablesUsingDelta()
     {
-        AWSGlueAsync glueClient = AWSGlueAsyncClientBuilder.standard().build();
+        GlueAsyncClient glueClient = GlueAsyncClient.create();
         long startTime = currentTimeMillis();
         List<String> schemas = onTrino().executeQuery("SELECT DISTINCT(table_schema) FROM information_schema.tables")
                 .rows().stream()
@@ -67,7 +67,7 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         schemas.forEach(schema -> cleanSchema(schema, startTime, glueClient));
     }
 
-    private void cleanSchema(String schema, long startTime, AWSGlueAsync glueClient)
+    private void cleanSchema(String schema, long startTime, GlueAsyncClient glueClient)
     {
         Set<String> allTestTableNames = findAllTablesInSchema(schema).stream()
                 .filter(name -> name.toLowerCase(ENGLISH).startsWith("test"))
@@ -76,8 +76,8 @@ public class TestDatabricksWithGlueMetastoreCleanUp
         int droppedTablesCount = 0;
         for (String tableName : allTestTableNames) {
             try {
-                Table table = glueClient.getTable(new GetTableRequest().withDatabaseName(schema).withName(tableName)).getTable();
-                Instant createTime = table.getCreateTime().toInstant();
+                Table table = awsSyncRequest(glueClient::getTable, GetTableRequest.builder().databaseName(schema).name(tableName).build(), null).table();
+                Instant createTime = table.createTime();
                 if (createTime.isBefore(SCHEMA_CLEANUP_THRESHOLD)) {
                     if (getTableType(table).contains("VIEW")) {
                         onTrino().executeQuery(format("DROP VIEW IF EXISTS %s.%s", schema, tableName));

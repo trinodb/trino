@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
@@ -24,6 +22,8 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.connector.ConnectorSession;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 import java.util.Optional;
 
@@ -34,7 +34,7 @@ public class TestingGlueIcebergTableOperationsProvider
         implements IcebergTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final AWSGlueAsync glueClient;
+    private final GlueAsyncClient glueClient;
     private final GlueMetastoreStats stats;
 
     @Inject
@@ -42,7 +42,7 @@ public class TestingGlueIcebergTableOperationsProvider
             TrinoFileSystemFactory fileSystemFactory,
             GlueMetastoreStats stats,
             GlueHiveMetastoreConfig glueConfig,
-            AWSCredentialsProvider credentialsProvider,
+            AwsCredentialsProvider credentialsProvider,
             AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -51,7 +51,7 @@ public class TestingGlueIcebergTableOperationsProvider
         requireNonNull(credentialsProvider, "credentialsProvider is null");
         requireNonNull(awsGlueAsyncAdapterProvider, "awsGlueAsyncAdapterProvider is null");
         this.glueClient = awsGlueAsyncAdapterProvider.createAWSGlueAsyncAdapter(
-                createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsCollector()));
+                createAsyncGlueClient(glueConfig, credentialsProvider, Optional.empty(), stats.newRequestMetricsPublisher()));
     }
 
     @Override

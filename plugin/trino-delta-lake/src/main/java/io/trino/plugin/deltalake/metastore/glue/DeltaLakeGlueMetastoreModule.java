@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.TypeLiteral;
@@ -21,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.function.Predicate;
 

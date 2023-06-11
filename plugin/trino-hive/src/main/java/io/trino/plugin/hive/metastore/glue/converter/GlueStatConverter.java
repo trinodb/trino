@@ -13,17 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue.converter;
 
-import com.amazonaws.services.glue.model.BinaryColumnStatisticsData;
-import com.amazonaws.services.glue.model.BooleanColumnStatisticsData;
-import com.amazonaws.services.glue.model.ColumnStatistics;
-import com.amazonaws.services.glue.model.ColumnStatisticsData;
-import com.amazonaws.services.glue.model.ColumnStatisticsType;
-import com.amazonaws.services.glue.model.DateColumnStatisticsData;
-import com.amazonaws.services.glue.model.DecimalColumnStatisticsData;
-import com.amazonaws.services.glue.model.DecimalNumber;
-import com.amazonaws.services.glue.model.DoubleColumnStatisticsData;
-import com.amazonaws.services.glue.model.LongColumnStatisticsData;
-import com.amazonaws.services.glue.model.StringColumnStatisticsData;
 import io.trino.hive.thrift.metastore.Decimal;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
@@ -33,12 +22,24 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.glue.model.BinaryColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.BooleanColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.ColumnStatistics;
+import software.amazon.awssdk.services.glue.model.ColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.ColumnStatisticsType;
+import software.amazon.awssdk.services.glue.model.DateColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.DecimalColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.DecimalNumber;
+import software.amazon.awssdk.services.glue.model.DoubleColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.LongColumnStatisticsData;
+import software.amazon.awssdk.services.glue.model.StringColumnStatisticsData;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,75 +94,76 @@ public class GlueStatConverter
 
     private static ColumnStatistics toColumnStatistics(Column column, HiveColumnStatistics statistics, OptionalLong rowCount)
     {
-        ColumnStatistics columnStatistics = new ColumnStatistics();
         HiveType columnType = column.getType();
-        columnStatistics.setColumnName(column.getName());
-        columnStatistics.setColumnType(columnType.toString());
         ColumnStatisticsData catalogColumnStatisticsData = toGlueColumnStatisticsData(statistics, columnType, rowCount);
-        columnStatistics.setStatisticsData(catalogColumnStatisticsData);
-        columnStatistics.setAnalyzedTime(new Date());
+        ColumnStatistics columnStatistics = ColumnStatistics.builder()
+                .columnName(column.getName())
+                .columnType(columnType.toString())
+                .statisticsData(catalogColumnStatisticsData)
+                .analyzedTime(Instant.now())
+                .build();
         return columnStatistics;
     }
 
     public static HiveColumnStatistics fromGlueColumnStatistics(ColumnStatisticsData catalogColumnStatisticsData, OptionalLong rowCount)
     {
-        ColumnStatisticsType type = ColumnStatisticsType.fromValue(catalogColumnStatisticsData.getType());
+        ColumnStatisticsType type = ColumnStatisticsType.fromValue(catalogColumnStatisticsData.type().toString());
         switch (type) {
             case BINARY: {
-                BinaryColumnStatisticsData data = catalogColumnStatisticsData.getBinaryColumnStatisticsData();
-                OptionalLong max = OptionalLong.of(data.getMaximumLength());
-                OptionalDouble avg = OptionalDouble.of(data.getAverageLength());
-                OptionalLong nulls = fromMetastoreNullsCount(data.getNumberOfNulls());
+                BinaryColumnStatisticsData data = catalogColumnStatisticsData.binaryColumnStatisticsData();
+                OptionalLong max = OptionalLong.of(data.maximumLength());
+                OptionalDouble avg = OptionalDouble.of(data.averageLength());
+                OptionalLong nulls = fromMetastoreNullsCount(data.numberOfNulls());
                 return createBinaryColumnStatistics(
                         max,
                         getTotalSizeInBytes(avg, rowCount, nulls),
                         nulls);
             }
             case BOOLEAN: {
-                BooleanColumnStatisticsData catalogBooleanData = catalogColumnStatisticsData.getBooleanColumnStatisticsData();
+                BooleanColumnStatisticsData catalogBooleanData = catalogColumnStatisticsData.booleanColumnStatisticsData();
                 return createBooleanColumnStatistics(
-                        OptionalLong.of(catalogBooleanData.getNumberOfTrues()),
-                        OptionalLong.of(catalogBooleanData.getNumberOfFalses()),
-                        fromMetastoreNullsCount(catalogBooleanData.getNumberOfNulls()));
+                        OptionalLong.of(catalogBooleanData.numberOfTrues()),
+                        OptionalLong.of(catalogBooleanData.numberOfFalses()),
+                        fromMetastoreNullsCount(catalogBooleanData.numberOfNulls()));
             }
             case DATE: {
-                DateColumnStatisticsData data = catalogColumnStatisticsData.getDateColumnStatisticsData();
-                Optional<LocalDate> min = dateToLocalDate(data.getMinimumValue());
-                Optional<LocalDate> max = dateToLocalDate(data.getMaximumValue());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                DateColumnStatisticsData data = catalogColumnStatisticsData.dateColumnStatisticsData();
+                Optional<LocalDate> min = instantToLocalDate(data.minimumValue());
+                Optional<LocalDate> max = instantToLocalDate(data.maximumValue());
+                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
                 return createDateColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
             }
             case DECIMAL: {
-                DecimalColumnStatisticsData data = catalogColumnStatisticsData.getDecimalColumnStatisticsData();
-                Optional<BigDecimal> min = glueDecimalToBigDecimal(data.getMinimumValue());
-                Optional<BigDecimal> max = glueDecimalToBigDecimal(data.getMaximumValue());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
+                DecimalColumnStatisticsData data = catalogColumnStatisticsData.decimalColumnStatisticsData();
+                Optional<BigDecimal> min = glueDecimalToBigDecimal(data.minimumValue());
+                Optional<BigDecimal> max = glueDecimalToBigDecimal(data.maximumValue());
+                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
+                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
                 return createDecimalColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
             }
             case DOUBLE: {
-                DoubleColumnStatisticsData data = catalogColumnStatisticsData.getDoubleColumnStatisticsData();
-                OptionalDouble min = OptionalDouble.of(data.getMinimumValue());
-                OptionalDouble max = OptionalDouble.of(data.getMaximumValue());
-                OptionalLong nulls = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                DoubleColumnStatisticsData data = catalogColumnStatisticsData.doubleColumnStatisticsData();
+                OptionalDouble min = OptionalDouble.of(data.minimumValue());
+                OptionalDouble max = OptionalDouble.of(data.maximumValue());
+                OptionalLong nulls = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
                 return createDoubleColumnStatistics(min, max, nulls, fromMetastoreDistinctValuesCount(distinctValues, nulls, rowCount));
             }
             case LONG: {
-                LongColumnStatisticsData data = catalogColumnStatisticsData.getLongColumnStatisticsData();
-                OptionalLong min = OptionalLong.of(data.getMinimumValue());
-                OptionalLong max = OptionalLong.of(data.getMaximumValue());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                LongColumnStatisticsData data = catalogColumnStatisticsData.longColumnStatisticsData();
+                OptionalLong min = OptionalLong.of(data.minimumValue());
+                OptionalLong max = OptionalLong.of(data.maximumValue());
+                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
                 return createIntegerColumnStatistics(min, max, nullsCount, fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
             }
             case STRING: {
-                StringColumnStatisticsData data = catalogColumnStatisticsData.getStringColumnStatisticsData();
-                OptionalLong max = OptionalLong.of(data.getMaximumLength());
-                OptionalDouble avg = OptionalDouble.of(data.getAverageLength());
-                OptionalLong nullsCount = fromMetastoreNullsCount(data.getNumberOfNulls());
-                OptionalLong distinctValues = OptionalLong.of(data.getNumberOfDistinctValues());
+                StringColumnStatisticsData data = catalogColumnStatisticsData.stringColumnStatisticsData();
+                OptionalLong max = OptionalLong.of(data.maximumLength());
+                OptionalDouble avg = OptionalDouble.of(data.averageLength());
+                OptionalLong nullsCount = fromMetastoreNullsCount(data.numberOfNulls());
+                OptionalLong distinctValues = OptionalLong.of(data.numberOfDistinctValues());
                 return createStringColumnStatistics(
                         max,
                         getTotalSizeInBytes(avg, rowCount, nullsCount),
@@ -178,64 +180,64 @@ public class GlueStatConverter
         TypeInfo typeInfo = columnType.getTypeInfo();
         checkArgument(typeInfo.getCategory() == PRIMITIVE, "Unsupported statistics type: %s", columnType);
 
-        ColumnStatisticsData catalogColumnStatisticsData = new ColumnStatisticsData();
+        ColumnStatisticsData.Builder catalogColumnStatisticsData = ColumnStatisticsData.builder();
 
         switch (((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory()) {
             case BOOLEAN: {
-                BooleanColumnStatisticsData data = new BooleanColumnStatisticsData();
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
+                BooleanColumnStatisticsData.Builder data = BooleanColumnStatisticsData.builder();
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
                 statistics.getBooleanStatistics().ifPresent(booleanStatistics -> {
-                    booleanStatistics.getFalseCount().ifPresent(data::setNumberOfFalses);
-                    booleanStatistics.getTrueCount().ifPresent(data::setNumberOfTrues);
+                    booleanStatistics.getFalseCount().ifPresent(data::numberOfFalses);
+                    booleanStatistics.getTrueCount().ifPresent(data::numberOfTrues);
                 });
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.BOOLEAN.toString());
-                catalogColumnStatisticsData.setBooleanColumnStatisticsData(data);
+                catalogColumnStatisticsData.type(ColumnStatisticsType.BOOLEAN.toString());
+                catalogColumnStatisticsData.booleanColumnStatisticsData(data.build());
                 break;
             }
             case BINARY: {
-                BinaryColumnStatisticsData data = new BinaryColumnStatisticsData();
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                data.setMaximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
-                data.setAverageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.BINARY.toString());
-                catalogColumnStatisticsData.setBinaryColumnStatisticsData(data);
+                BinaryColumnStatisticsData.Builder data = BinaryColumnStatisticsData.builder();
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                data.maximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
+                data.averageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+                catalogColumnStatisticsData.type(ColumnStatisticsType.BINARY.toString());
+                catalogColumnStatisticsData.binaryColumnStatisticsData(data.build());
                 break;
             }
             case DATE: {
-                DateColumnStatisticsData data = new DateColumnStatisticsData();
+                DateColumnStatisticsData.Builder data = DateColumnStatisticsData.builder();
                 statistics.getDateStatistics().ifPresent(dateStatistics -> {
-                    dateStatistics.getMin().ifPresent(value -> data.setMinimumValue(localDateToDate(value)));
-                    dateStatistics.getMax().ifPresent(value -> data.setMaximumValue(localDateToDate(value)));
+                    dateStatistics.getMin().ifPresent(value -> data.minimumValue(localDateToInstant(value)));
+                    dateStatistics.getMax().ifPresent(value -> data.maximumValue(localDateToInstant(value)));
                 });
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.DATE.toString());
-                catalogColumnStatisticsData.setDateColumnStatisticsData(data);
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::numberOfDistinctValues);
+                catalogColumnStatisticsData.type(ColumnStatisticsType.DATE.toString());
+                catalogColumnStatisticsData.dateColumnStatisticsData(data.build());
                 break;
             }
             case DECIMAL: {
-                DecimalColumnStatisticsData data = new DecimalColumnStatisticsData();
+                DecimalColumnStatisticsData.Builder data = DecimalColumnStatisticsData.builder();
                 statistics.getDecimalStatistics().ifPresent(decimalStatistics -> {
-                    decimalStatistics.getMin().ifPresent(value -> data.setMinimumValue(bigDecimalToGlueDecimal(value)));
-                    decimalStatistics.getMax().ifPresent(value -> data.setMaximumValue(bigDecimalToGlueDecimal(value)));
+                    decimalStatistics.getMin().ifPresent(value -> data.minimumValue(bigDecimalToGlueDecimal(value)));
+                    decimalStatistics.getMax().ifPresent(value -> data.maximumValue(bigDecimalToGlueDecimal(value)));
                 });
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.DECIMAL.toString());
-                catalogColumnStatisticsData.setDecimalColumnStatisticsData(data);
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::numberOfDistinctValues);
+                catalogColumnStatisticsData.type(ColumnStatisticsType.DECIMAL.toString());
+                catalogColumnStatisticsData.decimalColumnStatisticsData(data.build());
                 break;
             }
             case FLOAT:
             case DOUBLE: {
-                DoubleColumnStatisticsData data = new DoubleColumnStatisticsData();
+                DoubleColumnStatisticsData.Builder data = DoubleColumnStatisticsData.builder();
                 statistics.getDoubleStatistics().ifPresent(doubleStatistics -> {
-                    doubleStatistics.getMin().ifPresent(data::setMinimumValue);
-                    doubleStatistics.getMax().ifPresent(data::setMaximumValue);
+                    doubleStatistics.getMin().ifPresent(data::minimumValue);
+                    doubleStatistics.getMax().ifPresent(data::maximumValue);
                 });
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.DOUBLE.toString());
-                catalogColumnStatisticsData.setDoubleColumnStatisticsData(data);
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::numberOfDistinctValues);
+                catalogColumnStatisticsData.type(ColumnStatisticsType.DOUBLE.toString());
+                catalogColumnStatisticsData.doubleColumnStatisticsData(data.build());
                 break;
             }
             case BYTE:
@@ -243,42 +245,42 @@ public class GlueStatConverter
             case INT:
             case LONG:
             case TIMESTAMP: {
-                LongColumnStatisticsData data = new LongColumnStatisticsData();
+                LongColumnStatisticsData.Builder data = LongColumnStatisticsData.builder();
                 statistics.getIntegerStatistics().ifPresent(stats -> {
-                    stats.getMin().ifPresent(data::setMinimumValue);
-                    stats.getMax().ifPresent(data::setMaximumValue);
+                    stats.getMin().ifPresent(data::minimumValue);
+                    stats.getMax().ifPresent(data::maximumValue);
                 });
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.LONG.toString());
-                catalogColumnStatisticsData.setLongColumnStatisticsData(data);
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::numberOfDistinctValues);
+                catalogColumnStatisticsData.type(ColumnStatisticsType.LONG.toString());
+                catalogColumnStatisticsData.longColumnStatisticsData(data.build());
                 break;
             }
             case VARCHAR:
             case CHAR:
             case STRING: {
-                StringColumnStatisticsData data = new StringColumnStatisticsData();
-                statistics.getNullsCount().ifPresent(data::setNumberOfNulls);
-                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::setNumberOfDistinctValues);
-                data.setMaximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
-                data.setAverageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
-                catalogColumnStatisticsData.setType(ColumnStatisticsType.STRING.toString());
-                catalogColumnStatisticsData.setStringColumnStatisticsData(data);
+                StringColumnStatisticsData.Builder data = StringColumnStatisticsData.builder();
+                statistics.getNullsCount().ifPresent(data::numberOfNulls);
+                toMetastoreDistinctValuesCount(statistics.getDistinctValuesCount(), statistics.getNullsCount()).ifPresent(data::numberOfDistinctValues);
+                data.maximumLength(statistics.getMaxValueSizeInBytes().orElse(0));
+                data.averageLength(getAverageColumnLength(statistics.getTotalSizeInBytes(), rowCount, statistics.getNullsCount()).orElse(0));
+                catalogColumnStatisticsData.type(ColumnStatisticsType.STRING.toString());
+                catalogColumnStatisticsData.stringColumnStatisticsData(data.build());
                 break;
             }
             default:
                 throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics type: " + ((PrimitiveTypeInfo) typeInfo).getPrimitiveCategory());
         }
-        return catalogColumnStatisticsData;
+        return catalogColumnStatisticsData.build();
     }
 
     private static DecimalNumber bigDecimalToGlueDecimal(BigDecimal decimal)
     {
         Decimal hiveDecimal = new Decimal((short) decimal.scale(), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
-        DecimalNumber catalogDecimal = new DecimalNumber();
-        catalogDecimal.setUnscaledValue(ByteBuffer.wrap(hiveDecimal.getUnscaled()));
-        catalogDecimal.setScale((int) hiveDecimal.getScale());
-        return catalogDecimal;
+        return DecimalNumber.builder()
+                .unscaledValue(SdkBytes.fromByteArray(hiveDecimal.getUnscaled()))
+                .scale((int) hiveDecimal.getScale())
+                .build();
     }
 
     private static Optional<BigDecimal> glueDecimalToBigDecimal(DecimalNumber catalogDecimal)
@@ -287,23 +289,23 @@ public class GlueStatConverter
             return Optional.empty();
         }
         Decimal decimal = new Decimal();
-        decimal.setUnscaled(catalogDecimal.getUnscaledValue());
-        decimal.setScale(catalogDecimal.getScale().shortValue());
+        decimal.setUnscaled(catalogDecimal.unscaledValue().asByteBuffer());
+        decimal.setScale(catalogDecimal.scale().shortValue());
         return Optional.of(new BigDecimal(new BigInteger(decimal.getUnscaled()), decimal.getScale()));
     }
 
-    private static Optional<LocalDate> dateToLocalDate(Date date)
+    private static Optional<LocalDate> instantToLocalDate(Instant date)
     {
         if (date == null) {
             return Optional.empty();
         }
-        long daysSinceEpoch = date.getTime() / MILLIS_PER_DAY;
+        long daysSinceEpoch = date.toEpochMilli() / MILLIS_PER_DAY;
         return Optional.of(LocalDate.ofEpochDay(daysSinceEpoch));
     }
 
-    private static Date localDateToDate(LocalDate date)
+    private static Instant localDateToInstant(LocalDate date)
     {
         long millisecondsSinceEpoch = date.toEpochDay() * MILLIS_PER_DAY;
-        return new Date(millisecondsSinceEpoch);
+        return Instant.ofEpochMilli(millisecondsSinceEpoch);
     }
 }

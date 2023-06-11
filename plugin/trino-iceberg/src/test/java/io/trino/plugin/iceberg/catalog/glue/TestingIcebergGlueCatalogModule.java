@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provides;
@@ -31,6 +28,9 @@ import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.function.Predicate;
 
@@ -56,7 +56,7 @@ public class TestingIcebergGlueCatalogModule
         configBinder(binder).bindConfig(IcebergGlueCatalogConfig.class);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(AwsCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableOperationsProvider.class).to(TestingGlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
@@ -72,7 +72,7 @@ public class TestingIcebergGlueCatalogModule
     @Provides
     @Singleton
     @ForGlueHiveMetastore
-    public static RequestHandler2 createRequestHandler(IcebergGlueCatalogConfig config)
+    public static ExecutionInterceptor createRequestHandler(IcebergGlueCatalogConfig config)
     {
         return new SkipArchiveRequestHandler(config.isSkipArchive());
     }

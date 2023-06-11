@@ -13,20 +13,22 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.model.CreateDatabaseRequest;
-import com.amazonaws.services.glue.model.CreateTableRequest;
-import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.GetDatabaseRequest;
-import com.amazonaws.services.glue.model.GetDatabasesRequest;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.GetTablesRequest;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.CreateTableRequest;
+import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTablesRequest;
+import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
 public class SkipArchiveRequestHandler
-        extends RequestHandler2
+        implements ExecutionInterceptor
 {
     private final boolean skipArchive;
 
@@ -36,10 +38,11 @@ public class SkipArchiveRequestHandler
     }
 
     @Override
-    public AmazonWebServiceRequest beforeExecution(AmazonWebServiceRequest request)
+    public SdkRequest modifyRequest(Context.ModifyRequest context, ExecutionAttributes executionAttributes)
     {
+        SdkRequest request = context.request();
         if (request instanceof UpdateTableRequest updateTableRequest) {
-            return updateTableRequest.withSkipArchive(skipArchive);
+            return updateTableRequest.toBuilder().skipArchive(skipArchive).build();
         }
         if (request instanceof CreateDatabaseRequest ||
                 request instanceof DeleteDatabaseRequest ||

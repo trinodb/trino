@@ -13,12 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.services.glue.model.Column;
-import com.amazonaws.services.glue.model.Database;
-import com.amazonaws.services.glue.model.Partition;
-import com.amazonaws.services.glue.model.SerDeInfo;
-import com.amazonaws.services.glue.model.StorageDescriptor;
-import com.amazonaws.services.glue.model.Table;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveType;
@@ -26,6 +20,12 @@ import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.security.PrincipalType;
 import org.apache.hadoop.hive.metastore.TableType;
+import software.amazon.awssdk.services.glue.model.Column;
+import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.Partition;
+import software.amazon.awssdk.services.glue.model.SerDeInfo;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,39 +45,41 @@ public final class TestingMetastoreObjects
 
     public static Database getGlueTestDatabase()
     {
-        return new Database()
-                .withName("test-db" + generateRandom())
-                .withDescription("database desc")
-                .withLocationUri("/db")
-                .withParameters(ImmutableMap.of());
+        return Database.builder()
+                .name("test-db" + generateRandom())
+                .description("database desc")
+                .locationUri("/db")
+                .parameters(ImmutableMap.of())
+                .build();
     }
 
     public static Table getGlueTestTable(String dbName)
     {
-        return new Table()
-                .withDatabaseName(dbName)
-                .withName("test-tbl" + generateRandom())
-                .withOwner("owner")
-                .withParameters(ImmutableMap.of())
-                .withPartitionKeys(ImmutableList.of(getGlueTestColumn()))
-                .withStorageDescriptor(getGlueTestStorageDescriptor())
-                .withTableType(TableType.EXTERNAL_TABLE.name())
-                .withViewOriginalText("originalText")
-                .withViewExpandedText("expandedText");
+        return Table.builder()
+                .databaseName(dbName)
+                .name("test-tbl" + generateRandom())
+                .owner("owner")
+                .parameters(ImmutableMap.of())
+                .partitionKeys(ImmutableList.of(getGlueTestColumn()))
+                .storageDescriptor(getGlueTestStorageDescriptor())
+                .tableType(TableType.EXTERNAL_TABLE.name())
+                .viewOriginalText("originalText")
+                .viewExpandedText("expandedText")
+                .build();
     }
 
     public static Table getGlueTestTrinoMaterializedView(String dbName)
     {
-        return new Table()
-                .withDatabaseName(dbName)
-                .withName("test-mv" + generateRandom())
-                .withOwner("owner")
-                .withParameters(ImmutableMap.of(PRESTO_VIEW_FLAG, "true", TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT))
-                .withPartitionKeys()
-                .withStorageDescriptor(null)
-                .withTableType(TableType.VIRTUAL_VIEW.name())
-                .withViewOriginalText("/* %s: base64encodedquery */".formatted(ICEBERG_MATERIALIZED_VIEW_COMMENT))
-                .withViewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT);
+        return Table.builder()
+                .databaseName(dbName)
+                .name("test-mv" + generateRandom())
+                .owner("owner")
+                .parameters(ImmutableMap.of(PRESTO_VIEW_FLAG, "true", TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT))
+                .partitionKeys(ImmutableList.of())
+                .storageDescriptor((StorageDescriptor) null)
+                .tableType(TableType.VIRTUAL_VIEW.name())
+                .viewOriginalText("/* %s: base64encodedquery */".formatted(ICEBERG_MATERIALIZED_VIEW_COMMENT))
+                .viewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT).build();
     }
 
     public static Column getGlueTestColumn()
@@ -87,10 +89,11 @@ public final class TestingMetastoreObjects
 
     public static Column getGlueTestColumn(String type)
     {
-        return new Column()
-                .withName("test-col" + generateRandom())
-                .withType(type)
-                .withComment("column comment");
+        return Column.builder()
+                .name("test-col" + generateRandom())
+                .type(type)
+                .comment("column comment")
+                .build();
     }
 
     public static StorageDescriptor getGlueTestStorageDescriptor()
@@ -100,27 +103,30 @@ public final class TestingMetastoreObjects
 
     public static StorageDescriptor getGlueTestStorageDescriptor(List<Column> columns, String serde)
     {
-        return new StorageDescriptor()
-                .withBucketColumns(ImmutableList.of("test-bucket-col"))
-                .withColumns(columns)
-                .withParameters(ImmutableMap.of())
-                .withSerdeInfo(new SerDeInfo()
-                        .withSerializationLibrary(serde)
-                        .withParameters(ImmutableMap.of()))
-                .withInputFormat("InputFormat")
-                .withOutputFormat("OutputFormat")
-                .withLocation("/test-tbl")
-                .withNumberOfBuckets(1);
+        return StorageDescriptor.builder()
+                .bucketColumns(ImmutableList.of("test-bucket-col"))
+                .columns(columns)
+                .parameters(ImmutableMap.of())
+                .serdeInfo(SerDeInfo.builder()
+                        .serializationLibrary(serde)
+                        .parameters(ImmutableMap.of())
+                        .build())
+                .inputFormat("InputFormat")
+                .outputFormat("OutputFormat")
+                .location("/test-tbl")
+                .numberOfBuckets(1)
+                .build();
     }
 
     public static Partition getGlueTestPartition(String dbName, String tblName, List<String> values)
     {
-        return new Partition()
-                .withDatabaseName(dbName)
-                .withTableName(tblName)
-                .withValues(values)
-                .withParameters(ImmutableMap.of())
-                .withStorageDescriptor(getGlueTestStorageDescriptor());
+        return Partition.builder()
+                .databaseName(dbName)
+                .tableName(tblName)
+                .values(values)
+                .parameters(ImmutableMap.of())
+                .storageDescriptor(getGlueTestStorageDescriptor())
+                .build();
     }
 
     // --------------- Trino Objects ---------------

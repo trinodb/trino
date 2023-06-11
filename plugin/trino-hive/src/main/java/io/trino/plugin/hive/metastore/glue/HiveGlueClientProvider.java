@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.handlers.RequestHandler2;
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.services.glue.GlueAsyncClient;
 
 import java.util.Optional;
 
@@ -25,18 +25,18 @@ import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlue
 import static java.util.Objects.requireNonNull;
 
 public class HiveGlueClientProvider
-        implements Provider<AWSGlueAsync>
+        implements Provider<GlueAsyncClient>
 {
     private final GlueMetastoreStats stats;
-    private final AWSCredentialsProvider credentialsProvider;
+    private final AwsCredentialsProvider credentialsProvider;
     private final GlueHiveMetastoreConfig glueConfig; // TODO do not keep mutable config instance on a field
-    private final Optional<RequestHandler2> requestHandler;
+    private final Optional<ExecutionInterceptor> requestHandler;
 
     @Inject
     public HiveGlueClientProvider(
             @ForGlueHiveMetastore GlueMetastoreStats stats,
-            AWSCredentialsProvider credentialsProvider,
-            @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
+            AwsCredentialsProvider credentialsProvider,
+            @ForGlueHiveMetastore Optional<ExecutionInterceptor> requestHandler,
             GlueHiveMetastoreConfig glueConfig)
     {
         this.stats = requireNonNull(stats, "stats is null");
@@ -46,8 +46,8 @@ public class HiveGlueClientProvider
     }
 
     @Override
-    public AWSGlueAsync get()
+    public GlueAsyncClient get()
     {
-        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsCollector());
+        return createAsyncGlueClient(glueConfig, credentialsProvider, requestHandler, stats.newRequestMetricsPublisher());
     }
 }
