@@ -207,18 +207,23 @@ public final class Location
      * Creates a new location by appending the given path element to the current path.
      * A slash will be added between the current path and the new path element if needed.
      *
-     * @throws IllegalArgumentException if the new path element is empty or starts with a slash
+     * @throws IllegalArgumentException if the new path element is empty
      */
     public Location appendPath(String newPathElement)
     {
         checkArgument(!newPathElement.isEmpty(), "newPathElement is empty");
-        checkArgument(!newPathElement.startsWith("/"), "newPathElement starts with a slash: %s", newPathElement);
 
         if (path.isEmpty()) {
+            if (newPathElement.startsWith("/")) {
+                newPathElement = newPathElement.substring(1);
+            }
             return appendToEmptyPath(newPathElement);
         }
 
-        if (!path.endsWith("/")) {
+        if (path.endsWith("/") && newPathElement.startsWith("/")) {
+            newPathElement = newPathElement.substring(1);
+        }
+        else if (!path.endsWith("/") && !newPathElement.startsWith("/")) {
             newPathElement = "/" + newPathElement;
         }
         return withPath(location + newPathElement, path + newPathElement);

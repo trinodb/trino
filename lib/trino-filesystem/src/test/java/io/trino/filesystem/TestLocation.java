@@ -281,7 +281,11 @@ class TestLocation
         assertAppendPath("scheme:///path/", "name", Location.of("scheme:///path/name"));
 
         assertAppendPath("/", "name", Location.of("/name"));
+        assertAppendPath("/", "/name", Location.of("/name"));
         assertAppendPath("/path", "name", Location.of("/path/name"));
+        assertAppendPath("/path", "/name", Location.of("/path/name"));
+        assertAppendPath("/path/", "/name", Location.of("/path/name"));
+        assertAppendPath("/path/", "name", Location.of("/path/name"));
     }
 
     private static void assertAppendPath(String locationString, String newPathElement, Location expected)
