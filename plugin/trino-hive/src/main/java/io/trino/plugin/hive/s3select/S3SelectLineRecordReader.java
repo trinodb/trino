@@ -13,13 +13,6 @@
  */
 package io.trino.plugin.hive.s3select;
 
-import com.amazonaws.AbortedException;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.OutputSerialization;
-import com.amazonaws.services.s3.model.ScanRange;
-import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import com.google.errorprone.annotations.ThreadSafe;
@@ -37,6 +30,13 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.util.LineReader;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.AbortedException;
+import software.amazon.awssdk.services.s3.model.CompressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
+import software.amazon.awssdk.services.s3.model.ScanRange;
+import software.amazon.awssdk.services.s3.model.SelectObjectContentRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,7 +45,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
-import static com.amazonaws.services.s3.model.ExpressionType.SQL;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
@@ -60,6 +59,7 @@ import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static software.amazon.awssdk.services.s3.model.ExpressionType.SQL;
 
 @ThreadSafe
 public abstract class S3SelectLineRecordReader
@@ -139,27 +139,27 @@ public abstract class S3SelectLineRecordReader
 
     public SelectObjectContentRequest buildSelectObjectRequest(String query, Path path)
     {
-        SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
+        SelectObjectContentRequest.Builder selectObjectRequest = SelectObjectContentRequest.builder();
         URI uri = path.toUri();
-        selectObjectRequest.setBucketName(TrinoS3FileSystem.extractBucketName(uri));
-        selectObjectRequest.setKey(TrinoS3FileSystem.keyFromPath(path));
-        selectObjectRequest.setExpression(query);
-        selectObjectRequest.setExpressionType(SQL);
+        selectObjectRequest.bucket(TrinoS3FileSystem.extractBucketName(uri));
+        selectObjectRequest.key(TrinoS3FileSystem.keyFromPath(path));
+        selectObjectRequest.expression(query);
+        selectObjectRequest.expressionType(SQL);
 
         InputSerialization selectObjectInputSerialization = buildInputSerialization();
-        selectObjectRequest.setInputSerialization(selectObjectInputSerialization);
+        selectObjectRequest.inputSerialization(selectObjectInputSerialization);
 
         OutputSerialization selectObjectOutputSerialization = buildOutputSerialization();
-        selectObjectRequest.setOutputSerialization(selectObjectOutputSerialization);
+        selectObjectRequest.outputSerialization(selectObjectOutputSerialization);
 
         if (shouldEnableScanRange()) {
-            ScanRange scanRange = new ScanRange();
-            scanRange.setStart(getStart());
-            scanRange.setEnd(getEnd());
-            selectObjectRequest.setScanRange(scanRange);
+            ScanRange.Builder scanRange = ScanRange.builder();
+            scanRange.start(getStart());
+            scanRange.end(getEnd());
+            selectObjectRequest.scanRange(scanRange.build());
         }
 
-        return selectObjectRequest;
+        return selectObjectRequest.build();
     }
 
     protected CompressionType getCompressionType(Path path)
@@ -200,8 +200,8 @@ public abstract class S3SelectLineRecordReader
                         catch (RuntimeException e) {
                             isFirstLine = true;
                             recordsFromS3 = 0;
-                            if (e instanceof AmazonS3Exception) {
-                                switch (((AmazonS3Exception) e).getStatusCode()) {
+                            if (e instanceof AwsServiceException) {
+                                switch (((AwsServiceException) e).statusCode()) {
                                     case HTTP_FORBIDDEN:
                                     case HTTP_NOT_FOUND:
                                     case HTTP_BAD_REQUEST:

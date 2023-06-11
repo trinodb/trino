@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.hive.s3select.csv;
 
-import com.amazonaws.services.s3.model.CSVInput;
-import com.amazonaws.services.s3.model.CSVOutput;
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.OutputSerialization;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.plugin.hive.util.SerdeConstants;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import software.amazon.awssdk.services.s3.model.CSVInput;
+import software.amazon.awssdk.services.s3.model.CSVOutput;
+import software.amazon.awssdk.services.s3.model.CompressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 
 import java.util.Optional;
 import java.util.Properties;
@@ -65,18 +65,18 @@ public class S3SelectCsvRecordReader
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
-        CSVInput selectObjectCSVInputSerialization = new CSVInput();
-        selectObjectCSVInputSerialization.setRecordDelimiter(getLineDelimiter());
-        selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
-        selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
-        selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
-        selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
+        CSVInput.Builder selectObjectCSVInputSerialization = CSVInput.builder();
+        selectObjectCSVInputSerialization.recordDelimiter(getLineDelimiter());
+        selectObjectCSVInputSerialization.fieldDelimiter(fieldDelimiter);
+        selectObjectCSVInputSerialization.comments(COMMENTS_CHAR_STR);
+        selectObjectCSVInputSerialization.quoteCharacter(quoteChar);
+        selectObjectCSVInputSerialization.quoteEscapeCharacter(escapeChar);
 
-        InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType());
-        selectObjectInputSerialization.setCsv(selectObjectCSVInputSerialization);
+        InputSerialization.Builder selectObjectInputSerialization = InputSerialization.builder();
+        selectObjectInputSerialization.compressionType(getCompressionType());
+        selectObjectInputSerialization.csv(selectObjectCSVInputSerialization.build());
 
-        return selectObjectInputSerialization;
+        return selectObjectInputSerialization.build();
     }
 
     @Override
@@ -87,15 +87,15 @@ public class S3SelectCsvRecordReader
         String quoteChar = schema.getProperty(QUOTE_CHAR, null);
         String escapeChar = schema.getProperty(ESCAPE_CHAR, null);
 
-        OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
-        CSVOutput selectObjectCSVOutputSerialization = new CSVOutput();
-        selectObjectCSVOutputSerialization.setRecordDelimiter(getLineDelimiter());
-        selectObjectCSVOutputSerialization.setFieldDelimiter(fieldDelimiter);
-        selectObjectCSVOutputSerialization.setQuoteCharacter(quoteChar);
-        selectObjectCSVOutputSerialization.setQuoteEscapeCharacter(escapeChar);
-        selectObjectOutputSerialization.setCsv(selectObjectCSVOutputSerialization);
+        OutputSerialization.Builder selectObjectOutputSerialization = OutputSerialization.builder();
+        CSVOutput.Builder selectObjectCSVOutputSerialization = CSVOutput.builder();
+        selectObjectCSVOutputSerialization.recordDelimiter(getLineDelimiter());
+        selectObjectCSVOutputSerialization.fieldDelimiter(fieldDelimiter);
+        selectObjectCSVOutputSerialization.quoteCharacter(quoteChar);
+        selectObjectCSVOutputSerialization.quoteEscapeCharacter(escapeChar);
+        selectObjectOutputSerialization.csv(selectObjectCSVOutputSerialization.build());
 
-        return selectObjectOutputSerialization;
+        return selectObjectOutputSerialization.build();
     }
 
     @Override
@@ -103,7 +103,7 @@ public class S3SelectCsvRecordReader
     {
         // Works for CSV if AllowQuotedRecordDelimiter is disabled.
         boolean isQuotedRecordDelimiterAllowed = Boolean.TRUE.equals(
-                buildInputSerialization().getCsv().getAllowQuotedRecordDelimiter());
+                buildInputSerialization().csv().allowQuotedRecordDelimiter());
         return CompressionType.NONE.equals(getCompressionType()) && !isQuotedRecordDelimiterAllowed;
     }
 

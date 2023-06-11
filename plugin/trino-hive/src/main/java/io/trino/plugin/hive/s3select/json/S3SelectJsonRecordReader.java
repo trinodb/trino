@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.hive.s3select.json;
 
-import com.amazonaws.services.s3.model.CompressionType;
-import com.amazonaws.services.s3.model.InputSerialization;
-import com.amazonaws.services.s3.model.JSONInput;
-import com.amazonaws.services.s3.model.JSONOutput;
-import com.amazonaws.services.s3.model.JSONType;
-import com.amazonaws.services.s3.model.OutputSerialization;
 import io.trino.plugin.hive.s3select.S3SelectLineRecordReader;
 import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import software.amazon.awssdk.services.s3.model.CompressionType;
+import software.amazon.awssdk.services.s3.model.InputSerialization;
+import software.amazon.awssdk.services.s3.model.JSONInput;
+import software.amazon.awssdk.services.s3.model.JSONOutput;
+import software.amazon.awssdk.services.s3.model.JSONType;
+import software.amazon.awssdk.services.s3.model.OutputSerialization;
 
 import java.util.Properties;
 
@@ -43,25 +43,24 @@ public class S3SelectJsonRecordReader
     @Override
     public InputSerialization buildInputSerialization()
     {
-        // JSONType.LINES is the only JSON format supported by the Hive JsonSerDe.
-        JSONInput selectObjectJSONInputSerialization = new JSONInput();
-        selectObjectJSONInputSerialization.setType(JSONType.LINES);
+        JSONInput.Builder selectObjectJSONInputSerialization = JSONInput.builder();
+        selectObjectJSONInputSerialization.type(JSONType.LINES);
 
-        InputSerialization selectObjectInputSerialization = new InputSerialization();
-        selectObjectInputSerialization.setCompressionType(getCompressionType());
-        selectObjectInputSerialization.setJson(selectObjectJSONInputSerialization);
+        InputSerialization.Builder selectObjectInputSerialization = InputSerialization.builder();
+        selectObjectInputSerialization.compressionType(getCompressionType());
+        selectObjectInputSerialization.json(selectObjectJSONInputSerialization.build());
 
-        return selectObjectInputSerialization;
+        return selectObjectInputSerialization.build();
     }
 
     @Override
     public OutputSerialization buildOutputSerialization()
     {
-        OutputSerialization selectObjectOutputSerialization = new OutputSerialization();
-        JSONOutput selectObjectJSONOutputSerialization = new JSONOutput();
-        selectObjectOutputSerialization.setJson(selectObjectJSONOutputSerialization);
+        OutputSerialization.Builder selectObjectOutputSerialization = OutputSerialization.builder();
+        JSONOutput selectObjectJSONOutputSerialization = JSONOutput.builder().build();
+        selectObjectOutputSerialization.json(selectObjectJSONOutputSerialization);
 
-        return selectObjectOutputSerialization;
+        return selectObjectOutputSerialization.build();
     }
 
     @Override

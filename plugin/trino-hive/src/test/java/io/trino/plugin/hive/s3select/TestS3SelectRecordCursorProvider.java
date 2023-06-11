@@ -115,7 +115,7 @@ public class TestS3SelectRecordCursorProvider
     {
         S3SelectRecordCursorProvider s3SelectRecordCursorProvider = new S3SelectRecordCursorProvider(
                 new TestingHdfsEnvironment(new ArrayList<>()),
-                new TrinoS3ClientFactory(new HiveConfig()));
+                new TrinoS3ClientFactory(new HiveConfig(), new S3SelectStats()));
 
         return s3SelectRecordCursorProvider.createRecordCursor(
                 ConfigurationInstantiator.newEmptyConfiguration(),
