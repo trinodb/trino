@@ -65,6 +65,8 @@ public class TestResolvedFunction
                         .build()),
                 SCALAR,
                 true,
+                false,
+                Optional.empty(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 ImmutableSet.of(createVarcharType(11), createVarcharType(12), createVarcharType(13)).stream()
                         .collect(toImmutableMap(Type::getTypeSignature, Function.identity())),

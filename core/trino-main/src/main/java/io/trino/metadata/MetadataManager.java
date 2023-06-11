@@ -2304,12 +2304,15 @@ public final class MetadataManager
                 .filter(Objects::nonNull)
                 .forEach(functions::add);
 
+        boolean deprecated = functionMetadata.isDeprecated();
         return new ResolvedFunction(
                 functionBinding.getBoundSignature(),
                 catalogHandle,
                 functionBinding.getFunctionId(),
                 functionMetadata.getKind(),
                 functionMetadata.isDeterministic(),
+                deprecated,
+                deprecated ? Optional.of(functionMetadata.getDescription()) : Optional.empty(),
                 functionMetadata.getFunctionNullability(),
                 dependentTypes,
                 functions.build());

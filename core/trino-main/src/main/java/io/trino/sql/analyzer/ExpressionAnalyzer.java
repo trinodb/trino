@@ -36,7 +36,6 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.function.BoundSignature;
-import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -1313,12 +1312,11 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(session, function);
-            if (functionMetadata.isDeprecated()) {
+            if (function.isDeprecated()) {
                 warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",
-                                functionMetadata.getSignature().getName(),
-                                functionMetadata.getDescription())));
+                                function.getSignature().toSignature().getName(),
+                                function.getDescription().get())));
             }
 
             Type type = signature.getReturnType();

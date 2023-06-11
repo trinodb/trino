@@ -65,6 +65,8 @@ public class ResolvedFunction
     private final FunctionId functionId;
     private final FunctionKind functionKind;
     private final boolean deterministic;
+    private final boolean deprecated;
+    private final Optional<String> description;
     private final FunctionNullability functionNullability;
     private final Map<TypeSignature, Type> typeDependencies;
     private final Set<ResolvedFunction> functionDependencies;
@@ -76,6 +78,8 @@ public class ResolvedFunction
             @JsonProperty("id") FunctionId functionId,
             @JsonProperty("functionKind") FunctionKind functionKind,
             @JsonProperty("deterministic") boolean deterministic,
+            @JsonProperty("deprecated") boolean deprecated,
+            @JsonProperty("description") Optional<String> description,
             @JsonProperty("functionNullability") FunctionNullability functionNullability,
             @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
@@ -85,6 +89,8 @@ public class ResolvedFunction
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.deterministic = deterministic;
+        this.deprecated = deprecated;
+        this.description = requireNonNull(description, "description is null");
         this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
@@ -119,6 +125,18 @@ public class ResolvedFunction
     public boolean isDeterministic()
     {
         return deterministic;
+    }
+
+    @JsonProperty
+    public boolean isDeprecated()
+    {
+        return deprecated;
+    }
+
+    @JsonProperty
+    public Optional<String> getDescription()
+    {
+        return description;
     }
 
     @JsonProperty
@@ -175,6 +193,8 @@ public class ResolvedFunction
                 Objects.equals(functionId, that.functionId) &&
                 functionKind == that.functionKind &&
                 deterministic == that.deterministic &&
+                deprecated == that.deprecated &&
+                Objects.equals(description, that.description) &&
                 Objects.equals(functionNullability, that.functionNullability) &&
                 Objects.equals(typeDependencies, that.typeDependencies) &&
                 Objects.equals(functionDependencies, that.functionDependencies);
@@ -183,7 +203,7 @@ public class ResolvedFunction
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, catalogHandle, functionId, functionKind, deterministic, functionNullability, typeDependencies, functionDependencies);
+        return Objects.hash(signature, catalogHandle, functionId, functionKind, deterministic, deprecated, description, functionNullability, typeDependencies, functionDependencies);
     }
 
     @Override

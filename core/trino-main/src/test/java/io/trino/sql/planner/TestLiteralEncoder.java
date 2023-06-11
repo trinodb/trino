@@ -41,6 +41,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 
 import static com.google.common.base.Verify.verify;
@@ -90,6 +91,8 @@ public class TestLiteralEncoder
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
+            false,
+            Optional.empty(),
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
@@ -104,6 +107,8 @@ public class TestLiteralEncoder
                     .build()),
             SCALAR,
             true,
+            false,
+            Optional.empty(),
             new FunctionNullability(false, ImmutableList.of(false)),
             ImmutableMap.of(),
             ImmutableSet.of());
