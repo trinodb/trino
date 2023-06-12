@@ -69,6 +69,7 @@ public final class TestGroups
     public static final String CANCEL_QUERY = "cancel_query";
     public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
+    public static final String KAFKA_CONFLUENT_LICENSE = "kafka_confluent_license";
     public static final String TWO_HIVES = "two_hives";
     public static final String ICEBERG = "iceberg";
     public static final String ICEBERG_FORMAT_VERSION_COMPATIBILITY = "iceberg_format_version_compatibility";
