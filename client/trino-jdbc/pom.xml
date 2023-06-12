@@ -351,6 +351,10 @@
                                     <shadedPattern>${shadeBase}.airlift</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>javax.annotation</pattern>
+                                    <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>jakarta.annotation</pattern>
                                     <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
@@ -389,12 +393,13 @@
                                         <exclude>org/intellij/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
-                                        <exclude>META-INF/proguard/okhttp3.pro</exclude>
-                                        <exclude>META-INF/proguard/okio.pro</exclude>
+                                        <exclude>META-INF/proguard/**</exclude>
                                         <exclude>LICENSE</exclude>
                                         <exclude>META-INF/**.kotlin_module</exclude>
                                         <exclude>META-INF/versions/**</exclude>
                                         <exclude>META-INF/NOTICE**</exclude>
+                                        <exclude>META-INF/*-NOTICE</exclude>
+                                        <exclude>META-INF/*-LICENSE</exclude>
                                         <exclude>META-INF/LICENSE**</exclude>
                                     </excludes>
                                 </filter>
