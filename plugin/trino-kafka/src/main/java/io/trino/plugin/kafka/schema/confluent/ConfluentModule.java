@@ -17,6 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -52,6 +53,7 @@ import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
@@ -74,9 +76,18 @@ import static java.util.Objects.requireNonNull;
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
 {
+    private final TypeManager typeManager;
+
+    public ConfluentModule(TypeManager typeManager)
+    {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
+        binder.bind(TypeManager.class).toInstance(typeManager);
+
         configBinder(binder).bindConfig(ConfluentSchemaRegistryConfig.class);
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
@@ -89,7 +100,7 @@ public class ConfluentModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, SchemaParser.class).addBinding("AVRO").to(AvroSchemaParser.class).in(Scopes.SINGLETON);
-        newMapBinder(binder, String.class, SchemaParser.class).addBinding("PROTOBUF").to(ProtobufSchemaParser.class).in(Scopes.SINGLETON);
+        newMapBinder(binder, String.class, SchemaParser.class).addBinding("PROTOBUF").to(LazyLoadedProtobufSchemaParser.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -193,6 +204,26 @@ public class ConfluentModule
             checkState(configuration != null, "ProtobufSchemaProvider is not already configured");
             schemaProvider.configure(configuration);
             return schemaProvider;
+        }
+    }
+
+    public static class LazyLoadedProtobufSchemaParser
+            extends ForwardingSchemaParser
+    {
+        // Make JVM to load lazily ProtobufSchemaParser, so Kafka connector can be used
+        // without protobuf dependency for non protobuf based topics
+        private final Supplier<SchemaParser> delegate;
+
+        @Inject
+        public LazyLoadedProtobufSchemaParser(TypeManager typeManager)
+        {
+            this.delegate = Suppliers.memoize(() -> new ProtobufSchemaParser(requireNonNull(typeManager, "typeManager is null")));
+        }
+
+        @Override
+        protected SchemaParser delegate()
+        {
+            return delegate.get();
         }
     }
 }
