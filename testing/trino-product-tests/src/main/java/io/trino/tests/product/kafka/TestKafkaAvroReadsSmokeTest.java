@@ -87,12 +87,12 @@ public class TestKafkaAvroReadsSmokeTest
                 "a_bigint", 127L,
                 "a_double", 234.567,
                 "a_boolean", true);
-        String topicName = ALL_DATATYPES_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
+        String topicName = ALL_DATATYPES_AVRO_TOPIC_NAME + kafkaCatalog.topicNameSuffix();
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.messageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
+                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(
                             "foobar",
                             127,
@@ -105,12 +105,12 @@ public class TestKafkaAvroReadsSmokeTest
     public void testNullType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), kafkaCatalog.getMessageSerializer());
+        String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.topicNameSuffix();
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), kafkaCatalog.messageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
+                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(
                             null,
                             null,
@@ -126,16 +126,16 @@ public class TestKafkaAvroReadsSmokeTest
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
                 "a_map", ImmutableMap.of("key1", "value1"));
-        String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
+        String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.topicNameSuffix();
+        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.messageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
                     QueryResult queryResult = onTrino().executeQuery(format(
                             "SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t",
-                            kafkaCatalog.isColumnMappingSupported() ? "c_array" : "a_array",
-                            kafkaCatalog.isColumnMappingSupported() ? "c_map" : "a_map",
-                            kafkaCatalog.getCatalogName(),
+                            kafkaCatalog.columnMappingSupported() ? "c_array" : "a_array",
+                            kafkaCatalog.columnMappingSupported() ? "c_map" : "a_map",
+                            kafkaCatalog.catalogName(),
                             KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(100, 102, "value1"));
                 });
@@ -154,39 +154,14 @@ public class TestKafkaAvroReadsSmokeTest
         };
     }
 
-    private static final class KafkaCatalog
+    private record KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
     {
-        private final String catalogName;
-        private final String topicNameSuffix;
-        private final boolean columnMappingSupported;
-        private final MessageSerializer messageSerializer;
-
         private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.topicNameSuffix = requireNonNull(topicNameSuffix, "topicNameSuffix is null");
             this.columnMappingSupported = columnMappingSupported;
             this.messageSerializer = requireNonNull(messageSerializer, "messageSerializer is null");
-        }
-
-        public String getCatalogName()
-        {
-            return catalogName;
-        }
-
-        public String getTopicNameSuffix()
-        {
-            return topicNameSuffix;
-        }
-
-        public boolean isColumnMappingSupported()
-        {
-            return columnMappingSupported;
-        }
-
-        public MessageSerializer getMessageSerializer()
-        {
-            return messageSerializer;
         }
 
         @Override
