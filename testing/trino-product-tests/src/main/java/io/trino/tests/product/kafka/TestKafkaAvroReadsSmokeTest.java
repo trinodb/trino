@@ -79,7 +79,7 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/schema_with_references.avsc";
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+    public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
@@ -88,7 +88,7 @@ public class TestKafkaAvroReadsSmokeTest
                 "a_double", 234.567,
                 "a_boolean", true);
         String topicName = ALL_DATATYPES_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TOPIC_NAME, topicName, record, messageSerializer);
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
@@ -102,11 +102,11 @@ public class TestKafkaAvroReadsSmokeTest
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testNullType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+    public void testNullType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), messageSerializer);
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), kafkaCatalog.getMessageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
@@ -120,14 +120,14 @@ public class TestKafkaAvroReadsSmokeTest
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+    public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
                 "a_map", ImmutableMap.of("key1", "value1"));
         String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TOPIC_NAME, topicName, record, messageSerializer);
+        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
@@ -146,10 +146,10 @@ public class TestKafkaAvroReadsSmokeTest
     {
         return new Object[][] {
                 {
-                        new KafkaCatalog("kafka", "", true), new AvroMessageSerializer(),
+                        new KafkaCatalog("kafka", "", true, new AvroMessageSerializer()),
                 },
                 {
-                        new KafkaCatalog("kafka_schema_registry", "_schema_registry", false), new SchemaRegistryAvroMessageSerializer(),
+                        new KafkaCatalog("kafka_schema_registry", "_schema_registry", false, new SchemaRegistryAvroMessageSerializer()),
                 },
         };
     }
@@ -159,12 +159,14 @@ public class TestKafkaAvroReadsSmokeTest
         private final String catalogName;
         private final String topicNameSuffix;
         private final boolean columnMappingSupported;
+        private final MessageSerializer messageSerializer;
 
-        private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported)
+        private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.topicNameSuffix = requireNonNull(topicNameSuffix, "topicNameSuffix is null");
             this.columnMappingSupported = columnMappingSupported;
+            this.messageSerializer = requireNonNull(messageSerializer, "messageSerializer is null");
         }
 
         public String getCatalogName()
@@ -180,6 +182,11 @@ public class TestKafkaAvroReadsSmokeTest
         public boolean isColumnMappingSupported()
         {
             return columnMappingSupported;
+        }
+
+        public MessageSerializer getMessageSerializer()
+        {
+            return messageSerializer;
         }
 
         @Override

@@ -72,7 +72,7 @@ public class TestKafkaProtobufReadsSmokeTest
     private static final String ALL_DATATYPES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes.proto";
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+    public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         Map<String, Object> record = ImmutableMap.<String, Object>builder()
@@ -84,7 +84,7 @@ public class TestKafkaProtobufReadsSmokeTest
                 .put("f_boolean", true)
                 .buildOrThrow();
         String topicName = BASIC_DATATYPES_PROTOBUF_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createProtobufTable(BASIC_DATATYPES_SCHEMA_PATH, BASIC_DATATYPES_PROTOBUF_TOPIC_NAME, topicName, record, messageSerializer);
+        createProtobufTable(BASIC_DATATYPES_SCHEMA_PATH, BASIC_DATATYPES_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
 
         assertEventually(
                 new Duration(30, SECONDS),
@@ -101,7 +101,7 @@ public class TestKafkaProtobufReadsSmokeTest
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+    public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
@@ -110,7 +110,7 @@ public class TestKafkaProtobufReadsSmokeTest
                         "key", "key1",
                         "value", 1234567890.123456789));
         String topicName = BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createProtobufTable(BASIC_STRUCTURAL_SCHEMA_PATH, BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME, topicName, record, messageSerializer);
+        createProtobufTable(BASIC_STRUCTURAL_SCHEMA_PATH, BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
@@ -129,10 +129,10 @@ public class TestKafkaProtobufReadsSmokeTest
     {
         return new Object[][] {
                 {
-                        new KafkaCatalog("kafka", "", true), new ProtobufMessageSerializer(),
+                        new KafkaCatalog("kafka", "", true, new ProtobufMessageSerializer()),
                 },
                 {
-                        new KafkaCatalog("kafka_schema_registry", "_schema_registry", false), new SchemaRegistryProtobufMessageSerializer(),
+                        new KafkaCatalog("kafka_schema_registry", "_schema_registry", false, new SchemaRegistryProtobufMessageSerializer()),
                 },
         };
     }
@@ -142,12 +142,14 @@ public class TestKafkaProtobufReadsSmokeTest
         private final String catalogName;
         private final String topicNameSuffix;
         private final boolean columnMappingSupported;
+        private final MessageSerializer messageSerializer;
 
-        private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported)
+        private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.topicNameSuffix = requireNonNull(topicNameSuffix, "topicNameSuffix is null");
             this.columnMappingSupported = columnMappingSupported;
+            this.messageSerializer = requireNonNull(messageSerializer, "messageSerializer is null");
         }
 
         public String getCatalogName()
@@ -163,6 +165,11 @@ public class TestKafkaProtobufReadsSmokeTest
         public boolean isColumnMappingSupported()
         {
             return columnMappingSupported;
+        }
+
+        public MessageSerializer getMessageSerializer()
+        {
+            return messageSerializer;
         }
 
         @Override
