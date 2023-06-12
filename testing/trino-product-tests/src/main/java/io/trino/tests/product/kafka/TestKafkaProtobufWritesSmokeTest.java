@@ -34,7 +34,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
-public class TestKafkaProtobuf
+public class TestKafkaProtobufWritesSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";
