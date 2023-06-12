@@ -172,6 +172,11 @@ public final class IcebergUtil
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.gz.metadata.json (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L141)
     //  - 00001-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json.gz (https://github.com/apache/iceberg/blob/ab398a0d5ff195f763f8c7a4358ac98fa38a8de7/core/src/main/java/org/apache/iceberg/TableMetadataParser.java#L146)
     private static final Pattern METADATA_FILE_NAME_PATTERN = Pattern.compile("(?<version>\\d+)-(?<uuid>[-a-fA-F0-9]*)(?<compression>\\.[a-zA-Z0-9]+)?" + Pattern.quote(METADATA_FILE_EXTENSION) + "(?<compression2>\\.[a-zA-Z0-9]+)?");
+    // Hadoop Generated Metadata file name examples
+    //  - v0.metadata.json
+    //  - v0.gz.metadata.json
+    //  - v0.metadata.json.gz
+    private static final Pattern HADOOP_GENERATED_METADATA_FILE_NAME_PATTERN = Pattern.compile("v(?<version>\\d+)(?<compression>\\.[a-zA-Z0-9]+)?" + Pattern.quote(METADATA_FILE_EXTENSION) + "(?<compression2>\\.[a-zA-Z0-9]+)?");
 
     private IcebergUtil() {}
 
@@ -713,6 +718,10 @@ public final class IcebergUtil
     {
         checkArgument(!metadataFileName.contains("/"), "Not a file name: %s", metadataFileName);
         Matcher matcher = METADATA_FILE_NAME_PATTERN.matcher(metadataFileName);
+        if (matcher.matches()) {
+            return parseInt(matcher.group("version"));
+        }
+        matcher = HADOOP_GENERATED_METADATA_FILE_NAME_PATTERN.matcher(metadataFileName);
         if (matcher.matches()) {
             return parseInt(matcher.group("version"));
         }
