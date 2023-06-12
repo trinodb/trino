@@ -75,7 +75,7 @@ public class ProtobufSchemaParser
                 Optional.empty(),
                 Optional.of(subject),
                 Streams.concat(getFields(protobufSchema.toDescriptor()),
-                                getOneofs(protobufSchema))
+                                getOneofs(protobufSchema.toDescriptor()))
                         .collect(toImmutableList()));
     }
 
@@ -101,9 +101,9 @@ public class ProtobufSchemaParser
                         false));
     }
 
-    private Stream<KafkaTopicFieldDescription> getOneofs(ProtobufSchema protobufSchema)
+    private Stream<KafkaTopicFieldDescription> getOneofs(Descriptor descriptor)
     {
-        return protobufSchema.toDescriptor()
+        return descriptor
                 .getOneofs()
                 .stream()
                 .map(oneofDescriptor ->
