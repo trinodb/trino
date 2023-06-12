@@ -62,6 +62,8 @@ import static java.util.Objects.requireNonNull;
 public class MergeFileWriter
         implements FileWriter
 {
+    private static final Page EMPTY_PAGE = new Page(0);
+
     // The bucketPath looks like this: /root/dir/delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?
     private static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_\\d+_\\d+)_(?<statementId>\\d+)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?$");
 
@@ -228,8 +230,11 @@ public class MergeFileWriter
     private Page buildDeletePage(Block rowIds, long writeId)
     {
         ColumnarRow columnarRow = toColumnarRow(rowIds);
-        checkArgument(!columnarRow.mayHaveNull(), "The rowIdsRowBlock may not have null rows");
         int positionCount = rowIds.getPositionCount();
+        if (positionCount == 0) {
+            return EMPTY_PAGE;
+        }
+        checkArgument(!columnarRow.mayHaveNull(), "The rowIdsRowBlock may not have null rows");
         // We've verified that the rowIds block has no null rows, so it's okay to get the field blocks
         Block[] blockArray = {
                 RunLengthEncodedBlock.create(DELETE_OPERATION_BLOCK, positionCount),

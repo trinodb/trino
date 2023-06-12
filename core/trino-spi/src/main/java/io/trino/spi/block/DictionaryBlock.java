@@ -54,7 +54,12 @@ public class DictionaryBlock
 
     public static Block create(int positionCount, Block dictionary, int[] ids)
     {
-        return createInternal(positionCount, dictionary, ids, randomDictionaryId());
+        return create(0, positionCount, dictionary, ids);
+    }
+
+    public static Block create(int idsOffset, int positionCount, Block dictionary, int[] ids)
+    {
+        return createInternal(idsOffset, positionCount, dictionary, ids, randomDictionaryId());
     }
 
     /**
@@ -62,16 +67,16 @@ public class DictionaryBlock
      */
     public static Block createProjectedDictionaryBlock(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
-        return createInternal(positionCount, dictionary, ids, dictionarySourceId);
+        return createInternal(0, positionCount, dictionary, ids, dictionarySourceId);
     }
 
-    private static Block createInternal(int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
+    private static Block createInternal(int idsOffset, int positionCount, Block dictionary, int[] ids, DictionaryId dictionarySourceId)
     {
         if (positionCount == 0) {
             return dictionary.copyRegion(0, 0);
         }
         if (positionCount == 1) {
-            return dictionary.getRegion(ids[0], 1);
+            return dictionary.getRegion(ids[idsOffset], 1);
         }
 
         // if dictionary is an RLE then this can just be a new RLE
@@ -83,18 +88,14 @@ public class DictionaryBlock
         if (dictionary instanceof DictionaryBlock dictionaryBlock) {
             int[] newIds = new int[positionCount];
             for (int position = 0; position < positionCount; position++) {
-                newIds[position] = dictionaryBlock.getId(ids[position]);
+                newIds[position] = dictionaryBlock.getId(ids[idsOffset + position]);
             }
             dictionary = dictionaryBlock.getDictionary();
             dictionarySourceId = randomDictionaryId();
             ids = newIds;
+            idsOffset = 0;
         }
-        return new DictionaryBlock(0, positionCount, dictionary, ids, false, false, dictionarySourceId);
-    }
-
-    DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids)
-    {
-        this(idsOffset, positionCount, dictionary, ids, false, false, randomDictionaryId());
+        return new DictionaryBlock(idsOffset, positionCount, dictionary, ids, false, false, dictionarySourceId);
     }
 
     private DictionaryBlock(int idsOffset, int positionCount, Block dictionary, int[] ids, boolean dictionaryIsCompacted, boolean isSequentialIds, DictionaryId dictionarySourceId)

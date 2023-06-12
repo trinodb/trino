@@ -100,7 +100,7 @@ public final class ColumnarRow
         Block[] fields = new Block[columnarRow.getFieldCount()];
         for (int i = 0; i < fields.length; i++) {
             // Reuse the dictionary ids array directly since no nulls are present
-            fields[i] = new DictionaryBlock(
+            fields[i] = DictionaryBlock.create(
                     dictionaryBlock.getRawIdsOffset(),
                     dictionaryBlock.getPositionCount(),
                     columnarRow.getField(i),

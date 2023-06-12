@@ -42,6 +42,19 @@ public class TestDictionaryBlock
         extends AbstractTestBlock
 {
     @Test
+    public void testConstructionIdsOffset()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block dictionary = createSlicesBlock(expectedValues);
+
+        Block block = DictionaryBlock.create(1, 2, dictionary, new int[] {1, 3, 6, 8});
+        assertThat(block).isInstanceOf(DictionaryBlock.class);
+        assertThat(block.getPositionCount()).isEqualTo(2);
+        assertThat(block.getSlice(0, 0, block.getSliceLength(0))).isEqualTo(expectedValues[3]);
+        assertThat(block.getSlice(1, 0, block.getSliceLength(1))).isEqualTo(expectedValues[6]);
+    }
+
+    @Test
     public void testConstructionNoPositions()
     {
         Slice[] expectedValues = createExpectedValues(10);
@@ -65,6 +78,18 @@ public class TestDictionaryBlock
     }
 
     @Test
+    public void testConstructionOnePositionsIdsOffset()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block dictionary = createSlicesBlock(expectedValues);
+
+        Block block = DictionaryBlock.create(2, 1, dictionary, new int[] {1, 5, 9});
+        assertThat(block).isInstanceOf(VariableWidthBlock.class);
+        assertThat(block.getPositionCount()).isEqualTo(1);
+        assertThat(block.getSlice(0, 0, block.getSliceLength(0))).isEqualTo(expectedValues[9]);
+    }
+
+    @Test
     public void testConstructionUnnestDictionary()
     {
         Slice[] expectedValues = createExpectedValues(10);
@@ -72,6 +97,21 @@ public class TestDictionaryBlock
         DictionaryBlock dictionary = (DictionaryBlock) DictionaryBlock.create(4, innerDictionary, new int[] {1, 3, 5, 7});
 
         Block block = DictionaryBlock.create(2, dictionary, new int[] {1, 3});
+        assertThat(block).isInstanceOf(DictionaryBlock.class);
+        assertBlock(block, new Slice[] {expectedValues[3], expectedValues[7]});
+
+        Block actualDictionary = ((DictionaryBlock) block).getDictionary();
+        assertThat(actualDictionary).isSameAs(innerDictionary);
+    }
+
+    @Test
+    public void testConstructionUnnestDictionaryIdsOffset()
+    {
+        Slice[] expectedValues = createExpectedValues(10);
+        Block innerDictionary = createSlicesBlock(expectedValues);
+        DictionaryBlock dictionary = (DictionaryBlock) DictionaryBlock.create(4, innerDictionary, new int[] {1, 3, 5, 7});
+
+        Block block = DictionaryBlock.create(1, 2, dictionary, new int[] {0, 1, 3});
         assertThat(block).isInstanceOf(DictionaryBlock.class);
         assertBlock(block, new Slice[] {expectedValues[3], expectedValues[7]});
 

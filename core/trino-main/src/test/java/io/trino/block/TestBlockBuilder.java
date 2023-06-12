@@ -131,7 +131,7 @@ public class TestBlockBuilder
     {
         assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
-                .hasMessage("Invalid position %d in block with %d positions", positions[0], block.getPositionCount());
+                .hasMessage("Invalid position %d and length %d in block with %d positions", positions[0], length, block.getPositionCount());
     }
 
     private static void assertInvalidOffset(Block block, int[] positions, int offset, int length)

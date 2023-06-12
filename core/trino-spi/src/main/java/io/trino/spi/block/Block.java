@@ -244,7 +244,7 @@ public interface Block
     {
         checkArrayRange(positions, offset, length);
 
-        return new DictionaryBlock(offset, length, this, positions);
+        return DictionaryBlock.create(offset, length, this, positions);
     }
 
     /**
