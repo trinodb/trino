@@ -926,7 +926,7 @@ Example
           "table": "employee",
           "privileges": ["SELECT"],
           "filter": "user = current_user"
-        }
+        },
         {
           "schema": "default",
           "table": ".*",
