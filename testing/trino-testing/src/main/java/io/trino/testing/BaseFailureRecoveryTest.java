@@ -209,7 +209,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test(dataProvider = "parallelTests")
-    public final void testParallel(Runnable runnable)
+    public void testParallel(Runnable runnable)
     {
         try {
             // By default, a test method using a @DataProvider with parallel attribute is run in 10 threads (org.testng.xml.XmlSuite#DEFAULT_DATA_PROVIDER_THREAD_COUNT).

@@ -18,7 +18,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -58,5 +60,13 @@ public abstract class BaseOracleFailureRecoveryTest
                     runner.loadExchangeManager("filesystem", ImmutableMap.of(
                             "exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager"));
                 });
+    }
+
+    @Override
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/16277", match = "There should be no remaining tmp_trino tables that are queryable")
+    @Test(dataProvider = "parallelTests")
+    public void testParallel(Runnable runnable)
+    {
+        super.testParallel(runnable);
     }
 }
