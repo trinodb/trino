@@ -14,7 +14,6 @@
 package io.trino.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -77,6 +76,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -114,7 +114,7 @@ public final class JsonUtil
     // Note: JsonFactory is mutable, instances cannot be shared openly.
     public static JsonFactory createJsonFactory()
     {
-        return new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+        return jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
     }
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
