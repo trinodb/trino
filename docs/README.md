@@ -12,6 +12,7 @@ The `docs` module contains the reference documentation for Trino.
 - [Contribution requirements](#contribution-requirements)
 - [Workflow](#workflow)
 - [Videos](#videos)
+- [Docker container](#docker-container)
 
 ## Writing and contributing
 
@@ -254,4 +255,35 @@ contribution](https://trino.io/development/process.html).
    In this case, the five-minute video [Learning Trino SQL with
    Docker](https://www.youtube.com/watch?v=y58sb9bW2mA) gives you a starting
    point for setting up a test system on your laptop.
+
+## Docker container
+
+The build of the docs uses a Docker container that includes Sphinx and the
+required libraries. The container is referenced in the `SPHINX_IMAGE` variable
+in the `build` script.
+
+The specific details for the container are available in `Dockerfile`, and
+`requirements.in`. The file `requirements.txt` must be updated after any changes
+to `requirements.in`.
+
+The container must be published to the GitHub container registry at ghcr.io with
+the necessary access credentials and the following command, after modification
+of the version tag `xxx` to the new desired value as used in the `build` script:
+
+```
+docker buildx build docs --platform=linux/arm64,linux/amd64 --tag ghcr.io/trinodb/build/sphinx:xxx --provenance=false --push
+```
+
+Note that the version must be updated and the command automatically also
+publishes the container with support for arm64 and amd64 processors. This is
+necessary so the build performs well on both hardware platforms.
+
+After the container is published, you can update the `build` script and merge
+the related pull request.
+
+Example PRs:
+
+* https://github.com/trinodb/trino/pull/17778
+* https://github.com/trinodb/trino/pull/13225
+
 
