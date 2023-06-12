@@ -109,7 +109,7 @@ jobs:
         # Run only integration tests to verify JDBC driver shading
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN failsafe:integration-test -B --strict-checksums -P ci -pl :trino-jdbc
+          $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
       - uses: docker/setup-qemu-action@v2
