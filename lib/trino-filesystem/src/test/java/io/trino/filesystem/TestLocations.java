@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem;
 
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,6 +21,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.stream.Stream;
 
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static io.trino.filesystem.Locations.getFileName;
 import static io.trino.filesystem.Locations.getParent;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -150,5 +152,31 @@ public class TestLocations
         assertThatThrownBy(() -> getParent(location))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching(exceptionMessageRegexp);
+    }
+
+    @Test
+    public void testDirectoryLocationEquivalence()
+    {
+        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority", true);
+        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority/", true);
+        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority//", false);
+        assertDirectoryLocationEquivalence("scheme://userInfo@host:1234/dir", "scheme://userInfo@host:1234/dir/", true);
+        assertDirectoryLocationEquivalence("scheme://authority/some/path", "scheme://authority/some/path", true);
+        assertDirectoryLocationEquivalence("scheme://authority/some/path", "scheme://authority/some/path/", true);
+        assertDirectoryLocationEquivalence("scheme://authority/some/path", "scheme://authority/some/path//", false);
+
+        assertDirectoryLocationEquivalence("scheme://authority/some/path//", "scheme://authority/some/path//", true);
+        assertDirectoryLocationEquivalence("scheme://authority/some/path/", "scheme://authority/some/path//", false);
+        assertDirectoryLocationEquivalence("scheme://authority/some/path//", "scheme://authority/some/path///", false);
+
+        assertDirectoryLocationEquivalence("scheme://authority/some//path", "scheme://authority/some//path/", true);
+    }
+
+    private static void assertDirectoryLocationEquivalence(String leftLocation, String rightLocation, boolean equivalent)
+    {
+        assertThat(areDirectoryLocationsEquivalent(Location.of(leftLocation), Location.of(rightLocation))).as("equivalence of '%s' in relation to '%s'", leftLocation, rightLocation)
+                .isEqualTo(equivalent);
+        assertThat(areDirectoryLocationsEquivalent(Location.of(rightLocation), Location.of(leftLocation))).as("equivalence of '%s' in relation to '%s'", rightLocation, leftLocation)
+                .isEqualTo(equivalent);
     }
 }

@@ -224,6 +224,17 @@ public final class Location
         return withPath(location + newPathElement, path + newPathElement);
     }
 
+    Location removeOneTrailingSlash()
+    {
+        if (path.endsWith("/")) {
+            return withPath(location.substring(0, location.length() - 1), path.substring(0, path.length() - 1));
+        }
+        if (path.equals("") && location.endsWith("/")) {
+            return withPath(location.substring(0, location.length() - 1), "");
+        }
+        return this;
+    }
+
     /**
      * Creates a new location by appending the given suffix to the current path.
      * Typical usage for this method is to append a file extension to a file name,
