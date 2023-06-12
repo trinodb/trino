@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test(singleThreaded = true)
-public class TestKafkaProtobufReads
+public class TestKafkaProtobufReadsSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_SCHEMA = "product_tests";
@@ -179,7 +179,7 @@ public class TestKafkaProtobufReads
         String timestampTopic = "timestamp";
         String timestampProtoFile = "google/protobuf/timestamp.proto";
         ProtobufSchema baseSchema = new ProtobufSchema(
-                Resources.toString(Resources.getResource(TestKafkaProtobufReads.class, "/" + timestampProtoFile), UTF_8),
+                Resources.toString(Resources.getResource(TestKafkaProtobufReadsSmokeTest.class, "/" + timestampProtoFile), UTF_8),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 null,
