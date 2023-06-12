@@ -14,7 +14,6 @@
 package io.trino.benchmark;
 
 import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 
 import java.io.IOException;
@@ -22,6 +21,7 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.Map;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static java.util.Objects.requireNonNull;
 
 public class OdsBenchmarkResultWriter
@@ -36,7 +36,7 @@ public class OdsBenchmarkResultWriter
         requireNonNull(outputStream, "outputStream is null");
         this.entity = entity;
         try {
-            jsonGenerator = new JsonFactory().createGenerator(outputStream, JsonEncoding.UTF8);
+            jsonGenerator = jsonFactory().createGenerator(outputStream, JsonEncoding.UTF8);
             jsonGenerator.writeStartArray();
         }
         catch (IOException e) {

@@ -41,6 +41,7 @@ import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -67,7 +68,7 @@ public class JsonSerializer
                 .map(column -> field(column.name().toLowerCase(Locale.ROOT), column.type()))
                 .collect(toImmutableList()));
 
-        jsonFactory = new JsonFactory();
+        jsonFactory = jsonFactory();
     }
 
     @Override
