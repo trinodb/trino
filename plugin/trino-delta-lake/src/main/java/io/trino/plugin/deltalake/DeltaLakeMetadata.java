@@ -963,11 +963,11 @@ public class DeltaLakeMetadata
     {
         String schemaLocation = getSchemaLocation(schema)
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
-        String tableNameForLocation = escapeTableName(tableName);
+        String tableNameLocationComponent = escapeTableName(tableName);
         if (useUniqueTableLocation) {
-            tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+            tableNameLocationComponent += "-" + randomUUID().toString().replace("-", "");
         }
-        return appendPath(schemaLocation, tableNameForLocation);
+        return appendPath(schemaLocation, tableNameLocationComponent);
     }
 
     private void checkPathContainsNoFiles(ConnectorSession session, Location targetPath)

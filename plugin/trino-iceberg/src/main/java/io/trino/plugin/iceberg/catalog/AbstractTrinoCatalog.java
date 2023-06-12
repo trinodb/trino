@@ -204,11 +204,11 @@ public abstract class AbstractTrinoCatalog
 
     protected String createNewTableName(String baseTableName)
     {
-        String tableName = escapeTableName(baseTableName);
+        String tableNameLocationComponent = escapeTableName(baseTableName);
         if (useUniqueTableLocation) {
-            tableName += "-" + randomUUID().toString().replace("-", "");
+            tableNameLocationComponent += "-" + randomUUID().toString().replace("-", "");
         }
-        return tableName;
+        return tableNameLocationComponent;
     }
 
     protected void deleteTableDirectory(TrinoFileSystem fileSystem, SchemaTableName schemaTableName, String tableLocation)
