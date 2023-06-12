@@ -14,12 +14,15 @@
 package io.trino.plugin.base.util;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.base.util.TestJsonUtils.TestEnum.OPTION_A;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -69,5 +72,29 @@ public class TestJsonUtils
                 .isInstanceOf(UncheckedIOException.class)
                 .hasMessage("Could not parse JSON")
                 .hasStackTraceContaining("Unrecognized token 'not': was expecting (JSON String, Number, Array, Object or token 'null', 'true' or 'false')");
+    }
+
+    @Test
+    public void testFactoryHasNoReadContraints()
+    {
+        assertReadConstraints(jsonFactory().streamReadConstraints());
+        assertReadConstraints(jsonFactoryBuilder().build().streamReadConstraints());
+    }
+
+    @Test
+    public void testBuilderHasNoReadConstraints()
+    {
+        assertReadConstraints(jsonFactoryBuilder().build().streamReadConstraints());
+    }
+
+    private static void assertReadConstraints(StreamReadConstraints constraints)
+    {
+        // Jackson 2.15 introduced read constraints limit that are too strict for
+        // Trino use-cases. Ensure that those limits are no longer present for JsonFactories.
+        //
+        // https://github.com/trinodb/trino/issues/17843
+        assertThat(constraints.getMaxStringLength()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(constraints.getMaxNestingDepth()).isEqualTo(Integer.MAX_VALUE);
+        assertThat(constraints.getMaxNumberLength()).isEqualTo(Integer.MAX_VALUE);
     }
 }
