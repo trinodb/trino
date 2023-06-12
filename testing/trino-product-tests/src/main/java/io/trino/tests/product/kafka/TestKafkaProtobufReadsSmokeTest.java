@@ -30,7 +30,6 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.trino.tempto.query.QueryResult;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -47,6 +46,7 @@ import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.trino.tests.product.TestGroups.KAFKA;
+import static io.trino.tests.product.TestGroups.KAFKA_CONFLUENT_LICENSE;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -71,8 +71,24 @@ public class TestKafkaProtobufReadsSmokeTest
     private static final String ALL_DATATYPES_PROTOBUF_TOPIC_SCHEMA_REGISTRY = "all_datatypes_protobuf_schema_registry";
     private static final String ALL_DATATYPES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes.proto";
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog)
+    private static final KafkaCatalog KAFKA_CATALOG = new KafkaCatalog("kafka", "", true, new ProtobufMessageSerializer());
+    private static final KafkaCatalog KAFKA_SCHEMA_REGISTRY_CATALOG = new KafkaCatalog("kafka_schema_registry", "_schema_registry", false, new SchemaRegistryProtobufMessageSerializer());
+
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    public void testSelectPrimitiveDataType()
+            throws Exception
+    {
+        selectPrimitiveDataType(KAFKA_CATALOG);
+    }
+
+    @Test(groups = {KAFKA_CONFLUENT_LICENSE, PROFILE_SPECIFIC_TESTS})
+    public void testSelectPrimitiveDataTypeWithSchemaRegistry()
+            throws Exception
+    {
+        selectPrimitiveDataType(KAFKA_SCHEMA_REGISTRY_CATALOG);
+    }
+
+    private void selectPrimitiveDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         Map<String, Object> record = ImmutableMap.<String, Object>builder()
@@ -100,8 +116,21 @@ public class TestKafkaProtobufReadsSmokeTest
                 });
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
-    public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    public void testSelectStructuralDataType()
+            throws Exception
+    {
+        selectStructuralDataType(KAFKA_CATALOG);
+    }
+
+    @Test(groups = {KAFKA_CONFLUENT_LICENSE, PROFILE_SPECIFIC_TESTS})
+    public void testSelectStructuralDataTypeWithSchemaRegistry()
+            throws Exception
+    {
+        selectStructuralDataType(KAFKA_SCHEMA_REGISTRY_CATALOG);
+    }
+
+    private void selectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
@@ -124,19 +153,6 @@ public class TestKafkaProtobufReadsSmokeTest
                 });
     }
 
-    @DataProvider
-    public static Object[][] catalogs()
-    {
-        return new Object[][] {
-                {
-                        new KafkaCatalog("kafka", "", true, new ProtobufMessageSerializer()),
-                },
-                {
-                        new KafkaCatalog("kafka_schema_registry", "_schema_registry", false, new SchemaRegistryProtobufMessageSerializer()),
-                },
-        };
-    }
-
     private record KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
     {
         private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
@@ -154,7 +170,7 @@ public class TestKafkaProtobufReadsSmokeTest
         }
     }
 
-    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {KAFKA_CONFLUENT_LICENSE, PROFILE_SPECIFIC_TESTS})
     public void testProtobufWithSchemaReferences()
             throws Exception
     {
@@ -198,7 +214,7 @@ public class TestKafkaProtobufReadsSmokeTest
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from kafka_schema_registry.%s.%s", KAFKA_SCHEMA, ALL_DATATYPES_PROTOBUF_TOPIC_SCHEMA_REGISTRY));
+                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s.%s", KAFKA_SCHEMA_REGISTRY_CATALOG.catalogName(), KAFKA_SCHEMA, ALL_DATATYPES_PROTOBUF_TOPIC_SCHEMA_REGISTRY));
                     assertThat(queryResult).containsOnly(row(
                             "foobar",
                             2,

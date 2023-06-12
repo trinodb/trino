@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodeConfluentKafka;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafka;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSaslPlaintext;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeKafkaSsl;
@@ -34,6 +35,10 @@ public class SuiteKafka
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeKafka.class)
                         .withGroups("configured_features", "kafka")
+                        .build(),
+                testOnEnvironment(EnvMultinodeConfluentKafka.class)
+                        // testing kafka group with this env is slightly redundant but helps verify that copying confluent libraries doesn't break non-confluent functionality
+                        .withGroups("configured_features", "kafka", "kafka_confluent_license")
                         .build(),
                 testOnEnvironment(EnvMultinodeKafkaSsl.class)
                         .withGroups("configured_features", "kafka")
