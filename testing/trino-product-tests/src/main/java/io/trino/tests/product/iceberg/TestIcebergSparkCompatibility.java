@@ -28,6 +28,13 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.hive.Engine;
 import io.trino.tests.product.hive.TestHiveMetastoreClientFactory;
+import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.types.Types;
 import org.apache.thrift.TException;
 import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
@@ -55,9 +62,12 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
+import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -75,6 +85,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onSpark;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static java.sql.JDBCType.VARCHAR;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -2658,6 +2669,50 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testRegisterHadoopTableAndRead(StorageFormat storageFormat)
+    {
+        // create hadoop table
+        String randomNameSuffix = randomNameSuffix();
+        String hadoopTableName = "test_register_hadoop_table_hadoop_table_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix;
+        String hadoopTableLocation = "hdfs://hadoop-master:9000/user/hive/warehouse/" + hadoopTableName;
+        HadoopTables hadoopTables = new HadoopTables(newEmptyConfiguration());
+        Schema schema = new Schema(ImmutableList.of(
+                Types.NestedField.optional(1, "id", Types.IntegerType.get()),
+                Types.NestedField.optional(2, "name", Types.StringType.get())));
+
+        Table table = hadoopTables.create(
+                schema,
+                PartitionSpec.unpartitioned(),
+                SortOrder.unsorted(),
+                ImmutableMap.of(),
+                hadoopTableLocation);
+
+        // Make a commit on the table to ensure its state is being persisted
+        String tableComment = "hadoop table comment";
+        table.updateProperties().set(TABLE_COMMENT, tableComment).commit();
+
+        // Try registering hadoop table in Trino and read its comment
+        String registeredTableName = "test_register_hadoop_table_registered_table_" + storageFormat.name().toLowerCase(ENGLISH) + "_" + randomNameSuffix;
+        String trinoRegisteredTableName = trinoTableName(registeredTableName);
+        String sparkRegisteredTableName = sparkTableName(registeredTableName);
+        onTrino().executeQuery("CALL iceberg.system.register_table('%s', '%s', '%s')".formatted(TEST_SCHEMA_NAME, registeredTableName, hadoopTableLocation));
+
+        Assertions.assertThat((String) readTableComment(TRINO_CATALOG, TEST_SCHEMA_NAME, registeredTableName).getOnlyValue()).isEqualTo(tableComment);
+
+        // Check accuracy for the writes performed on top of the registered table
+        onTrino().executeQuery("INSERT INTO " + trinoRegisteredTableName + " VALUES (1, 'INDIA')");
+        onSpark().executeQuery("INSERT INTO " + sparkRegisteredTableName + " VALUES (2, 'JAPAN')");
+
+        List<Row> expectedRows = ImmutableList.of(row(1, "INDIA"), row(2, "JAPAN"));
+        assertThat(onTrino().executeQuery(("SELECT * FROM " + trinoRegisteredTableName)))
+                .containsOnly(expectedRows);
+        assertThat(onSpark().executeQuery(("SELECT * FROM " + sparkRegisteredTableName)))
+                .containsOnly(expectedRows);
+
+        onTrino().executeQuery("DROP TABLE " + trinoRegisteredTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testUnregisterNotIcebergTable()
     {
@@ -2866,6 +2921,16 @@ public class TestIcebergSparkCompatibility
                 .getOnlyValue();
     }
 
+    private FileFormat getDataFileFormat(StorageFormat storageFormat)
+    {
+        return switch (storageFormat) {
+            case ORC -> FileFormat.ORC;
+            case PARQUET -> FileFormat.PARQUET;
+            case AVRO -> FileFormat.AVRO;
+            default -> throw new IllegalArgumentException("Unexpected storage format: " + storageFormat);
+        };
+    }
+
     private int calculateMetadataFilesForPartitionedTable(String tableName)
     {
         String dataFilePath = (String) onTrino().executeQuery(format("SELECT file_path FROM iceberg.default.\"%s$files\" limit 1", tableName)).getOnlyValue();
@@ -2896,5 +2961,14 @@ public class TestIcebergSparkCompatibility
     private static String toLowerCase(String name)
     {
         return name.toLowerCase(ENGLISH);
+    }
+
+    private static QueryResult readTableComment(String catalog, String schema, String tableName)
+    {
+        return onTrino().executeQuery(
+                "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = ? AND schema_name = ? AND table_name = ?",
+                param(VARCHAR, catalog),
+                param(VARCHAR, schema),
+                param(VARCHAR, tableName));
     }
 }
