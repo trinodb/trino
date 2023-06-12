@@ -30,6 +30,7 @@ import static io.trino.operator.scalar.JsonExtract.JsonValueJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.generateExtractor;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -341,7 +342,7 @@ public class TestJsonExtract
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
-        JsonFactory jsonFactory = new JsonFactory();
+        JsonFactory jsonFactory = jsonFactory();
         JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);

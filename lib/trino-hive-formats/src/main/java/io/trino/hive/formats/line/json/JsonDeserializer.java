@@ -14,7 +14,6 @@
 package io.trino.hive.formats.line.json;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -68,6 +67,7 @@ import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
 import static io.trino.hive.formats.HiveFormatUtils.writeDecimal;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -107,7 +107,7 @@ import static org.joda.time.DateTimeZone.UTC;
 public class JsonDeserializer
         implements LineDeserializer
 {
-    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
             .disable(INTERN_FIELD_NAMES)
             .build();
 
