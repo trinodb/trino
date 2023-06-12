@@ -83,13 +83,13 @@ public class TestKafkaProtobufReadsSmokeTest
                 .put("e_float", 3.14f)
                 .put("f_boolean", true)
                 .buildOrThrow();
-        String topicName = BASIC_DATATYPES_PROTOBUF_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createProtobufTable(BASIC_DATATYPES_SCHEMA_PATH, BASIC_DATATYPES_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
+        String topicName = BASIC_DATATYPES_PROTOBUF_TOPIC_NAME + kafkaCatalog.topicNameSuffix();
+        createProtobufTable(BASIC_DATATYPES_SCHEMA_PATH, BASIC_DATATYPES_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.messageSerializer());
 
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
-                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
+                    QueryResult queryResult = onTrino().executeQuery(format("select * from %s.%s", kafkaCatalog.catalogName(), KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(
                             "foobar",
                             314,
@@ -109,16 +109,16 @@ public class TestKafkaProtobufReadsSmokeTest
                 "a_map", ImmutableMap.of(
                         "key", "key1",
                         "value", 1234567890.123456789));
-        String topicName = BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
-        createProtobufTable(BASIC_STRUCTURAL_SCHEMA_PATH, BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.getMessageSerializer());
+        String topicName = BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME + kafkaCatalog.topicNameSuffix();
+        createProtobufTable(BASIC_STRUCTURAL_SCHEMA_PATH, BASIC_STRUCTURAL_PROTOBUF_TOPIC_NAME, topicName, record, kafkaCatalog.messageSerializer());
         assertEventually(
                 new Duration(30, SECONDS),
                 () -> {
                     QueryResult queryResult = onTrino().executeQuery(format(
                             "SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t",
-                            kafkaCatalog.isColumnMappingSupported() ? "c_array" : "a_array",
-                            kafkaCatalog.isColumnMappingSupported() ? "c_map" : "a_map",
-                            kafkaCatalog.getCatalogName(),
+                            kafkaCatalog.columnMappingSupported() ? "c_array" : "a_array",
+                            kafkaCatalog.columnMappingSupported() ? "c_map" : "a_map",
+                            kafkaCatalog.catalogName(),
                             KAFKA_SCHEMA + "." + topicName));
                     assertThat(queryResult).containsOnly(row(100L, 101L, 1234567890.123456789));
                 });
@@ -137,39 +137,14 @@ public class TestKafkaProtobufReadsSmokeTest
         };
     }
 
-    private static final class KafkaCatalog
+    private record KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
     {
-        private final String catalogName;
-        private final String topicNameSuffix;
-        private final boolean columnMappingSupported;
-        private final MessageSerializer messageSerializer;
-
         private KafkaCatalog(String catalogName, String topicNameSuffix, boolean columnMappingSupported, MessageSerializer messageSerializer)
         {
             this.catalogName = requireNonNull(catalogName, "catalogName is null");
             this.topicNameSuffix = requireNonNull(topicNameSuffix, "topicNameSuffix is null");
             this.columnMappingSupported = columnMappingSupported;
             this.messageSerializer = requireNonNull(messageSerializer, "messageSerializer is null");
-        }
-
-        public String getCatalogName()
-        {
-            return catalogName;
-        }
-
-        public String getTopicNameSuffix()
-        {
-            return topicNameSuffix;
-        }
-
-        public boolean isColumnMappingSupported()
-        {
-            return columnMappingSupported;
-        }
-
-        public MessageSerializer getMessageSerializer()
-        {
-            return messageSerializer;
         }
 
         @Override
