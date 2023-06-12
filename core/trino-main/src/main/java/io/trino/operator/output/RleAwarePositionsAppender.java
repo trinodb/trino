@@ -54,7 +54,7 @@ public class RleAwarePositionsAppender
     {
         // RleAwarePositionsAppender should be used with UnnestingPositionsAppender that makes sure
         // append is called only with flat block
-        checkArgument(!(source instanceof RunLengthEncodedBlock), "Append should be called with flat block but got %s", source);
+        checkArgument(!(source instanceof RunLengthEncodedBlock), "Append should be called with non-RLE block but got %s", source);
         switchToFlat();
         delegate.append(positions, source);
     }
