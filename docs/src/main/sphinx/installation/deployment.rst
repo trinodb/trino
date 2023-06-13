@@ -14,17 +14,22 @@ Linux operating system
 
 * 64-bit required
 * newer release preferred, especially when running on containers
-* adequate ulimits for the user that runs the Trino process. These limits
-  may depend on the specific Linux distribution you are using. The number
-  of open file descriptors needed for a particular Trino instance scales
-  as roughly the number of machines in the cluster, times some factor
-  depending on the workload. We recommend the following limits, which can
-  typically be set in ``/etc/security/limits.conf``:
+* adequate ulimits for the user that runs the Trino process. These limits may
+  depend on the specific Linux distribution you are using. The number of open
+  file descriptors needed for a particular Trino instance scales as roughly the
+  number of machines in the cluster, times some factor depending on the
+  workload. The ``nofile`` limit sets the maximum number of file descriptors
+  that a process can have, while the ``nproc`` limit restricts the number of
+  processes, and therefore threads on the JVM, a user can create. We recommend
+  setting limits to the following values at a minimum. Typically, this
+  configuration is located in ``/etc/security/limits.conf``:
 
   .. code-block:: text
 
       trino soft nofile 131072
       trino hard nofile 131072
+      trino soft nproc 128000
+      trino hard nproc 128000
 
 ..
    These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
