@@ -41,7 +41,6 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -90,16 +89,6 @@ public class HudiModule
         return newScheduledThreadPool(
                 hudiConfig.getSplitLoaderParallelism(),
                 daemonThreadsNamed("hudi-split-loader-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForHudiBackgroundSplitLoader
-    public ExecutorService createSplitGeneratorExecutor(HudiConfig hudiConfig)
-    {
-        return newFixedThreadPool(
-                hudiConfig.getSplitGeneratorParallelism(),
-                daemonThreadsNamed("hudi-split-generator-%s"));
     }
 
     @Provides
