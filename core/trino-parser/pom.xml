@@ -73,6 +73,14 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/antlr4/io/trino</directory>
+                <filtering>false</filtering>
+                <targetPath>antlr</targetPath>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.antlr</groupId>
