@@ -70,12 +70,13 @@ Additionally, following configuration properties can be set depending on the use
         for structural data types. The equivalent catalog session property is
         ``parquet_optimized_nested_reader_enabled``.
       - ``true``
-    * - ``hudi.min-partition-batch-size``
-      - Minimum number of partitions returned in a single batch.
-      - ``10``
-    * - ``hudi.max-partition-batch-size``
-      - Maximum number of partitions returned in a single batch.
-      - ``100``
+    * - ``hudi.split-generator-parallelism``
+      - Number of threads to generate splits from partitions.
+      - ``4``
+    * - ``hudi.split-loader-parallelism``
+      - Number of threads to run background split loader.
+        A single background split loader is needed per query.
+      - ``4``
     * - ``hudi.size-based-split-weights-enabled``
       - Unlike uniform splitting, size-based splitting ensures that each batch of splits
         has enough data to process. By default, it is enabled to improve performance.
@@ -95,6 +96,10 @@ Additionally, following configuration properties can be set depending on the use
     * - ``hudi.max-outstanding-splits``
       - Maximum outstanding splits in a batch enqueued for processing.
       - ``1000``
+    * - ``hudi.per-transaction-metastore-cache-maximum-size``
+      - Maximum number of metastore data objects per transaction in
+        the Hive metastore cache.
+      - ``2000``
 
 
 SQL support
