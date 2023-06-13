@@ -59,18 +59,18 @@ public class Launcher
     public static void main(String[] args)
     {
         Launcher launcher = new Launcher();
-        run(launcher, new LauncherBundle(), args);
+        System.exit(execute(launcher, new LauncherBundle(), args));
     }
 
-    public static void run(Launcher launcher, ResourceBundle bundle, String[] args)
+    public static int execute(Launcher launcher, ResourceBundle bundle, String[] args)
     {
         IFactory factory = createFactory(launcher.getExtensions());
-        System.exit(new CommandLine(launcher, factory)
+        return new CommandLine(launcher, factory)
                 .setCaseInsensitiveEnumValuesAllowed(true)
                 .registerConverter(Duration.class, Duration::valueOf)
                 .registerConverter(Path.class, Paths::get)
                 .setResourceBundle(bundle)
-                .execute(args));
+                .execute(args);
     }
 
     private static IFactory createFactory(Extensions extensions)
@@ -157,7 +157,7 @@ public class Launcher
         }
     }
 
-    private static class LauncherBundle
+    static class LauncherBundle
             extends ListResourceBundle
     {
         @Override
