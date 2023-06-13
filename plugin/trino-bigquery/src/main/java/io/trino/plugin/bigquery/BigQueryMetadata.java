@@ -43,7 +43,10 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -81,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -664,6 +668,41 @@ public class BigQueryMetadata
     {
         BigQueryInsertTableHandle handle = (BigQueryInsertTableHandle) insertHandle;
         return finishInsert(session, handle.getRemoteTableName(), handle.getTemporaryRemoteTableName(), handle.getPageSinkIdColumnName(), handle.getColumnNames(), fragments);
+    }
+
+    @Override
+    public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        return ConnectorMetadata.super.applyDelete(session, handle);
+    }
+
+    @Override
+    public OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        return ConnectorMetadata.super.executeDelete(session, handle);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        return ConnectorMetadata.super.beginMerge(session, tableHandle, retryMode);
+    }
+
+    @Override
+    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    {
+        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        ConnectorMetadata.super.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+    }
+
+    @Override
+    public ConnectorAnalyzeMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, Map<String, Object> analyzeProperties)
+    {
+        // TODO Fix BaseBigQueryFailureRecoveryTest when implementing this method
+        return ConnectorMetadata.super.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties);
     }
 
     @Override
