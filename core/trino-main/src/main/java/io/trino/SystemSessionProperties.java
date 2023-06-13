@@ -36,6 +36,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
 import static io.trino.execution.QueryManagerConfig.MAX_TASK_RETRY_ATTEMPTS;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
@@ -918,19 +919,19 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT,
                         "Maximum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMaxPartitionCount(),
-                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, false),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT,
                         "Minimum number of partitions for distributed joins and aggregations executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCount(),
-                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, false),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
                 integerProperty(
                         FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE,
                         "Minimum number of partitions for distributed joins and aggregations in write queries executed with fault tolerant execution enabled",
                         queryManagerConfig.getFaultTolerantExecutionMinPartitionCountForWrite(),
-                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, false),
+                        value -> validateIntegerValue(value, FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE, 1, FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT, false),
                         false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
@@ -1390,6 +1391,11 @@ public final class SystemSessionProperties
 
     private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, boolean allowNull)
     {
+        return validateIntegerValue(value, property, lowerBoundIncluded, Integer.MAX_VALUE, allowNull);
+    }
+
+    private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, int upperBoundIncluded, boolean allowNull)
+    {
         if (value == null && !allowNull) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
         }
@@ -1402,6 +1408,10 @@ public final class SystemSessionProperties
         if (intValue < lowerBoundIncluded) {
             throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
+        if (intValue > upperBoundIncluded) {
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or less than %s", property, upperBoundIncluded));
+        }
+
         return intValue;
     }
 
