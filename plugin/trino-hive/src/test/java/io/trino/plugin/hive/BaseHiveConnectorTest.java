@@ -240,6 +240,9 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
+                return false;
+
             case SUPPORTS_DROP_FIELD:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;

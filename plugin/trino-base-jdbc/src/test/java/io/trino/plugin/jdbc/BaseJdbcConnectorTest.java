@@ -129,6 +129,9 @@ public abstract class BaseJdbcConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
+                return false;
+
             case SUPPORTS_UPDATE: // not supported by any JDBC connector
             case SUPPORTS_MERGE: // not supported by any JDBC connector
                 return false;

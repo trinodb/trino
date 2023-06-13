@@ -129,6 +129,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
@@ -2348,6 +2349,52 @@ public abstract class BaseConnectorTest
         finally {
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
             assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + "_renamed");
+        }
+    }
+
+    @Test
+    public void testDropSchemaCascade()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
+
+        if (!hasBehavior(SUPPORTS_DROP_SCHEMA_CASCADE)) {
+            String schemaName = "test_drop_schema_cascade_" + randomNameSuffix();
+            assertUpdate(createSchemaSql(schemaName));
+            assertQueryFails(
+                    "DROP SCHEMA " + schemaName + " CASCADE",
+                    "This connector does not support dropping schemas with CASCADE option");
+            assertUpdate("DROP SCHEMA " + schemaName);
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) || hasBehavior(SUPPORTS_CREATE_VIEW) || hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW));
+
+        String schemaName = "test_drop_schema_cascade_" + randomNameSuffix();
+        String tableName = "test_table" + randomNameSuffix();
+        String viewName = "test_view" + randomNameSuffix();
+        String materializedViewName = "test_materialized_view" + randomNameSuffix();
+        try {
+            assertUpdate(createSchemaSql(schemaName));
+            if (hasBehavior(SUPPORTS_CREATE_TABLE)) {
+                assertUpdate("CREATE TABLE " + schemaName + "." + tableName + "(a INT)");
+            }
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                assertUpdate("CREATE VIEW " + schemaName + "." + viewName + " AS SELECT 1 a");
+            }
+            if (hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
+                assertUpdate("CREATE MATERIALIZED VIEW " + schemaName + "." + materializedViewName + " AS SELECT 1 a");
+            }
+
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
+
+            assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + schemaName + "." + tableName);
+            assertUpdate("DROP VIEW IF EXISTS " + schemaName + "." + viewName);
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + schemaName + "." + materializedViewName);
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
         }
     }
 
