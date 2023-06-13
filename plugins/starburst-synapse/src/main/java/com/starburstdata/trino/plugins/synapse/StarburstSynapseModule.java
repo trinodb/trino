@@ -16,12 +16,16 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
+import com.starburstdata.trino.plugins.jdbc.PoolingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcRecordSetProvider;
@@ -54,6 +58,7 @@ public class StarburstSynapseModule
     protected final void setup(Binder binder)
     {
         configBinder(binder).bindConfig(SqlServerConfig.class);
+        configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
         // The SNAPSHOT ISOLATION seems not supported by Synapse, but the docs (
         // https://docs.microsoft.com/en-us/sql/t-sql/statements/set-transaction-isolation-level-transact-sql?view=sql-server-ver15) don't explain
         // whether this is the expected behavior.
@@ -98,10 +103,22 @@ public class StarburstSynapseModule
     @Singleton
     @DefaultSynapseBinding
     public static ConnectionFactory getConnectionFactory(
+            CatalogName catalogName,
             BaseJdbcConfig config,
+            JdbcConnectionPoolConfig connectionPoolingConfig,
             SqlServerConfig sqlServerConfig,
-            CredentialProvider credentialProvider)
+            CredentialProvider credentialProvider,
+            IdentityCacheMapping identityCacheMapping)
     {
+        if (connectionPoolingConfig.isConnectionPoolEnabled()) {
+            return new PoolingConnectionFactory(
+                    catalogName.toString(),
+                    SQLServerDriver.class,
+                    config,
+                    connectionPoolingConfig,
+                    credentialProvider,
+                    identityCacheMapping);
+        }
         return new SqlServerConnectionFactory(
                 new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
                 sqlServerConfig.isSnapshotIsolationDisabled());
