@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.aws-sdk2.version>2.20.65</dep.aws-sdk2.version>
+        <dep.aws-sdk2.version>2.20.78</dep.aws-sdk2.version>
     </properties>
 
     <dependencies>
@@ -84,8 +84,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.annotation</groupId>
-            <artifactId>javax.annotation-api</artifactId>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
