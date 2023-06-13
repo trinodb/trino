@@ -168,7 +168,7 @@ public class ConfluentModule
             implements SchemaProvider
     {
         // Make JVM to load lazily ProtobufSchemaProvider, so Kafka connector can be used
-        // with protobuf dependency for non protobuf based topics
+        // without protobuf dependency for non protobuf based topics
         private final Supplier<SchemaProvider> delegate = Suppliers.memoize(this::create);
         private final AtomicReference<Map<String, ?>> configuration = new AtomicReference<>();
 
