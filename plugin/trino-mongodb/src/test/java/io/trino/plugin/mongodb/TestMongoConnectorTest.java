@@ -478,6 +478,24 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testDbRefFieldOrder()
+    {
+        // DBRef's field order is databaseName, collectionName and id
+        // Create a table with different order and verify the result
+        String tableName = "test_dbref_field_order" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(1, 'test_collection', 'test_db') AS row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
     public void testMaps()
     {
         String mapIntegerTable = "test_map_integer" + randomNameSuffix();
