@@ -33,6 +33,7 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import io.trino.tests.product.launcher.util.ConsoleTable;
 import org.testcontainers.utility.MountableFile;
 import picocli.CommandLine;
+import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
@@ -190,7 +191,7 @@ public class EnvironmentDescribe
 
             log.info("Environment '%s' file mounts:\n%s", environmentUpOptions.environment, mountsTable.render());
 
-            return 1;
+            return ExitCode.OK;
         }
 
         private String simplifyPath(String path)
