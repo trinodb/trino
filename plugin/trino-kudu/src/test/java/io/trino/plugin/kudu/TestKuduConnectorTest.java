@@ -72,6 +72,7 @@ public class TestKuduConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
@@ -147,6 +148,13 @@ public class TestKuduConnectorTest
     public void testDropNonEmptySchemaWithTable()
     {
         assertThatThrownBy(super::testDropNonEmptySchemaWithTable)
+                .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+    }
+
+    @Override
+    public void testDropSchemaCascade()
+    {
+        assertThatThrownBy(super::testDropSchemaCascade)
                 .hasMessage("Creating schema in Kudu connector not allowed if schema emulation is disabled.");
     }
 
