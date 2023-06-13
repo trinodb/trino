@@ -26,6 +26,7 @@ import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
@@ -281,6 +282,34 @@ public abstract class BaseDataDefinitionTaskTest
                 throw new TrinoException(ALREADY_EXISTS, "Schema already exists");
             }
             schemas.add(schema);
+        }
+
+        @Override
+        public void dropSchema(Session session, CatalogSchemaName schema, boolean cascade)
+        {
+            if (cascade) {
+                tables.keySet().stream()
+                        .filter(table -> schema.getSchemaName().equals(table.getSchemaName()))
+                        .forEach(tables::remove);
+                views.keySet().stream()
+                        .filter(view -> schema.getSchemaName().equals(view.getSchemaName()))
+                        .forEach(tables::remove);
+                materializedViews.keySet().stream()
+                        .filter(materializedView -> schema.getSchemaName().equals(materializedView.getSchemaName()))
+                        .forEach(tables::remove);
+            }
+            schemas.remove(schema);
+        }
+
+        @Override
+        public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+        {
+            List<QualifiedObjectName> tables = ImmutableList.<QualifiedObjectName>builder()
+                    .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName())).collect(toImmutableList()))
+                    .addAll(this.views.keySet().stream().map(view -> new QualifiedObjectName(catalogName, view.getSchemaName(), view.getTableName())).collect(toImmutableList()))
+                    .addAll(this.materializedViews.keySet().stream().map(mv -> new QualifiedObjectName(catalogName, mv.getSchemaName(), mv.getTableName())).collect(toImmutableList()))
+                    .build();
+            return tables.stream().filter(prefix::matches).collect(toImmutableList());
         }
 
         @Override

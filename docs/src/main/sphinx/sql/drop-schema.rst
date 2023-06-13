@@ -7,7 +7,7 @@ Synopsis
 
 .. code-block:: text
 
-    DROP SCHEMA [ IF EXISTS ] schema_name
+    DROP SCHEMA [ IF EXISTS ] schema_name [ CASCADE | RESTRICT ]
 
 Description
 -----------
@@ -27,6 +27,10 @@ Drop the schema ``web``::
 Drop the schema ``sales`` if it exists::
 
     DROP SCHEMA IF EXISTS sales
+
+Drop the schema ``archive``, along with everything it contains::
+
+    DROP SCHEMA archive CASCADE
 
 See also
 --------
