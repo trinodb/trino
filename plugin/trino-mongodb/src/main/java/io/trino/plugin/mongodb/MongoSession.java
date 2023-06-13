@@ -138,9 +138,9 @@ public class MongoSession
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
 
-    private static final String DATABASE_NAME = "databaseName";
-    private static final String COLLECTION_NAME = "collectionName";
-    private static final String ID = "id";
+    public static final String DATABASE_NAME = "databaseName";
+    public static final String COLLECTION_NAME = "collectionName";
+    public static final String ID = "id";
 
     // The 'simple' locale is the default collection in MongoDB. The locale doesn't allow specifying other fields (e.g. numericOrdering)
     // https://www.mongodb.com/docs/manual/reference/collation/

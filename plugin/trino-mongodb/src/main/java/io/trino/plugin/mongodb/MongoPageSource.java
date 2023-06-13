@@ -50,6 +50,9 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
+import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
+import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
@@ -325,9 +328,17 @@ public class MongoPageSource
                 BlockBuilder builder = output.beginBlockEntry();
 
                 checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
-                appendTo(type.getTypeParameters().get(0), dbRefValue.getDatabaseName(), builder);
-                appendTo(type.getTypeParameters().get(1), dbRefValue.getCollectionName(), builder);
-                appendTo(type.getTypeParameters().get(2), dbRefValue.getId(), builder);
+                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                    Type fieldType = type.getTypeParameters().get(i);
+                    String fieldName = parameter.getNamedTypeSignature().getName().orElseThrow();
+                    switch (fieldName) {
+                        case DATABASE_NAME -> appendTo(fieldType, dbRefValue.getDatabaseName(), builder);
+                        case COLLECTION_NAME -> appendTo(fieldType, dbRefValue.getCollectionName(), builder);
+                        case ID -> appendTo(fieldType, dbRefValue.getId(), builder);
+                        default -> throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected field name for DBRef: " + fieldName);
+                    }
+                }
 
                 output.closeEntry();
                 return;
