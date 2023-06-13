@@ -107,7 +107,6 @@ public class TestMongoConnectorTest
                 return false;
 
             case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_RENAME_COLUMN:
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
