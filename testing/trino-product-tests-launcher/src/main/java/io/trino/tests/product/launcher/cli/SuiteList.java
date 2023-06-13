@@ -28,8 +28,6 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
@@ -83,7 +81,7 @@ public final class SuiteList
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
 
             try {
-                this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+                this.out = new PrintStream(System.out, true, Charset.defaultCharset().name());
             }
             catch (UnsupportedEncodingException e) {
                 throw new IllegalStateException("Could not create print stream", e);
