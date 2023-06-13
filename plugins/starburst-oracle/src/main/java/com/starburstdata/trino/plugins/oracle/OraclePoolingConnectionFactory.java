@@ -17,7 +17,6 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.security.ConnectorIdentity;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
 import oracle.ucp.UniversalConnectionPoolException;
@@ -33,8 +32,6 @@ import java.util.Properties;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -48,6 +45,7 @@ public class OraclePoolingConnectionFactory
 
     private final UniversalConnectionPoolManager poolManager;
     private final Optional<CredentialProvider> credentialProvider;
+    private final OracleConnectionProvider oracleConnectionProvider;
     private final CatalogName catalogName;
     private final Properties connectionProperties;
     private final OracleConfig oracleConfig;
@@ -59,12 +57,14 @@ public class OraclePoolingConnectionFactory
             BaseJdbcConfig config,
             Properties connectionProperties,
             Optional<CredentialProvider> credentialProvider,
+            OracleConnectionProvider oracleConnectionProvider,
             OracleConfig oracleConfig)
     {
         this.catalogName = catalogName;
         this.connectionProperties = requireNonNull(connectionProperties, "connectionProperties is null");
         this.credentialProvider = requireNonNull(credentialProvider, "credentialProvider is null");
         this.oracleConfig = oracleConfig;
+        this.oracleConnectionProvider = requireNonNull(oracleConnectionProvider, "oracleConnectionProvider is null");
         try {
             poolManager = UniversalConnectionPoolManagerImpl.getUniversalConnectionPoolManager();
             poolManager.setJmxEnabled(true);
@@ -98,32 +98,10 @@ public class OraclePoolingConnectionFactory
                 .ifPresent(pwd -> attempt(() -> dataSource.setPassword(pwd)));
         dataSource.setValidateConnectionOnBorrow(true);
 
-        if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
-            throw new TrinoException(CONFIGURATION_INVALID, "Require connection-user to discover cluster topology");
-        }
-        if (isPasswordAuthentication()) {
-            verifyPasswordIsPresent(dataSource);
-        }
+        oracleConnectionProvider.validateConnectionCredentials(dataSource);
 
         log.debug("Opening Oracle UCP %s", dataSource.getConnectionPoolName());
         poolManager.createConnectionPool((UniversalConnectionPoolAdapter) dataSource);
-    }
-
-    private static void verifyPasswordIsPresent(PoolDataSource dataSource)
-    {
-        if (dataSource.getPassword() == null || dataSource.getPassword().isEmpty()) {
-            throw new TrinoException(CONFIGURATION_INVALID, "Password and password pass-through modes require connection-password to discover cluster topology");
-        }
-    }
-
-    /*
-     * PoolDataSource#getPassword is a deprecated method with the latest Oracle UCP
-     * version used here, hence must be ignored. Will be extended by SEP to override the validation process
-     * in case of PASSWORD/PASSWORD_PASS_THROUGH authentication methods supported.
-     */
-    protected boolean isPasswordAuthentication()
-    {
-        return false;
     }
 
     private void restoreAutoCommit(Connection connection)
@@ -139,27 +117,10 @@ public class OraclePoolingConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        Connection connection = getConnectionWithCredentials(session);
-
+        Connection connection = oracleConnectionProvider.getConnection(credentialProvider, session, dataSource);
         verify(connection.getAutoCommit(), "autoCommit must be enabled");
 
         return connection;
-    }
-
-    protected Connection getConnectionWithCredentials(ConnectorSession session)
-            throws SQLException
-    {
-        verify(credentialProvider.isPresent(), "Credential provider is missing");
-
-        Optional<ConnectorIdentity> identity = Optional.of(session.getIdentity());
-        String username = credentialProvider.get().getConnectionUser(identity).orElse("");
-        String password = credentialProvider.get().getConnectionPassword(identity).orElse("");
-
-        if (username.isEmpty() || password.isEmpty()) {
-            throw new TrinoException(GENERIC_USER_ERROR, "Password authentication modes require user credentials");
-        }
-
-        return dataSource.getConnection(username, password);
     }
 
     @Override

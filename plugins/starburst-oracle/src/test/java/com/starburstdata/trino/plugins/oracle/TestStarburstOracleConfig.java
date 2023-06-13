@@ -26,6 +26,7 @@ public class TestStarburstOracleConfig
     public void testDefaults()
     {
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(StarburstOracleConfig.class)
+                .setAuthenticationType("PASSWORD")
                 .setParallelismType(NO_PARALLELISM)
                 .setMaxSplitsPerScan(10));
     }
@@ -34,11 +35,13 @@ public class TestStarburstOracleConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "NONE")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
+                .setAuthenticationType("NONE")
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
 
@@ -49,11 +52,13 @@ public class TestStarburstOracleConfig
     public void testExplicitPropertyMappingsForLegacyValues()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "NONE")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         StarburstOracleConfig expected = new StarburstOracleConfig()
+                .setAuthenticationType("NONE")
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
 
@@ -64,11 +69,13 @@ public class TestStarburstOracleConfig
     public void testLegacyPropertyMappings()
     {
         Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "PASSWORD")
                 .put("oracle.concurrency-type", "PARTITIONS")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "PASSWORD")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();
@@ -80,11 +87,13 @@ public class TestStarburstOracleConfig
     public void testLegacyPropertyMappings2()
     {
         Map<String, String> oldProperties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "PASSWORD")
                 .put("oracle.concurrency-type", "NO_CONCURRENCY")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
                 .buildOrThrow();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("oracle.authentication.type", "PASSWORD")
                 .put("oracle.parallelism-type", "NO_PARALLELISM")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .buildOrThrow();

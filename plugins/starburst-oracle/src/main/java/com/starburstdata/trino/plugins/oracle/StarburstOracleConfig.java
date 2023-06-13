@@ -19,8 +19,25 @@ import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.NO_PA
 
 public class StarburstOracleConfig
 {
+    public static final String PASSWORD = "PASSWORD";
+
     private OracleParallelismType parallelismType = NO_PARALLELISM;
+    private String authenticationType = PASSWORD;
     private int maxSplitsPerScan = 10; // Oracle always has a limit for number of concurrent connections
+
+    @NotNull
+    public String getAuthenticationType()
+    {
+        return authenticationType;
+    }
+
+    @Config("oracle.authentication.type")
+    @ConfigDescription("Oracle authentication mechanism type")
+    public StarburstOracleConfig setAuthenticationType(String authenticationType)
+    {
+        this.authenticationType = authenticationType;
+        return this;
+    }
 
     @NotNull
     public OracleParallelismType getParallelismType()
