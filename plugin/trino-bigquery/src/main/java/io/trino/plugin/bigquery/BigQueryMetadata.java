@@ -425,12 +425,12 @@ public class BigQueryMetadata
     }
 
     @Override
-    public void dropSchema(ConnectorSession session, String schemaName)
+    public void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         String projectId = client.getProjectId();
         String remoteSchemaName = getRemoteSchemaName(client, projectId, schemaName);
-        client.dropSchema(DatasetId.of(projectId, remoteSchemaName));
+        client.dropSchema(DatasetId.of(projectId, remoteSchemaName), cascade);
     }
 
     private void setRollback(Runnable action)

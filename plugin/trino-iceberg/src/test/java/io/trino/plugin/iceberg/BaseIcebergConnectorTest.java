@@ -226,6 +226,9 @@ public abstract class BaseIcebergConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
+                return false;
+
             case SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS:
                 return false;
 

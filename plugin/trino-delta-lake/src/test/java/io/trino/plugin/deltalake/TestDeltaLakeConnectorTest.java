@@ -147,6 +147,7 @@ public class TestDeltaLakeConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
             case SUPPORTS_DROP_FIELD:

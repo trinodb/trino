@@ -99,6 +99,7 @@ public class TestMemoryConnectorTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
+            case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
             case SUPPORTS_ADD_COLUMN:
