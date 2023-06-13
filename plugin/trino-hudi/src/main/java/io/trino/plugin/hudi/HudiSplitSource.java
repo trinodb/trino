@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.util.concurrent.Futures;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMinimumAssignedSplitWeight;
+import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
@@ -65,7 +67,6 @@ public class HudiSplitSource
             Map<String, HiveColumnHandle> partitionColumnHandleMap,
             ExecutorService executor,
             ScheduledExecutorService splitLoaderExecutorService,
-            ExecutorService splitGeneratorExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
             List<String> partitions)
@@ -88,7 +89,7 @@ public class HudiSplitSource
                 tableHandle,
                 hudiDirectoryLister,
                 queue,
-                splitGeneratorExecutorService,
+                new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
                 partitions);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);

@@ -23,10 +23,8 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static java.util.Objects.requireNonNull;
@@ -43,14 +41,14 @@ public class HudiPartitionManager
 
     public List<String> getEffectivePartitions(HudiTableHandle tableHandle, HiveMetastore metastore)
     {
-        Optional<Table> table = metastore.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
-        verify(table.isPresent());
-        List<Column> partitionColumns = table.get().getPartitionColumns();
+        Table table = metastore.getTable(tableHandle.getSchemaName(), tableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableHandle.getSchemaTableName()));
+        List<Column> partitionColumns = table.getPartitionColumns();
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of("");
         }
 
-        List<HiveColumnHandle> partitionColumnHandles = getPartitionKeyColumnHandles(table.get(), typeManager);
+        List<HiveColumnHandle> partitionColumnHandles = getPartitionKeyColumnHandles(table, typeManager);
 
         return metastore.getPartitionNamesByFilter(
                         tableHandle.getSchemaName(),
