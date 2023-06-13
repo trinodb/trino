@@ -478,31 +478,6 @@ Flush metadata cache
   Flushes metadata cache entries of a specific table.
   Procedure requires passing named parameters.
 
-.. _delta-lake-write-support:
-
-Updating data
-"""""""""""""
-
-You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
-:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
-
-Write operations are supported for tables stored on the following systems:
-
-* Azure ADLS Gen2, Google Cloud Storage
-
-  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
-  enabled by default. Trino detects write collisions on these storage systems
-  when writing from multiple Trino clusters, or from other query engines.
-
-* S3 and S3-compatible storage
-
-  Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
-  with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
-  safely be made from multiple Trino clusters; however, write collisions are not
-  detected when writing concurrently from other Delta Lake engines. You need to
-  make sure that no concurrent data modifications are run to avoid data
-  corruption.
-
 .. _delta-lake-vacuum:
 
 ``VACUUM``
@@ -530,6 +505,31 @@ The ``delta.vacuum.min-retention`` configuration property provides a safety
 measure to ensure that files are retained as expected. The minimum value for
 this property is ``0s``. There is a minimum retention session property as well,
 ``vacuum_min_retention``.
+
+.. _delta-lake-write-support:
+
+Updating data
+^^^^^^^^^^^^^
+
+You can use the connector to :doc:`/sql/insert`, :doc:`/sql/delete`,
+:doc:`/sql/update`, and :doc:`/sql/merge` data in Delta Lake tables.
+
+Write operations are supported for tables stored on the following systems:
+
+* Azure ADLS Gen2, Google Cloud Storage
+
+  Writes to the Azure ADLS Gen2 and Google Cloud Storage are
+  enabled by default. Trino detects write collisions on these storage systems
+  when writing from multiple Trino clusters, or from other query engines.
+
+* S3 and S3-compatible storage
+
+  Writes to :doc:`Amazon S3 <hive-s3>` and S3-compatible storage must be enabled
+  with the ``delta.enable-non-concurrent-writes`` property. Writes to S3 can
+  safely be made from multiple Trino clusters; however, write collisions are not
+  detected when writing concurrently from other Delta Lake engines. You need to
+  make sure that no concurrent data modifications are run to avoid data
+  corruption.
 
 .. _delta-lake-data-management:
 
