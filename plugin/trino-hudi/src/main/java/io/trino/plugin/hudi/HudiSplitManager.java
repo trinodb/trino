@@ -53,7 +53,6 @@ public class HudiSplitManager
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
-    private final ExecutorService splitGeneratorExecutorService;
 
     @Inject
     public HudiSplitManager(
@@ -62,8 +61,7 @@ public class HudiSplitManager
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             @ForHudiSplitManager ExecutorService executor,
             TrinoFileSystemFactory fileSystemFactory,
-            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService,
-            @ForHudiBackgroundSplitLoader ExecutorService splitGeneratorExecutorService)
+            @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
@@ -71,7 +69,6 @@ public class HudiSplitManager
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
-        this.splitGeneratorExecutorService = requireNonNull(splitGeneratorExecutorService, "splitGeneratorExecutorService is null");
     }
 
     @PreDestroy
@@ -108,7 +105,6 @@ public class HudiSplitManager
                 partitionColumnHandles,
                 executor,
                 splitLoaderExecutorService,
-                splitGeneratorExecutorService,
                 getMaxSplitsPerSecond(session),
                 getMaxOutstandingSplits(session),
                 partitions);
