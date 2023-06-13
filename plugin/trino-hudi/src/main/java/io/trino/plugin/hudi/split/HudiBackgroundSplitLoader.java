@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.split;
 
+import com.google.common.util.concurrent.Futures;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
@@ -26,7 +27,7 @@ import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
@@ -38,7 +39,7 @@ public class HudiBackgroundSplitLoader
 {
     private final HudiDirectoryLister hudiDirectoryLister;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
-    private final ExecutorService splitGeneratorExecutorService;
+    private final Executor splitGeneratorExecutor;
     private final int splitGeneratorNumThreads;
     private final HudiSplitFactory hudiSplitFactory;
     private final List<String> partitions;
@@ -48,13 +49,13 @@ public class HudiBackgroundSplitLoader
             HudiTableHandle tableHandle,
             HudiDirectoryLister hudiDirectoryLister,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            ExecutorService splitGeneratorExecutorService,
+            Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
             List<String> partitions)
     {
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
-        this.splitGeneratorExecutorService = requireNonNull(splitGeneratorExecutorService, "splitGeneratorExecutorService is null");
+        this.splitGeneratorExecutor = requireNonNull(splitGeneratorExecutor, "splitGeneratorExecutorService is null");
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
         this.partitions = requireNonNull(partitions, "partitions is null");
@@ -71,7 +72,7 @@ public class HudiBackgroundSplitLoader
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
             HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
-            splitGeneratorFutures.add(splitGeneratorExecutorService.submit(generator));
+            splitGeneratorFutures.add(Futures.submit(generator, splitGeneratorExecutor));
         }
 
         for (HudiPartitionInfoLoader generator : splitGeneratorList) {

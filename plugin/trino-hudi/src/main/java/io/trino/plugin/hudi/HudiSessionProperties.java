@@ -115,7 +115,7 @@ public class HudiSessionProperties
                         false),
                 integerProperty(
                         MAX_OUTSTANDING_SPLITS,
-                        "Maximum outstanding splits in a batch enqueued for processing.",
+                        "Maximum outstanding splits in a batch enqueued for processing",
                         hudiConfig.getMaxOutstandingSplits(),
                         false),
                 integerProperty(
