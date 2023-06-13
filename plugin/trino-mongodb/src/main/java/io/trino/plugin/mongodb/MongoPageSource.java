@@ -39,7 +39,6 @@ import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -314,14 +313,10 @@ public class MongoPageSource
             if (value instanceof Map<?, ?> mapValue) {
                 BlockBuilder builder = output.beginBlockEntry();
 
-                List<String> fieldNames = new ArrayList<>();
                 for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
                     TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                    fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-                }
-                checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), mapValue.get(fieldNames.get(index)), builder);
+                    String fieldName = parameter.getNamedTypeSignature().getName().orElse("field" + i);
+                    appendTo(type.getTypeParameters().get(i), mapValue.get(fieldName), builder);
                 }
                 output.closeEntry();
                 return;
