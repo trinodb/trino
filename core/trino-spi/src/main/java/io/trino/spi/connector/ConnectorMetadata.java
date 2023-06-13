@@ -339,8 +339,23 @@ public interface ConnectorMetadata
     /**
      * Drops the specified schema.
      *
-     * @throws TrinoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
+     * @throws TrinoException with {@code SCHEMA_NOT_EMPTY} if {@code cascade} is false and the schema is not empty
      */
+    default void dropSchema(ConnectorSession session, String schemaName, boolean cascade)
+    {
+        if (!cascade) {
+            dropSchema(session, schemaName);
+            return;
+        }
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas with CASCADE option");
+    }
+
+    /**
+     * Drops the specified schema.
+     *
+     * @deprecated use {@link #dropSchema(ConnectorSession, String, boolean)}
+     */
+    @Deprecated
     default void dropSchema(ConnectorSession session, String schemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");

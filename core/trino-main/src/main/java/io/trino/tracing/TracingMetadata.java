@@ -342,11 +342,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void dropSchema(Session session, CatalogSchemaName schema)
+    public void dropSchema(Session session, CatalogSchemaName schema, boolean cascade)
     {
         Span span = startSpan("dropSchema", schema);
         try (var ignored = scopedSpan(span)) {
-            delegate.dropSchema(session, schema);
+            delegate.dropSchema(session, schema, cascade);
         }
     }
 

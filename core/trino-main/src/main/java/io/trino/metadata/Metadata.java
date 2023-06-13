@@ -183,7 +183,7 @@ public interface Metadata
     /**
      * Drops the specified schema.
      */
-    void dropSchema(Session session, CatalogSchemaName schema);
+    void dropSchema(Session session, CatalogSchemaName schema, boolean cascade);
 
     /**
      * Renames the specified schema.
