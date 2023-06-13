@@ -53,6 +53,7 @@ public class QueryManagerConfig
 {
     public static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
     public static final int MAX_TASK_RETRY_ATTEMPTS = 126;
+    public static final int FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT = 1000;
 
     private int scheduleSplitBatchSize = 1000;
     private int minScheduleSplitBatchSize = 100;
@@ -883,6 +884,7 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
     public int getFaultTolerantExecutionMaxPartitionCount()
     {
         return faultTolerantExecutionMaxPartitionCount;
@@ -898,6 +900,7 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
     public int getFaultTolerantExecutionMinPartitionCount()
     {
         return faultTolerantExecutionMinPartitionCount;
@@ -912,6 +915,7 @@ public class QueryManagerConfig
     }
 
     @Min(1)
+    @Max(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT)
     public int getFaultTolerantExecutionMinPartitionCountForWrite()
     {
         return faultTolerantExecutionMinPartitionCountForWrite;
