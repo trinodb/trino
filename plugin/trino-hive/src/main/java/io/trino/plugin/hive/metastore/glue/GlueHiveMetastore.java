@@ -69,12 +69,16 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
@@ -185,6 +189,7 @@ public class GlueHiveMetastore
             .withMaxRetries(3)
             .build();
 
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final AWSGlueAsync glueClient;
@@ -198,6 +203,7 @@ public class GlueHiveMetastore
 
     @Inject
     public GlueHiveMetastore(
+            TrinoFileSystemFactory fileSystemFactory,
             HdfsEnvironment hdfsEnvironment,
             GlueHiveMetastoreConfig glueConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
@@ -206,6 +212,7 @@ public class GlueHiveMetastore
             @ForGlueHiveMetastore GlueMetastoreStats stats,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
@@ -227,7 +234,9 @@ public class GlueHiveMetastore
         GlueMetastoreStats stats = new GlueMetastoreStats();
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(defaultWarehouseDir.toUri().toString());
+        TrinoFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats());
         return new GlueHiveMetastore(
+                fileSystemFactory,
                 hdfsEnvironment,
                 glueConfig,
                 directExecutor(),
@@ -555,7 +564,7 @@ public class GlueHiveMetastore
         }
 
         if (deleteData) {
-            location.ifPresent(path -> deleteDir(hdfsContext, hdfsEnvironment, new Path(path), true));
+            location.ifPresent(path -> deleteDir(hdfsContext, path));
         }
     }
 
@@ -621,7 +630,7 @@ public class GlueHiveMetastore
         Optional<String> location = table.getStorage().getOptionalLocation()
                 .filter(not(String::isEmpty));
         if (deleteData && isManagedTable(table) && location.isPresent()) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(location.get()), true);
+            deleteDir(hdfsContext, location.get());
         }
     }
 
@@ -630,10 +639,10 @@ public class GlueHiveMetastore
         return table.getTableType().equals(MANAGED_TABLE.name());
     }
 
-    private static void deleteDir(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, boolean recursive)
+    private void deleteDir(HdfsContext context, String path)
     {
         try {
-            hdfsEnvironment.getFileSystem(context, path).delete(path, recursive);
+            fileSystemFactory.create(context.getIdentity()).deleteDirectory(Location.of(path));
         }
         catch (Exception e) {
             // don't fail if unable to delete path
@@ -1082,7 +1091,7 @@ public class GlueHiveMetastore
 
         String partLocation = partition.getStorage().getLocation();
         if (deleteData && isManagedTable(table) && !isNullOrEmpty(partLocation)) {
-            deleteDir(hdfsContext, hdfsEnvironment, new Path(partLocation), true);
+            deleteDir(hdfsContext, partLocation);
         }
     }
 

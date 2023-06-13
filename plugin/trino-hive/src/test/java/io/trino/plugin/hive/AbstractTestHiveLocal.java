@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.RecursiveDeleteOption;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -33,7 +34,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.MaterializedResult;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -44,7 +44,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
@@ -190,7 +189,7 @@ public abstract class AbstractTestHiveLocal
                             BUCKETING_V1,
                             3,
                             ImmutableList.of(new SortingColumn("name", SortingColumn.Order.ASCENDING)))),
-                    new Path(URI.create("file://" + externalLocation.toString())));
+                    Location.of("file://" + externalLocation.toString()));
 
             assertReadFailsWithMessageMatching(ORC, tableName, "Hive table is corrupt\\. File '.*/.*' is for bucket [0-2], but contains a row for bucket [0-2].");
             markTableAsCreatedBySpark(tableName, "orc");
@@ -227,7 +226,7 @@ public abstract class AbstractTestHiveLocal
         }
     }
 
-    private void createExternalTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Path externalLocation)
+    private void createExternalTable(SchemaTableName schemaTableName, HiveStorageFormat hiveStorageFormat, List<Column> columns, List<Column> partitionColumns, Optional<HiveBucketProperty> bucketProperty, Location externalLocation)
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();

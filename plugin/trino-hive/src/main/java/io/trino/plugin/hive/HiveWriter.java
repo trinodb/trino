@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.spi.Page;
 
@@ -114,8 +115,8 @@ public class HiveWriter
         return new PartitionUpdate(
                 partitionName.orElse(""),
                 updateMode,
-                writePath,
-                targetPath,
+                Location.of(writePath),
+                Location.of(targetPath),
                 ImmutableList.of(fileName),
                 rowCount,
                 inputSizeInBytes,

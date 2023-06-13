@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
+import io.trino.filesystem.Location;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
 import java.util.List;
@@ -33,8 +33,8 @@ public class PartitionUpdate
 {
     private final String name;
     private final UpdateMode updateMode;
-    private final Path writePath;
-    private final Path targetPath;
+    private final Location writePath;
+    private final Location targetPath;
     private final List<String> fileNames;
     private final long rowCount;
     private final long inMemoryDataSizeInBytes;
@@ -54,8 +54,8 @@ public class PartitionUpdate
         this(
                 name,
                 updateMode,
-                new Path(requireNonNull(writePath, "writePath is null")),
-                new Path(requireNonNull(targetPath, "targetPath is null")),
+                Location.of(requireNonNull(writePath, "writePath is null")),
+                Location.of(requireNonNull(targetPath, "targetPath is null")),
                 fileNames,
                 rowCount,
                 inMemoryDataSizeInBytes,
@@ -65,8 +65,8 @@ public class PartitionUpdate
     public PartitionUpdate(
             String name,
             UpdateMode updateMode,
-            Path writePath,
-            Path targetPath,
+            Location writePath,
+            Location targetPath,
             List<String> fileNames,
             long rowCount,
             long inMemoryDataSizeInBytes,
@@ -101,12 +101,12 @@ public class PartitionUpdate
         return updateMode;
     }
 
-    public Path getWritePath()
+    public Location getWritePath()
     {
         return writePath;
     }
 
-    public Path getTargetPath()
+    public Location getTargetPath()
     {
         return targetPath;
     }

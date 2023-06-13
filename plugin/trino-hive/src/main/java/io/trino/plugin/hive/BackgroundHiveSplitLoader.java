@@ -106,6 +106,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
+import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
@@ -429,7 +430,8 @@ public class BackgroundHiveSplitLoader
             return COMPLETED_FUTURE;
         }
 
-        Path path = new Path(getPartitionLocation(table, partition.getPartition()));
+        Location location = Location.of(getPartitionLocation(table, partition.getPartition()));
+        Path path = hadoopPath(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         InputFormat<?, ?> inputFormat = getInputFormat(configuration, schema, false);
         FileSystem fs = hdfsEnvironment.getFileSystem(hdfsContext, path);
@@ -548,7 +550,6 @@ public class BackgroundHiveSplitLoader
         }
 
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
-        Location location = Location.of(path.toString());
         // Bucketed partitions are fully loaded immediately since all files must be loaded to determine the file to bucket mapping
         if (tableBucketInfo.isPresent()) {
             List<TrinoFileStatus> files = listBucketFiles(trinoFileSystem, location, splitFactory.getPartitionName());

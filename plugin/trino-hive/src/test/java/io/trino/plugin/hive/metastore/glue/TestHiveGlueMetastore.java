@@ -30,6 +30,8 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.plugin.hive.AbstractTestHiveLocal;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
@@ -232,6 +234,7 @@ public class TestHiveGlueMetastore
         Executor executor = new BoundedExecutor(this.executor, 10);
         GlueMetastoreStats stats = new GlueMetastoreStats();
         return new GlueHiveMetastore(
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, new TrinoHdfsFileSystemStats()),
                 HDFS_ENVIRONMENT,
                 glueConfig,
                 executor,

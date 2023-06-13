@@ -165,6 +165,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.hdfs.ConfigurationUtils.toJobConf;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.hive.HiveAnalyzeProperties.getPartitionList;
@@ -1734,7 +1735,7 @@ public class HiveMetadata
             partitionUpdates = PartitionUpdate.mergePartitionUpdates(concat(partitionUpdates, partitionUpdatesForMissingBuckets));
             for (PartitionUpdate partitionUpdate : partitionUpdatesForMissingBuckets) {
                 Optional<Partition> partition = table.getPartitionColumns().isEmpty() ? Optional.empty() : Optional.of(buildPartitionObject(session, table, partitionUpdate));
-                createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+                createEmptyFiles(session, hadoopPath(partitionUpdate.getWritePath()), table, partition, partitionUpdate.getFileNames());
             }
             if (handle.isTransactional()) {
                 AcidTransaction transaction = handle.getTransaction();
@@ -1765,7 +1766,7 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
-        Optional<Path> writePath = Optional.of(new Path(writeInfo.writePath().toString()));
+        Optional<Location> writePath = Optional.of(Location.of(writeInfo.writePath().toString()));
         if (handle.getPartitionedBy().isEmpty()) {
             List<String> fileNames;
             if (partitionUpdates.isEmpty()) {
@@ -1845,7 +1846,7 @@ public class HiveMetadata
     private List<String> computeFileNamesForMissingBuckets(
             ConnectorSession session,
             HiveStorageFormat storageFormat,
-            Path targetPath,
+            Location targetPath,
             int bucketCount,
             boolean transactionalCreateTable,
             PartitionUpdate partitionUpdate)
@@ -1855,7 +1856,7 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         HdfsContext hdfsContext = new HdfsContext(session);
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, hadoopPath(targetPath)));
         configureCompression(conf, selectCompressionCodec(session, storageFormat));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
         Set<String> fileNames = ImmutableSet.copyOf(partitionUpdate.getFileNames());
@@ -2141,7 +2142,7 @@ public class HiveMetadata
                             statistics,
                             handle.isRetriesEnabled());
                 }
-                createEmptyFiles(session, partitionUpdate.getWritePath(), table, partition, partitionUpdate.getFileNames());
+                createEmptyFiles(session, hadoopPath(partitionUpdate.getWritePath()), table, partition, partitionUpdate.getFileNames());
             }
         }
 
@@ -2227,10 +2228,10 @@ public class HiveMetadata
                         getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes));
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
                     if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
-                        removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
+                        removeNonCurrentQueryFiles(session, hadoopPath(partitionUpdate.getTargetPath()));
                         if (handle.isRetriesEnabled()) {
                             HdfsContext hdfsContext = new HdfsContext(session);
-                            cleanExtraOutputFiles(hdfsEnvironment, hdfsContext, session.getQueryId(), partitionUpdate.getTargetPath(), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
+                            cleanExtraOutputFiles(hdfsEnvironment, hdfsContext, session.getQueryId(), hadoopPath(partitionUpdate.getTargetPath()), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
                         }
                     }
                     else {
@@ -2555,22 +2556,22 @@ public class HiveMetadata
         }
 
         // path to be deleted
-        Set<Path> scannedPaths = splitSourceInfo.stream()
-                .map(file -> new Path((String) file))
+        Set<Location> scannedPaths = splitSourceInfo.stream()
+                .map(file -> Location.of((String) file))
                 .collect(toImmutableSet());
         // track remaining files to be delted for error reporting
-        Set<Path> remainingFilesToDelete = new HashSet<>(scannedPaths);
+        Set<Location> remainingFilesToDelete = new HashSet<>(scannedPaths);
 
         // delete loop
         boolean someDeleted = false;
-        Optional<Path> firstScannedPath = Optional.empty();
+        Optional<Location> firstScannedPath = Optional.empty();
         try {
-            for (Path scannedPath : scannedPaths) {
+            for (Location scannedPath : scannedPaths) {
                 if (firstScannedPath.isEmpty()) {
                     firstScannedPath = Optional.of(scannedPath);
                 }
                 retry().run("delete " + scannedPath, () -> {
-                    checkedDelete(fs, scannedPath, false);
+                    checkedDelete(fs, hadoopPath(scannedPath), false);
                     return null;
                 });
                 someDeleted = true;
@@ -2578,7 +2579,7 @@ public class HiveMetadata
             }
         }
         catch (Exception e) {
-            if (!someDeleted && (firstScannedPath.isEmpty() || exists(fs, firstScannedPath.get()))) {
+            if (!someDeleted && (firstScannedPath.isEmpty() || exists(fs, hadoopPath(firstScannedPath.get())))) {
                 // we are good - we did not delete any source files so we can just throw error and allow rollback to happend
                 // if someDeleted flag is false we do extra checkig if first file we tried to delete is still there. There is a chance that
                 // fs.delete above could throw exception but file was actually deleted.

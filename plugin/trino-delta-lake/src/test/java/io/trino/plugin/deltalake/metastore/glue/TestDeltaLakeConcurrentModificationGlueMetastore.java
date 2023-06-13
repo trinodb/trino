@@ -17,6 +17,8 @@ import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import io.trino.Session;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.deltalake.metastore.TestingDeltaLakeMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.DefaultGlueColumnStatisticsProviderFactory;
@@ -92,6 +94,7 @@ public class TestDeltaLakeConcurrentModificationGlueMetastore
         });
 
         metastore = new GlueHiveMetastore(
+                new HdfsFileSystemFactory(HDFS_ENVIRONMENT, new TrinoHdfsFileSystemStats()),
                 HDFS_ENVIRONMENT,
                 glueConfig,
                 directExecutor(),

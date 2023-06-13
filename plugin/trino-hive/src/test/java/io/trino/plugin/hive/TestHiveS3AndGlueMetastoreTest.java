@@ -24,11 +24,9 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -37,6 +35,7 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+// TODO Run this test also with Hive thrift metastore
 public class TestHiveS3AndGlueMetastoreTest
         extends BaseS3AndGlueMetastoreTest
 {
@@ -255,13 +254,54 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Test
+    public void testCreateTableWithDoubleSlash()
+    {
+        String schemaName = "test_create_table_with_double_slash_" + randomNameSuffix();
+        String schemaLocation = "s3://%s/%s/double_slash//test_schema".formatted(bucketName, schemaName);
+        String tableName = "test_create_table_with_double_slash_" + randomNameSuffix();
+        String schemaTableName = schemaName + "." + tableName;
+
+        // Previously, HiveLocationService replaced double slash with single slash
+        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
+        String existingKey = "%s/double_slash/test_schema/%s".formatted(schemaName, tableName);
+        s3.putObject(bucketName, existingKey, "test content");
+
+        assertUpdate("CREATE TABLE " + schemaTableName + "(col_int int)");
+        assertUpdate("INSERT INTO " + schemaTableName + " VALUES 1", 1);
+        assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+        assertUpdate("DROP TABLE " + schemaTableName);
+        s3.deleteObject(bucketName, existingKey);
+    }
+
+    @Test
+    public void testCtasWithDoubleSlash()
+    {
+        String schemaName = "test_ctas_with_double_slash_" + randomNameSuffix();
+        String schemaLocation = "s3://%s/%s/double_slash//test_schema".formatted(bucketName, schemaName);
+        String tableName = "test_create_table_with_double_slash_" + randomNameSuffix();
+        String schemaTableName = schemaName + "." + tableName;
+
+        // Previously, HiveLocationService replaced double slash with single slash
+        assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
+        String existingKey = "%s/double_slash/test_schema/%s".formatted(schemaName, tableName);
+        s3.putObject(bucketName, existingKey, "test content");
+
+        assertUpdate("CREATE TABLE " + schemaTableName + " AS SELECT 1 AS col_int", 1);
+        assertQuery("SELECT * FROM " + schemaTableName, "VALUES 1");
+        assertUpdate("DROP TABLE " + schemaTableName);
+        s3.deleteObject(bucketName, existingKey);
+    }
+
+    @Test
     public void testCreateSchemaWithIncorrectLocation()
     {
         String schemaName = "test_create_schema_with_incorrect_location_" + randomNameSuffix();
-        String schemaLocation = "s3://%s/%2$s/a#hash/%2$s".formatted(bucketName, schemaName);
+        String key = "%1$s/a#hash/%1$s";
+        String schemaLocation = "s3://%s/%s".formatted(bucketName, key);
         String tableName = "test_basic_operations_table_" + randomNameSuffix();
         String qualifiedTableName = schemaName + "." + tableName;
 
+        // TODO Disallow creating a schema with incorrect location
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
         assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
@@ -272,6 +312,8 @@ public class TestHiveS3AndGlueMetastoreTest
                 .hasMessageContaining("Fragment is not allowed in a file system location");
 
         assertUpdate("DROP SCHEMA " + schemaName);
+        // Delete S3 directory explicitly because the above DROP SCHEMA failed to delete it due to fragment in the location
+        s3.deleteObject(bucketName, key);
     }
 
     @Test
@@ -285,14 +327,5 @@ public class TestHiveS3AndGlueMetastoreTest
         assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
 
         assertUpdate("DROP SCHEMA \"" + schemaName + "\"");
-    }
-
-    @Override
-    protected List<String> locationPatterns()
-    {
-        // TODO https://github.com/trinodb/trino/issues/17803 Fix correctness issue with double slash
-        return super.locationPatterns().stream()
-                .filter(location -> !location.contains("double_slash"))
-                .collect(toImmutableList());
     }
 }

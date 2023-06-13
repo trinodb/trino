@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveConfig;
@@ -34,12 +35,12 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.ArrayType;
-import org.apache.hadoop.fs.Path;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
@@ -131,16 +132,16 @@ public class RegisterPartitionProcedure
             throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
         }
 
-        Path partitionLocation;
+        Location partitionLocation;
 
         if (location == null) {
-            partitionLocation = new Path(table.getStorage().getLocation(), makePartName(partitionColumns, partitionValues));
+            partitionLocation = Location.of(table.getStorage().getLocation()).appendPath(makePartName(partitionColumns, partitionValues));
         }
         else {
-            partitionLocation = new Path(location);
+            partitionLocation = Location.of(location);
         }
 
-        if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, partitionLocation)) {
+        if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, hadoopPath(partitionLocation))) {
             throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
@@ -157,7 +158,7 @@ public class RegisterPartitionProcedure
         metastore.commit();
     }
 
-    private static Partition buildPartitionObject(ConnectorSession session, Table table, List<String> partitionValues, Path location)
+    private static Partition buildPartitionObject(ConnectorSession session, Table table, List<String> partitionValues, Location location)
     {
         return Partition.builder()
                 .setDatabaseName(table.getDatabaseName())
