@@ -28,7 +28,7 @@ import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerSessionProperties;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;

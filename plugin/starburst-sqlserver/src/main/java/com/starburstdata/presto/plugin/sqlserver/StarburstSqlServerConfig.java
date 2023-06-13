@@ -11,9 +11,9 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.annotation.Nullable;
+import jakarta.annotation.PostConstruct;
 
-import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 
