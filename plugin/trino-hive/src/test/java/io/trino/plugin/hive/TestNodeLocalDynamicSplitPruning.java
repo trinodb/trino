@@ -87,11 +87,13 @@ public class TestNodeLocalDynamicSplitPruning
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
-            ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()));
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
+                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            }
 
-            ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectiveBucketTupleDomain()));
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
+                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            }
         }
     }
 
@@ -102,11 +104,13 @@ public class TestNodeLocalDynamicSplitPruning
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (TempFile tempFile = new TempFile()) {
-            ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()));
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {
+                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            }
 
-            ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectivePartitionTupleDomain()));
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
+                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            }
         }
     }
 
