@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
@@ -43,7 +44,15 @@ public class TestHiveCoercionOnPartitionedTable
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_TEXTFILE = tableDefinitionForTimestampCoercionBuilder("TEXTFILE", Optional.empty(), Optional.of("DELIMITED FIELDS TERMINATED BY '|'"))
+            .setNoData()
+            .build();
+
     public static final HiveTableDefinition HIVE_COERCION_PARQUET = tableDefinitionBuilder("PARQUET", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_PARQUET = tableDefinitionForTimestampCoercionBuilder("PARQUET", Optional.empty(), Optional.empty())
             .setNoData()
             .build();
 
@@ -55,11 +64,23 @@ public class TestHiveCoercionOnPartitionedTable
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_ORC = tableDefinitionForTimestampCoercionBuilder("ORC", Optional.empty(), Optional.empty())
+            .setNoData()
+            .build();
+
     public static final HiveTableDefinition HIVE_COERCION_RCTEXT = tableDefinitionBuilder("RCFILE", Optional.of("RCTEXT"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
             .setNoData()
             .build();
 
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_RCTEXT = tableDefinitionForTimestampCoercionBuilder("RCFILE", Optional.of("RCTEXT"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe'"))
+            .setNoData()
+            .build();
+
     public static final HiveTableDefinition HIVE_COERCION_RCBINARY = tableDefinitionBuilder("RCFILE", Optional.of("RCBINARY"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe'"))
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_RCBINARY = tableDefinitionForTimestampCoercionBuilder("RCFILE", Optional.of("RCBINARY"), Optional.of("SERDE 'org.apache.hadoop.hive.serde2.columnar.LazyBinaryColumnarSerDe'"))
             .setNoData()
             .build();
 
@@ -108,6 +129,21 @@ public class TestHiveCoercionOnPartitionedTable
                         "STORED AS " + fileFormat);
     }
 
+    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat, Optional<String> tablePrefix, Optional<String> rowFormat)
+    {
+        String tableName = format("%s_hive_timestamp_coercion", tablePrefix.orElse(fileFormat).toLowerCase(ENGLISH));
+        return HiveTableDefinition.builder(tableName)
+                .setCreateTableDDLTemplate("" +
+                        "CREATE TABLE %NAME%(" +
+                        "    timestamp_row_to_row                 STRUCT<keep: TIMESTAMP, si2i: SMALLINT>, " +
+                        "    timestamp_list_to_list               ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT>>, " +
+                        "    timestamp_map_to_map                 MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT>>" +
+                        ") " +
+                        "PARTITIONED BY (id BIGINT) " +
+                        rowFormat.map(s -> format("ROW FORMAT %s ", s)).orElse("") +
+                        "STORED AS " + fileFormat);
+    }
+
     private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
     {
         return HiveTableDefinition.builder("avro_hive_coercion")
@@ -126,7 +162,9 @@ public class TestHiveCoercionOnPartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_TEXTFILE).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_TEXTFILE).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_TEXTFILE).withState(CREATED).build());
         }
     }
 
@@ -136,7 +174,9 @@ public class TestHiveCoercionOnPartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_ORC).withState(CREATED).build());
         }
     }
 
@@ -146,7 +186,9 @@ public class TestHiveCoercionOnPartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_RCTEXT).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_RCTEXT).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_RCTEXT).withState(CREATED).build());
         }
     }
 
@@ -156,7 +198,9 @@ public class TestHiveCoercionOnPartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_RCBINARY).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_RCBINARY).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_RCBINARY).withState(CREATED).build());
         }
     }
 
@@ -166,7 +210,9 @@ public class TestHiveCoercionOnPartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_PARQUET).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_PARQUET).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_PARQUET).withState(CREATED).build());
         }
     }
 
@@ -187,11 +233,25 @@ public class TestHiveCoercionOnPartitionedTable
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
+    @Requires(TextRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionTextFile()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_TEXTFILE);
+    }
+
     @Requires(OrcRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
+    }
+
+    @Requires(OrcRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionOrc()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
     }
 
     @Requires(RcTextRequirements.class)
@@ -201,6 +261,13 @@ public class TestHiveCoercionOnPartitionedTable
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
+    @Requires(RcTextRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionRcText()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCTEXT);
+    }
+
     @Requires(RcBinaryRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionRcBinary()
@@ -208,11 +275,25 @@ public class TestHiveCoercionOnPartitionedTable
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
+    @Requires(RcBinaryRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionRcBinary()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCBINARY);
+    }
+
     @Requires(ParquetRequirements.class)
     @Test(groups = {HIVE_COERCION, JDBC})
     public void testHiveCoercionParquet()
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
+    }
+
+    @Requires(ParquetRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
     }
 
     @Requires(AvroRequirements.class)
