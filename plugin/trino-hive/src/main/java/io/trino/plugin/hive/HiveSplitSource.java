@@ -75,7 +75,6 @@ class HiveSplitSource
     private final DataSize maxSplitSize;
     private final DataSize maxInitialSplitSize;
     private final AtomicInteger remainingInitialSplits;
-    private final AtomicLong numberOfProcessedSplits;
 
     private final HiveSplitLoader splitLoader;
     private final AtomicReference<State> stateReference;
@@ -114,7 +113,6 @@ class HiveSplitSource
         this.maxSplitSize = getMaxSplitSize(session);
         this.maxInitialSplitSize = getMaxInitialSplitSize(session);
         this.remainingInitialSplits = new AtomicInteger(maxInitialSplits);
-        this.numberOfProcessedSplits = new AtomicLong(0);
         this.splitWeightProvider = isSizeBasedSplitWeightsEnabled(session) ? new SizeBasedSplitWeightProvider(getMinimumAssignedSplitWeight(session), maxSplitSize) : HiveSplitWeightProvider.uniformStandardWeightProvider();
         this.recordScannedFiles = recordScannedFiles;
     }
@@ -316,7 +314,6 @@ class HiveSplitSource
                         internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
-                        numberOfProcessedSplits.getAndIncrement(),
                         splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 
                 internalSplit.increaseStart(splitBytes);

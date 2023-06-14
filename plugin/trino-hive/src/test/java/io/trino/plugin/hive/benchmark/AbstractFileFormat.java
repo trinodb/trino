@@ -151,7 +151,6 @@ public abstract class AbstractFileFormat
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0,
                 SplitWeight.standard());
 
         return factory.createPageSource(
