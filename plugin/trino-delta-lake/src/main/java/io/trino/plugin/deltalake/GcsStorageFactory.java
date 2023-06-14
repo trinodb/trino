@@ -30,8 +30,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
-import javax.annotation.Nullable;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -50,7 +48,6 @@ public class GcsStorageFactory
 
     private final HdfsEnvironment hdfsEnvironment;
     private final boolean useGcsAccessToken;
-    @Nullable
     private final Optional<GoogleCredential> jsonGoogleCredential;
 
     @Inject
@@ -89,7 +86,7 @@ public class GcsStorageFactory
                 }
             }
             else {
-                credential = jsonGoogleCredential.get();
+                credential = jsonGoogleCredential.orElseThrow(() -> new IllegalStateException("GCS credentials not configured"));
             }
             return new Storage.Builder(httpTransport, JacksonFactory.getDefaultInstance(), new RetryHttpInitializer(credential, APPLICATION_NAME))
                     .setApplicationName(APPLICATION_NAME)
