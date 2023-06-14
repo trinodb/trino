@@ -358,7 +358,6 @@ public class TestHiveSplitSource
                     ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     bucketNumber,
-                    () -> 0,
                     true,
                     false,
                     TableToPartitionMapping.empty(),
