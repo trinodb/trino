@@ -28,7 +28,6 @@ import io.trino.execution.SplitAssignment;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -162,11 +161,6 @@ public class Driver
     public ListenableFuture<Void> getDestroyedFuture()
     {
         return destroyedFuture;
-    }
-
-    public Optional<PlanNodeId> getSourceId()
-    {
-        return sourceOperator.map(SourceOperator::getSourceId);
     }
 
     @Override
