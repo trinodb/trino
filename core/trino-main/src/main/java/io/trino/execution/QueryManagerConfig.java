@@ -23,6 +23,7 @@ import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.trino.operator.RetryPolicy;
 
+import javax.validation.constraints.DecimalMin;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -120,7 +121,9 @@ public class QueryManagerConfig
     private DataSize faultTolerantExecutionArbitraryDistributionWriteTaskTargetSizeMax = DataSize.of(50, GIGABYTE);
 
     private DataSize faultTolerantExecutionHashDistributionComputeTaskTargetSize = DataSize.of(512, MEGABYTE);
+    private double faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio = 2.0;
     private DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize = DataSize.of(4, GIGABYTE);
+    private double faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio = 2.0;
     private int faultTolerantExecutionHashDistributionWriteTaskTargetMaxCount = 2000;
 
     private DataSize faultTolerantExecutionStandardSplitSize = DataSize.of(64, MEGABYTE);
@@ -814,6 +817,20 @@ public class QueryManagerConfig
         return this;
     }
 
+    @DecimalMin(value = "0.0", inclusive = true)
+    public double getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio()
+    {
+        return faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-compute-task-to-node-min-ratio")
+    @ConfigDescription("Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(double faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio)
+    {
+        this.faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio = faultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio;
+        return this;
+    }
+
     @NotNull
     public DataSize getFaultTolerantExecutionHashDistributionWriteTaskTargetSize()
     {
@@ -825,6 +842,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTaskTargetSize(DataSize faultTolerantExecutionHashDistributionWriteTaskTargetSize)
     {
         this.faultTolerantExecutionHashDistributionWriteTaskTargetSize = faultTolerantExecutionHashDistributionWriteTaskTargetSize;
+        return this;
+    }
+
+    @DecimalMin(value = "0.0", inclusive = true)
+    public double getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio()
+    {
+        return faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
+    }
+
+    @Config("fault-tolerant-execution-hash-distribution-write-task-to-node-min-ratio")
+    @ConfigDescription("Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(double faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio)
+    {
+        this.faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio = faultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio;
         return this;
     }
 
