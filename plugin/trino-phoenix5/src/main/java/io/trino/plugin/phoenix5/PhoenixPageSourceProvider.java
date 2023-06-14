@@ -102,7 +102,7 @@ public class PhoenixPageSourceProvider
                 .map(RowType.Field::getName)
                 .map(Optional::get)
                 .map(fieldName -> indexOf(scanColumns.iterator(), handle -> handle.getColumnName().equals(fieldName)))
-                .peek(fieldIndex -> checkArgument(fieldIndex != -1, "Merge row id filed must exist in scanned columns"))
+                .peek(fieldIndex -> checkArgument(fieldIndex != -1, "Merge row id field must exist in scanned columns"))
                 .collect(toImmutableList());
         return ColumnAdaptation.mergedRowColumns(mergeRowIdSourceChannels);
     }
