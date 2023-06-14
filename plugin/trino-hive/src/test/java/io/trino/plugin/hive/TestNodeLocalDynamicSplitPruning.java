@@ -120,7 +120,6 @@ public class TestNodeLocalDynamicSplitPruning
         splitProperties.setProperty(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat());
         splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde());
         HiveSplit split = new HiveSplit(
-                SCHEMA_NAME,
                 TABLE_NAME,
                 "",
                 "file:///" + outputFile.getAbsolutePath(),
