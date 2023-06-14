@@ -284,7 +284,7 @@ public class HiveSplit
         private final BucketingVersion bucketingVersion;
         private final int tableBucketCount;
         private final int partitionBucketCount;
-        private final List<HiveColumnHandle> bucketColumnNames;
+        private final List<HiveColumnHandle> bucketColumnHandles;
         // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
 
         @JsonCreator
@@ -297,7 +297,7 @@ public class HiveSplit
             this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
             this.tableBucketCount = tableBucketCount;
             this.partitionBucketCount = partitionBucketCount;
-            this.bucketColumnNames = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
+            this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         }
 
         @JsonProperty
@@ -321,7 +321,7 @@ public class HiveSplit
         @JsonProperty
         public List<HiveColumnHandle> getBucketColumnHandles()
         {
-            return bucketColumnNames;
+            return bucketColumnHandles;
         }
 
         @Override
@@ -337,19 +337,19 @@ public class HiveSplit
             return tableBucketCount == that.tableBucketCount &&
                     partitionBucketCount == that.partitionBucketCount &&
                     Objects.equals(bucketingVersion, that.bucketingVersion) &&
-                    Objects.equals(bucketColumnNames, that.bucketColumnNames);
+                    Objects.equals(bucketColumnHandles, that.bucketColumnHandles);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(bucketingVersion, tableBucketCount, partitionBucketCount, bucketColumnNames);
+            return Objects.hash(bucketingVersion, tableBucketCount, partitionBucketCount, bucketColumnHandles);
         }
 
         public long getRetainedSizeInBytes()
         {
             return INSTANCE_SIZE
-                    + estimatedSizeOf(bucketColumnNames, HiveColumnHandle::getRetainedSizeInBytes);
+                    + estimatedSizeOf(bucketColumnHandles, HiveColumnHandle::getRetainedSizeInBytes);
         }
     }
 
