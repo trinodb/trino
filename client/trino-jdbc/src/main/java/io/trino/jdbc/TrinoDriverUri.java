@@ -294,7 +294,8 @@ public final class TrinoDriverUri
                 }
 
                 if (sslVerificationMode.equals(FULL)) {
-                    HOSTNAME_IN_CERT.getValue(properties).ifPresent(certHostname -> setupAlternateHostnameVerification(builder, certHostname));
+                    HOSTNAME_IN_CERT.getValue(properties).ifPresent(certHostname ->
+                            setupAlternateHostnameVerification(builder, certHostname));
                 }
 
                 if (sslVerificationMode.equals(CA)) {
