@@ -674,11 +674,11 @@ public class HivePageSourceProvider
                     .filter(mapping -> mapping.getHiveColumnHandle().isBaseColumn())
                     .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex(), identity()));
 
-            int[] bucketColumnIndices = new int[validation.getBucketColumns().size()];
+            int[] bucketColumnIndices = new int[validation.bucketColumns().size()];
 
             List<TypeInfo> bucketColumnTypes = new ArrayList<>();
-            for (int i = 0; i < validation.getBucketColumns().size(); i++) {
-                HiveColumnHandle column = validation.getBucketColumns().get(i);
+            for (int i = 0; i < validation.bucketColumns().size(); i++) {
+                HiveColumnHandle column = validation.bucketColumns().get(i);
                 ColumnMapping mapping = baseHiveColumnToBlockIndex.get(column.getBaseHiveColumnIndex());
                 if (mapping == null) {
                     // The bucket column is not read by the query, and thus invalid bucketing cannot
@@ -694,8 +694,8 @@ public class HivePageSourceProvider
                     path,
                     bucketColumnIndices,
                     bucketColumnTypes,
-                    validation.getBucketingVersion(),
-                    validation.getBucketCount(),
+                    validation.bucketingVersion(),
+                    validation.bucketCount(),
                     bucketNumber.orElseThrow()));
         });
     }
