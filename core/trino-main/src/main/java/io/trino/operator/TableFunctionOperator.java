@@ -23,8 +23,8 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 

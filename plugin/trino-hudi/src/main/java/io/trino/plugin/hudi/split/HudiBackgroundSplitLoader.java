@@ -74,7 +74,7 @@ public class HudiBackgroundSplitLoader
                             .map(partition -> Futures.submit(() -> loadSplits(partition), executor))
                             .peek(this::hookErrorListener)
                             .collect(Collectors.toList());
-                    Futures.whenAllComplete(futures).run(asyncQueue::finish, directExecutor());
+                    hookErrorListener(Futures.whenAllComplete(futures).run(asyncQueue::finish, directExecutor()));
                     return null;
                 },
                 directExecutor());

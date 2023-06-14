@@ -298,10 +298,52 @@ public class TestHiveGlueMetastore
     }
 
     @Override
+    public void testUpdateBasicPartitionStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_basic_partition_statistics");
+        try {
+            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+            testUpdatePartitionStatistics(
+                    tableName,
+                    PartitionStatistics.empty(),
+                    ImmutableList.of(BASIC_STATISTICS_1, BASIC_STATISTICS_2),
+                    ImmutableList.of(BASIC_STATISTICS_2, BASIC_STATISTICS_1));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Override
+    public void testUpdatePartitionColumnStatistics()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("update_partition_column_statistics");
+        try {
+            createDummyPartitionedTable(tableName, STATISTICS_PARTITIONED_TABLE_COLUMNS);
+            // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+            // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+            // used to ingest data into partitioned hive tables.
+            testUpdatePartitionStatistics(
+                    tableName,
+                    PartitionStatistics.empty(),
+                    ImmutableList.of(STATISTICS_1_1, STATISTICS_1_2, STATISTICS_2),
+                    ImmutableList.of(STATISTICS_1_2, STATISTICS_1_1, STATISTICS_2));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Override
     public void testStorePartitionWithStatistics()
             throws Exception
     {
-        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, ZERO_TABLE_STATISTICS);
+        // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+        // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+        // used to ingest data into partitioned hive tables.
+        testStorePartitionWithStatistics(STATISTICS_PARTITIONED_TABLE_COLUMNS, BASIC_STATISTICS_1, BASIC_STATISTICS_2, BASIC_STATISTICS_1, PartitionStatistics.empty());
     }
 
     @Override

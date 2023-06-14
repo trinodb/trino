@@ -39,6 +39,7 @@ import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
+import jakarta.annotation.PreDestroy;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
@@ -53,8 +54,6 @@ import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
-
-import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.math.BigDecimal;

@@ -17,7 +17,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static java.util.Objects.requireNonNull;
 

@@ -580,8 +580,14 @@ public class TestClickHouseConnectorTest
                 return Optional.empty();
 
             case "date":
-                // TODO (https://github.com/trinodb/trino/issues/7101) enable the test
-                return Optional.empty();
+                // The connector supports date type, but these values are unsupported in ClickHouse
+                // See BaseClickHouseTypeMapping for additional test coverage
+                if (dataMappingTestSetup.getSampleValueLiteral().equals("DATE '0001-01-01'") ||
+                        dataMappingTestSetup.getSampleValueLiteral().equals("DATE '1582-10-05'") ||
+                        dataMappingTestSetup.getHighValueLiteral().equals("DATE '9999-12-31'")) {
+                    return Optional.empty();
+                }
+                return Optional.of(dataMappingTestSetup);
 
             case "time":
             case "time(6)":

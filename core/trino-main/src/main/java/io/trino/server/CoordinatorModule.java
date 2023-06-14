@@ -110,8 +110,7 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

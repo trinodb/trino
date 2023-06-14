@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.ptf;
+package io.trino.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -21,7 +21,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.trino.spi.ptf.Preconditions.checkArgument;
+import static io.trino.spi.function.table.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**

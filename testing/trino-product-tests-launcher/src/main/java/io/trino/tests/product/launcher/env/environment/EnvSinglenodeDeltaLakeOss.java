@@ -131,6 +131,7 @@ public class EnvSinglenodeDeltaLakeOss
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3-delta:" + hadoopImagesVersion, SPARK_CONTAINER_NAME)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("spark-defaults.conf")), "/spark/conf/spark-defaults.conf")
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/spark/log4j2.properties")), "/spark/conf/log4j2.properties")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(SPARK_THRIFT_PORT));
 

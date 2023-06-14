@@ -41,7 +41,6 @@ import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.TestView;
 import org.apache.iceberg.FileFormat;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Parameters;
@@ -142,30 +141,6 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testRenameSchema)
                 .hasStackTraceContaining("renameNamespace is not supported for Iceberg Glue catalogs");
-    }
-
-    @Test
-    public void testCommentViewColumn()
-    {
-        // TODO: Consider moving to BaseConnectorSmokeTest
-        String viewColumnName = "regionkey";
-        try (TestView view = new TestView(getQueryRunner()::execute, "test_comment_view", "SELECT * FROM region")) {
-            // comment set
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'new region key comment'");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("new region key comment");
-
-            // comment updated
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS 'updated region key comment'");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("updated region key comment");
-
-            // comment set to empty
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS ''");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo("");
-
-            // comment deleted
-            assertUpdate("COMMENT ON COLUMN " + view.getName() + "." + viewColumnName + " IS NULL");
-            assertThat(getColumnComment(view.getName(), viewColumnName)).isEqualTo(null);
-        }
     }
 
     @Override

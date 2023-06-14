@@ -7,6 +7,7 @@ Aggregate
 
 For more details, see :doc:`aggregate`
 
+* :func:`any_value`
 * :func:`approx_distinct`
 * :func:`approx_most_frequent`
 * :func:`approx_percentile`

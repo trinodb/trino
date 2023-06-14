@@ -25,11 +25,10 @@ import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.plugin.raptor.legacy.metadata.ShardMetadata;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.util.ArrayDeque;

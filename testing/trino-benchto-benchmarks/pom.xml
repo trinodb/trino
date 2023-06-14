@@ -100,6 +100,8 @@
                             <includes combine.children="append">
                                 <!-- allow vulnerable snakeyaml version until benchto is updated -->
                                 <include>org.yaml:snakeyaml:1.33</include>
+                                <!-- benchto still uses javax.annotation -->
+                                <include>javax.annotation:javax.annotation-api</include>
                             </includes>
                         </bannedDependencies>
                     </rules>

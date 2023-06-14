@@ -30,7 +30,7 @@ import com.google.inject.Singleton;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.cassandra.ptf.Query;
 import io.trino.spi.TrinoException;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;

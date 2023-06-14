@@ -146,7 +146,7 @@ public class WorkProcessorPipelineSourceOperator
         WorkProcessor<Split> splits = WorkProcessor.create(new Splits());
 
         sourceOperator = sourceOperatorFactory.create(
-                operatorContext.getSession(),
+                operatorContext,
                 sourceOperatorMemoryTrackingContext,
                 operatorContext.getDriverContext().getYieldSignal(),
                 splits);

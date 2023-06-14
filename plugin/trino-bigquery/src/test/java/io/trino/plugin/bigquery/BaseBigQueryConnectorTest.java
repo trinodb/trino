@@ -301,6 +301,32 @@ public abstract class BaseBigQueryConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
+    @Override // Override because the base test exceeds rate limits per a table
+    public void testCommentColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+            // comment set
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("new comment");
+
+            // comment set to empty or deleted
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS NULL");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer COMMENT 'test comment')")) {
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("test comment");
+            // comment set new value
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("updated comment");
+
+            // comment set empty
+            assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS ''");
+            assertThat(getColumnComment(table.getName(), "a")).isEqualTo("");
+        }
+    }
+
     @Test
     public void testPartitionDateColumn()
     {

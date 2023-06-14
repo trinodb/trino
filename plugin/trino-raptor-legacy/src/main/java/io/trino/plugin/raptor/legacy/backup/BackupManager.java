@@ -21,10 +21,9 @@ import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.StorageService;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.PreDestroy;
 
 import java.io.File;
 import java.io.IOException;

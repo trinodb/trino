@@ -40,9 +40,7 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
@@ -635,7 +633,7 @@ public final class Environment
         {
             try {
                 // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-                PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
+                PrintStream out = new PrintStream(System.out, true, Charset.defaultCharset().name());
                 return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
             }
             catch (UnsupportedEncodingException e) {

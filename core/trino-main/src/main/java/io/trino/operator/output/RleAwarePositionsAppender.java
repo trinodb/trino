@@ -52,9 +52,9 @@ public class RleAwarePositionsAppender
     @Override
     public void append(IntArrayList positions, Block source)
     {
-        // RleAwarePositionsAppender should be used with FlatteningPositionsAppender that makes sure
+        // RleAwarePositionsAppender should be used with UnnestingPositionsAppender that makes sure
         // append is called only with flat block
-        checkArgument(!(source instanceof RunLengthEncodedBlock));
+        checkArgument(!(source instanceof RunLengthEncodedBlock), "Append should be called with non-RLE block but got %s", source);
         switchToFlat();
         delegate.append(positions, source);
     }

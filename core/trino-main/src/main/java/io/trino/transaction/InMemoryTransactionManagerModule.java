@@ -21,8 +21,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.trino.metadata.CatalogManager;
 import io.trino.spi.VersionEmbedder;
-
-import javax.annotation.PreDestroy;
+import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;

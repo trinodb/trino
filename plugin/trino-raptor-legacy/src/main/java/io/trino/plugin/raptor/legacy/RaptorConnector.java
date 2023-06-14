@@ -33,9 +33,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
+import jakarta.annotation.PostConstruct;
 import org.jdbi.v3.core.Jdbi;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;

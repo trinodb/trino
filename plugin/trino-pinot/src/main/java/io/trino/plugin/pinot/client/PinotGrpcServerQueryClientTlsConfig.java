@@ -19,8 +19,8 @@ import com.google.inject.spi.Message;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
+import jakarta.annotation.PostConstruct;
 
-import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;

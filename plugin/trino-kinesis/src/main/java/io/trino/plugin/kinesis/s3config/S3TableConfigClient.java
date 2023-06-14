@@ -31,8 +31,7 @@ import io.trino.plugin.kinesis.KinesisClientProvider;
 import io.trino.plugin.kinesis.KinesisConfig;
 import io.trino.plugin.kinesis.KinesisStreamDescription;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.io.BufferedReader;
 import java.io.IOException;

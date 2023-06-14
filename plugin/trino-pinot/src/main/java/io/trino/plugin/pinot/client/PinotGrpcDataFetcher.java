@@ -23,14 +23,13 @@ import io.trino.plugin.pinot.PinotException;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.plugin.pinot.query.PinotProxyGrpcRequestBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import jakarta.annotation.PreDestroy;
 import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.datatable.DataTableFactory;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.MetadataKeys;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.ResponseType;
-
-import javax.annotation.PreDestroy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

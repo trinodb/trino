@@ -797,9 +797,7 @@ public class TestAccessControl
     @Test
     public void testSetViewAuthorizationWithSecurityDefiner()
     {
-        assertQueryFails(
-                "ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user",
-                "Cannot set authorization for view mock.default.test_view_definer to USER some_other_user: this feature is disabled");
+        assertQuerySucceeds("ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user");
     }
 
     @Test

@@ -17,9 +17,8 @@ import com.google.common.collect.Maps;
 import com.google.inject.Inject;
 import io.trino.failuredetector.HeartbeatFailureDetector;
 import io.trino.server.security.ResourceSecurity;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 
 import java.util.Collection;
 

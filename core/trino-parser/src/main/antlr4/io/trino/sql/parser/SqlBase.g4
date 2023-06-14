@@ -1223,12 +1223,15 @@ BINARY_LITERAL
     ;
 
 INTEGER_VALUE
-    : DIGIT+
+    : DECIMAL_INTEGER
+    | HEXADECIMAL_INTEGER
+    | OCTAL_INTEGER
+    | BINARY_INTEGER
     ;
 
 DECIMAL_VALUE
-    : DIGIT+ '.' DIGIT*
-    | '.' DIGIT+
+    : DECIMAL_INTEGER '.' DECIMAL_INTEGER?
+    | '.' DECIMAL_INTEGER
     ;
 
 DOUBLE_VALUE
@@ -1250,6 +1253,22 @@ QUOTED_IDENTIFIER
 
 BACKQUOTED_IDENTIFIER
     : '`' ( ~'`' | '``' )* '`'
+    ;
+
+fragment DECIMAL_INTEGER
+    : DIGIT ('_'? DIGIT)*
+    ;
+
+fragment HEXADECIMAL_INTEGER
+    : '0X' ('_'? (DIGIT | [A-F]))+
+    ;
+
+fragment OCTAL_INTEGER
+    : '0O' ('_'? [0-7])+
+    ;
+
+fragment BINARY_INTEGER
+    : '0B' ('_'? [01])+
     ;
 
 fragment EXPONENT

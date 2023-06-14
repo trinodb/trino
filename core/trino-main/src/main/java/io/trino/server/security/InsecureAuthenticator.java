@@ -19,8 +19,7 @@ import io.trino.client.ProtocolHeaders;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.Optional;
 

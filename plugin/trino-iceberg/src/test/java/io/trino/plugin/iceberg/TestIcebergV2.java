@@ -156,7 +156,7 @@ public class TestIcebergV2
     public void testV2TableRead()
     {
         String tableName = "test_v2_table_read" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
+        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
         updateTableToV2(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
@@ -167,7 +167,7 @@ public class TestIcebergV2
     {
         String tableName = "test_v2_row_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
 
         String dataFilePath = (String) computeActual("SELECT file_path FROM \"" + tableName + "$files\" LIMIT 1").getOnlyValue();
 
@@ -200,7 +200,7 @@ public class TestIcebergV2
     {
         String tableName = "test_v2_equality_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
@@ -214,7 +214,7 @@ public class TestIcebergV2
         // Specify equality delete filter with different column order from table definition
         String tableName = "test_v2_equality_delete_different_order" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("regionkey", 1L, "name", "ARGENTINA"));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE name != 'ARGENTINA'");
         // nationkey is before the equality delete column in the table schema, comment is after
@@ -229,7 +229,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " AS " +
                 "SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
                 "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
     }
@@ -240,7 +240,7 @@ public class TestIcebergV2
     {
         String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
@@ -259,7 +259,7 @@ public class TestIcebergV2
     {
         String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
@@ -304,7 +304,7 @@ public class TestIcebergV2
     {
         String tableName = "test_optimize_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable);
         List<String> initialActiveFiles = getActiveFiles(tableName);
@@ -323,7 +323,7 @@ public class TestIcebergV2
     {
         String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);

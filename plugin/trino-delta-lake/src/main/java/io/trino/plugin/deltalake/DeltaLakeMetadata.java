@@ -32,6 +32,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
+import io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode;
 import io.trino.plugin.deltalake.expression.ParsingException;
 import io.trino.plugin.deltalake.expression.SparkExpressionParser;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
@@ -169,8 +170,11 @@ import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.filesystem.Locations.getParent;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.INCREMENTAL;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getColumnNames;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getFilesModifiedAfterProperty;
+import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.getRefreshMode;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileSizeColumnHandle;
@@ -240,6 +244,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.create;
 import static io.trino.plugin.hive.util.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.SEQUENCEFILE_INPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -777,13 +782,7 @@ public class DeltaLakeMetadata
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
         if (location == null) {
-            String schemaLocation = getSchemaLocation(schema)
-                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
-            String tableNameForLocation = tableName;
-            if (useUniqueTableLocation) {
-                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
-            }
-            location = appendPath(schemaLocation, tableNameForLocation);
+            location = getTableLocation(schema, tableName);
             checkPathContainsNoFiles(session, Location.of(location));
             external = false;
         }
@@ -912,13 +911,7 @@ public class DeltaLakeMetadata
         boolean external = true;
         String location = getLocation(tableMetadata.getProperties());
         if (location == null) {
-            String schemaLocation = getSchemaLocation(schema)
-                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
-            String tableNameForLocation = tableName;
-            if (useUniqueTableLocation) {
-                tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
-            }
-            location = appendPath(schemaLocation, tableNameForLocation);
+            location = getTableLocation(schema, tableName);
             external = false;
         }
 
@@ -968,6 +961,17 @@ public class DeltaLakeMetadata
         }
 
         return schemaLocation;
+    }
+
+    private String getTableLocation(Database schema, String tableName)
+    {
+        String schemaLocation = getSchemaLocation(schema)
+                .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "The 'location' property must be specified either for the table or the schema"));
+        String tableNameForLocation = escapeTableName(tableName);
+        if (useUniqueTableLocation) {
+            tableNameForLocation += "-" + randomUUID().toString().replace("-", "");
+        }
+        return appendPath(schemaLocation, tableNameForLocation);
     }
 
     private void checkPathContainsNoFiles(ConnectorSession session, Location targetPath)
@@ -1240,6 +1244,12 @@ public class DeltaLakeMetadata
     public void setViewComment(ConnectorSession session, SchemaTableName viewName, Optional<String> comment)
     {
         trinoViewHiveMetastore.updateViewComment(session, viewName, comment);
+    }
+
+    @Override
+    public void setViewColumnComment(ConnectorSession session, SchemaTableName viewName, String columnName, Optional<String> comment)
+    {
+        trinoViewHiveMetastore.updateViewColumnComment(session, viewName, columnName, comment);
     }
 
     @Override
@@ -1630,7 +1640,7 @@ public class DeltaLakeMetadata
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
         if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
-            cleanExtraOutputFilesForUpdate(session, Location.of(handle.getLocation()), allFiles);
+            cleanExtraOutputFiles(session, Location.of(handle.getLocation()), allFiles);
         }
 
         Optional<Long> checkpointInterval = handle.getMetadataEntry().getCheckpointInterval();
@@ -2541,8 +2551,12 @@ public class DeltaLakeMetadata
         MetadataEntry metadata = handle.getMetadataEntry();
 
         Optional<Instant> filesModifiedAfterFromProperties = getFilesModifiedAfterProperty(analyzeProperties);
+        AnalyzeMode analyzeMode = getRefreshMode(analyzeProperties);
 
-        Optional<ExtendedStatistics> statistics = statisticsAccess.readExtendedStatistics(session, handle.getLocation());
+        Optional<ExtendedStatistics> statistics = Optional.empty();
+        if (analyzeMode == INCREMENTAL) {
+            statistics = statisticsAccess.readExtendedStatistics(session, handle.getLocation());
+        }
 
         Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
 
@@ -2583,7 +2597,7 @@ public class DeltaLakeMetadata
             }
         }
 
-        AnalyzeHandle analyzeHandle = new AnalyzeHandle(statistics.isEmpty(), filesModifiedAfter, analyzeColumnNames);
+        AnalyzeHandle analyzeHandle = new AnalyzeHandle(statistics.isEmpty() ? FULL_REFRESH : INCREMENTAL, filesModifiedAfter, analyzeColumnNames);
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 handle.getSchemaTableName().getSchemaName(),
                 handle.getSchemaTableName().getTableName(),
@@ -2703,7 +2717,11 @@ public class DeltaLakeMetadata
             Collection<ComputedStatistics> computedStatistics,
             Optional<Map<String, String>> physicalColumnNameMapping)
     {
-        Optional<ExtendedStatistics> oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
+        Optional<ExtendedStatistics> oldStatistics = Optional.empty();
+        boolean loadExistingStats = analyzeHandle.isEmpty() || analyzeHandle.get().getAnalyzeMode() == INCREMENTAL;
+        if (loadExistingStats) {
+            oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
+        }
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
         // for now let's have a simple check rejecting update
@@ -2792,15 +2810,6 @@ public class DeltaLakeMetadata
     private void cleanExtraOutputFiles(ConnectorSession session, Location baseLocation, List<DataFileInfo> validDataFiles)
     {
         Set<Location> writtenFilePaths = validDataFiles.stream()
-                .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
-                .collect(toImmutableSet());
-
-        cleanExtraOutputFiles(session, writtenFilePaths);
-    }
-
-    private void cleanExtraOutputFilesForUpdate(ConnectorSession session, Location baseLocation, List<DataFileInfo> newFiles)
-    {
-        Set<Location> writtenFilePaths = newFiles.stream()
                 .map(dataFileInfo -> baseLocation.appendPath(dataFileInfo.getPath()))
                 .collect(toImmutableSet());
 

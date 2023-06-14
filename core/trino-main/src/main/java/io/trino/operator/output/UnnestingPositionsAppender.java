@@ -117,6 +117,11 @@ public class UnnestingPositionsAppender
     private void appendDictionary(IntArrayList positions, DictionaryBlock source)
     {
         Block dictionary = source.getDictionary();
+        if (dictionary instanceof RunLengthEncodedBlock rleDictionary) {
+            appendRle(rleDictionary.getValue(), positions.size());
+            return;
+        }
+
         IntArrayList dictionaryPositions = getDictionaryPositions(positions, source);
         if (dictionaryBlockBuilder.canAppend(dictionary)) {
             dictionaryBlockBuilder.append(dictionaryPositions, dictionary);

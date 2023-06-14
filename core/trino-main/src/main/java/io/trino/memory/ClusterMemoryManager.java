@@ -45,11 +45,11 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolInfo;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.JmxException;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.Managed;
 
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;

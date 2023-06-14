@@ -1,0 +1,26 @@
+{
+  "authorization": [
+    {
+      "original_role": "admin",
+      "new_user": "bob",
+      "allow": false
+    },
+    {
+      "original_role": "admin",
+      "new_user": ".*",
+      "new_role": ".*"
+    }
+  ],
+  "schemas": [
+    {
+      "role": "admin",
+      "owner": true
+    }
+  ],
+  "tables": [
+    {
+      "role": "admin",
+      "privileges": ["OWNERSHIP"]
+    }
+  ]
+}

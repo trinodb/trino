@@ -77,7 +77,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanCreateSchema(UNKNOWN, "unknown", ImmutableMap.of());
         accessControl.checkCanDropSchema(UNKNOWN, "unknown");
         accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
-        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(ROLE, "some_role"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(ROLE, "some_role")));
         accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
 
         accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
@@ -200,10 +200,10 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanRenameSchema(CHARLIE, "authenticated", "authenticated");
         assertDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, "test", "new_schema"));
 
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(USER, "some_user"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(USER, "some_user")));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(USER, "some_user")));
 
@@ -376,17 +376,17 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(ALICE, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
         assertDenied(() -> accessControl.checkCanSetMaterializedViewProperties(BOB, new SchemaTableName("bobschema", "bobmaterializedview"), ImmutableMap.of()));
 
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(USER, "some_user")));
 
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(USER, "some_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(USER, "some_user")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(ROLE, "some_role")));
         assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(USER, "some_user")));
     }
@@ -657,6 +657,78 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     @Test
+    public void testSchemaAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        String schema = "test";
+        String ownedByUser = "owned_by_user";
+        String ownedByGroup = "owned_by_group";
+
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("user", "group"), schema, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to user
+        accessControl.checkCanSetSchemaAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to group
+        accessControl.checkCanSetSchemaAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+    }
+
+    @Test
+    public void testTableAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        SchemaTableName table = new SchemaTableName("test", "table");
+        SchemaTableName ownedByUser = new SchemaTableName("test", "owned_by_user");
+        SchemaTableName ownedByGroup = new SchemaTableName("test", "owned_by_group");
+
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("user", "group"), table, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to table granted to user
+        accessControl.checkCanSetTableAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+
+        // access to table granted to group
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        accessControl.checkCanSetTableAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+    }
+
+    @Test
+    public void testViewAuthorization()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
+
+        SchemaTableName table = new SchemaTableName("test", "table");
+        SchemaTableName ownedByUser = new SchemaTableName("test", "owned_by_user");
+        SchemaTableName ownedByGroup = new SchemaTableName("test", "owned_by_group");
+
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "group"), table, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to user
+        accessControl.checkCanSetViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner_DENY_authorized", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner", "group"), ownedByUser, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("owner_authorized", "group"), ownedByUser, new TrinoPrincipal(ROLE, "new_role")));
+
+        // access to schema granted to group
+        accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("DENY_authorized", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("user", "owner"), ownedByGroup, new TrinoPrincipal(USER, "new_user")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(user("authorized", "owner"), ownedByGroup, new TrinoPrincipal(ROLE, "new_role")));
+    }
+
+    @Test
     public void testEverythingImplemented()
             throws NoSuchMethodException
     {
@@ -710,6 +782,11 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     private String getResourcePath(String resourceName)
     {
         return requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).getPath();
+    }
+
+    private static ConnectorSecurityContext user(String user, String group)
+    {
+        return user(user, ImmutableSet.of(group));
     }
 
     private static ConnectorSecurityContext user(String name, Set<String> groups)

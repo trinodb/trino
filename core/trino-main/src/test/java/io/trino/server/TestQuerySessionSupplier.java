@@ -33,9 +33,8 @@ import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Identifier;
 import io.trino.transaction.TransactionManager;
+import jakarta.ws.rs.core.MultivaluedMap;
 import org.testng.annotations.Test;
-
-import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.List;
 import java.util.Locale;

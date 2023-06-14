@@ -287,6 +287,7 @@
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
+            <version>2.1.1</version>
             <!--
             It is required by SchemaRegistryClient. The actual dependencies
             are excluded from SchemaRegistryClient as it conflicts with Trino's dependency

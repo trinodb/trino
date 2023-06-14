@@ -60,6 +60,7 @@ class ArbitraryDistributionSplitAssigner
     private int nextPartitionId;
     private int adaptiveCounter;
     private long targetPartitionSizeInBytes;
+    private long roundedTargetPartitionSizeInBytes;
     private final List<PartitionAssignment> allAssignments = new ArrayList<>();
     private final Map<Optional<HostAddress>, PartitionAssignment> openAssignments = new HashMap<>();
 
@@ -94,6 +95,7 @@ class ArbitraryDistributionSplitAssigner
         this.maxTaskSplitCount = maxTaskSplitCount;
 
         this.targetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
+        this.roundedTargetPartitionSizeInBytes = minTargetPartitionSizeInBytes;
     }
 
     @Override
@@ -128,6 +130,7 @@ class ArbitraryDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     partitionAssignment.getPartitionId(),
                     planNodeId,
+                    false,
                     splits,
                     noMoreSplits));
         }
@@ -153,6 +156,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
@@ -160,6 +164,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             partitionedSourceId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -173,6 +178,7 @@ class ArbitraryDistributionSplitAssigner
                             assignment.updatePartition(new PartitionUpdate(
                                     partitionAssignment.getPartitionId(),
                                     partitionedSourceNodeId,
+                                    false,
                                     ImmutableList.of(),
                                     true));
                         }
@@ -196,13 +202,14 @@ class ArbitraryDistributionSplitAssigner
             Optional<HostAddress> hostRequirement = getHostRequirement(split);
             PartitionAssignment partitionAssignment = openAssignments.get(hostRequirement);
             long splitSizeInBytes = getSplitSizeInBytes(split);
-            if (partitionAssignment != null && ((partitionAssignment.getAssignedDataSizeInBytes() + splitSizeInBytes > targetPartitionSizeInBytes)
+            if (partitionAssignment != null && ((partitionAssignment.getAssignedDataSizeInBytes() + splitSizeInBytes > roundedTargetPartitionSizeInBytes)
                     || (partitionAssignment.getAssignedSplitCount() + 1 > maxTaskSplitCount))) {
                 partitionAssignment.setFull(true);
                 for (PlanNodeId partitionedSourceNodeId : partitionedSources) {
                     assignment.updatePartition(new PartitionUpdate(
                             partitionAssignment.getPartitionId(),
                             partitionedSourceNodeId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -216,7 +223,8 @@ class ArbitraryDistributionSplitAssigner
                 if (adaptiveCounter >= adaptiveGrowthPeriod) {
                     targetPartitionSizeInBytes = (long) min(maxTargetPartitionSizeInBytes, ceil(targetPartitionSizeInBytes * adaptiveGrowthFactor));
                     // round to a multiple of minTargetPartitionSizeInBytes so work will be evenly distributed among drivers of a task
-                    targetPartitionSizeInBytes = (targetPartitionSizeInBytes + minTargetPartitionSizeInBytes - 1) / minTargetPartitionSizeInBytes * minTargetPartitionSizeInBytes;
+                    roundedTargetPartitionSizeInBytes = round(targetPartitionSizeInBytes * 1.0 / minTargetPartitionSizeInBytes) * minTargetPartitionSizeInBytes;
+                    verify(roundedTargetPartitionSizeInBytes > 0, "roundedTargetPartitionSizeInBytes %s not positive", roundedTargetPartitionSizeInBytes);
                     adaptiveCounter = 0;
                 }
             }
@@ -232,6 +240,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             partitionAssignment.getPartitionId(),
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             completedSources.contains(replicatedSourceId)));
                 }
@@ -239,6 +248,7 @@ class ArbitraryDistributionSplitAssigner
             assignment.updatePartition(new PartitionUpdate(
                     partitionAssignment.getPartitionId(),
                     planNodeId,
+                    true,
                     ImmutableList.of(split),
                     false));
             partitionAssignment.assignSplit(splitSizeInBytes);
@@ -257,6 +267,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             replicatedSourceId,
+                            false,
                             replicatedSplits.get(replicatedSourceId),
                             true));
                 }
@@ -264,6 +275,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.updatePartition(new PartitionUpdate(
                             0,
                             partitionedSourceId,
+                            false,
                             ImmutableList.of(),
                             true));
                 }
@@ -277,6 +289,7 @@ class ArbitraryDistributionSplitAssigner
                         assignment.updatePartition(new PartitionUpdate(
                                 partitionAssignment.getPartitionId(),
                                 partitionedSourceNodeId,
+                                false,
                                 ImmutableList.of(),
                                 true));
                     }

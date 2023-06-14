@@ -27,6 +27,7 @@ public class FileBasedSystemAccessControlRules
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
+    private final Optional<List<AuthorizationRule>> authorizationRules;
     private final Optional<List<CatalogSchemaAccessControlRule>> schemaRules;
     private final Optional<List<CatalogTableAccessControlRule>> tableRules;
     private final Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules;
@@ -40,6 +41,7 @@ public class FileBasedSystemAccessControlRules
             @JsonProperty("impersonation") Optional<List<ImpersonationRule>> impersonationRules,
             @JsonProperty("principals") Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             @JsonProperty("system_information") Optional<List<SystemInformationRule>> systemInformationRules,
+            @JsonProperty("authorization") Optional<List<AuthorizationRule>> authorizationRules,
             @JsonProperty("schemas") Optional<List<CatalogSchemaAccessControlRule>> schemaAccessControlRules,
             @JsonProperty("tables") Optional<List<CatalogTableAccessControlRule>> tableAccessControlRules,
             @JsonProperty("system_session_properties") Optional<List<SessionPropertyAccessControlRule>> sessionPropertyRules,
@@ -51,6 +53,7 @@ public class FileBasedSystemAccessControlRules
         this.principalUserMatchRules = principalUserMatchRules.map(ImmutableList::copyOf);
         this.impersonationRules = impersonationRules.map(ImmutableList::copyOf);
         this.systemInformationRules = systemInformationRules.map(ImmutableList::copyOf);
+        this.authorizationRules = authorizationRules.map(ImmutableList::copyOf);
         this.schemaRules = schemaAccessControlRules.map(ImmutableList::copyOf);
         this.tableRules = tableAccessControlRules.map(ImmutableList::copyOf);
         this.sessionPropertyRules = sessionPropertyRules.map(ImmutableList::copyOf);
@@ -81,6 +84,11 @@ public class FileBasedSystemAccessControlRules
     public Optional<List<SystemInformationRule>> getSystemInformationRules()
     {
         return systemInformationRules;
+    }
+
+    public List<AuthorizationRule> getAuthorizationRules()
+    {
+        return authorizationRules.orElseGet(ImmutableList::of);
     }
 
     public Optional<List<CatalogSchemaAccessControlRule>> getSchemaRules()

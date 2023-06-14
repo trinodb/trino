@@ -176,6 +176,8 @@ Date and time
 
 See also :doc:`/functions/datetime`
 
+.. _date-data-type:
+
 ``DATE``
 ^^^^^^^^
 

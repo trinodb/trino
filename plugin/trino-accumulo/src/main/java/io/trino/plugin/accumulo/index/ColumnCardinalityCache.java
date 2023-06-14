@@ -29,6 +29,7 @@ import io.trino.collect.cache.NonEvictableLoadingCache;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PreDestroy;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.data.Key;
@@ -37,8 +38,6 @@ import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.security.Authorizations;
 import org.apache.hadoop.io.Text;
-
-import javax.annotation.PreDestroy;
 
 import java.util.Collection;
 import java.util.HashMap;

@@ -24,6 +24,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -44,11 +45,17 @@ interface SplitAssigner
         }
     }
 
-    record PartitionUpdate(int partitionId, PlanNodeId planNodeId, List<Split> splits, boolean noMoreSplits)
+    record PartitionUpdate(
+            int partitionId,
+            PlanNodeId planNodeId,
+            boolean readyForScheduling,
+            List<Split> splits,
+            boolean noMoreSplits)
     {
         public PartitionUpdate
         {
             requireNonNull(planNodeId, "planNodeId is null");
+            checkArgument(!(readyForScheduling && splits.isEmpty()), "partition update with empty splits marked as ready for scheduling");
             splits = ImmutableList.copyOf(requireNonNull(splits, "splits is null"));
         }
     }

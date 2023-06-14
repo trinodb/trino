@@ -53,12 +53,12 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 import io.trino.util.Ciphers;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.List;

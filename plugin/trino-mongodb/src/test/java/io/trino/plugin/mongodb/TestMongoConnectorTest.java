@@ -32,6 +32,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -72,6 +73,12 @@ public class TestMongoConnectorTest
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
+    @BeforeClass
+    public void initTestSchema()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS test");
+    }
+
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
@@ -100,7 +107,6 @@ public class TestMongoConnectorTest
                 return false;
 
             case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_RENAME_COLUMN:
                 return false;
 
             case SUPPORTS_CREATE_VIEW:

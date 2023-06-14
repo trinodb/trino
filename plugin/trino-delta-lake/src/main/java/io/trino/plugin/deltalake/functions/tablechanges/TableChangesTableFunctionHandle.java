@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake.functions.tablechanges;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 
 import java.util.List;
 

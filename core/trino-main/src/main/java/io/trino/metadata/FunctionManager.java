@@ -34,7 +34,7 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.function.WindowFunctionSupplier;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;

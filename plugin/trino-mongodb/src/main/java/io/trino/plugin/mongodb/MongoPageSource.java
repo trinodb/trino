@@ -13,14 +13,11 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import com.mongodb.DBRef;
 import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -41,8 +38,6 @@ import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
 import org.joda.time.chrono.ISOChronology;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -273,12 +268,6 @@ public class MongoPageSource
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
-    }
-
-    public static JsonGenerator createJsonGenerator(JsonFactory factory, SliceOutput output)
-            throws IOException
-    {
-        return factory.createGenerator((OutputStream) output);
     }
 
     private void writeBlock(BlockBuilder output, Type type, Object value)

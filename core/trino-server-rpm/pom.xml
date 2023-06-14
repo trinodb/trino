@@ -71,9 +71,14 @@
                     <groupId>com.mycila</groupId>
                     <artifactId>license-maven-plugin</artifactId>
                     <configuration>
-                        <excludes combine.children="append">
-                            <exclude>src/main/rpm/**</exclude>
-                        </excludes>
+                        <licenseSets>
+                            <licenseSet>
+                                <header>${air.license.header-file}</header>
+                                <excludes combine.children="append">
+                                    <exclude>src/main/rpm/**</exclude>
+                                </excludes>
+                            </licenseSet>
+                        </licenseSets>
                         <mapping>
                             <groovy>SLASHSTAR_STYLE</groovy>
                         </mapping>

@@ -90,6 +90,10 @@ public class EnvSinglenodeSparkIcebergRest
                         forHostPath(dockerFiles.getDockerFilesHostPath(
                                 "conf/environment/singlenode-spark-iceberg-rest/spark-defaults.conf")),
                         "/spark/conf/spark-defaults.conf")
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath(
+                                "common/spark/log4j2.properties")),
+                        "/spark/conf/log4j2.properties")
                 .withCommand(
                         "spark-submit",
                         "--master", "local[*]",

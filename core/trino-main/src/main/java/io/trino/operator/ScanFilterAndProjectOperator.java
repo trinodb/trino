@@ -491,33 +491,33 @@ public class ScanFilterAndProjectOperator
 
         @Override
         public WorkProcessorSourceOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, true);
+            return create(operatorContext, memoryTrackingContext, yieldSignal, splits, true);
         }
 
         @Override
         public WorkProcessorSourceOperator createAdapterOperator(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits)
         {
-            return create(session, memoryTrackingContext, yieldSignal, splits, false);
+            return create(operatorContext, memoryTrackingContext, yieldSignal, splits, false);
         }
 
         private ScanFilterAndProjectOperator create(
-                Session session,
+                OperatorContext operatorContext,
                 MemoryTrackingContext memoryTrackingContext,
                 DriverYieldSignal yieldSignal,
                 WorkProcessor<Split> splits,
                 boolean avoidPageMaterialization)
         {
             return new ScanFilterAndProjectOperator(
-                    session,
+                    operatorContext.getSession(),
                     memoryTrackingContext,
                     yieldSignal,
                     splits,

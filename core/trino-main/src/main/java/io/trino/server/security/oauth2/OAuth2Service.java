@@ -20,8 +20,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtParser;
 import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
-
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,11 +41,11 @@ import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.fromOAuth2Response;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
 
 public class OAuth2Service
 {

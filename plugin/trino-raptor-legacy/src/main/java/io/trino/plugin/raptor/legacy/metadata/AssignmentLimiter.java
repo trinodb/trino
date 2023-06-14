@@ -20,9 +20,9 @@ import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.spi.Node;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.HashMap;

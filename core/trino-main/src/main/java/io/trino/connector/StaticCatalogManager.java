@@ -27,8 +27,8 @@ import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.File;

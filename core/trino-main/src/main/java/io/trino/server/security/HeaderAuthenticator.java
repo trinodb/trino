@@ -16,8 +16,7 @@ package io.trino.server.security;
 import com.google.inject.Inject;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
-
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.util.List;

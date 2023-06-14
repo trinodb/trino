@@ -147,7 +147,7 @@ class HashDistributionSplitAssigner
         if (replicatedSources.contains(planNodeId)) {
             replicatedSplits.putAll(planNodeId, splits.values());
             for (Integer partitionId : createdTaskPartitions) {
-                assignment.updatePartition(new PartitionUpdate(partitionId, planNodeId, ImmutableList.copyOf(splits.values()), noMoreSplits));
+                assignment.updatePartition(new PartitionUpdate(partitionId, planNodeId, false, ImmutableList.copyOf(splits.values()), noMoreSplits));
             }
         }
         else {
@@ -164,7 +164,7 @@ class HashDistributionSplitAssigner
                 }
 
                 for (SubPartition subPartition : subPartitions) {
-                    assignment.updatePartition(new PartitionUpdate(subPartition.getId(), planNodeId, ImmutableList.of(split), false));
+                    assignment.updatePartition(new PartitionUpdate(subPartition.getId(), planNodeId, true, ImmutableList.of(split), false));
                 }
             });
         }
@@ -172,7 +172,7 @@ class HashDistributionSplitAssigner
         if (noMoreSplits) {
             completedSources.add(planNodeId);
             for (Integer taskPartition : createdTaskPartitions) {
-                assignment.updatePartition(new PartitionUpdate(taskPartition, planNodeId, ImmutableList.of(), true));
+                assignment.updatePartition(new PartitionUpdate(taskPartition, planNodeId, false, ImmutableList.of(), true));
             }
 
             if (completedSources.containsAll(allSources)) {

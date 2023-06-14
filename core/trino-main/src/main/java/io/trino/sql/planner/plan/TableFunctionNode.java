@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableFunctionHandle;
 import io.trino.spi.connector.CatalogHandle;
-import io.trino.spi.ptf.Argument;
+import io.trino.spi.function.table.Argument;
 import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;

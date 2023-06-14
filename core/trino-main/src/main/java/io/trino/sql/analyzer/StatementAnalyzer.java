@@ -73,19 +73,19 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.FunctionKind;
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ArgumentSpecification;
-import io.trino.spi.ptf.ConnectorTableFunction;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.DescriptorArgument;
-import io.trino.spi.ptf.DescriptorArgumentSpecification;
-import io.trino.spi.ptf.ReturnTypeSpecification;
-import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
-import io.trino.spi.ptf.ScalarArgument;
-import io.trino.spi.ptf.ScalarArgumentSpecification;
-import io.trino.spi.ptf.TableArgument;
-import io.trino.spi.ptf.TableArgumentSpecification;
-import io.trino.spi.ptf.TableFunctionAnalysis;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ArgumentSpecification;
+import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.DescriptorArgument;
+import io.trino.spi.function.table.DescriptorArgumentSpecification;
+import io.trino.spi.function.table.ReturnTypeSpecification;
+import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.ScalarArgumentSpecification;
+import io.trino.spi.function.table.TableArgument;
+import io.trino.spi.function.table.TableArgumentSpecification;
+import io.trino.spi.function.table.TableFunctionAnalysis;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -339,9 +339,9 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.FRESH;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.trino.spi.function.FunctionKind.AGGREGATE;
 import static io.trino.spi.function.FunctionKind.WINDOW;
-import static io.trino.spi.ptf.DescriptorArgument.NULL_DESCRIPTOR;
-import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
-import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
+import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
+import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -4039,7 +4039,7 @@ class StatementAnalyzer
                         for (Expression column : groupingElement.getExpressions()) {
                             // simple GROUP BY expressions allow ordinals or arbitrary expressions
                             if (column instanceof LongLiteral) {
-                                long ordinal = ((LongLiteral) column).getValue();
+                                long ordinal = ((LongLiteral) column).getParsedValue();
                                 if (ordinal < 1 || ordinal > outputExpressions.size()) {
                                     throw semanticException(INVALID_COLUMN_REFERENCE, column, "GROUP BY position %s is not in select list", ordinal);
                                 }
@@ -5206,7 +5206,7 @@ class StatementAnalyzer
                 if (expression instanceof LongLiteral) {
                     // this is an ordinal in the output tuple
 
-                    long ordinal = ((LongLiteral) expression).getValue();
+                    long ordinal = ((LongLiteral) expression).getParsedValue();
                     if (ordinal < 1 || ordinal > orderByScope.getRelationType().getVisibleFieldCount()) {
                         throw semanticException(INVALID_COLUMN_REFERENCE, expression, "ORDER BY position %s is not in select list", ordinal);
                     }
@@ -5241,7 +5241,7 @@ class StatementAnalyzer
         {
             long rowCount;
             if (node.getRowCount() instanceof LongLiteral) {
-                rowCount = ((LongLiteral) node.getRowCount()).getValue();
+                rowCount = ((LongLiteral) node.getRowCount()).getParsedValue();
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected OFFSET rowCount: " + node.getRowCount().getClass().getSimpleName());
@@ -5275,7 +5275,7 @@ class StatementAnalyzer
             if (node.getRowCount().isPresent()) {
                 Expression count = node.getRowCount().get();
                 if (count instanceof LongLiteral) {
-                    rowCount = ((LongLiteral) count).getValue();
+                    rowCount = ((LongLiteral) count).getParsedValue();
                 }
                 else {
                     checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: " + count.getClass().getSimpleName());
@@ -5300,7 +5300,7 @@ class StatementAnalyzer
                 rowCount = OptionalLong.empty();
             }
             else if (node.getRowCount() instanceof LongLiteral) {
-                rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getValue());
+                rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getParsedValue());
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());

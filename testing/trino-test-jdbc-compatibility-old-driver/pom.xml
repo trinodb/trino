@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.presto-jdbc-under-test>420-SNAPSHOT</dep.presto-jdbc-under-test>
+        <dep.presto-jdbc-under-test>${project.version}</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>

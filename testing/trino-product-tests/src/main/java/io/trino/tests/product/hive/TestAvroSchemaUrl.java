@@ -18,6 +18,7 @@ import io.trino.tempto.AfterMethodWithContext;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutionException;
+import io.trino.testng.services.Flaky;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -32,6 +33,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
+import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -84,6 +87,7 @@ public class TestAvroSchemaUrl
     }
 
     @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testHiveCreatedTable(String schemaLocation)
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_hive");
@@ -104,6 +108,7 @@ public class TestAvroSchemaUrl
     }
 
     @Test(groups = AVRO)
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testAvroSchemaUrlInSerdeProperties()
             throws IOException
     {
@@ -146,6 +151,7 @@ public class TestAvroSchemaUrl
     }
 
     @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPrestoCreatedTable(String schemaLocation)
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
@@ -159,6 +165,7 @@ public class TestAvroSchemaUrl
     }
 
     @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testTableWithLongColumnType()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
@@ -188,6 +195,7 @@ public class TestAvroSchemaUrl
     }
 
     @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPartitionedTableWithLongColumnType()
     {
         if (isOnHdp() && getHiveVersionMajor() < 3) {

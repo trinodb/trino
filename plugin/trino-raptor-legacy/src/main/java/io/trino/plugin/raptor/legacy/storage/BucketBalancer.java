@@ -34,11 +34,10 @@ import io.trino.plugin.raptor.legacy.metadata.Distribution;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 
 import java.util.Collection;
 import java.util.Comparator;

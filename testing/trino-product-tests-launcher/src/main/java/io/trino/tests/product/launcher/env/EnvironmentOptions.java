@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env;
 
+import jakarta.annotation.Nullable;
 import picocli.CommandLine;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Spec;
@@ -60,6 +61,7 @@ public final class EnvironmentOptions
     public String jdkProvider = BUILT_IN_NAME;
 
     @Option(names = "--jdk-tmp-download-path", paramLabel = "<jdk-tmp-download-path>", defaultValue = "${env:PTL_TMP_DOWNLOAD_PATH:-${sys:java.io.tmpdir}/ptl-tmp-download}", description = "Path to use to download JDK distributions " + DEFAULT_VALUE)
+    @Nullable
     public Path jdkDownloadPath;
 
     @Option(names = "--bind", description = "Bind exposed container ports to host ports, possible values: " + BIND_ON_HOST + ", " + DO_NOT_BIND + ", [port base number] " + DEFAULT_VALUE, defaultValue = BIND_ON_HOST, arity = "0..1", fallbackValue = BIND_ON_HOST)

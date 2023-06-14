@@ -665,15 +665,15 @@ public class TestEventDrivenTaskSource
                 if (partitions.add(partition)) {
                     result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of())));
                     for (PlanNodeId finishedSource : finishedSources) {
-                        result.updatePartition(new PartitionUpdate(partition, finishedSource, ImmutableList.of(), true));
+                        result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableList.of(), true));
                     }
                 }
-                result.updatePartition(new PartitionUpdate(partition, planNodeId, splits, noMoreSplits));
+                result.updatePartition(new PartitionUpdate(partition, planNodeId, true, splits, noMoreSplits));
             });
             if (noMoreSplits) {
                 finishedSources.add(planNodeId);
                 for (Integer partition : partitions) {
-                    result.updatePartition(new PartitionUpdate(partition, planNodeId, ImmutableList.of(), true));
+                    result.updatePartition(new PartitionUpdate(partition, planNodeId, false, ImmutableList.of(), true));
                 }
             }
             if (finishedSources.containsAll(allSources)) {
