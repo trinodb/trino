@@ -887,6 +887,42 @@ public class TestMongoConnectorTest
         assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'local'");
     }
 
+    @Test
+    public void testInvalidCreateTableWithDuplicatedRowFields()
+    {
+        assertQueryFails(
+                "CREATE TABLE t3 (a row(a int, a int, c int, b int))",
+                "Row field 'a' specified more than once");
+        assertQueryFails(
+                "CREATE TABLE t3 (a row(a int, a int, c int, b int, b int))",
+                "Row fields 'a','b' specified more than once");
+        assertQueryFails(
+                "CREATE TABLE t3 (a row(a int, A int))",
+                "Row field 'a' specified more than once");
+        // Make sure nested rows are validated
+        assertQueryFails(
+                "CREATE TABLE t3 (a_1 row(a_2 row(a_3 int, a_3 int, c_3 int), b_2 row(b_3 int, b_3 int, c_3 int)))",
+                "Row field 'a_3' specified more than once");
+        assertQueryFails(
+                "CREATE TABLE t3 (a_1 row(a_2 row(a_3 int, b_3 int, c_3 int), b_2 row(b_3 int, b_3 row(a_4 int, c_4 int, c_4 int))))",
+                "Row field 'c_4' specified more than once");
+        // Make sure nested rows in a map are validated
+        assertQueryFails(
+                "CREATE TABLE t1(a_1 MAP<int, row(a_2 int, b_2 int, b_2 int)>)",
+                "Row field 'b_2' specified more than once");
+        assertQueryFails(
+                "CREATE TABLE t1(a_1 MAP<row(a_2 int, b_2 int, b_2 int), int>)",
+                "Row field 'b_2' specified more than once");
+        // Make sure nested rows in an array are validated
+        assertQueryFails(
+                "CREATE TABLE t1(a_1 ARRAY<row(a_2 int, b_2 int, b_2 int)>)",
+                "Row field 'b_2' specified more than once");
+        // Make sure rows nested in row, map and array are validated
+        assertQueryFails(
+                "CREATE TABLE t1(a_1 ARRAY<row(a_2 int, b_2 MAP<int, row(a_3 int, b_3 int, c_3 row(a_4 int, b_4 int, b_4 int))>)>)",
+                "Row field 'b_4' specified more than once");
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {

@@ -54,6 +54,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
@@ -70,6 +71,9 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -658,8 +662,43 @@ public class MongoMetadata
     private static List<MongoColumnHandle> buildColumnHandles(ConnectorTableMetadata tableMetadata)
     {
         return tableMetadata.getColumns().stream()
+                .peek(m -> validateRowFieldsForDuplicatedNamedFields(m.getType()))
                 .map(m -> new MongoColumnHandle(m.getName(), m.getType(), m.isHidden(), Optional.ofNullable(m.getComment())))
                 .collect(toList());
+    }
+
+    private static void validateRowFieldsForDuplicatedNamedFields(Type columnType)
+    {
+        if (columnType instanceof RowType rowColumn) {
+            List<String> duplicatedFields = rowColumn.getFields()
+                    .stream()
+                    .peek(field -> validateRowFieldsForDuplicatedNamedFields(field.getType()))
+                    .flatMap(field -> field.getName().stream())
+                    .collect(Collectors.groupingBy(Function.identity()))
+                    .entrySet()
+                    .stream()
+                    .flatMap(groupedByName -> {
+                        if (groupedByName.getValue().size() > 1) {
+                            return Stream.of(groupedByName.getKey());
+                        }
+                        else {
+                            return Stream.empty();
+                        }
+                    }).collect(toImmutableList());
+            if (duplicatedFields.size() >= 1) {
+                throw new TrinoException(NOT_SUPPORTED,
+                        format("Row %s '%s' specified more than once",
+                                duplicatedFields.size() == 1 ? "field" : "fields",
+                                String.join("','", duplicatedFields)));
+            }
+        }
+        else if (columnType instanceof MapType mapColumn) {
+            validateRowFieldsForDuplicatedNamedFields(mapColumn.getKeyType());
+            validateRowFieldsForDuplicatedNamedFields(mapColumn.getValueType());
+        }
+        else if (columnType instanceof ArrayType arrayType) {
+            validateRowFieldsForDuplicatedNamedFields(arrayType.getElementType());
+        }
     }
 
     private static void validateColumnNameForInsert(String columnName)
