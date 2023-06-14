@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.jdbc;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -36,8 +37,6 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 import net.snowflake.client.jdbc.SnowflakeDriver;
-
-import javax.inject.Qualifier;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -217,11 +216,11 @@ public class SnowflakeJdbcClientModule
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface ForWarehouseAware {}
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface DefaultSnowflakeBinding {}
 }

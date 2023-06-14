@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcConnector;
@@ -21,8 +22,6 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ConnectorTableFunction;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

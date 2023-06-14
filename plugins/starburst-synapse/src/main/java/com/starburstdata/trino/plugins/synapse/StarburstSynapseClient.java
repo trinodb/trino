@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.synapse;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -57,8 +58,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.sql.CallableStatement;
 import java.sql.Connection;

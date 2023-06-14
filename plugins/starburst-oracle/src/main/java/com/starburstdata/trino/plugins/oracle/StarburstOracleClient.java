@@ -12,6 +12,7 @@ package com.starburstdata.trino.plugins.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
@@ -70,8 +71,6 @@ import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleTypes;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -390,7 +389,8 @@ public class StarburstOracleClient
                 return tableStatistics.build();
             }
 
-            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()).stream()
+            Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName())
+                    .stream()
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {

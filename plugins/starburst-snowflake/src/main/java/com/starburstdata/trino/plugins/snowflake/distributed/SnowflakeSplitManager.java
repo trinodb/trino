@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

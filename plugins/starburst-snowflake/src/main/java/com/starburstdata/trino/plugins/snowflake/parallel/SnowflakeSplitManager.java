@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.common.base.VerifyException;
+import com.google.inject.Inject;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.BooleanWriteFunction;
@@ -47,8 +48,6 @@ import net.snowflake.client.core.SessionUtil;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.StarburstSnowflakeStatementV1;
 import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;

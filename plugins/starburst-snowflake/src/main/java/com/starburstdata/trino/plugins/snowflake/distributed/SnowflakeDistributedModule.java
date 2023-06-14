@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
@@ -38,8 +39,6 @@ import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
-
-import javax.inject.Qualifier;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -141,6 +140,6 @@ public class SnowflakeDistributedModule
     // TODO: When cleaning bindings, if this is still needed, move it to its own file
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface ForSnowflake {}
 }

@@ -11,15 +11,14 @@ package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
-
-import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.SQLException;

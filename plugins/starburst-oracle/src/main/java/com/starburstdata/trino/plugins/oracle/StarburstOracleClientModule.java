@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.oracle;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -35,8 +36,6 @@ import io.trino.plugin.oracle.OracleSessionProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import oracle.jdbc.driver.OracleDriver;
-
-import javax.inject.Qualifier;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -136,6 +135,6 @@ public class StarburstOracleClientModule
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface DefaultOracleBinding {}
 }

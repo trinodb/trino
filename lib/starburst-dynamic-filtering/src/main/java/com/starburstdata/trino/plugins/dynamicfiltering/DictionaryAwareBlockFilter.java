@@ -12,8 +12,7 @@ package com.starburstdata.trino.plugins.dynamicfiltering;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static com.starburstdata.trino.plugins.dynamicfiltering.SelectedPositions.positionsList;
 import static com.starburstdata.trino.plugins.dynamicfiltering.SelectedPositions.positionsRange;

@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset;
 import com.google.common.math.IntMath;
+import com.google.inject.Inject;
 import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -31,8 +32,6 @@ import io.trino.spi.predicate.TupleDomain;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.core.JdbiException;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

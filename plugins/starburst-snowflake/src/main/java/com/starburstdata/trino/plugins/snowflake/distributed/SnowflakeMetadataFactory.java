@@ -10,6 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CachingJdbcClient;
@@ -19,8 +20,6 @@ import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTransactionHandle;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 import java.util.concurrent.TimeUnit;

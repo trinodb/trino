@@ -10,17 +10,16 @@
 package com.starburstdata.trino.plugins.dynamicfiltering;
 
 import com.google.common.cache.CacheBuilder;
+import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.concurrent.ExecutionException;

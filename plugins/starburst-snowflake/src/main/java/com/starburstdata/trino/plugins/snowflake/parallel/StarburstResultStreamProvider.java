@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import net.snowflake.client.jdbc.RestRequest;
 import net.snowflake.client.jdbc.SnowflakeSQLException;
@@ -18,8 +19,6 @@ import net.snowflake.client.jdbc.internal.apache.http.HttpResponse;
 import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpGet;
 import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.client.utils.URIBuilder;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;
