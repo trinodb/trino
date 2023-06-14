@@ -22,6 +22,19 @@ public class HiveGcsConfig
     private boolean useGcsAccessToken;
     private String jsonKeyFilePath;
 
+    public boolean isUseGcsAccessToken()
+    {
+        return useGcsAccessToken;
+    }
+
+    @Config("hive.gcs.use-access-token")
+    @ConfigDescription("Use client-provided OAuth token to access Google Cloud Storage")
+    public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
+    {
+        this.useGcsAccessToken = useGcsAccessToken;
+        return this;
+    }
+
     @FileExists
     public String getJsonKeyFilePath()
     {
@@ -33,19 +46,6 @@ public class HiveGcsConfig
     public HiveGcsConfig setJsonKeyFilePath(String jsonKeyFilePath)
     {
         this.jsonKeyFilePath = jsonKeyFilePath;
-        return this;
-    }
-
-    public boolean isUseGcsAccessToken()
-    {
-        return useGcsAccessToken;
-    }
-
-    @Config("hive.gcs.use-access-token")
-    @ConfigDescription("Use client-provided OAuth token to access Google Cloud Storage")
-    public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
-    {
-        this.useGcsAccessToken = useGcsAccessToken;
         return this;
     }
 }

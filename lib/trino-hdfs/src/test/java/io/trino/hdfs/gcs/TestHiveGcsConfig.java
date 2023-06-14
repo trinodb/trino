@@ -31,8 +31,8 @@ public class TestHiveGcsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveGcsConfig.class)
-                .setJsonKeyFilePath(null)
-                .setUseGcsAccessToken(false));
+                .setUseGcsAccessToken(false)
+                .setJsonKeyFilePath(null));
     }
 
     @Test
@@ -42,13 +42,13 @@ public class TestHiveGcsConfig
         Path jsonKeyFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("hive.gcs.use-access-token", "true")
+                .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .buildOrThrow();
 
         HiveGcsConfig expected = new HiveGcsConfig()
-                .setJsonKeyFilePath(jsonKeyFile.toString())
-                .setUseGcsAccessToken(true);
+                .setUseGcsAccessToken(true)
+                .setJsonKeyFilePath(jsonKeyFile.toString());
 
         assertFullMapping(properties, expected);
     }
