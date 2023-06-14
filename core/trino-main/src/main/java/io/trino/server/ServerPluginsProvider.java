@@ -24,10 +24,13 @@ import java.net.URL;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.nio.file.Files.newDirectoryStream;
@@ -38,21 +41,32 @@ public class ServerPluginsProvider
 {
     private final File installedPluginsDir;
     private final Executor executor;
+    private final Set<String> disabledPlugins;
 
     @Inject
     public ServerPluginsProvider(ServerPluginsProviderConfig config, @ForStartup Executor executor)
     {
+        requireNonNull(config, "config is null");
         this.installedPluginsDir = config.getInstalledPluginsDir();
+        this.disabledPlugins = config.getDisabledPlugins();
         this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
     public void loadPlugins(Loader loader, ClassLoaderFactory createClassLoader)
     {
+        List<File> plugins = listFiles(installedPluginsDir).stream()
+                .filter(File::isDirectory)
+                .collect(toImmutableList());
+        Set<String> pluginNames = plugins.stream().map(File::getName).collect(toImmutableSet());
+        if (!pluginNames.containsAll(disabledPlugins)) {
+            throw new IllegalArgumentException("disabled plugins configuration property contains not existing plugin names: %s. disabledPlugins: %s, pluginNames: %s"
+                    .formatted(difference(disabledPlugins, pluginNames), disabledPlugins, pluginNames));
+        }
         executeUntilFailure(
                 executor,
-                listFiles(installedPluginsDir).stream()
-                        .filter(File::isDirectory)
+                plugins.stream()
+                        .filter(plugin -> !disabledPlugins.contains(plugin.getName()))
                         .map(file -> (Callable<?>) () -> {
                             loader.load(file.getAbsolutePath(), () ->
                                     createClassLoader.create(file.getName(), buildClassPath(file)));

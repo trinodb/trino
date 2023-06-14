@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.suite.suites;
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.environment.EnvMultinodeAllConnectors;
+import io.trino.tests.product.launcher.env.environment.EnvMultinodePluginDisabled;
 import io.trino.tests.product.launcher.suite.Suite;
 import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
@@ -37,6 +38,9 @@ public class SuiteAllConnectorsSmoke
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeAllConnectors.class)
                         .withTests("TestConfiguredFeatures.selectConfiguredConnectors")
+                        .build(),
+                testOnEnvironment(EnvMultinodePluginDisabled.class)
+                        .withTests("TestDisablePlugin.testPluginDisabled")
                         .build());
     }
 }

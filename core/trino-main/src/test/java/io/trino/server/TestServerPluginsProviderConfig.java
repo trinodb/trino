@@ -29,16 +29,20 @@ public class TestServerPluginsProviderConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ServerPluginsProviderConfig.class)
-                .setInstalledPluginsDir(new File("plugin")));
+                .setInstalledPluginsDir(new File("plugin"))
+                .setDisabledPlugins(""));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("plugin.dir", "plugins-dir");
+        Map<String, String> properties = ImmutableMap.of(
+                "plugin.dir", "plugins-dir",
+                "plugin.disabled", "pluginA,pluginB");
 
         ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
-                .setInstalledPluginsDir(new File("plugins-dir"));
+                .setInstalledPluginsDir(new File("plugins-dir"))
+                .setDisabledPlugins("pluginA,pluginB");
 
         assertFullMapping(properties, expected);
     }

@@ -13,13 +13,18 @@
  */
 package io.trino.server;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 
 import java.io.File;
+import java.util.Set;
 
 public class ServerPluginsProviderConfig
 {
+    private static final Splitter SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
     private File installedPluginsDir = new File("plugin");
+    private Set<String> disabledPlugins = ImmutableSet.of();
 
     public File getInstalledPluginsDir()
     {
@@ -30,6 +35,18 @@ public class ServerPluginsProviderConfig
     public ServerPluginsProviderConfig setInstalledPluginsDir(File installedPluginsDir)
     {
         this.installedPluginsDir = installedPluginsDir;
+        return this;
+    }
+
+    public Set<String> getDisabledPlugins()
+    {
+        return disabledPlugins;
+    }
+
+    @Config("plugin.disabled")
+    public ServerPluginsProviderConfig setDisabledPlugins(String disabledPlugins)
+    {
+        this.disabledPlugins = ImmutableSet.copyOf(SPLITTER.splitToList(disabledPlugins));
         return this;
     }
 }
