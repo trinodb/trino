@@ -81,7 +81,6 @@ public class TestHiveSplit
                 Optional.empty(),
                 false,
                 Optional.of(acidInfo),
-                555534,
                 SplitWeight.fromProportion(2.0)); // some non-standard value
 
         String json = codec.toJson(expected);
@@ -101,7 +100,6 @@ public class TestHiveSplit
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
-        assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 }
