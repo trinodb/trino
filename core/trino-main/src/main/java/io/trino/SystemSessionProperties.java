@@ -175,6 +175,8 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_compute_task_target_size";
     public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE = "fault_tolerant_execution_hash_distribution_write_task_target_size";
     public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT = "fault_tolerant_execution_hash_distribution_write_task_target_max_count";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO = "fault_tolerant_execution_hash_distribution_compute_task_to_node_min_ratio";
+    public static final String FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO = "fault_tolerant_execution_hash_distribution_write_task_to_node_min_ratio";
     public static final String FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE = "fault_tolerant_execution_standard_split_size";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
@@ -884,6 +886,14 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT,
                         "Soft upper bound on number of writer tasks in a stage of hash distribution of fault-tolerant execution",
                         queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(),
+                        true),
+                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO,
+                        "Minimal ratio of tasks count vs cluster nodes count for hash distributed compute stage in fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(),
+                        true),
+                doubleProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO,
+                        "Minimal ratio of tasks count vs cluster nodes count for hash distributed writer stage in fault-tolerant execution",
+                        queryManagerConfig.getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(),
                         true),
                 dataSizeProperty(
                         FAULT_TOLERANT_EXECUTION_STANDARD_SPLIT_SIZE,
@@ -1698,6 +1708,16 @@ public final class SystemSessionProperties
     public static int getFaultTolerantExecutionHashDistributionWriteTaskTargetMaxCount(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_MAX_COUNT, Integer.class);
+    }
+
+    public static double getFaultTolerantExecutionHashDistributionComputeTasksToNodesMinRatio(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TO_NODE_MIN_RATIO, Double.class);
+    }
+
+    public static double getFaultTolerantExecutionHashDistributionWriteTasksToNodesMinRatio(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TO_NODE_MIN_RATIO, Double.class);
     }
 
     public static DataSize getFaultTolerantExecutionStandardSplitSize(Session session)
