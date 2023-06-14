@@ -30,9 +30,9 @@ Requirements
     :ref:`run one locally using kind <running-a-local-kubernetes-cluster-with-kind>`.
 
 * `kubectl <https://kubernetes.io/docs/tasks/tools/#kubectl>`_ with a version
-   that adheres to the
-   `Kubernetes version skew policy <https://kubernetes.io/releases/version-skew-policy/>`_
-   installed on the machine managing the Kubernetes deployment.
+  that adheres to the 
+  `Kubernetes version skew policy <https://kubernetes.io/releases/version-skew-policy/>`_
+  installed on the machine managing the Kubernetes deployment.
 
 * `helm <https://helm.sh>`_ with a version that adheres to the
   `Helm version skew policy <https://helm.sh/docs/topics/version_skew/>`_
@@ -294,10 +294,10 @@ the ``additionalCatalogs`` property in the ``example.yaml`` file.
 .. code-block:: yaml
 
     additionalCatalogs:
-      lakehouse.properties: |-
+      lakehouse: |-
         connector.name=iceberg
         hive.metastore.uri=thrift://example.net:9083
-      rdbms.properties: |-
+      rdbms: |-
         connector.name=postgresql
         connection-url=jdbc:postgresql://example.net:5432/database
         connection-user=root
