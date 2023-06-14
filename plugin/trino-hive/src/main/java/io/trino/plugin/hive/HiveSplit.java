@@ -49,7 +49,6 @@ public class HiveSplit
     private final Properties schema;
     private final List<HivePartitionKey> partitionKeys;
     private final List<HostAddress> addresses;
-    private final String table;
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
@@ -65,7 +64,6 @@ public class HiveSplit
 
     @JsonCreator
     public HiveSplit(
-            @JsonProperty("table") String table,
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
@@ -90,7 +88,6 @@ public class HiveSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(estimatedFileSize >= 0, "estimatedFileSize must be positive");
-        requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
         requireNonNull(path, "path is null");
         requireNonNull(schema, "schema is null");
@@ -103,7 +100,6 @@ public class HiveSplit
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
 
-        this.table = table;
         this.partitionName = partitionName;
         this.path = path;
         this.start = start;
@@ -124,12 +120,6 @@ public class HiveSplit
         this.acidInfo = acidInfo;
         this.splitNumber = splitNumber;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
-    }
-
-    @JsonProperty
-    public String getTable()
-    {
-        return table;
     }
 
     @JsonProperty
@@ -268,7 +258,6 @@ public class HiveSplit
                 + estimatedSizeOf(schema, key -> estimatedSizeOf((String) key), value -> estimatedSizeOf((String) value))
                 + estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes)
                 + estimatedSizeOf(addresses, HostAddress::getRetainedSizeInBytes)
-                + estimatedSizeOf(table)
                 + estimatedSizeOf(partitionName)
                 + sizeOf(readBucketNumber)
                 + sizeOf(tableBucketNumber)
@@ -288,7 +277,6 @@ public class HiveSplit
                 .put("length", length)
                 .put("estimatedFileSize", estimatedFileSize)
                 .put("hosts", addresses)
-                .put("table", table)
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
                 .put("deserializerClassName", getDeserializerClassName(schema))

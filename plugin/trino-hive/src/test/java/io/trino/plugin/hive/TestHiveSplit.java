@@ -60,7 +60,6 @@ public class TestHiveSplit
         AcidInfo acidInfo = acidInfoBuilder.build().get();
 
         HiveSplit expected = new HiveSplit(
-                "table",
                 "partitionId",
                 "path",
                 42,
@@ -89,7 +88,6 @@ public class TestHiveSplit
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getTable(), expected.getTable());
         assertEquals(actual.getPartitionName(), expected.getPartitionName());
         assertEquals(actual.getPath(), expected.getPath());
         assertEquals(actual.getStart(), expected.getStart());
