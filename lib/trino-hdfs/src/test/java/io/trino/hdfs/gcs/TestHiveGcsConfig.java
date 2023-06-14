@@ -24,6 +24,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveGcsConfig
 {
@@ -51,5 +52,16 @@ public class TestHiveGcsConfig
                 .setJsonKeyFilePath(jsonKeyFile.toString());
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertThatThrownBy(
+                new HiveGcsConfig()
+                        .setUseGcsAccessToken(true)
+                        .setJsonKeyFilePath("/dev/null")::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
     }
 }
