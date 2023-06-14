@@ -17,6 +17,10 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
 
+import javax.annotation.Nullable;
+
+import static com.google.common.base.Preconditions.checkState;
+
 public class HiveGcsConfig
 {
     private boolean useGcsAccessToken;
@@ -35,6 +39,7 @@ public class HiveGcsConfig
         return this;
     }
 
+    @Nullable
     @FileExists
     public String getJsonKeyFilePath()
     {
@@ -47,5 +52,14 @@ public class HiveGcsConfig
     {
         this.jsonKeyFilePath = jsonKeyFilePath;
         return this;
+    }
+
+    public void validate()
+    {
+        // This cannot be normal validation, as it would make it impossible to write TestHiveGcsConfig.testExplicitPropertyMappings
+
+        if (useGcsAccessToken) {
+            checkState(jsonKeyFilePath == null, "Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
+        }
     }
 }
