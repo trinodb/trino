@@ -58,6 +58,7 @@ public class GcsStorageFactory
             throws IOException
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        hiveGcsConfig.validate();
         this.useGcsAccessToken = hiveGcsConfig.isUseGcsAccessToken();
         String jsonKeyFilePath = hiveGcsConfig.getJsonKeyFilePath();
         if (jsonKeyFilePath != null) {
