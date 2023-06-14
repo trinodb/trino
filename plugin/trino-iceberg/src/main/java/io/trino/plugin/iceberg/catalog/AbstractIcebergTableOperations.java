@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.exceptions.CommitFailedException;
+import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.io.OutputFile;
@@ -45,6 +46,7 @@ import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_INPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.FILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveClassNames.LAZY_SIMPLE_SERDE_CLASS;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_METADATA;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
@@ -235,13 +237,16 @@ public abstract class AbstractIcebergTableOperations
                             .withMaxRetries(20)
                             .withBackoff(100, 5000, MILLIS, 4.0)
                             .withMaxDuration(Duration.ofMinutes(10))
-                            .abortOn(AbstractIcebergTableOperations::isNotFoundException)
+                            .abortOn(failure -> failure instanceof ValidationException || isNotFoundException(failure))
                             .build())
                     .get(() -> TableMetadataParser.read(fileIo, io().newInputFile(newLocation)));
         }
         catch (Throwable failure) {
             if (isNotFoundException(failure)) {
                 throw new TrinoException(ICEBERG_MISSING_METADATA, "Metadata not found in metadata location for table " + getSchemaTableName(), failure);
+            }
+            if (failure instanceof ValidationException) {
+                throw new TrinoException(ICEBERG_INVALID_METADATA, "Invalid metadata file for table " + getSchemaTableName(), failure);
             }
             throw failure;
         }

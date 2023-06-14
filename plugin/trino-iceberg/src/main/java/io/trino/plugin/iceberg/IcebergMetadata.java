@@ -46,6 +46,7 @@ import io.trino.plugin.iceberg.procedure.IcebergRemoveOrphanFilesHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableProcedureId;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
@@ -374,7 +375,9 @@ public class IcebergMetadata
             return null;
         }
         catch (TrinoException e) {
-            if (e.getErrorCode().equals(ICEBERG_MISSING_METADATA.toErrorCode())) {
+            ErrorCode errorCode = e.getErrorCode();
+            if (errorCode.equals(ICEBERG_MISSING_METADATA.toErrorCode())
+                    || errorCode.equals(ICEBERG_INVALID_METADATA.toErrorCode())) {
                 return new CorruptedIcebergTableHandle(tableName, e);
             }
             throw e;
