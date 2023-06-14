@@ -45,8 +45,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -72,7 +70,6 @@ public class InternalHiveSplitFactory
     private final Optional<Long> maxSplitFileSize;
     private final boolean forceLocalScheduling;
     private final boolean s3SelectPushdownEnabled;
-    private final Map<Integer, AtomicInteger> bucketStatementCounters = new ConcurrentHashMap<>();
 
     public InternalHiveSplitFactory(
             FileSystem fileSystem,
@@ -211,7 +208,6 @@ public class InternalHiveSplitFactory
             blocks = ImmutableList.of(new InternalHiveBlock(start, start + length, blocks.get(0).getAddresses()));
         }
 
-        int bucketNumberIndex = readBucketNumber.orElse(0);
         return Optional.of(new InternalHiveSplit(
                 partitionName,
                 path,
@@ -224,7 +220,6 @@ public class InternalHiveSplitFactory
                 blocks,
                 readBucketNumber,
                 tableBucketNumber,
-                () -> bucketStatementCounters.computeIfAbsent(bucketNumberIndex, index -> new AtomicInteger()).getAndIncrement(),
                 splittable,
                 forceLocalScheduling && allBlocksHaveAddress(blocks),
                 tableToPartitionMapping,

@@ -52,7 +52,6 @@ public class HiveSplit
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
-    private final int statementId;
     private final boolean forceLocalScheduling;
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
@@ -75,7 +74,6 @@ public class HiveSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
-            @JsonProperty("statementId") int statementId,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
@@ -111,7 +109,6 @@ public class HiveSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
-        this.statementId = statementId;
         this.forceLocalScheduling = forceLocalScheduling;
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
@@ -187,12 +184,6 @@ public class HiveSplit
     public OptionalInt getTableBucketNumber()
     {
         return tableBucketNumber;
-    }
-
-    @JsonProperty
-    public int getStatementId()
-    {
-        return statementId;
     }
 
     @JsonProperty

@@ -310,7 +310,6 @@ class HiveSplitSource
                         block.getAddresses(),
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
-                        internalSplit.getStatementId(),
                         internalSplit.isForceLocalScheduling(),
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
