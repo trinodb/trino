@@ -13,6 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
@@ -58,6 +62,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
@@ -135,6 +140,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
@@ -6827,6 +6833,35 @@ public abstract class BaseIcebergConnectorTest
         queryRunner.execute("DROP TABLE " + hiveTableName);
         assertFalse(queryRunner.tableExists(getSession(), icebergTableName));
         assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+    }
+
+    @Test(timeOut = 10_000)
+    public void testNoRetryWhenMetadataFileInvalid()
+            throws Exception
+    {
+        String tableName = "test_no_retry_when_metadata_file_invalid_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 id", 1);
+
+        String tableLocation = getTableLocation(tableName);
+        String metadataFileLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+
+        ObjectMapper mapper = JsonUtil.mapper();
+        JsonNode jsonNode = mapper.readValue(fileSystem.newInputFile(Location.of(metadataFileLocation)).newStream(), JsonNode.class);
+        ArrayNode fieldsNode = (ArrayNode) jsonNode.get("schemas").get(0).get("fields");
+        ObjectNode newFieldNode = fieldsNode.get(0).deepCopy();
+        // Add duplicate field to produce validation error while reading the metadata file
+        fieldsNode.add(newFieldNode);
+
+        String modifiedJson = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonNode);
+        try (OutputStream outputStream = fileSystem.newOutputFile(Location.of(metadataFileLocation)).createOrOverwrite()) {
+            // Corrupt metadata file by overwriting the invalid metadata content
+            outputStream.write(modifiedJson.getBytes(UTF_8));
+        }
+        assertThatThrownBy(() -> query("SELECT * FROM " + tableName))
+                .hasMessage("Invalid metadata file for table tpch.%s".formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Override
