@@ -32,6 +32,7 @@ public class HiveProcedureModule
         procedures.addBinding().toProvider(CreateEmptyPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RegisterPartitionProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(UnregisterPartitionProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(UnregisterTableProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(SyncPartitionMetadataProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(DropStatsProcedure.class).in(Scopes.SINGLETON);
 

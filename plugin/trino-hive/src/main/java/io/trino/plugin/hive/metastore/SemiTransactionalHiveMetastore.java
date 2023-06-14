@@ -268,10 +268,8 @@ public class SemiTransactionalHiveMetastore
             case MERGE:
                 return Optional.of(tableAction.getData().getTable());
             case DROP:
-                return Optional.empty();
             case DROP_PRESERVE_DATA:
-                // TODO
-                break;
+                return Optional.empty();
         }
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
@@ -316,10 +314,8 @@ public class SemiTransactionalHiveMetastore
             case MERGE:
                 return tableAction.getData().getStatistics();
             case DROP:
-                return PartitionStatistics.empty();
             case DROP_PRESERVE_DATA:
-                // TODO
-                break;
+                return PartitionStatistics.empty();
         }
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
@@ -382,14 +378,12 @@ public class SemiTransactionalHiveMetastore
             case ADD:
                 return TableSource.CREATED_IN_THIS_TRANSACTION;
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
             case ALTER:
             case INSERT_EXISTING:
             case MERGE:
                 return TableSource.PRE_EXISTING_TABLE;
-            case DROP_PRESERVE_DATA:
-                // TODO
-                break;
         }
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
@@ -580,6 +574,7 @@ public class SemiTransactionalHiveMetastore
         }
         switch (oldTableAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 if (!oldTableAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
@@ -592,14 +587,11 @@ public class SemiTransactionalHiveMetastore
             case INSERT_EXISTING:
             case MERGE:
                 throw new TableAlreadyExistsException(table.getSchemaTableName());
-            case DROP_PRESERVE_DATA:
-                // TODO
-                break;
         }
         throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
 
-    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
+    public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName, boolean deleteData)
     {
         setShared();
         // Dropping table with partition actions requires cleaning up staging data, which is not implemented yet.
@@ -607,21 +599,19 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
-            HdfsContext hdfsContext = new HdfsContext(session);
-            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, session.getQueryId()));
+            ActionType actionType = deleteData ? ActionType.DROP : ActionType.DROP_PRESERVE_DATA;
+            tableActions.put(schemaTableName, new Action<>(actionType, null, new HdfsContext(session), session.getQueryId()));
             return;
         }
         switch (oldTableAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new TableNotFoundException(schemaTableName);
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case MERGE:
                 throw new UnsupportedOperationException("dropping a table added/modified in the same transaction is not supported");
-            case DROP_PRESERVE_DATA:
-                // TODO
-                break;
         }
         throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
@@ -718,15 +708,13 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldTableAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new TableNotFoundException(schemaTableName);
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case MERGE:
                 throw new UnsupportedOperationException("Inserting into an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
-            case DROP_PRESERVE_DATA:
-                // TODO
-                break;
         }
         throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
@@ -802,15 +790,13 @@ public class SemiTransactionalHiveMetastore
 
         switch (oldTableAction.getType()) {
             case DROP:
+            case DROP_PRESERVE_DATA:
                 throw new TableNotFoundException(schemaTableName);
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case MERGE:
                 throw new UnsupportedOperationException("Inserting, updating or deleting in a table that was added, altered, inserted into, updated or deleted from in the same transaction is not supported");
-            case DROP_PRESERVE_DATA:
-                // TODO
-                break;
         }
         throw new IllegalStateException("Unknown action type: " + oldTableAction.getType());
     }
@@ -1212,10 +1198,8 @@ public class SemiTransactionalHiveMetastore
             case MERGE:
                 return delegate.listTablePrivileges(databaseName, tableName, getExistingTable(databaseName, tableName).getOwner(), principal);
             case DROP:
-                throw new TableNotFoundException(schemaTableName);
             case DROP_PRESERVE_DATA:
-                // TODO
-                break;
+                throw new TableNotFoundException(schemaTableName);
         }
         throw new IllegalStateException("Unknown action type: " + tableAction.getType());
     }
@@ -1525,7 +1509,10 @@ public class SemiTransactionalHiveMetastore
                 Action<TableAndMore> action = entry.getValue();
                 switch (action.getType()) {
                     case DROP:
-                        committer.prepareDropTable(schemaTableName);
+                        committer.prepareDropTable(schemaTableName, true);
+                        break;
+                    case DROP_PRESERVE_DATA:
+                        committer.prepareDropTable(schemaTableName, false);
                         break;
                     case ALTER:
                         committer.prepareAlterTable(action.getHdfsContext(), action.getQueryId(), action.getData());
@@ -1678,14 +1665,14 @@ public class SemiTransactionalHiveMetastore
             this.transaction = transaction;
         }
 
-        private void prepareDropTable(SchemaTableName schemaTableName)
+        private void prepareDropTable(SchemaTableName schemaTableName, boolean deleteData)
         {
             metastoreDeleteOperations.add(new IrreversibleMetastoreOperation(
                     format("drop table %s", schemaTableName),
                     () -> {
                         Optional<Table> droppedTable = delegate.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
                         try {
-                            delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), true);
+                            delegate.dropTable(schemaTableName.getSchemaName(), schemaTableName.getTableName(), deleteData);
                         }
                         finally {
                             // perform explicit invalidation for the table in irreversible metastore operation

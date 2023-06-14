@@ -1506,7 +1506,7 @@ public class HiveMetadata
         if (metastore.getTable(handle.getSchemaName(), handle.getTableName()).isEmpty()) {
             throw new TableNotFoundException(handle.getSchemaTableName());
         }
-        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+        metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), true);
     }
 
     @Override
@@ -2170,7 +2170,7 @@ public class HiveMetadata
                     PrincipalPrivileges principalPrivileges = fromHivePrivilegeInfos(metastore.listTablePrivileges(handle.getSchemaName(), handle.getTableName(), Optional.empty()));
 
                     // first drop it
-                    metastore.dropTable(session, handle.getSchemaName(), handle.getTableName());
+                    metastore.dropTable(session, handle.getSchemaName(), handle.getTableName(), true);
 
                     // create the table with the new location
                     metastore.createTable(session, table, principalPrivileges, Optional.of(partitionUpdate.getWritePath()), Optional.of(partitionUpdate.getFileNames()), false, partitionStatistics, handle.isRetriesEnabled());
@@ -2680,7 +2680,7 @@ public class HiveMetadata
         }
 
         try {
-            metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName());
+            metastore.dropTable(session, viewName.getSchemaName(), viewName.getTableName(), false);
         }
         catch (TableNotFoundException e) {
             throw new ViewNotFoundException(e.getTableName());

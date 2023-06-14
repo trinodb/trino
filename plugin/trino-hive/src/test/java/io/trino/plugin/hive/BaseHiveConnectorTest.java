@@ -159,6 +159,7 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DELETE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.INSERT_TABLE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
@@ -2940,6 +2941,130 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails("CALL system.unregister_partition('web', NULL, ARRAY['country'], ARRAY['US'])", ".*table_name cannot be null.*");
         assertQueryFails("CALL system.unregister_partition('web', 'page_views', NULL, ARRAY['US'])", ".*partition_columns cannot be null.*");
         assertQueryFails("CALL system.unregister_partition('web', 'page_views', ARRAY['country'], NULL)", ".*partition_values cannot be null.*");
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        String tableName = "test_unregister_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s ( dummy_col bigint)".formatted(tableName));
+        assertUpdate(format("INSERT INTO %s (dummy_col) VALUES 1, 2, 3", tableName), 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+        String tableLocation = getTableLocation(tableName);
+
+        assertUpdate(format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, tableName));
+        assertQueryFails("SELECT count(*) FROM " + tableName, ".*%s' does not exist".formatted(tableName));
+
+        assertUpdate("CREATE TABLE %s (dummy_col bigint)  with (external_location='%s')".formatted(tableName, tableLocation));
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnregisterTableWithNullArgument()
+    {
+        assertQueryFails("CALL system.unregister_table(NULL, 'table_name')", ".*schema_name cannot be null.*");
+        assertQueryFails("CALL system.unregister_table('schema_name', NULL)", ".*table_name cannot be null.*");
+    }
+
+    @Test
+    public void testAccessForUnregisterTable()
+    {
+        String tableName = "test_unregister_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s ( dummy_col bigint)".formatted(tableName));
+        assertUpdate(format("INSERT INTO %s (dummy_col) VALUES 1, 2, 3", tableName), 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        Session testSession = testSessionBuilder()
+                .setIdentity(ofUser("test_access_owner"))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessDenied(testSession, format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, tableName), ".*Cannot drop table .*", privilege(tableName, DROP_TABLE));
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        assertUpdate(format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, tableName));
+        assertQueryFails("SELECT count(*) FROM " + tableName, ".*%s' does not exist".formatted(tableName));
+    }
+
+    @Test
+    public void testUnregisterTableNotExistingSchema()
+    {
+        String schemaName = "test_unregister_table_not_existing_schema_" + randomNameSuffix();
+        assertQueryFails("CALL system.unregister_table('%s', 'non_existent_table')".formatted(schemaName), "Schema " + schemaName + " not found");
+    }
+
+    @Test
+    public void testUnregisterTableNotExistingTable()
+    {
+        String tableName = "test_unregister_not_existing_table_" + randomNameSuffix();
+        assertQueryFails("CALL system.unregister_table('%s', '%s')".formatted(TPCH_SCHEMA, tableName), "Table .* not found");
+    }
+
+    @Test
+    public void testRepeatUnregisterTable()
+    {
+        String tableName = "test_repeat_unregister_table_not_" + randomNameSuffix();
+        assertQueryFails("CALL system.unregister_table('%s', '%s')".formatted(TPCH_SCHEMA, tableName), "Table .* not found");
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 a", 1);
+
+        assertUpdate("CALL system.unregister_table('%s', '%s')".formatted(TPCH_SCHEMA, tableName));
+        assertQueryFails("CALL system.unregister_table('%s', '%s')".formatted(TPCH_SCHEMA, tableName), "Table .* not found");
+    }
+
+    @Test
+    public void testUnregisterView()
+    {
+        String viewName = "test_unregister_view_" + randomNameSuffix();
+        assertUpdate("CREATE VIEW %s AS SELECT * from region".formatted(viewName));
+        assertQuery("SELECT count(*) FROM " + viewName, "SELECT 5");
+
+        assertQueryFails("CALL system.unregister_table('%s', '%s')".formatted(TPCH_SCHEMA, viewName), "Not a Hive table '%s'".formatted(viewName));
+    }
+
+    @Test
+    public void testUnregisterExternalTable()
+    {
+        String tableName = "test_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s ( dummy_col bigint)".formatted(tableName));
+        assertUpdate(format("INSERT INTO %s (dummy_col) VALUES 1, 2, 3", tableName), 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+        String tableLocation = getTableLocation(tableName);
+        assertUpdate(format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, tableName));
+
+        String externalTableName = "test_unregister_external_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE %s (dummy_col bigint)  with (external_location='%s')".formatted(externalTableName, tableLocation));
+        assertQuery("SELECT * FROM " + externalTableName, "VALUES 1, 2, 3");
+
+        assertUpdate(format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, externalTableName));
+
+        assertUpdate("CREATE TABLE %s (dummy_col bigint)  with (external_location='%s')".formatted(externalTableName, tableLocation));
+        assertQuery("SELECT * FROM " + externalTableName, "VALUES 1, 2, 3");
+
+        assertUpdate("DROP TABLE " + externalTableName);
+    }
+
+    @Test
+    public void testUnregisterPartitionedTable()
+    {
+        String tableName = "test_insert_empty_partitioned_table" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE %s (name VARCHAR, age INT, state VARCHAR) WITH (partitioned_by = ARRAY[ 'state' ]) ".formatted(tableName));
+        assertUpdate(format("INSERT INTO %s (name, age, state) VALUES ('Alice', 20, 'NY'), ('Bob', 30, 'CA'), ('Mike', 25, 'MA')", tableName), 3);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Alice', 20, 'NY'), ('Bob', 30, 'CA'), ('Mike', 25, 'MA')");
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "SELECT 3");
+        String tableLocation = getPartitionedTableLocation(tableName, 1);
+
+        assertUpdate(format("CALL system.unregister_table('%s', '%s')", TPCH_SCHEMA, tableName));
+        assertQueryFails("SELECT count(*) FROM " + tableName, ".*%s' does not exist".formatted(tableName));
+
+        assertUpdate("CREATE TABLE %s (name VARCHAR, age INT, state VARCHAR) WITH (partitioned_by = ARRAY[ 'state' ],external_location='%s')".formatted(tableName, tableLocation));
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('Alice', 20, 'NY'), ('Bob', 30, 'CA'), ('Mike', 25, 'MA')");
+        assertQuery(format("SELECT count(*) FROM \"%s$partitions\"", tableName), "VALUES 3");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -8859,7 +8984,16 @@ public abstract class BaseHiveConnectorTest
 
     private String getTableLocation(String tableName)
     {
-        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
+        return getPartitionedTableLocation(tableName, 0);
+    }
+
+    private String getPartitionedTableLocation(String tableName, int noOfPartitionColumns)
+    {
+        StringBuilder regex = new StringBuilder("/[^/]*$");
+        if (noOfPartitionColumns > 0) {
+            regex.insert(0, "/[^/]*".repeat(noOfPartitionColumns));
+        }
+        return (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s".formatted(regex.toString(), tableName));
     }
 
     @Override

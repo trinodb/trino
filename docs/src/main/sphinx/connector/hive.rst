@@ -837,6 +837,15 @@ The following procedures are available:
   Flush Hive metadata cache entries connected with selected partition.
   Procedure requires named parameters to be passed.
 
+* ``system.unregister_table(schema_name => ..., table_name=> ...)``
+
+  The connector can unregister existing Hive tables from the metastore.
+
+  The procedure ``system.unregister_table`` allows the caller to unregister an
+  existing Hive table from the metastore without deleting the data::
+
+    CALL example.system.unregister_table(schema_name => 'testdb', table_name => 'customer_orders')
+
 .. _hive-data-management:
 
 Data management

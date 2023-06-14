@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 import java.io.File;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITIONS_BY_NAMES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_PARTITION_NAMES_BY_FILTER;
@@ -38,6 +39,7 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.UPDATE_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.UPDATE_TABLE_STATISTICS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 @Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
@@ -61,7 +63,7 @@ public class TestHiveMetastoreAccessOperations
         metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
 
         queryRunner.installPlugin(new TestingHivePlugin(metastore));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
+        queryRunner.createCatalog("hive", "hive", ImmutableMap.of("hive.allow-drop-table", "true"));
 
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
@@ -296,6 +298,20 @@ public class TestHiveMetastoreAccessOperations
                         .addCopies(GET_TABLE, 2)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .addCopies(UPDATE_PARTITION_STATISTICS, 2)
+                        .build());
+    }
+
+    @Test
+    public void testUnregisterTable()
+    {
+        String tableName = "test_unregister_table" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 2 as age", 1);
+
+        assertMetastoreInvocations("CALL system.unregister_table('test_schema', '" + tableName + "')",
+                ImmutableMultiset.builder()
+                        .add(GET_DATABASE)
+                        .addCopies(GET_TABLE, 2)
+                        .add(DROP_TABLE)
                         .build());
     }
 
