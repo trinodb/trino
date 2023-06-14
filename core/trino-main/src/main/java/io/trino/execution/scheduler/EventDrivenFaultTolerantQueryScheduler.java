@@ -29,6 +29,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -742,8 +743,11 @@ public class EventDrivenFaultTolerantQueryScheduler
                 StageId stageId = getStageId(fragmentId);
                 currentPlanStages.add(stageId);
                 StageExecution stageExecution = stageExecutions.get(stageId);
-                if (stageExecution == null && isReadyForExecution(subPlan)) {
-                    createStageExecution(subPlan, fragmentId.equals(rootFragmentId), nextSchedulingPriority++);
+                if (stageExecution == null) {
+                    IsReadyForExecutionResult result = isReadyForExecution(subPlan);
+                    if (result.isReadyForExecution()) {
+                        createStageExecution(subPlan, fragmentId.equals(rootFragmentId), result.getSourceOutputSizeEstimates(), nextSchedulingPriority++);
+                    }
                 }
                 if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
                     // we are ready to close its source exchanges
@@ -758,7 +762,48 @@ public class EventDrivenFaultTolerantQueryScheduler
             });
         }
 
-        private boolean isReadyForExecution(SubPlan subPlan)
+        private static class IsReadyForExecutionResult
+        {
+            private final boolean readyForExecution;
+            private final Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates;
+
+            @CheckReturnValue
+            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates)
+            {
+                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates));
+            }
+
+            @CheckReturnValue
+            public static IsReadyForExecutionResult notReady()
+            {
+                return new IsReadyForExecutionResult(false, Optional.empty());
+            }
+
+            private IsReadyForExecutionResult(boolean readyForExecution, Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates)
+            {
+                requireNonNull(sourceOutputSizeEstimates, "sourceOutputSizeEstimates is null");
+                if (readyForExecution) {
+                    checkArgument(sourceOutputSizeEstimates.isPresent(), "expected sourceOutputSizeEstimates to be set");
+                }
+                if (!readyForExecution) {
+                    checkArgument(sourceOutputSizeEstimates.isEmpty(), "expected sourceOutputSizeEstimates to be not set");
+                }
+                this.readyForExecution = readyForExecution;
+                this.sourceOutputSizeEstimates = sourceOutputSizeEstimates.map(ImmutableMap::copyOf);
+            }
+
+            public boolean isReadyForExecution()
+            {
+                return readyForExecution;
+            }
+
+            public Map<StageId, OutputDataSizeEstimate> getSourceOutputSizeEstimates()
+            {
+                return sourceOutputSizeEstimates.orElseThrow();
+            }
+        }
+
+        private IsReadyForExecutionResult isReadyForExecution(SubPlan subPlan)
         {
             boolean nonSpeculativeTasksInQueue = schedulingQueue.getNonSpeculativeTaskCount() > 0;
             boolean nonSpeculativeTasksWaitingForNode = preSchedulingTaskContexts.values().stream()
@@ -767,44 +812,49 @@ public class EventDrivenFaultTolerantQueryScheduler
             // do not start a speculative stage if there is non-speculative work still to be done.
             boolean canScheduleSpeculative = !nonSpeculativeTasksInQueue && !nonSpeculativeTasksWaitingForNode;
 
+            ImmutableMap.Builder<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates = ImmutableMap.builder();
+
             for (SubPlan source : subPlan.getChildren()) {
                 StageExecution sourceStageExecution = stageExecutions.get(getStageId(source.getFragment().getId()));
                 if (sourceStageExecution == null) {
                     // source stage did not yet start
-                    return false;
+                    return IsReadyForExecutionResult.notReady();
                 }
 
                 if (sourceStageExecution.getState() != StageState.FINISHED) {
                     if (!exchangeManager.supportsConcurrentReadAndWrite()) {
                         // speculative execution not supported by Exchange implementation
-                        return false;
+                        return IsReadyForExecutionResult.notReady();
                     }
                     if (!canScheduleSpeculative) {
-                        return false;
+                        return IsReadyForExecutionResult.notReady();
                     }
                 }
                 else {
                     // source stage finished; no more checks needed
+                    sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), sourceStageExecution.getOutputDataSize().orElseThrow());
                     continue;
                 }
 
                 if (!canOutputDataEarly(source)) {
                     // no point in starting stage if source stage needs to complete before we can get any input data to make progress
-                    return false;
+                    return IsReadyForExecutionResult.notReady();
                 }
 
                 if (!canStream(subPlan, source)) {
                     // only allow speculative execution of stage if all source stages for which we cannot stream data are finished
-                    return false;
+                    return IsReadyForExecutionResult.notReady();
                 }
 
-                if (sourceStageExecution.getOutputDataSize().isEmpty()) {
+                Optional<OutputDataSizeEstimate> outputDataSize = sourceStageExecution.getOutputDataSize();
+                if (outputDataSize.isEmpty()) {
                     // no output data size estimate yet
-                    return false;
+                    return IsReadyForExecutionResult.notReady();
                 }
+                sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), outputDataSize.orElseThrow());
             }
 
-            return true;
+            return IsReadyForExecutionResult.ready(sourceOutputSizeEstimates.buildOrThrow());
         }
 
         /**
@@ -840,7 +890,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
-        private void createStageExecution(SubPlan subPlan, boolean rootFragment, int schedulingPriority)
+        private void createStageExecution(SubPlan subPlan, boolean rootFragment, Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, int schedulingPriority)
         {
             Closer closer = Closer.create();
 
@@ -865,13 +915,15 @@ public class EventDrivenFaultTolerantQueryScheduler
                 stage.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.ofNullable(stageRegistry.getStageInfo())));
 
                 ImmutableMap.Builder<PlanFragmentId, Exchange> sourceExchanges = ImmutableMap.builder();
-                Map<PlanFragmentId, OutputDataSizeEstimate> outputEstimates = new HashMap<>();
+                Map<PlanFragmentId, OutputDataSizeEstimate> sourceOutputEstimatesByFragmentId = new HashMap<>();
                 for (SubPlan source : subPlan.getChildren()) {
                     PlanFragmentId sourceFragmentId = source.getFragment().getId();
-                    StageExecution sourceStageExecution = getStageExecution(getStageId(sourceFragmentId));
+                    StageId sourceStageId = getStageId(sourceFragmentId);
+                    StageExecution sourceStageExecution = getStageExecution(sourceStageId);
                     sourceExchanges.put(sourceFragmentId, sourceStageExecution.getExchange());
-                    Optional<OutputDataSizeEstimate> outputDataSizeResult = sourceStageExecution.getOutputDataSize();
-                    outputEstimates.put(sourceFragmentId, outputDataSizeResult.orElseThrow());
+                    OutputDataSizeEstimate outputDataSizeResult = sourceOutputSizeEstimates.get(sourceStageId);
+                    verify(outputDataSizeResult != null, "No output data size estimate in %s map for stage %s", sourceOutputSizeEstimates, sourceStageId);
+                    sourceOutputEstimatesByFragmentId.put(sourceFragmentId, outputDataSizeResult);
                     stageConsumers.put(sourceStageExecution.getStageId(), stageId);
                 }
 
@@ -879,7 +931,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 for (RemoteSourceNode remoteSource : stage.getFragment().getRemoteSourceNodes()) {
                     List<OutputDataSizeEstimate> estimates = new ArrayList<>();
                     for (PlanFragmentId fragmentId : remoteSource.getSourceFragmentIds()) {
-                        OutputDataSizeEstimate fragmentEstimate = outputEstimates.get(fragmentId);
+                        OutputDataSizeEstimate fragmentEstimate = sourceOutputEstimatesByFragmentId.get(fragmentId);
                         verify(fragmentEstimate != null, "fragmentEstimate not found for fragment %s", fragmentId);
                         estimates.add(fragmentEstimate);
                     }
