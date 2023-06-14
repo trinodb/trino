@@ -137,7 +137,6 @@ public class TestNodeLocalDynamicSplitPruning
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0,
                 SplitWeight.standard());
 
         TableHandle tableHandle = new TableHandle(
