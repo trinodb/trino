@@ -55,7 +55,10 @@ public class StarburstOracleClientModule
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(OracleSplitManager.class).in(SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setBinding().to(JdbcDynamicFilteringSplitManager.class).in(SINGLETON);
 
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstOracleClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(StarburstOracleClient.class)
+                .in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
 
         bindProcedure(binder, AnalyzeProcedure.class);
