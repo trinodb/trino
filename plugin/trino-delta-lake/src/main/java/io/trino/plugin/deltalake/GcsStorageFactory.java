@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -57,8 +58,14 @@ public class GcsStorageFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         hiveGcsConfig.validate();
         this.useGcsAccessToken = hiveGcsConfig.isUseGcsAccessToken();
+        String jsonKey = hiveGcsConfig.getJsonKey();
         String jsonKeyFilePath = hiveGcsConfig.getJsonKeyFilePath();
-        if (jsonKeyFilePath != null) {
+        if (jsonKey != null) {
+            try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {
+                jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(CredentialFactory.DEFAULT_SCOPES));
+            }
+        }
+        else if (jsonKeyFilePath != null) {
             try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
                 jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(CredentialFactory.DEFAULT_SCOPES));
             }
