@@ -88,7 +88,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (2, \"b\")");
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV1 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 1 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV1 + "'");
 
             Row expectedRowV1 = row(1, "a");
@@ -98,7 +98,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV1);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV2 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 2 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV2 + "'");
 
             List<Row> expectedRowsV2 = ImmutableList.of(row(1, "a"), row(2, "b"));
@@ -169,7 +169,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (2, \"b\", \"c\", 3)");
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV1 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 1 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV1 + "'");
 
             Row expectedRowV1 = row(1, "a");
@@ -181,7 +181,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV1);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV2 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 2 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV2 + "'");
 
             Row expectedRowV2 = row(1, "a", null, null);
@@ -193,7 +193,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV2);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV3 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 3 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 3 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV3 + "'");
 
             List<Row> expectedRowsV3 = ImmutableList.of(row(1, "a", null, null), row(2, "b", "c", 3));
@@ -210,7 +210,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
 
             onDelta().executeQuery("ALTER TABLE default." + baseTable + " DROP COLUMN c_string");
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV4 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 4 " +
+                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 4 " +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV4 + "'");
 
             List<Row> expectedRowsV4 = ImmutableList.of(row(1, "a", null), row(2, "b", 3));
