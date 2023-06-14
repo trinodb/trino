@@ -290,6 +290,40 @@ public class TestHudiSparkCompatibility
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testCopyOnWriteTablesAfterClustering()
+    {
+        String tableName = "test_hudi_cow_after_clustering" + randomNameSuffix();
+
+        createNonPartitionedTable(tableName, COW_TABLE_TYPE);
+
+        try {
+            onHudi().executeQuery(format("ALTER TABLE default.%s SET SERDEPROPERTIES (hoodie.parquet.small.file.limit=0, hoodie.clustering.inline=true, hoodie.clustering.inline.max.commits=2)", tableName));
+            assertThat(onHudi().executeQuery("show TBLPROPERTIES default." + tableName))
+                    .contains(ImmutableList.of(
+                            row("option.hoodie.parquet.small.file.limit", "0"),
+                            row("option.hoodie.clustering.inline", "true"),
+                            row("option.hoodie.clustering.inline.max.commits", "2")));
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 60, 3000)");
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (4, 'a4', 80, 4000)");
+            assertThat(onTrino().executeQuery(format("SELECT action, state FROM hive.default.\"%s$timeline\"", tableName)))
+                    .containsOnly(ImmutableList.of(
+                            row("commit", "COMPLETED"),
+                            row("commit", "COMPLETED"),
+                            row("replacecommit", "COMPLETED"),
+                            row("commit", "COMPLETED")));
+            assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1", 20, 1000),
+                            row(2, "a2", 40, 2000),
+                            row(3, "a3", 60, 3000),
+                            row(4, "a4", 80, 4000)));
+        }
+        finally {
+            onHudi().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
     public void testTimelineTable()
     {
         String tableName = "test_hudi_timeline_system_table_" + randomNameSuffix();
