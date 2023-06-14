@@ -135,7 +135,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
                 hiveColumns,
-                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getBucketConversion().map(BucketConversion::bucketColumnHandles).orElse(ImmutableList.of()),
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
@@ -595,18 +595,18 @@ public class HivePageSourceProvider
                     .collect(toList());
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = uniqueIndex(baseColumnMapping, mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex());
 
-            int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+            int[] bucketColumnIndices = conversion.bucketColumnHandles().stream()
                     .mapToInt(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getIndex())
                     .toArray();
-            List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
+            List<HiveType> bucketColumnHiveTypes = conversion.bucketColumnHandles().stream()
                     .map(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getHiveColumnHandle().getHiveType())
                     .collect(toImmutableList());
             return new BucketAdaptation(
                     bucketColumnIndices,
                     bucketColumnHiveTypes,
-                    conversion.getBucketingVersion(),
-                    conversion.getTableBucketCount(),
-                    conversion.getPartitionBucketCount(),
+                    conversion.bucketingVersion(),
+                    conversion.tableBucketCount(),
+                    conversion.partitionBucketCount(),
                     bucketNumber.getAsInt());
         });
     }

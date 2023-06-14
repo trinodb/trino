@@ -23,7 +23,6 @@ import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -277,73 +276,20 @@ public class HiveSplit
                 .toString();
     }
 
-    public static class BucketConversion
+    public record BucketConversion(
+            BucketingVersion bucketingVersion,
+            int tableBucketCount,
+            int partitionBucketCount,
+            // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
+            List<HiveColumnHandle> bucketColumnHandles)
     {
         private static final int INSTANCE_SIZE = instanceSize(BucketConversion.class);
 
-        private final BucketingVersion bucketingVersion;
-        private final int tableBucketCount;
-        private final int partitionBucketCount;
-        private final List<HiveColumnHandle> bucketColumnHandles;
-        // tableBucketNumber is needed, but can be found in tableBucketNumber field of HiveSplit.
-
-        @JsonCreator
-        public BucketConversion(
-                @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
-                @JsonProperty("tableBucketCount") int tableBucketCount,
-                @JsonProperty("partitionBucketCount") int partitionBucketCount,
-                @JsonProperty("bucketColumnHandles") List<HiveColumnHandle> bucketColumnHandles)
+        public BucketConversion
         {
-            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
-            this.tableBucketCount = tableBucketCount;
-            this.partitionBucketCount = partitionBucketCount;
-            this.bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
-        }
-
-        @JsonProperty
-        public BucketingVersion getBucketingVersion()
-        {
-            return bucketingVersion;
-        }
-
-        @JsonProperty
-        public int getTableBucketCount()
-        {
-            return tableBucketCount;
-        }
-
-        @JsonProperty
-        public int getPartitionBucketCount()
-        {
-            return partitionBucketCount;
-        }
-
-        @JsonProperty
-        public List<HiveColumnHandle> getBucketColumnHandles()
-        {
-            return bucketColumnHandles;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            BucketConversion that = (BucketConversion) o;
-            return tableBucketCount == that.tableBucketCount &&
-                    partitionBucketCount == that.partitionBucketCount &&
-                    Objects.equals(bucketingVersion, that.bucketingVersion) &&
-                    Objects.equals(bucketColumnHandles, that.bucketColumnHandles);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(bucketingVersion, tableBucketCount, partitionBucketCount, bucketColumnHandles);
+            requireNonNull(bucketingVersion, "bucketingVersion is null");
+            requireNonNull(bucketColumnHandles, "bucketColumnHandles is null");
+            bucketColumnHandles = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         }
 
         public long getRetainedSizeInBytes()
