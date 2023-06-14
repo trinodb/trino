@@ -299,7 +299,6 @@ class HiveSplitSource
                 }
 
                 resultBuilder.add(new HiveSplit(
-                        tableName,
                         internalSplit.getPartitionName(),
                         internalSplit.getPath(),
                         internalSplit.getStart(),
