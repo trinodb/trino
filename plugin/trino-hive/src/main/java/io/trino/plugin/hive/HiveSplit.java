@@ -352,41 +352,17 @@ public class HiveSplit
         }
     }
 
-    public static class BucketValidation
+    public record BucketValidation(
+            BucketingVersion bucketingVersion,
+            int bucketCount,
+            List<HiveColumnHandle> bucketColumns)
     {
         private static final int INSTANCE_SIZE = instanceSize(BucketValidation.class);
 
-        private final BucketingVersion bucketingVersion;
-        private final int bucketCount;
-        private final List<HiveColumnHandle> bucketColumns;
-
-        @JsonCreator
-        public BucketValidation(
-                @JsonProperty("bucketingVersion") BucketingVersion bucketingVersion,
-                @JsonProperty("bucketCount") int bucketCount,
-                @JsonProperty("bucketColumns") List<HiveColumnHandle> bucketColumns)
+        public BucketValidation
         {
-            this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
-            this.bucketCount = bucketCount;
-            this.bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
-        }
-
-        @JsonProperty
-        public BucketingVersion getBucketingVersion()
-        {
-            return bucketingVersion;
-        }
-
-        @JsonProperty
-        public int getBucketCount()
-        {
-            return bucketCount;
-        }
-
-        @JsonProperty
-        public List<HiveColumnHandle> getBucketColumns()
-        {
-            return bucketColumns;
+            requireNonNull(bucketingVersion, "bucketingVersion is null");
+            bucketColumns = ImmutableList.copyOf(requireNonNull(bucketColumns, "bucketColumns is null"));
         }
 
         public long getRetainedSizeInBytes()
