@@ -857,7 +857,7 @@ public class BackgroundHiveSplitLoader
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
-        int partitionBucketCount = bucketConversion.map(BucketConversion::getPartitionBucketCount).orElse(tableBucketCount);
+        int partitionBucketCount = bucketConversion.map(BucketConversion::partitionBucketCount).orElse(tableBucketCount);
         int bucketCount = max(readBucketCount, partitionBucketCount);
 
         checkState(readBucketCount <= tableBucketCount, "readBucketCount(%s) should be less than or equal to tableBucketCount(%s)", readBucketCount, tableBucketCount);
