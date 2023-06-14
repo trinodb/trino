@@ -88,7 +88,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (2, \"b\")");
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV1 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV1 + "'");
 
             Row expectedRowV1 = row(1, "a");
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable + " VERSION AS OF 1"))
@@ -97,7 +98,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV1);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV2 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV2 + "'");
 
             List<Row> expectedRowsV2 = ImmutableList.of(row(1, "a"), row(2, "b"));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
@@ -121,11 +123,14 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                         .containsOnly(expectedPartitionRows);
             }
 
-//            onDelta().executeQuery("INSERT INTO default." + clonedTableV2 + " VALUES (4, \"d\")");
-//
-//            List<Row> expectedRowsV3 = ImmutableList.of(row(1, "a"), row(2, "b"), row(4, "d"));
-//            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV2))
-//                    .containsOnly(expectedRowsV3);
+            onDelta().executeQuery("INSERT INTO default." + clonedTableV2 + " VALUES (3, \"c\")");
+            onTrino().executeQuery("INSERT INTO delta.default." + clonedTableV2 + " VALUES (4, 'd')");
+
+            List<Row> expectedRowsV3 = ImmutableList.of(row(1, "a"), row(2, "b"), row(3, "c"), row(4, "d"));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV2))
+                    .containsOnly(expectedRowsV3);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV2))
+                    .containsOnly(expectedRowsV3);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTable);
@@ -164,7 +169,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (2, \"b\", \"c\", 3)");
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV1 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 1" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV1 + "'");
 
             Row expectedRowV1 = row(1, "a");
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable + " VERSION AS OF 1"))
@@ -175,7 +181,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV1);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV2 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 2" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV2 + "'");
 
             Row expectedRowV2 = row(1, "a", null, null);
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable + " VERSION AS OF 2"))
@@ -186,7 +193,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowV2);
 
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV3 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 3");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 3" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV3 + "'");
 
             List<Row> expectedRowsV3 = ImmutableList.of(row(1, "a", null, null), row(2, "b", "c", 3));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
@@ -202,7 +210,8 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
 
             onDelta().executeQuery("ALTER TABLE default." + baseTable + " DROP COLUMN c_string");
             onDelta().executeQuery("CREATE TABLE default." + clonedTableV4 +
-                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 4");
+                    " " + cloneType + " CLONE" + " default." + baseTable + " VERSION AS OF 4" +
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV4 + "'");
 
             List<Row> expectedRowsV4 = ImmutableList.of(row(1, "a", null), row(2, "b", 3));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
@@ -230,11 +239,14 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                         .containsOnly(expectedPartitionRows);
             }
 
-//            onDelta().executeQuery("INSERT INTO default." + clonedTableV4 + " VALUES (4, \"d\", 4)");
-//
-//            List<Row> expectedRowsV5 = ImmutableList.of(row(1, "a", null), row(2, "b", 3), row(4, "d", 4));
-//            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV4))
-//                    .containsOnly(expectedRowsV5);
+            onDelta().executeQuery("INSERT INTO default." + clonedTableV4 + " VALUES (3, \"c\", 3)");
+            onTrino().executeQuery("INSERT INTO delta.default." + clonedTableV4 + " VALUES (4, 'd', 4)");
+
+            List<Row> expectedRowsV5 = ImmutableList.of(row(1, "a", null), row(2, "b", 3), row(3, "c", 3), row(4, "d", 4));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV4))
+                    .containsOnly(expectedRowsV5);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV4))
+                    .containsOnly(expectedRowsV5);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTable);
