@@ -336,13 +336,14 @@ public class HiveSplit
             BucketConversion that = (BucketConversion) o;
             return tableBucketCount == that.tableBucketCount &&
                     partitionBucketCount == that.partitionBucketCount &&
+                    Objects.equals(bucketingVersion, that.bucketingVersion) &&
                     Objects.equals(bucketColumnNames, that.bucketColumnNames);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(tableBucketCount, partitionBucketCount, bucketColumnNames);
+            return Objects.hash(bucketingVersion, tableBucketCount, partitionBucketCount, bucketColumnNames);
         }
 
         public long getRetainedSizeInBytes()
