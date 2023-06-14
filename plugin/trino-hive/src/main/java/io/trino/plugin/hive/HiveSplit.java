@@ -297,7 +297,7 @@ public class HiveSplit
             this.bucketingVersion = requireNonNull(bucketingVersion, "bucketingVersion is null");
             this.tableBucketCount = tableBucketCount;
             this.partitionBucketCount = partitionBucketCount;
-            this.bucketColumnNames = requireNonNull(bucketColumnHandles, "bucketColumnHandles is null");
+            this.bucketColumnNames = ImmutableList.copyOf(requireNonNull(bucketColumnHandles, "bucketColumnHandles is null"));
         }
 
         @JsonProperty
