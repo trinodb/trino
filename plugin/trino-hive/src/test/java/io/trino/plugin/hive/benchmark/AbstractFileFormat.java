@@ -134,7 +134,6 @@ public abstract class AbstractFileFormat
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 
         HiveSplit split = new HiveSplit(
-                "schema_name",
                 "table_name",
                 "",
                 targetFile.getPath(),
