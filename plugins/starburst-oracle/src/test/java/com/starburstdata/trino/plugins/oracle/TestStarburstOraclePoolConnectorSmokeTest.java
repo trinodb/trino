@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource;
 
 public class TestStarburstOraclePoolConnectorSmokeTest
         extends BaseUnlicensedStarburstOracleConnectorSmokeTest
@@ -19,9 +20,9 @@ public class TestStarburstOraclePoolConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        SharedResource.Lease<TestingStarburstOracleServer> oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.connection-pool.enabled", "true")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)

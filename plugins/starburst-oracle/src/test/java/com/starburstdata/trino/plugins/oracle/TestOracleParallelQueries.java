@@ -20,6 +20,8 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.sql.PreparedStatement;
@@ -36,24 +38,31 @@ import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.NO_PA
 import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.PARTITIONS;
 import static com.starburstdata.trino.plugins.oracle.StarburstOracleSessionProperties.MAX_SPLITS_PER_SCAN;
 import static com.starburstdata.trino.plugins.oracle.StarburstOracleSessionProperties.PARALLELISM_TYPE;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class TestOracleParallelQueries
         extends AbstractTestQueryFramework
 {
+    private Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.number.default-scale", "3")
                         .buildOrThrow())
                 .withUnlockEnterpriseFeatures(true)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     @Test
@@ -126,7 +135,7 @@ public class TestOracleParallelQueries
         dropTable(tableName);
     }
 
-    private static void insertIntoTable(String tableName, String columns, List<Object> values)
+    private void insertIntoTable(String tableName, String columns, List<Object> values)
     {
         int columnsCount = columns.split(",").length;
 
@@ -135,7 +144,7 @@ public class TestOracleParallelQueries
         String arguments = String.join(", ", Collections.nCopies(columnsCount, "?"));
         String query = format("INSERT INTO %s (%s) VALUES (%s)", tableName, columns, arguments);
 
-        executeInOracle(connection -> {
+        oracleServer.get().executeInOracle(connection -> {
             try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
                 for (List<Object> row : rows) {
                     verify(row.size() == columnsCount, "values[i].size differs from columns count");
@@ -158,9 +167,9 @@ public class TestOracleParallelQueries
         return format("%s_%d", prefix, Math.abs(ThreadLocalRandom.current().nextLong()));
     }
 
-    private static void dropTable(String tableName)
+    private void dropTable(String tableName)
     {
-        executeInOracle(format("DROP TABLE %s", tableName));
+        oracleServer.get().executeInOracle(format("DROP TABLE %s", tableName));
     }
 
     private void verifyTableSplitCount(String tableName, String column, String expectedChecksum, OracleParallelismType parallelismType, Optional<Integer> maxSplits, int expectedSplits)
@@ -192,13 +201,13 @@ public class TestOracleParallelQueries
                 .orElseThrow(() -> new RuntimeException("Could not find TableScanOperator statistics"));
     }
 
-    private static void createPartitionedTable(String tableName, String columns, String partitionColumn, int partitionCount)
+    private void createPartitionedTable(String tableName, String columns, String partitionColumn, int partitionCount)
     {
-        executeInOracle(format("CREATE TABLE %s(%s) PARTITION BY HASH (%s) PARTITIONS %d", tableName, columns, partitionColumn, partitionCount));
+        oracleServer.get().executeInOracle(format("CREATE TABLE %s(%s) PARTITION BY HASH (%s) PARTITIONS %d", tableName, columns, partitionColumn, partitionCount));
     }
 
-    private static void createNonPartitionedTable(String tableName, String columns)
+    private void createNonPartitionedTable(String tableName, String columns)
     {
-        executeInOracle(format("CREATE TABLE %s(%s)", tableName, columns));
+        oracleServer.get().executeInOracle(format("CREATE TABLE %s(%s)", tableName, columns));
     }
 }

@@ -23,6 +23,7 @@ import io.trino.spi.Plugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
@@ -33,7 +34,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.ALICE_USER;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.USER;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.connectionProperties;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTable;
@@ -124,24 +124,30 @@ public final class OracleQueryRunner
                 .build();
     }
 
-    public static Builder builder()
+    public static Builder builder(Lease<TestingStarburstOracleServer> oracleServer)
     {
-        return new Builder();
+        return new Builder(oracleServer);
     }
 
     public static class Builder
     {
         private boolean unlockEnterpriseFeatures;
         private Plugin licensedPlugin = new StarburstOraclePlugin(NOOP_LICENSE_MANAGER);
-        private Map<String, String> connectorProperties = emptyMap();
+        private Map<String, String> connectorProperties;
         private Function<Session, Session> sessionModifier = Function.identity();
         private Iterable<TpchTable<?>> tables = ImmutableList.of();
         private int nodesCount = 3;
         private Map<String, String> coordinatorProperties = emptyMap();
-        private Runnable createUsers = OracleTestUsers::createStandardUsers;
+        private Runnable createUsers;
         private Runnable provisionTables = Runnables.doNothing();
 
-        private Builder() {}
+        private Builder(Lease<TestingStarburstOracleServer> oracleServer)
+        {
+            connectorProperties = ImmutableMap.<String, String>builder()
+                    .putAll(oracleServer.get().connectionProperties())
+                    .buildOrThrow();
+            createUsers = () -> OracleTestUsers.createStandardUsers(oracleServer.get());
+        }
 
         public Builder withUnlockEnterpriseFeatures(boolean unlockEnterpriseFeatures)
         {
@@ -216,9 +222,17 @@ public final class OracleQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        Lease<TestingStarburstOracleServer> oracleServer = TestingStarburstOracleServer.getInstance();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                oracleServer.close();
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }));
         // using single node so JMX stats can be queried
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder()
-                .withConnectorProperties(connectionProperties())
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) OracleQueryRunner.builder(oracleServer)
                 .withNodesCount(1)
                 .withCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .withTables(TpchTable.getTables())

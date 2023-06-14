@@ -11,29 +11,37 @@ package com.starburstdata.trino.plugins.oracle;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.trino.plugins.oracle.TestOracleTableStatistics.gatherStatisticsInOracle;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.connectionProperties;
 import static java.lang.String.format;
 
 public class TestStarburstOracleConnectorSmokeTest
         extends BaseUnlicensedStarburstOracleConnectorSmokeTest
 {
+    private SharedResource.Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 // some tests here verify exactly the behavior when license is not present
                 .withUnlockEnterpriseFeatures(false)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(connectionProperties())
                         // connection pooling is enabled by default. This tests the non-pooling flavor
                         .put("oracle.connection-pool.enabled", "false")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     /**
@@ -47,7 +55,7 @@ public class TestStarburstOracleConnectorSmokeTest
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         computeActual(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
-            gatherStatisticsInOracle(tableName);
+            oracleServer.get().gatherStatisticsInOracle(tableName);
             assertQuery(
                     "SHOW STATS FOR " + tableName,
                     "VALUES " +

@@ -13,17 +13,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.sql.CallableStatement;
-import java.sql.SQLException;
 import java.util.List;
 
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.gatherStatisticsInOracle;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static java.lang.String.format;
 
@@ -31,19 +29,27 @@ import static java.lang.String.format;
 public class TestOracleTableStatistics
         extends BaseJdbcTableStatisticsTest
 {
+    private Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 // See TestStarburstOracleConnectorSmokeTest.testBasicStatisticsWithoutLicense for test coverage when license not present
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
                         .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     @Override
@@ -196,7 +202,7 @@ public class TestOracleTableStatistics
     {
         String tableName = "test_stats_orders_part";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        executeInOracle("CREATE TABLE " + tableName + " PARTITION BY HASH(ORDERKEY) PARTITIONS 4 AS SELECT * FROM ORDERS");
+        oracleServer.get().executeInOracle("CREATE TABLE " + tableName + " PARTITION BY HASH(ORDERKEY) PARTITIONS 4 AS SELECT * FROM ORDERS");
         try {
             gatherStats(tableName);
             assertQuery(
@@ -223,7 +229,7 @@ public class TestOracleTableStatistics
     public void testView()
     {
         String tableName = "test_stats_view";
-        executeInOracle("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, \"COMMENT\" FROM orders");
+        oracleServer.get().executeInOracle("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, \"COMMENT\" FROM orders");
         try {
             assertQuery(
                     "SHOW STATS FOR " + tableName,
@@ -236,7 +242,7 @@ public class TestOracleTableStatistics
             // It's not possible to DBMS_STATS.GATHER_TABLE_STATS on a VIEW in Oracle
         }
         finally {
-            executeInOracle("DROP VIEW " + tableName);
+            oracleServer.get().executeInOracle("DROP VIEW " + tableName);
         }
     }
 
@@ -245,7 +251,7 @@ public class TestOracleTableStatistics
     public void testMaterializedView()
     {
         String tableName = "test_stats_materialized_view";
-        executeInOracle("" +
+        oracleServer.get().executeInOracle("" +
                 "CREATE MATERIALIZED VIEW " + tableName + " " +
                 "BUILD IMMEDIATE REFRESH ON DEMAND " +
                 "AS SELECT orderkey, custkey, orderpriority, \"COMMENT\" FROM orders");
@@ -261,7 +267,7 @@ public class TestOracleTableStatistics
                             "(null, null, null, null, 15000, null, null)");
         }
         finally {
-            executeInOracle("DROP MATERIALIZED VIEW " + tableName);
+            oracleServer.get().executeInOracle("DROP MATERIALIZED VIEW " + tableName);
         }
     }
 
@@ -269,7 +275,7 @@ public class TestOracleTableStatistics
     @Test(dataProvider = "testCaseColumnNamesDataProvider")
     public void testCaseColumnNames(String tableName)
     {
-        executeInOracle("" +
+        oracleServer.get().executeInOracle("" +
                 "CREATE TABLE " + tableName + " " +
                 "AS SELECT " +
                 "  orderkey AS CASE_UNQUOTED_UPPER, " +
@@ -293,7 +299,7 @@ public class TestOracleTableStatistics
                             "(null, null, null, null, 15000, null, null)");
         }
         finally {
-            executeInOracle("DROP TABLE " + tableName);
+            oracleServer.get().executeInOracle("DROP TABLE " + tableName);
         }
     }
 
@@ -383,6 +389,6 @@ public class TestOracleTableStatistics
     @Override
     protected void gatherStats(String tableName)
     {
-        gatherStatisticsInOracle(tableName);
+        oracleServer.get().gatherStatisticsInOracle(tableName);
     }
 }

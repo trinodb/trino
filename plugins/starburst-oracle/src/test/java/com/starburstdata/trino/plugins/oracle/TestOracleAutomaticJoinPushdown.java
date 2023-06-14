@@ -11,29 +11,37 @@ package com.starburstdata.trino.plugins.oracle;
 
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
+import org.testng.annotations.AfterClass;
 
 import java.sql.CallableStatement;
 import java.sql.SQLException;
 
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
-
 public class TestOracleAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
 {
+    private Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withUnlockEnterpriseFeatures(true)
-                .withConnectorProperties(TestingStarburstOracleServer.connectionProperties())
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     @Override
     protected void gatherStats(String tableName)
     {
-        executeInOracle(connection -> {
+        oracleServer.get().executeInOracle(connection -> {
             try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
                 statement.setString(1, OracleTestUsers.USER);
                 statement.setString(2, tableName);

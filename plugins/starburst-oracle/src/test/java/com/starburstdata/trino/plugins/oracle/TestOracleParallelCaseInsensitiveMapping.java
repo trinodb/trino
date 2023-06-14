@@ -13,12 +13,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,19 +31,27 @@ import static org.testng.Assert.assertEquals;
 public class TestOracleParallelCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
+    private Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.parallel.max-splits-per-scan", "17")
                         .buildOrThrow())
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     @Test
@@ -154,14 +163,14 @@ public class TestOracleParallelCaseInsensitiveMapping
 
     private AutoCloseable withSchema(String schemaName)
     {
-        executeInOracle(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
-        executeInOracle(format("ALTER USER %s QUOTA 100M ON USERS", schemaName));
-        return () -> executeInOracle("DROP USER " + schemaName);
+        oracleServer.get().executeInOracle(format("CREATE USER %s IDENTIFIED BY SCM", schemaName));
+        oracleServer.get().executeInOracle(format("ALTER USER %s QUOTA 100M ON USERS", schemaName));
+        return () -> oracleServer.get().executeInOracle("DROP USER " + schemaName);
     }
 
     private AutoCloseable withPartitionedTable(String tableName, String columns, String partitionColumn, int partitionCount)
     {
-        executeInOracle(format("CREATE TABLE %s (%s) PARTITION BY HASH (%s) PARTITIONS %d", tableName, columns, partitionColumn, partitionCount));
-        return () -> executeInOracle(format("DROP TABLE %s", tableName));
+        oracleServer.get().executeInOracle(format("CREATE TABLE %s (%s) PARTITION BY HASH (%s) PARTITIONS %d", tableName, columns, partitionColumn, partitionCount));
+        return () -> oracleServer.get().executeInOracle(format("DROP TABLE %s", tableName));
     }
 }

@@ -14,11 +14,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.oracle.BaseOracleConnectorTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
@@ -39,18 +41,27 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestStarburstOracleConnectorTest
         extends BaseOracleConnectorTest
 {
+    private SharedResource.Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+
+        return OracleQueryRunner.builder(oracleServer)
                 .withUnlockEnterpriseFeatures(true)
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.remarks-reporting.enabled", "true")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
+    {
+        oracleServer = null;
     }
 
     @Override
@@ -116,7 +127,7 @@ public class TestStarburstOracleConnectorTest
         Properties properties = new Properties();
         properties.setProperty("user", OracleTestUsers.USER);
         properties.setProperty("password", OracleTestUsers.PASSWORD);
-        return new JdbcSqlExecutor(TestingStarburstOracleServer.getJdbcUrl(), properties);
+        return new JdbcSqlExecutor(oracleServer.get().getJdbcUrl(), properties);
     }
 
     @Test

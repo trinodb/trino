@@ -12,6 +12,9 @@ package com.starburstdata.trino.plugins.oracle;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
+import io.trino.testing.SharedResource;
+import io.trino.testing.SharedResource.Lease;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import org.testcontainers.containers.OracleContainer;
@@ -25,34 +28,67 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class TestingStarburstOracleServer
+public class TestingStarburstOracleServer
+        implements AutoCloseable
 {
-    private static final OracleContainer CONTAINER = new CustomOracleContainer(
-            DockerImageName.parse("843985043183.dkr.ecr.us-east-2.amazonaws.com/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
-            .withUsername(OracleTestUsers.USER)
-            .withPassword(OracleTestUsers.PASSWORD)
-            .withEnv("ORACLE_SID", "testdbsid")
-            .withEnv("ORACLE_PDB", "testdb")
-            .withEnv("ORACLE_PWD", "secret")
-            .withCreateContainerCmdModifier(cmd -> cmd.withHostName("oracle-master"))
-            // Recommended ulimits for running Oracle on Linux
-            // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
-            .withCreateContainerCmdModifier(cmd ->
-                    requireNonNull(cmd.getHostConfig()).withUlimits(ImmutableList.of(new Ulimit("nofile", 1024L, 65536L))));
+    private static final SharedResource<TestingStarburstOracleServer> instance = new SharedResource<>(TestingStarburstOracleServer::new);
 
-    static {
-        CONTAINER.start();
-    }
+    private final Closer closer = Closer.create();
+    private final OracleContainer container;
 
-    public static String getJdbcUrl()
+    public static Lease<TestingStarburstOracleServer> getInstance()
+            throws Exception
     {
-        return CONTAINER.getJdbcUrl();
+        return instance.getInstanceLease();
     }
 
-    public static Map<String, String> connectionProperties()
+    private TestingStarburstOracleServer()
+    {
+        this(new CustomOracleContainer(
+                DockerImageName.parse("843985043183.dkr.ecr.us-east-2.amazonaws.com/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
+                .withUsername(OracleTestUsers.USER)
+                .withPassword(OracleTestUsers.PASSWORD)
+                .withEnv("ORACLE_SID", "testdbsid")
+                .withEnv("ORACLE_PDB", "testdb")
+                .withEnv("ORACLE_PWD", "secret")
+                .withCreateContainerCmdModifier(cmd -> cmd.withHostName("oracle-master"))
+                // Recommended ulimits for running Oracle on Linux
+                // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
+                .withCreateContainerCmdModifier(cmd ->
+                        requireNonNull(cmd.getHostConfig()).withUlimits(ImmutableList.of(new Ulimit("nofile", 1024L, 65536L)))));
+    }
+
+    protected TestingStarburstOracleServer(OracleContainer oracleContainer)
+    {
+        this.container = oracleContainer;
+        closer.register(container::stop);
+
+        try {
+            this.container.start();
+        }
+        catch (Exception e) {
+            closeAllSuppress(e, this);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void close()
+            throws Exception
+    {
+        closer.close();
+    }
+
+    public String getJdbcUrl()
+    {
+        return container.getJdbcUrl();
+    }
+
+    public Map<String, String> connectionProperties()
     {
         return ImmutableMap.<String, String>builder()
                 .put("connection-url", getJdbcUrl())
@@ -61,7 +97,7 @@ public final class TestingStarburstOracleServer
                 .buildOrThrow();
     }
 
-    public static void executeInOracle(String sql)
+    public void executeInOracle(String sql)
     {
         executeInOracle(connection -> {
             try (Statement statement = connection.createStatement()) {
@@ -73,7 +109,7 @@ public final class TestingStarburstOracleServer
         });
     }
 
-    public static void executeInOracle(Consumer<Connection> connectionCallback)
+    public void executeInOracle(Consumer<Connection> connectionCallback)
     {
         try (Connection connection = DriverManager.getConnection(getJdbcUrl(), OracleTestUsers.USER, OracleTestUsers.PASSWORD)) {
             connectionCallback.accept(connection);
@@ -87,7 +123,7 @@ public final class TestingStarburstOracleServer
      * @deprecated Use {@link TestTable} instead.
      */
     @Deprecated
-    public static AutoCloseable withTable(String tableName, String tableDefinition)
+    public AutoCloseable withTable(String tableName, String tableDefinition)
     {
         executeInOracle(format("CREATE TABLE %s %s", tableName, tableDefinition));
         return () -> executeInOracle(format("DROP TABLE %s", tableName));
@@ -97,19 +133,19 @@ public final class TestingStarburstOracleServer
      * @deprecated Use {@link TestView} instead.
      */
     @Deprecated
-    public static AutoCloseable withView(String tableName, String tableDefinition)
+    public AutoCloseable withView(String tableName, String tableDefinition)
     {
         executeInOracle(format("CREATE VIEW %s AS %s", tableName, tableDefinition));
         return () -> executeInOracle(format("DROP VIEW %s", tableName));
     }
 
-    public static AutoCloseable withSynonym(String tableName, String tableDefinition)
+    public AutoCloseable withSynonym(String tableName, String tableDefinition)
     {
         executeInOracle(format("CREATE SYNONYM %s FOR %s", tableName, tableDefinition));
         return () -> executeInOracle(format("DROP SYNONYM %s", tableName));
     }
 
-    public static void gatherStatisticsInOracle(String tableName)
+    public void gatherStatisticsInOracle(String tableName)
     {
         executeInOracle(connection -> {
             try (CallableStatement statement = connection.prepareCall("{CALL DBMS_STATS.GATHER_TABLE_STATS(?, ?)}")) {
@@ -123,9 +159,7 @@ public final class TestingStarburstOracleServer
         });
     }
 
-    private TestingStarburstOracleServer() {}
-
-    private static class CustomOracleContainer
+    protected static class CustomOracleContainer
             extends OracleContainer
     {
         public CustomOracleContainer(DockerImageName dockerImageName)
@@ -137,7 +171,7 @@ public final class TestingStarburstOracleServer
         public String getJdbcUrl()
         {
             // this URL does not contain credentials
-            return format("jdbc:oracle:thin:@localhost:%s/testdb", CONTAINER.getOraclePort());
+            return format("jdbc:oracle:thin:@localhost:%s/testdb", this.getOraclePort());
         }
     }
 }

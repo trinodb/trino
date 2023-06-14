@@ -13,9 +13,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource.Lease;
 import org.testng.annotations.Test;
 
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.connectionProperties;
 import static io.trino.tpch.TpchTable.NATION;
 
 public class TestOracleLicenseProtection
@@ -25,8 +25,8 @@ public class TestOracleLicenseProtection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
-                .withConnectorProperties(connectionProperties())
+        Lease<TestingStarburstOracleServer> oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withTables(ImmutableList.of(NATION))
                 .withUnlockEnterpriseFeatures(false)
                 .build();

@@ -12,12 +12,13 @@ package com.starburstdata.trino.plugins.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.oracle.BaseOracleConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.SharedResource;
 import io.trino.testing.TestingConnectorBehavior;
+import org.testng.annotations.AfterClass;
 
 import static com.starburstdata.trino.plugins.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.createUser;
-import static com.starburstdata.trino.plugins.oracle.TestingStarburstOracleServer.executeInOracle;
 import static java.lang.String.format;
 
 public class TestStarburstOracleParallelConnectorSmokeTest
@@ -25,35 +26,43 @@ public class TestStarburstOracleParallelConnectorSmokeTest
 {
     public static final String PARTITIONED_USER = "partitioned_user";
 
+    private SharedResource.Lease<TestingStarburstOracleServer> oracleServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return OracleQueryRunner.builder()
+        oracleServer = closeAfterClass(TestingStarburstOracleServer.getInstance());
+        return OracleQueryRunner.builder(oracleServer)
                 .withUnlockEnterpriseFeatures(true) // parallelism is license protected in SEP
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
-                        .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.parallelism-type", "PARTITIONS")
                         .put("oracle.parallel.max-splits-per-scan", "17")
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .withSessionModifier(session -> createSession(PARTITIONED_USER, PARTITIONED_USER))
-                .withCreateUsers(TestStarburstOracleParallelConnectorSmokeTest::createUsers)
-                .withProvisionTables(TestStarburstOracleParallelConnectorSmokeTest::partitionTables)
+                .withCreateUsers(this::createUsers)
+                .withProvisionTables(this::partitionTables)
                 .build();
     }
 
-    protected static void createUsers()
+    @AfterClass(alwaysRun = true)
+    public void cleanup()
     {
-        createStandardUsers();
-        createUser(PARTITIONED_USER);
-        executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
+        oracleServer = null;
     }
 
-    private static void partitionTables()
+    protected void createUsers()
     {
-        executeInOracle(format("ALTER TABLE %s.nation MODIFY PARTITION BY RANGE (regionkey) INTERVAL (2) (PARTITION before_1 VALUES LESS THAN (1))", PARTITIONED_USER));
-        executeInOracle(format("ALTER TABLE %s.region MODIFY PARTITION BY HASH(name) PARTITIONS 3", PARTITIONED_USER));
+        createStandardUsers(oracleServer.get());
+        createUser(oracleServer.get(), PARTITIONED_USER);
+        oracleServer.get().executeInOracle(format("GRANT SELECT ON user_context to %s", PARTITIONED_USER));
+    }
+
+    private void partitionTables()
+    {
+        oracleServer.get().executeInOracle(format("ALTER TABLE %s.nation MODIFY PARTITION BY RANGE (regionkey) INTERVAL (2) (PARTITION before_1 VALUES LESS THAN (1))", PARTITIONED_USER));
+        oracleServer.get().executeInOracle(format("ALTER TABLE %s.region MODIFY PARTITION BY HASH(name) PARTITIONS 3", PARTITIONED_USER));
     }
 
     @Override
