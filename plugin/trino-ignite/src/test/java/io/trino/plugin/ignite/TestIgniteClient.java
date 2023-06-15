@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.plugin.jdbc.mapping.DatabaseMetaDataRemoteIdentifierSupplier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -61,7 +62,7 @@ public class TestIgniteClient
             new BaseJdbcConfig(),
             session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     @Test
