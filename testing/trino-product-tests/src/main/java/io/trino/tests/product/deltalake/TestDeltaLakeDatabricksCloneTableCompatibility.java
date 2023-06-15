@@ -150,11 +150,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             onDelta().executeQuery("CREATE TABLE default." + baseTable +
                     " (a_number INT, b_string STRING) USING delta " +
                     (partitioned ? "PARTITIONED BY (b_string) " : "") +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + baseTable + "'" +
-                    " TBLPROPERTIES (" +
-                    " 'delta.columnMapping.mode'='name'," +
-                    " 'delta.minReaderVersion'='2'," +
-                    " 'delta.minWriterVersion'='5')");
+                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + baseTable + "'");
 
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (1, \"a\")");
 
