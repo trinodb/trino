@@ -143,6 +143,32 @@ public class TestHiveS3AndGlueMetastoreTest
         }
     }
 
+    @Test(dataProvider = "locationPatternsDataProvider")
+    public void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
+    {
+        // this test needed, because execution path for CTAS and simple create is different
+        String tableName = "test_basic_operations_" + randomNameSuffix();
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
+        String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
+
+        String create = "CREATE TABLE " + tableName + "(col_str varchar, col_int integer) WITH (external_location = '" + location + "' " + partitionQueryPart + ")";
+        if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
+            assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
+            return;
+        }
+        assertUpdate(create);
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            String actualTableLocation = getTableLocation(tableName);
+            assertThat(actualTableLocation).isEqualTo(location);
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)", 4);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+
+            assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_int" : "", tableName, actualTableLocation);
+        }
+    }
+
     @Override // Row-level modifications are not supported for Hive tables
     @Test(dataProvider = "locationPatternsDataProvider")
     public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
