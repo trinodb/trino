@@ -20,6 +20,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.trino.tests.product.launcher.Extensions;
 import io.trino.tests.product.launcher.LauncherModule;
 
+import java.io.OutputStream;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -29,11 +30,13 @@ public abstract class LauncherCommand
         implements Callable<Integer>
 {
     private final Class<? extends Callable<Integer>> commandClass;
+    private final OutputStream outputStream;
     protected final Extensions extensions;
 
-    public LauncherCommand(Class<? extends Callable<Integer>> commandClass, Extensions extensions)
+    public LauncherCommand(Class<? extends Callable<Integer>> commandClass, OutputStream outputStream, Extensions extensions)
     {
         this.commandClass = requireNonNull(commandClass, "commandClass is null");
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
         this.extensions = requireNonNull(extensions, "extensions is null");
     }
 
@@ -45,8 +48,7 @@ public abstract class LauncherCommand
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
-                        .add()
-                        .add(new LauncherModule())
+                        .add(new LauncherModule(outputStream))
                         .addAll(getCommandModules())
                         .add(binder -> binder.bind(commandClass))
                         .build());

@@ -36,9 +36,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -66,9 +65,9 @@ public class SuiteDescribe
     @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    public SuiteDescribe(Extensions extensions)
+    public SuiteDescribe(OutputStream outputStream, Extensions extensions)
     {
-        super(SuiteDescribe.Execution.class, extensions);
+        super(SuiteDescribe.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -200,7 +199,7 @@ public class SuiteDescribe
         private final EnvironmentConfigFactory configFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentOptions environmentOptions;
-        private final PrintStream out;
+        private final PrintStream printStream;
         private final OutputBuilder outputBuilder;
 
         @Inject
@@ -209,7 +208,8 @@ public class SuiteDescribe
                 SuiteFactory suiteFactory,
                 EnvironmentConfigFactory configFactory,
                 EnvironmentFactory environmentFactory,
-                EnvironmentOptions environmentOptions)
+                EnvironmentOptions environmentOptions,
+                PrintStream printStream)
         {
             this.describeOptions = requireNonNull(describeOptions, "describeOptions is null");
             this.config = requireNonNull(environmentOptions.config, "environmentOptions.config is null");
@@ -217,14 +217,8 @@ public class SuiteDescribe
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
             this.outputBuilder = describeOptions.format.outputBuilderFactory.get();
-
-            try {
-                this.out = new PrintStream(System.out, true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException("Could not create print stream", e);
-            }
         }
 
         @Override
@@ -239,13 +233,13 @@ public class SuiteDescribe
                 for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                     testRun = testRun.withConfigApplied(config);
                     TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
-                    Environment.Builder builder = environmentFactory.get(runOptions.environment, config, testRun.getExtraOptions())
+                    Environment.Builder builder = environmentFactory.get(runOptions.environment, printStream, config, testRun.getExtraOptions())
                             .setContainerOutputMode(environmentOptions.output);
                     Environment environment = builder.build();
                     outputBuilder.addTestRun(environmentOptions, runOptions, environment);
                 }
             }
-            out.print(outputBuilder.build());
+            printStream.print(outputBuilder.build());
             return OK;
         }
 
