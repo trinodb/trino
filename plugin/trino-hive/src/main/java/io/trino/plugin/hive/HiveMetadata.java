@@ -1041,7 +1041,7 @@ public class HiveMetadata
 
             external = true;
             targetPath = Optional.of(getValidatedExternalLocation(externalLocation));
-            checkExternalPath(session, targetPath.get());
+            checkExternalPathAndCreateIfNotExists(session, targetPath.get());
         }
         else {
             external = false;
@@ -1319,15 +1319,30 @@ public class HiveMetadata
         return validated;
     }
 
-    private void checkExternalPath(ConnectorSession session, Location location)
+    private void checkExternalPathAndCreateIfNotExists(ConnectorSession session, Location location)
     {
         try {
             if (!fileSystemFactory.create(session).directoryExists(location).orElse(true)) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + location);
+                if (writesToNonManagedTablesEnabled) {
+                    createDirectory(session, location);
+                }
+                else {
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + location);
+                }
             }
         }
         catch (IOException | IllegalArgumentException e) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+        }
+    }
+
+    private void createDirectory(ConnectorSession session, Location location)
+    {
+        try {
+            fileSystemFactory.create(session).createDirectory(location);
+        }
+        catch (IOException e) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, e.getMessage());
         }
     }
 
