@@ -20,11 +20,11 @@ import java.util.Properties;
 
 import static java.lang.String.format;
 
-interface ConnectionProperty<T>
+interface ConnectionProperty<V, T>
 {
     String getKey();
 
-    Optional<String> getDefault();
+    Optional<V> getDefault();
 
     DriverPropertyInfo getDriverPropertyInfo(Properties properties);
 

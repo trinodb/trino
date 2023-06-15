@@ -50,49 +50,49 @@ final class ConnectionProperties
         FULL, CA, NONE
     }
 
-    public static final ConnectionProperty<String> USER = new User();
-    public static final ConnectionProperty<String> PASSWORD = new Password();
-    public static final ConnectionProperty<String> SESSION_USER = new SessionUser();
-    public static final ConnectionProperty<Map<String, ClientSelectedRole>> ROLES = new Roles();
-    public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
-    public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
-    public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
-    public static final ConnectionProperty<Boolean> DISABLE_COMPRESSION = new DisableCompression();
-    public static final ConnectionProperty<Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
-    public static final ConnectionProperty<Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
-    public static final ConnectionProperty<Boolean> SSL = new Ssl();
-    public static final ConnectionProperty<SslVerificationMode> SSL_VERIFICATION = new SslVerification();
-    public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
-    public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
-    public static final ConnectionProperty<String> SSL_KEY_STORE_TYPE = new SslKeyStoreType();
-    public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
-    public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
-    public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
-    public static final ConnectionProperty<Boolean> SSL_USE_SYSTEM_TRUST_STORE = new SslUseSystemTrustStore();
-    public static final ConnectionProperty<String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
-    public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
-    public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
-    public static final ConnectionProperty<String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
-    public static final ConnectionProperty<File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
-    public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
-    public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
-    public static final ConnectionProperty<Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
-    public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
-    public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
-    public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
-    public static final ConnectionProperty<List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
-    public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
-    public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
-    public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
-    public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
-    public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
-    public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
-    public static final ConnectionProperty<String> SOURCE = new Source();
-    public static final ConnectionProperty<Class<? extends DnsResolver>> DNS_RESOLVER = new Resolver();
-    public static final ConnectionProperty<String> DNS_RESOLVER_CONTEXT = new ResolverContext();
-    public static final ConnectionProperty<String> HOSTNAME_IN_CERTIFICATE = new HostnameInCertificate();
+    public static final ConnectionProperty<String, String> USER = new User();
+    public static final ConnectionProperty<String, String> PASSWORD = new Password();
+    public static final ConnectionProperty<String, String> SESSION_USER = new SessionUser();
+    public static final ConnectionProperty<String, Map<String, ClientSelectedRole>> ROLES = new Roles();
+    public static final ConnectionProperty<String, HostAndPort> SOCKS_PROXY = new SocksProxy();
+    public static final ConnectionProperty<String, HostAndPort> HTTP_PROXY = new HttpProxy();
+    public static final ConnectionProperty<String, String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
+    public static final ConnectionProperty<String, Boolean> DISABLE_COMPRESSION = new DisableCompression();
+    public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
+    public static final ConnectionProperty<String, Boolean> ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients();
+    public static final ConnectionProperty<String, Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<String, SslVerificationMode> SSL_VERIFICATION = new SslVerification();
+    public static final ConnectionProperty<String, String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
+    public static final ConnectionProperty<String, String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
+    public static final ConnectionProperty<String, String> SSL_KEY_STORE_TYPE = new SslKeyStoreType();
+    public static final ConnectionProperty<String, String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
+    public static final ConnectionProperty<String, String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
+    public static final ConnectionProperty<String, String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
+    public static final ConnectionProperty<String, Boolean> SSL_USE_SYSTEM_TRUST_STORE = new SslUseSystemTrustStore();
+    public static final ConnectionProperty<String, String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
+    public static final ConnectionProperty<String, String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
+    public static final ConnectionProperty<String, Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
+    public static final ConnectionProperty<String, String> KERBEROS_PRINCIPAL = new KerberosPrincipal();
+    public static final ConnectionProperty<String, File> KERBEROS_CONFIG_PATH = new KerberosConfigPath();
+    public static final ConnectionProperty<String, File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
+    public static final ConnectionProperty<String, File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
+    public static final ConnectionProperty<String, Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
+    public static final ConnectionProperty<String, String> ACCESS_TOKEN = new AccessToken();
+    public static final ConnectionProperty<String, Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
+    public static final ConnectionProperty<String, Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<String, List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
+    public static final ConnectionProperty<String, KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
+    public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
+    public static final ConnectionProperty<String, String> CLIENT_INFO = new ClientInfo();
+    public static final ConnectionProperty<String, String> CLIENT_TAGS = new ClientTags();
+    public static final ConnectionProperty<String, String> TRACE_TOKEN = new TraceToken();
+    public static final ConnectionProperty<String, Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
+    public static final ConnectionProperty<String, String> SOURCE = new Source();
+    public static final ConnectionProperty<String, Class<? extends DnsResolver>> DNS_RESOLVER = new Resolver();
+    public static final ConnectionProperty<String, String> DNS_RESOLVER_CONTEXT = new ResolverContext();
+    public static final ConnectionProperty<String, String> HOSTNAME_IN_CERTIFICATE = new HostnameInCertificate();
 
-    private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
+    private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             .add(USER)
             .add(PASSWORD)
             .add(SESSION_USER)
@@ -136,14 +136,14 @@ final class ConnectionProperties
             .add(HOSTNAME_IN_CERTIFICATE)
             .build();
 
-    private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
+    private static final Map<String, ConnectionProperty<?, ?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
             .collect(toMap(ConnectionProperty::getKey, identity())));
 
-    private static final Map<String, String> DEFAULTS;
+    private static final Map<String, Object> DEFAULTS;
 
     static {
-        ImmutableMap.Builder<String, String> defaults = ImmutableMap.builder();
-        for (ConnectionProperty<?> property : ALL_PROPERTIES) {
+        ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
+        for (ConnectionProperty<?, ?> property : ALL_PROPERTIES) {
             property.getDefault().ifPresent(value -> defaults.put(property.getKey(), value));
         }
         DEFAULTS = defaults.buildOrThrow();
@@ -151,23 +151,23 @@ final class ConnectionProperties
 
     private ConnectionProperties() {}
 
-    public static ConnectionProperty<?> forKey(String propertiesKey)
+    public static ConnectionProperty<?, ?> forKey(String propertiesKey)
     {
         return KEY_LOOKUP.get(propertiesKey);
     }
 
-    public static Set<ConnectionProperty<?>> allProperties()
+    public static Set<ConnectionProperty<?, ?>> allProperties()
     {
         return ALL_PROPERTIES;
     }
 
-    public static Map<String, String> getDefaults()
+    public static Map<String, Object> getDefaults()
     {
         return DEFAULTS;
     }
 
     private static class User
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public User()
         {
@@ -176,7 +176,7 @@ final class ConnectionProperties
     }
 
     private static class Password
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public Password()
         {
@@ -185,7 +185,7 @@ final class ConnectionProperties
     }
 
     private static class SessionUser
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         protected SessionUser()
         {
@@ -194,7 +194,7 @@ final class ConnectionProperties
     }
 
     private static class Roles
-            extends AbstractConnectionProperty<Map<String, ClientSelectedRole>>
+            extends AbstractConnectionProperty<String, Map<String, ClientSelectedRole>>
     {
         public Roles()
         {
@@ -226,7 +226,7 @@ final class ConnectionProperties
     }
 
     private static class SocksProxy
-            extends AbstractConnectionProperty<HostAndPort>
+            extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Predicate<Properties> NO_HTTP_PROXY =
                 checkedPredicate(properties -> !HTTP_PROXY.getValue(properties).isPresent());
@@ -238,7 +238,7 @@ final class ConnectionProperties
     }
 
     private static class HttpProxy
-            extends AbstractConnectionProperty<HostAndPort>
+            extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Predicate<Properties> NO_SOCKS_PROXY =
                 checkedPredicate(properties -> !SOCKS_PROXY.getValue(properties).isPresent());
@@ -250,7 +250,7 @@ final class ConnectionProperties
     }
 
     private static class ApplicationNamePrefix
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public ApplicationNamePrefix()
         {
@@ -259,7 +259,7 @@ final class ConnectionProperties
     }
 
     private static class ClientInfo
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public ClientInfo()
         {
@@ -268,7 +268,7 @@ final class ConnectionProperties
     }
 
     private static class ClientTags
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public ClientTags()
         {
@@ -277,7 +277,7 @@ final class ConnectionProperties
     }
 
     private static class TraceToken
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public TraceToken()
         {
@@ -286,7 +286,7 @@ final class ConnectionProperties
     }
 
     private static class DisableCompression
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public DisableCompression()
         {
@@ -298,7 +298,7 @@ final class ConnectionProperties
      * @deprecated use {@link AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients}
      */
     private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         private static final Predicate<Properties> IS_ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
                 checkedPredicate(properties -> !ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
@@ -315,7 +315,7 @@ final class ConnectionProperties
     }
 
     private static class AssumeLiteralUnderscoreInMetadataCallsForNonConformingClients
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         private static final Predicate<Properties> IS_ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS_NOT_ENABLED =
                 checkedPredicate(properties -> !ASSUME_LITERAL_UNDERSCORE_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS.getValue(properties).orElse(false));
@@ -332,7 +332,7 @@ final class ConnectionProperties
     }
 
     private static class Ssl
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public Ssl()
         {
@@ -341,7 +341,7 @@ final class ConnectionProperties
     }
 
     private static class SslVerification
-            extends AbstractConnectionProperty<SslVerificationMode>
+            extends AbstractConnectionProperty<String, SslVerificationMode>
     {
         private static final Predicate<Properties> IF_SSL_ENABLED =
                 checkedPredicate(properties -> SSL.getValue(properties).orElse(false));
@@ -359,7 +359,7 @@ final class ConnectionProperties
     }
 
     private static class SslKeyStorePath
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public SslKeyStorePath()
         {
@@ -368,7 +368,7 @@ final class ConnectionProperties
     }
 
     private static class SslKeyStorePassword
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         private static final Predicate<Properties> IF_KEY_STORE =
                 checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
@@ -380,7 +380,7 @@ final class ConnectionProperties
     }
 
     private static class SslKeyStoreType
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         private static final Predicate<Properties> IF_KEY_STORE =
                 checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
@@ -392,7 +392,7 @@ final class ConnectionProperties
     }
 
     private static class SslTrustStorePath
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         private static final Predicate<Properties> IF_SYSTEM_TRUST_STORE_NOT_ENABLED =
                 checkedPredicate(properties -> !SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
@@ -404,7 +404,7 @@ final class ConnectionProperties
     }
 
     private static class SslTrustStorePassword
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         private static final Predicate<Properties> IF_TRUST_STORE =
                 checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
@@ -416,7 +416,7 @@ final class ConnectionProperties
     }
 
     private static class SslTrustStoreType
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         private static final Predicate<Properties> IF_TRUST_STORE =
                 checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent() || SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
@@ -428,7 +428,7 @@ final class ConnectionProperties
     }
 
     private static class SslUseSystemTrustStore
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public SslUseSystemTrustStore()
         {
@@ -437,7 +437,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosRemoteServiceName
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public KerberosRemoteServiceName()
         {
@@ -456,7 +456,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosServicePrincipalPattern
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public KerberosServicePrincipalPattern()
         {
@@ -465,7 +465,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosPrincipal
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public KerberosPrincipal()
         {
@@ -474,7 +474,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosUseCanonicalHostname
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public KerberosUseCanonicalHostname()
         {
@@ -483,7 +483,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosConfigPath
-            extends AbstractConnectionProperty<File>
+            extends AbstractConnectionProperty<String, File>
     {
         public KerberosConfigPath()
         {
@@ -492,7 +492,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosKeytabPath
-            extends AbstractConnectionProperty<File>
+            extends AbstractConnectionProperty<String, File>
     {
         public KerberosKeytabPath()
         {
@@ -501,7 +501,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosCredentialCachePath
-            extends AbstractConnectionProperty<File>
+            extends AbstractConnectionProperty<String, File>
     {
         public KerberosCredentialCachePath()
         {
@@ -510,7 +510,7 @@ final class ConnectionProperties
     }
 
     private static class KerberosDelegation
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public KerberosDelegation()
         {
@@ -519,7 +519,7 @@ final class ConnectionProperties
     }
 
     private static class AccessToken
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public AccessToken()
         {
@@ -528,7 +528,7 @@ final class ConnectionProperties
     }
 
     private static class ExternalAuthentication
-            extends AbstractConnectionProperty<Boolean>
+            extends AbstractConnectionProperty<String, Boolean>
     {
         public ExternalAuthentication()
         {
@@ -537,7 +537,7 @@ final class ConnectionProperties
     }
 
     private static class ExternalAuthenticationRedirectHandlers
-            extends AbstractConnectionProperty<List<ExternalRedirectStrategy>>
+            extends AbstractConnectionProperty<String, List<ExternalRedirectStrategy>>
     {
         private static final Splitter ENUM_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
@@ -555,7 +555,7 @@ final class ConnectionProperties
     }
 
     private static class ExternalAuthenticationTimeout
-            extends AbstractConnectionProperty<Duration>
+            extends AbstractConnectionProperty<String, Duration>
     {
         private static final Predicate<Properties> IF_EXTERNAL_AUTHENTICATION_ENABLED =
                 checkedPredicate(properties -> EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false));
@@ -567,7 +567,7 @@ final class ConnectionProperties
     }
 
     private static class ExternalAuthenticationTokenCache
-            extends AbstractConnectionProperty<KnownTokenCache>
+            extends AbstractConnectionProperty<String, KnownTokenCache>
     {
         public ExternalAuthenticationTokenCache()
         {
@@ -576,7 +576,7 @@ final class ConnectionProperties
     }
 
     private static class ExtraCredentials
-            extends AbstractConnectionProperty<Map<String, String>>
+            extends AbstractConnectionProperty<String, Map<String, String>>
     {
         public ExtraCredentials()
         {
@@ -592,7 +592,7 @@ final class ConnectionProperties
     }
 
     private static class SessionProperties
-            extends AbstractConnectionProperty<Map<String, String>>
+            extends AbstractConnectionProperty<String, Map<String, String>>
     {
         private static final Splitter NAME_PARTS_SPLITTER = Splitter.on('.');
 
@@ -614,7 +614,7 @@ final class ConnectionProperties
     }
 
     private static class Source
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public Source()
         {
@@ -623,7 +623,7 @@ final class ConnectionProperties
     }
 
     private static class Resolver
-            extends AbstractConnectionProperty<Class<? extends DnsResolver>>
+            extends AbstractConnectionProperty<String, Class<? extends DnsResolver>>
     {
         public Resolver()
         {
@@ -642,7 +642,7 @@ final class ConnectionProperties
     }
 
     private static class ResolverContext
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public ResolverContext()
         {
@@ -651,7 +651,7 @@ final class ConnectionProperties
     }
 
     private static class HostnameInCertificate
-            extends AbstractConnectionProperty<String>
+            extends AbstractConnectionProperty<String, String>
     {
         public HostnameInCertificate()
         {
