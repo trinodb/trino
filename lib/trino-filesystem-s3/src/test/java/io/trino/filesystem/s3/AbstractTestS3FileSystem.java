@@ -64,7 +64,7 @@ public abstract class AbstractTestS3FileSystem
     @Override
     protected final Location getRootLocation()
     {
-        return Location.of("s3://" + bucket());
+        return Location.of("s3://%s/".formatted(bucket()));
     }
 
     @Override
