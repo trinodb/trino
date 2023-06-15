@@ -78,7 +78,7 @@ public abstract class AbstractTestAzureFileSystem
         checkState(accountKind == expectedAccountKind, "Expected %s account, but found %s".formatted(expectedAccountKind, accountKind));
 
         containerName = "test-%s-%s".formatted(accountKind.name().toLowerCase(ROOT), randomUUID());
-        rootLocation = Location.of("abfs://%s@%s.dfs.core.windows.net".formatted(containerName, account));
+        rootLocation = Location.of("abfs://%s@%s.dfs.core.windows.net/".formatted(containerName, account));
 
         blobContainerClient = blobServiceClient.getBlobContainerClient(containerName);
         // this will fail if the container already exists, which is what we want

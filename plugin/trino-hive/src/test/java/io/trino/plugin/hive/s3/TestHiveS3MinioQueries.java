@@ -88,29 +88,23 @@ public class TestHiveS3MinioQueries
         String location = "s3://%s%s".formatted(bucketName, locationWithTrailingSlash ? "/" : "");
         String tableName = "test_table_top_of_bucket_%s_%s".formatted(locationWithTrailingSlash, randomNameSuffix());
         String create = "CREATE TABLE %s (a varchar) WITH (format='TEXTFILE', external_location='%s')".formatted(tableName, location);
+        if (!locationWithTrailingSlash) {
+            assertQueryFails(create, "External location is not a valid file system URI: " + location);
+            return;
+        }
         assertUpdate(create);
 
         // Verify location was not normalized along the way. Glue would not do that.
         assertThat(getDeclaredTableLocation(tableName))
                 .isEqualTo(location);
 
-        if (locationWithTrailingSlash) {
-            assertThat(query("TABLE " + tableName))
-                    .matches("VALUES VARCHAR 'We are', 'awesome at', 'multiple slashes.'");
-        }
-        else {
-            assertQueryFails("TABLE " + tableName, "Path is not absolute: " + location);
-        }
+        assertThat(query("TABLE " + tableName))
+                .matches("VALUES VARCHAR 'We are', 'awesome at', 'multiple slashes.'");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES 'Aren''t we?'", 1);
 
-        if (locationWithTrailingSlash) {
-            assertThat(query("TABLE " + tableName))
-                    .matches("VALUES VARCHAR 'We are', 'awesome at', 'multiple slashes.', 'Aren''t we?'");
-        }
-        else {
-            assertQueryFails("TABLE " + tableName, "Path is not absolute: " + location);
-        }
+        assertThat(query("TABLE " + tableName))
+                .matches("VALUES VARCHAR 'We are', 'awesome at', 'multiple slashes.', 'Aren''t we?'");
 
         assertUpdate("DROP TABLE " + tableName);
     }

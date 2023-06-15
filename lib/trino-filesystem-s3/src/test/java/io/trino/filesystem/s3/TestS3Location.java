@@ -24,7 +24,6 @@ public class TestS3Location
     @Test
     public void testValidUri()
     {
-        assertS3Uri("s3://abc", "abc", "");
         assertS3Uri("s3://abc/", "abc", "");
         assertS3Uri("s3://abc/x", "abc", "x");
         assertS3Uri("s3://abc/xyz/fooBAR", "abc", "xyz/fooBAR");
@@ -46,6 +45,10 @@ public class TestS3Location
         assertThatThrownBy(() -> new S3Location(Location.of("s3://")))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("No bucket for S3 location: s3://");
+
+        assertThatThrownBy(() -> new S3Location(Location.of("s3://abc")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: s3://abc");
 
         assertThatThrownBy(() -> new S3Location(Location.of("s3:///abc")))
                 .isInstanceOf(IllegalArgumentException.class)
