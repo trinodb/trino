@@ -22,7 +22,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.jvm.Threads;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
@@ -58,7 +57,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
 import static io.airlift.units.Duration.succinctNanos;
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.cli.SuiteRun.TestRunResult.HEADER;
 import static io.trino.tests.product.launcher.cli.TestRun.Execution.ENVIRONMENT_SKIPPED_EXIT_CODE;
 import static java.lang.Math.max;
@@ -76,14 +74,11 @@ import static java.util.stream.Collectors.joining;
         description = "Run suite tests",
         usageHelpAutoWidth = true)
 public class SuiteRun
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(SuiteRun.class);
 
     private static final ScheduledExecutorService diagnosticExecutor = newScheduledThreadPool(2, daemonThreadsNamed("TestRun-diagnostic"));
-
-    private final Module additionalEnvironments;
-    private final Module additionalSuites;
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -96,21 +91,16 @@ public class SuiteRun
 
     public SuiteRun(Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
-        this.additionalSuites = extensions.getAdditionalSuites();
+        super(SuiteRun.Execution.class, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new SuiteModule(additionalSuites))
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(suiteRunOptions.toModule())
-                        .build(),
-                Execution.class);
+        return ImmutableList.of(
+                new SuiteModule(extensions.getAdditionalSuites()),
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                suiteRunOptions.toModule());
     }
 
     public static class SuiteRunOptions
