@@ -37,6 +37,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
+import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingMetadata.TestingColumnHandle;
@@ -57,6 +58,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.plan.AggregationNode.globalAggregation;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -121,6 +123,50 @@ public class TestLocalExecutionPlannerAlternatives
         assertEquals(executionPlan.getDriverFactories().size(), 1);
         SplitDriverFactory driverFactory = executionPlan.getDriverFactories().get(0);
         assertThat(driverFactory).isInstanceOf(AlternativesAwareDriverFactory.class);
+    }
+
+    @Test
+    public void chooseAlternativePipelineGetsDifferentPipelineId()
+    {
+        PlanNodeId chooseAlternativeNodeId = new PlanNodeId("chooseAlternativeNodeId");
+        Symbol symbol1 = new Symbol("symbol1");
+        Symbol symbol2 = new Symbol("symbol2");
+        ImmutableMap<Symbol, ColumnHandle> symbolMapping = ImmutableMap.of(
+                symbol1, new TestingColumnHandle("col1"),
+                symbol2, new TestingColumnHandle("col2"));
+        TypeProvider types = TypeProvider.copyOf(ImmutableMap.of(symbol1, BIGINT, symbol2, BIGINT));
+
+        PlanNode plan = AggregationNode.singleAggregation(new PlanNodeId("aggregation"),
+                ExchangeNode.partitionedExchange(
+                        new PlanNodeId("local exchange"),
+                        LOCAL,
+                        new ChooseAlternativeNode(chooseAlternativeNodeId,
+                                ImmutableList.of(
+                                        planBuilder.tableScan(
+                                                getTableHandle("alternative1"),
+                                                ImmutableList.of(symbol1, symbol2), symbolMapping),
+                                        planBuilder.tableScan(
+                                                getTableHandle("alternative2"),
+                                                ImmutableList.of(symbol1, symbol2), symbolMapping)),
+                                new FilteredTableScan(planBuilder.tableScan(ImmutableList.of(), false), Optional.empty())),
+                        ImmutableList.of(symbol1),
+                        Optional.empty()),
+                ImmutableMap.of(),
+                globalAggregation());
+
+        LocalExecutionPlan executionPlan = planner.plan(
+                createTaskContext(executor, scheduledExecutor, TEST_SESSION),
+                plan,
+                types,
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getOutputSymbols()),
+                ImmutableList.of(),
+                new TestOutputBuffer());
+
+        assertEquals(executionPlan.getDriverFactories().size(), 2);
+        SplitDriverFactory alternativesAwareDriverFactory = executionPlan.getDriverFactories().get(0);
+        assertThat(alternativesAwareDriverFactory).isInstanceOf(AlternativesAwareDriverFactory.class);
+        assertEquals(alternativesAwareDriverFactory.getPipelineId(), 0);
+        assertEquals(executionPlan.getDriverFactories().get(1).getPipelineId(), 1);
     }
 
     private static TableHandle getTableHandle(String tableName)
