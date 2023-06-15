@@ -39,6 +39,8 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 import java.io.File;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -89,9 +91,9 @@ public class SuiteRun
     @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    public SuiteRun(Extensions extensions)
+    public SuiteRun(OutputStream outputStream, Extensions extensions)
     {
-        super(SuiteRun.Execution.class, extensions);
+        super(SuiteRun.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -142,6 +144,7 @@ public class SuiteRun
         private final JdkProviderFactory jdkProviderFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentConfigFactory configFactory;
+        private final PrintStream printStream;
         private final long suiteStartTime;
 
         @Inject
@@ -151,7 +154,8 @@ public class SuiteRun
                 SuiteFactory suiteFactory,
                 JdkProviderFactory jdkProviderFactory,
                 EnvironmentFactory environmentFactory,
-                EnvironmentConfigFactory configFactory)
+                EnvironmentConfigFactory configFactory,
+                PrintStream printStream)
         {
             this.suiteRunOptions = requireNonNull(suiteRunOptions, "suiteRunOptions is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
@@ -159,6 +163,7 @@ public class SuiteRun
             this.jdkProviderFactory = requireNonNull(jdkProviderFactory, "jdkProviderFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
             this.suiteStartTime = System.nanoTime();
         }
 
@@ -292,7 +297,7 @@ public class SuiteRun
 
         private int runTest(String runId, EnvironmentConfig environmentConfig, TestRun.TestRunOptions testRunOptions)
         {
-            TestRun.Execution execution = new TestRun.Execution(environmentFactory, jdkProviderFactory, environmentOptions, environmentConfig, testRunOptions);
+            TestRun.Execution execution = new TestRun.Execution(environmentFactory, jdkProviderFactory, environmentOptions, environmentConfig, testRunOptions, printStream);
 
             log.info("Test run %s started", runId);
             int exitCode = execution.call();

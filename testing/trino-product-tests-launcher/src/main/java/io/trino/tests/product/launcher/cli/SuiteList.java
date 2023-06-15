@@ -27,9 +27,8 @@ import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
+import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -45,9 +44,9 @@ public final class SuiteList
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
-    public SuiteList(Extensions extensions)
+    public SuiteList(OutputStream outputStream, Extensions extensions)
     {
-        super(SuiteList.Execution.class, extensions);
+        super(SuiteList.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -61,32 +60,26 @@ public final class SuiteList
     public static class Execution
             implements Callable<Integer>
     {
-        private final PrintStream out;
+        private final PrintStream printStream;
         private final EnvironmentConfigFactory configFactory;
         private final SuiteFactory suiteFactory;
 
         @Inject
-        public Execution(SuiteFactory suiteFactory, EnvironmentConfigFactory configFactory)
+        public Execution(PrintStream printStream, SuiteFactory suiteFactory, EnvironmentConfigFactory configFactory)
         {
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
-
-            try {
-                this.out = new PrintStream(System.out, true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException("Could not create print stream", e);
-            }
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         @Override
         public Integer call()
         {
-            out.println("Available suites: ");
-            this.suiteFactory.listSuites().forEach(out::println);
+            printStream.println("Available suites: ");
+            this.suiteFactory.listSuites().forEach(printStream::println);
 
-            out.println("\nAvailable environment configs: ");
-            this.configFactory.listConfigs().forEach(out::println);
+            printStream.println("\nAvailable environment configs: ");
+            this.configFactory.listConfigs().forEach(printStream::println);
 
             return ExitCode.OK;
         }
