@@ -496,6 +496,62 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testDbRefMissingField()
+    {
+        // DBRef has 3 fields (databaseName, collectionName and id)
+        // Create a table without id field and verify the result
+        String tableName = "test_dbref_missing_field" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" varchar, \"collectionName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // TODO Fix MongoPageSource to throw TrinoException
+        assertThatThrownBy(() -> query("SELECT * FROM test." + tableName))
+                .hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldName()
+    {
+        // DBRef has 3 fields databaseName, collectionName and id
+        // Create a table with different field names and verify the failure
+        String tableName = "test_dbref_wrong_field_name" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(a varchar, b varchar, c int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertQueryFails("SELECT * FROM test." + tableName, "Unexpected field name for DBRef: a");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldType()
+    {
+        // DBRef has 3 fields (varchar databaseName, varchar collectionName and arbitrary type id)
+        // Create a table with different types and verify the result
+        String tableName = "test_dbref_wrong_field_type" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", "test_id"));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // The connector returns NULL when the actual field value is different from the column type
+        // See TODO comment in MongoPageSource
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(NULL, NULL, NULL) AS row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
     public void testMaps()
     {
         String mapIntegerTable = "test_map_integer" + randomNameSuffix();
