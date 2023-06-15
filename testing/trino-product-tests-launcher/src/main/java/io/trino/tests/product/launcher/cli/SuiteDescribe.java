@@ -19,7 +19,6 @@ import com.google.inject.Module;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonOutput;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonSuite;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonTestRun;
@@ -46,7 +45,6 @@ import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.ExitCode.OK;
@@ -57,11 +55,8 @@ import static picocli.CommandLine.Option;
         description = "Describe tests suite",
         usageHelpAutoWidth = true)
 public class SuiteDescribe
-        implements Callable<Integer>
+        extends LauncherCommand
 {
-    private final Module additionalSuites;
-    private final Module additionalEnvironments;
-
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
@@ -73,21 +68,16 @@ public class SuiteDescribe
 
     public SuiteDescribe(Extensions extensions)
     {
-        this.additionalSuites = extensions.getAdditionalSuites();
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(SuiteDescribe.Execution.class, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new SuiteModule(additionalSuites))
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(options.toModule())
-                        .build(),
-                SuiteDescribe.Execution.class);
+        return ImmutableList.of(
+                new SuiteModule(extensions.getAdditionalSuites()),
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                options.toModule());
     }
 
     public enum SuiteDescribeFormat

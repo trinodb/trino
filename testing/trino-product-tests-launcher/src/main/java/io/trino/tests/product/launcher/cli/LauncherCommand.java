@@ -17,27 +17,45 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.tests.product.launcher.Extensions;
+import io.trino.tests.product.launcher.LauncherModule;
 
 import java.util.List;
 import java.util.concurrent.Callable;
 
-final class Commands
-{
-    private Commands() {}
+import static java.util.Objects.requireNonNull;
 
-    public static int runCommand(List<Module> modules, Class<? extends Callable<Integer>> commandExecution)
+public abstract class LauncherCommand
+        implements Callable<Integer>
+{
+    private final Class<? extends Callable<Integer>> commandClass;
+    protected final Extensions extensions;
+
+    public LauncherCommand(Class<? extends Callable<Integer>> commandClass, Extensions extensions)
+    {
+        this.commandClass = requireNonNull(commandClass, "commandClass is null");
+        this.extensions = requireNonNull(extensions, "extensions is null");
+    }
+
+    abstract List<Module> getCommandModules();
+
+    @Override
+    public Integer call()
+            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
-                        .addAll(modules)
-                        .add(binder -> binder.bind(commandExecution))
+                        .add()
+                        .add(new LauncherModule())
+                        .addAll(getCommandModules())
+                        .add(binder -> binder.bind(commandClass))
                         .build());
 
         Injector injector = app
                 .initialize();
 
         try {
-            return injector.getInstance(commandExecution)
+            return injector.getInstance(commandClass)
                     .call();
         }
         catch (Exception e) {

@@ -19,7 +19,6 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.docker.ContainerUtil;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -33,11 +32,11 @@ import picocli.CommandLine.ExitCode;
 
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -50,7 +49,7 @@ import static picocli.CommandLine.Option;
         description = "Start an environment",
         usageHelpAutoWidth = true)
 public final class EnvironmentUp
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
 
@@ -63,23 +62,17 @@ public final class EnvironmentUp
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private final Module additionalEnvironments;
-
     public EnvironmentUp(Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(EnvironmentUp.Execution.class, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(environmentUpOptions.toModule())
-                        .build(),
-                EnvironmentUp.Execution.class);
+        return ImmutableList.of(
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                environmentUpOptions.toModule());
     }
 
     public static class EnvironmentUpOptions

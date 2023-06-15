@@ -21,7 +21,6 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.cli.EnvironmentUp.EnvironmentUpOptions;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -42,12 +41,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.docker.DockerFiles.ROOT_PATH;
 import static java.util.Objects.requireNonNull;
 
@@ -56,7 +55,7 @@ import static java.util.Objects.requireNonNull;
         description = "Describes provided environment",
         usageHelpAutoWidth = true)
 public class EnvironmentDescribe
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(EnvironmentDescribe.class);
 
@@ -69,23 +68,17 @@ public class EnvironmentDescribe
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private final Module additionalEnvironments;
-
     public EnvironmentDescribe(Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(EnvironmentDescribe.Execution.class, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(environmentUpOptions.toModule())
-                        .build(),
-                EnvironmentDescribe.Execution.class);
+        return ImmutableList.of(
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                environmentUpOptions.toModule());
     }
 
     public static class Execution
