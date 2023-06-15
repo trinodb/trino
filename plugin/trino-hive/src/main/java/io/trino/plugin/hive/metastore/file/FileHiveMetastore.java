@@ -339,15 +339,17 @@ public class FileHiveMetastore
             }
         }
         else if (table.getTableType().equals(EXTERNAL_TABLE.name())) {
-            try {
-                Path externalLocation = new Path(table.getStorage().getLocation());
-                FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
-                if (!externalFileSystem.isDirectory(externalLocation)) {
-                    throw new TrinoException(HIVE_METASTORE_ERROR, "External table location does not exist");
+            if (!disableLocationChecks) {
+                try {
+                    Path externalLocation = new Path(table.getStorage().getLocation());
+                    FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
+                    if (!externalFileSystem.isDirectory(externalLocation)) {
+                        throw new TrinoException(HIVE_METASTORE_ERROR, "External table location does not exist");
+                    }
                 }
-            }
-            catch (IOException e) {
-                throw new TrinoException(HIVE_METASTORE_ERROR, "Could not validate external location", e);
+                catch (IOException e) {
+                    throw new TrinoException(HIVE_METASTORE_ERROR, "Could not validate external location", e);
+                }
             }
         }
         else if (!table.getTableType().equals(MATERIALIZED_VIEW.name())) {
