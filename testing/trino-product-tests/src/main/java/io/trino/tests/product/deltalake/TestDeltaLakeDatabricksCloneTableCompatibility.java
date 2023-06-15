@@ -22,6 +22,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -39,13 +40,13 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 public class TestDeltaLakeDatabricksCloneTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    private DatabricksVersion databricksRuntimeVersion;
+    private Optional<DatabricksVersion> databricksRuntimeVersion;
 
     @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
-        databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
+        databricksRuntimeVersion = getDatabricksRuntimeVersion();
     }
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "shallowTrueFalse")
