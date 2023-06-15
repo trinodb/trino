@@ -26,6 +26,8 @@ needs.
 
 See the :doc:`kafka-tutorial`.
 
+.. _kafka-requirements:
+
 Requirements
 ------------
 
@@ -34,6 +36,22 @@ To connect to Kafka, you need:
 * Kafka broker version 0.10.0 or higher.
 * Network access from the Trino coordinator and workers to the Kafka nodes.
   Port 9092 is the default port.
+
+When using Protobuf decoder with the :ref:`Confluent table description
+supplier<confluent-table-description-supplier>`, the following additional steps
+must be taken:
+
+- Copy the ``kafka-protobuf-provider`` and ``kafka-protobuf-types`` JAR files
+  from `Confluent <https://packages.confluent.io/maven/io/confluent/>`_ for
+  Confluent version 7.3.1 to the Kafka connector plugin directory (``<install
+  directory>/plugin/kafka``) on all nodes in the cluster.
+  The plugin directory depends on the :doc:`/installation` method.
+- By copying those JARs and using them, you agree to the terms of the `Confluent
+  Community License Agreement <https://github.com/confluentinc/schema-registry/blob/master/LICENSE-ConfluentCommunity>`_
+  under which Confluent makes them available.
+
+These steps are not required if you are not using Protobuf and Confluent table
+description supplier.
 
 Configuration
 -------------
@@ -404,6 +422,8 @@ Field           Required  Type      Description
 
 There is no limit on field descriptions for either key or message.
 
+.. _confluent-table-description-supplier:
+
 Confluent table description supplier
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -419,6 +439,9 @@ table description supplier are:
 * Schema updates are detected automatically.
 * There is no need to define tables manually.
 * Some Protobuf specific types like ``oneof`` are supported and mapped to JSON.
+
+When using Protobuf decoder with the Confluent table description supplier, some
+additional steps are necessary. For details, refer to :ref:`kafka-requirements`.
 
 Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to use the
 schema registry. You must also configure the additional properties in the following table:
