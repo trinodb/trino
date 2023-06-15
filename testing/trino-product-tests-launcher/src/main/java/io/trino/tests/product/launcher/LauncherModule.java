@@ -15,15 +15,38 @@ package io.trino.tests.product.launcher;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+
+import static java.util.Objects.requireNonNull;
 
 public final class LauncherModule
         implements Module
 {
+    private final OutputStream outputStream;
+
+    public LauncherModule(OutputStream outputStream)
+    {
+        this.outputStream = requireNonNull(outputStream, "outputStream is null");
+    }
+
     @Override
     public void configure(Binder binder)
     {
         binder.bind(DockerFiles.class).in(Scopes.SINGLETON);
+        binder.bind(OutputStream.class).toInstance(outputStream);
+    }
+
+    @Provides
+    @Singleton
+    private PrintStream provideOutputStreamPrinter()
+    {
+        return new PrintStream(outputStream, true, StandardCharsets.UTF_8);
     }
 }
