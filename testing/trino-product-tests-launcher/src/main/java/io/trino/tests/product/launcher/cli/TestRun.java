@@ -25,7 +25,6 @@ import dev.failsafe.TimeoutExceededException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
@@ -53,7 +52,6 @@ import java.util.concurrent.Callable;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
@@ -76,7 +74,7 @@ import static picocli.CommandLine.Option;
         description = "Run a Trino product test",
         usageHelpAutoWidth = true)
 public final class TestRun
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(TestRun.class);
 
@@ -90,23 +88,17 @@ public final class TestRun
     @Mixin
     public TestRunOptions testRunOptions = new TestRunOptions();
 
-    private final Module additionalEnvironments;
-
     public TestRun(Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(TestRun.Execution.class, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(testRunOptions.toModule())
-                        .build(),
-                TestRun.Execution.class);
+        return ImmutableList.of(
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                testRunOptions.toModule());
     }
 
     public static class TestRunOptions
