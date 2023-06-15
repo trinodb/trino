@@ -24,9 +24,8 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
+import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.Callable;
 
@@ -43,9 +42,9 @@ public final class EnvironmentList
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
-    public EnvironmentList(Extensions extensions)
+    public EnvironmentList(OutputStream outputStream, Extensions extensions)
     {
-        super(EnvironmentList.Execution.class, extensions);
+        super(EnvironmentList.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -62,17 +61,11 @@ public final class EnvironmentList
         private final EnvironmentConfigFactory configFactory;
 
         @Inject
-        public Execution(EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
+        public Execution(PrintStream out, EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
         {
             this.factory = requireNonNull(factory, "factory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
-
-            try {
-                this.out = new PrintStream(System.out, true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException("Could not create print stream", e);
-            }
+            this.out = requireNonNull(out, "out is null");
         }
 
         @Override

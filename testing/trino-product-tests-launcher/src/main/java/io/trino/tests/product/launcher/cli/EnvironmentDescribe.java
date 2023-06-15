@@ -37,6 +37,8 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -68,9 +70,9 @@ public class EnvironmentDescribe
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    public EnvironmentDescribe(Extensions extensions)
+    public EnvironmentDescribe(OutputStream outputStream, Extensions extensions)
     {
-        super(EnvironmentDescribe.Execution.class, extensions);
+        super(EnvironmentDescribe.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -109,15 +111,23 @@ public class EnvironmentDescribe
         private final EnvironmentOptions environmentOptions;
         private final EnvironmentUpOptions environmentUpOptions;
         private final Path dockerFilesBasePath;
+        private final PrintStream printStream;
 
         @Inject
-        public Execution(DockerFiles dockerFiles, EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions environmentOptions, EnvironmentUpOptions environmentUpOptions)
+        public Execution(
+                DockerFiles dockerFiles,
+                EnvironmentFactory environmentFactory,
+                EnvironmentConfig environmentConfig,
+                EnvironmentOptions environmentOptions,
+                EnvironmentUpOptions environmentUpOptions,
+                PrintStream printStream)
         {
             this.dockerFilesBasePath = dockerFiles.getDockerFilesHostPath();
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
             this.environmentUpOptions = requireNonNull(environmentUpOptions, "environmentUpOptions is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         @Override
@@ -126,7 +136,7 @@ public class EnvironmentDescribe
         {
             Optional<Path> environmentLogPath = environmentUpOptions.logsDirBase.map(dir -> dir.resolve(environmentUpOptions.environment));
 
-            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, environmentConfig, environmentUpOptions.extraOptions)
+            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, printStream, environmentConfig, environmentUpOptions.extraOptions)
                     .setContainerOutputMode(environmentOptions.output)
                     .setLogsBaseDir(environmentLogPath);
 
@@ -147,7 +157,7 @@ public class EnvironmentDescribe
                 containersTable.addSeparator();
             }
 
-            log.info("Environment '%s' containers:\n%s", environmentUpOptions.environment, containersTable.render());
+            printStream.printf("Environment '%s' containers:\n%s\n", environmentUpOptions.environment, containersTable.render());
 
             ConsoleTable mountsTable = new ConsoleTable();
             mountsTable.addHeader(MOUNTS_LIST_HEADER);
@@ -182,7 +192,7 @@ public class EnvironmentDescribe
                 mountsTable.addSeparator();
             }
 
-            log.info("Environment '%s' file mounts:\n%s", environmentUpOptions.environment, mountsTable.render());
+            printStream.printf("Environment '%s' file mounts:\n%s\n", environmentUpOptions.environment, mountsTable.render());
 
             return ExitCode.OK;
         }

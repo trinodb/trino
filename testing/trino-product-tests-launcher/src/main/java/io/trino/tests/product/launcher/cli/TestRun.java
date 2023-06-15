@@ -40,6 +40,8 @@ import picocli.CommandLine.Parameters;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -88,9 +90,9 @@ public final class TestRun
     @Mixin
     public TestRunOptions testRunOptions = new TestRunOptions();
 
-    public TestRun(Extensions extensions)
+    public TestRun(OutputStream outputStream, Extensions extensions)
     {
-        super(TestRun.Execution.class, extensions);
+        super(TestRun.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -167,12 +169,19 @@ public final class TestRun
         private final Optional<Path> logsDirBase;
         private final EnvironmentConfig environmentConfig;
         private final Map<String, String> extraOptions;
+        private final PrintStream printStream;
         private final Optional<List<String>> impactedFeatures;
 
         public static final Integer ENVIRONMENT_SKIPPED_EXIT_CODE = 98;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, JdkProviderFactory jdkProviderFactory, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
+        public Execution(
+                EnvironmentFactory environmentFactory,
+                JdkProviderFactory jdkProviderFactory,
+                EnvironmentOptions environmentOptions,
+                EnvironmentConfig environmentConfig,
+                TestRunOptions testRunOptions,
+                PrintStream printStream)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
@@ -191,6 +200,7 @@ public final class TestRun
             this.logsDirBase = requireNonNull(testRunOptions.logsDirBase, "testRunOptions.logsDirBase is empty");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.extraOptions = ImmutableMap.copyOf(requireNonNull(testRunOptions.extraOptions, "testRunOptions.extraOptions is null"));
+            this.printStream = requireNonNull(printStream, "printStream is null");
             Optional<File> impactedFeaturesFile = requireNonNull(testRunOptions.impactedFeatures, "testRunOptions.impactedFeatures is null");
             if (impactedFeaturesFile.isPresent()) {
                 try {
@@ -310,7 +320,7 @@ public final class TestRun
 
         private Environment getEnvironment()
         {
-            Environment.Builder builder = environmentFactory.get(environment, environmentConfig, extraOptions)
+            Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setStartupRetries(startupRetries)
                     .setLogsBaseDir(logsDirBase);

@@ -44,8 +44,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
@@ -301,9 +299,9 @@ public final class Environment
                 .collect(toImmutableList());
     }
 
-    public static Builder builder(String name)
+    public static Builder builder(String name, PrintStream printStream)
     {
-        return new Builder(name);
+        return new Builder(name, printStream);
     }
 
     @Override
@@ -373,12 +371,14 @@ public final class Environment
         private int startupRetries = 1;
         private Map<String, DockerContainer> containers = new HashMap<>();
         private Optional<Path> logsBaseDir = Optional.empty();
+        private PrintStream printStream;
         private boolean attached;
         private Multimap<String, String> configuredFeatures = HashMultimap.create();
 
-        public Builder(String name)
+        public Builder(String name, PrintStream printStream)
         {
             this.name = requireNonNull(name, "name is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         public String getEnvironmentName()
@@ -576,12 +576,12 @@ public final class Environment
                     log.warn("Containers logs are not printed to stdout");
                     setContainerOutputConsumer(Builder::discardContainerLogs);
                 }
-                case PRINT -> setContainerOutputConsumer(Builder::printContainerLogs);
+                case PRINT -> setContainerOutputConsumer(frame -> printContainerLogs(printStream, frame));
                 case PRINT_WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
                     setContainerOutputConsumer(container -> combineConsumers(
                             writeContainerLogs(container, logsBaseDir.get()),
-                            printContainerLogs(container)));
+                            printContainerLogs(printStream, container)));
                 }
                 case WRITE -> {
                     verify(logsBaseDir.isPresent(), "--logs-dir must be set with --output WRITE");
@@ -629,16 +629,9 @@ public final class Environment
             }
         }
 
-        private static Consumer<OutputFrame> printContainerLogs(DockerContainer container)
+        private static Consumer<OutputFrame> printContainerLogs(PrintStream output, DockerContainer container)
         {
-            try {
-                // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
-                PrintStream out = new PrintStream(System.out, true, Charset.defaultCharset().name());
-                return new PrintingLogConsumer(out, format("%-20s| ", container.getLogicalName()));
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new RuntimeException(e);
-            }
+            return new PrintingLogConsumer(output, format("%-20s| ", container.getLogicalName()));
         }
 
         private static Consumer<OutputFrame> discardContainerLogs(DockerContainer container)

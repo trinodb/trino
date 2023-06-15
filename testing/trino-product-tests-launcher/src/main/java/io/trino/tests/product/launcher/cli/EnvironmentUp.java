@@ -30,6 +30,8 @@ import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.ExitCode;
 
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -62,9 +64,9 @@ public final class EnvironmentUp
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    public EnvironmentUp(Extensions extensions)
+    public EnvironmentUp(OutputStream outputStream, Extensions extensions)
     {
-        super(EnvironmentUp.Execution.class, extensions);
+        super(EnvironmentUp.Execution.class, outputStream, extensions);
     }
 
     @Override
@@ -108,9 +110,10 @@ public final class EnvironmentUp
         private final Optional<Path> logsDirBase;
         private final DockerContainer.OutputMode outputMode;
         private final Map<String, String> extraOptions;
+        private final PrintStream printStream;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions, PrintStream printStream)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
@@ -120,13 +123,14 @@ public final class EnvironmentUp
             this.outputMode = requireNonNull(options.output, "options.output is null");
             this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
             this.extraOptions = ImmutableMap.copyOf(requireNonNull(environmentUpOptions.extraOptions, "environmentUpOptions.extraOptions is null"));
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         @Override
         public Integer call()
         {
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-            Environment.Builder builder = environmentFactory.get(environment, environmentConfig, extraOptions)
+            Environment.Builder builder = environmentFactory.get(environment, printStream, environmentConfig, extraOptions)
                     .setContainerOutputMode(outputMode)
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
