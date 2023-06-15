@@ -28,22 +28,22 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-abstract class AbstractConnectionProperty<T>
-        implements ConnectionProperty<T>
+abstract class AbstractConnectionProperty<V, T>
+        implements ConnectionProperty<V, T>
 {
     private final String key;
-    private final Optional<String> defaultValue;
+    private final Optional<V> defaultValue;
     private final Predicate<Properties> isRequired;
     private final Predicate<Properties> isAllowed;
-    private final Converter<T> converter;
+    private final Converter<V, T> converter;
     private final String[] choices;
 
     protected AbstractConnectionProperty(
             String key,
-            Optional<String> defaultValue,
+            Optional<V> defaultValue,
             Predicate<Properties> isRequired,
             Predicate<Properties> isAllowed,
-            Converter<T> converter)
+            Converter<V, T> converter)
     {
         this.key = requireNonNull(key, "key is null");
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
@@ -69,7 +69,7 @@ abstract class AbstractConnectionProperty<T>
             String key,
             Predicate<Properties> required,
             Predicate<Properties> allowed,
-            Converter<T> converter)
+            Converter<V, T> converter)
     {
         this(key, Optional.empty(), required, allowed, converter);
     }
@@ -81,7 +81,7 @@ abstract class AbstractConnectionProperty<T>
     }
 
     @Override
-    public Optional<String> getDefault()
+    public Optional<V> getDefault()
     {
         return defaultValue;
     }
@@ -112,7 +112,7 @@ abstract class AbstractConnectionProperty<T>
     public Optional<T> getValue(Properties properties)
             throws SQLException
     {
-        String value = properties.getProperty(key);
+        V value = (V) properties.get(key);
         if (value == null) {
             if (isRequired(properties)) {
                 throw new SQLException(format("Connection property '%s' is required", key));
@@ -124,11 +124,19 @@ abstract class AbstractConnectionProperty<T>
             return Optional.of(converter.convert(value));
         }
         catch (RuntimeException e) {
-            if (value.isEmpty()) {
+            if (isEmpty(value)) {
                 throw new SQLException(format("Connection property '%s' value is empty", key), e);
             }
             throw new SQLException(format("Connection property '%s' value is invalid: %s", key, value), e);
         }
+    }
+
+    private boolean isEmpty(V value)
+    {
+        if (value instanceof String) {
+            return ((String) value).isEmpty();
+        }
+        return false;
     }
 
     @Override
@@ -146,21 +154,21 @@ abstract class AbstractConnectionProperty<T>
 
     protected static final Predicate<Properties> ALLOWED = properties -> true;
 
-    interface Converter<T>
+    interface Converter<V, T>
     {
-        T convert(String value);
+        T convert(V value);
     }
 
-    protected static final Converter<String> STRING_CONVERTER = value -> value;
+    protected static final Converter<String, String> STRING_CONVERTER = String.class::cast;
 
-    protected static final Converter<String> NON_EMPTY_STRING_CONVERTER = value -> {
+    protected static final Converter<String, String> NON_EMPTY_STRING_CONVERTER = value -> {
         checkArgument(!value.isEmpty(), "value is empty");
         return value;
     };
 
-    protected static final Converter<File> FILE_CONVERTER = File::new;
+    protected static final Converter<String, File> FILE_CONVERTER = File::new;
 
-    protected static final Converter<Boolean> BOOLEAN_CONVERTER = value -> {
+    protected static final Converter<String, Boolean> BOOLEAN_CONVERTER = value -> {
         switch (value.toLowerCase(ENGLISH)) {
             case "true":
                 return true;
