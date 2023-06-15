@@ -23,6 +23,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.RewriteVariable;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
+import io.trino.plugin.jdbc.mapping.DatabaseMetaDataRemoteIdentifierSupplier;
 import io.trino.plugin.jdbc.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -94,7 +95,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        this(config, connectionFactory, new DefaultIdentifierMapping());
+        this(config, connectionFactory, new DefaultIdentifierMapping(new DatabaseMetaDataRemoteIdentifierSupplier()));
     }
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
