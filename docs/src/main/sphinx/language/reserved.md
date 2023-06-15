@@ -1,4 +1,7 @@
-# Reserved keywords
+# Keywords and identifiers
+
+(language-keywords)=
+## Reserved keywords
 
 The following table lists all of the keywords that are reserved in Trino,
 along with their status in the SQL standard. These reserved keywords must
@@ -88,4 +91,35 @@ be quoted (using double quotes) in order to be used as an identifier.
 | `WHEN`              | reserved | reserved |
 | `WHERE`             | reserved | reserved |
 | `WITH`              | reserved | reserved |
+
+(language-identifiers)=
+## Identifiers
+
+Tokens that identify names of catalogs, schemas, tables, columns, functions, or
+other objects, are identifiers.
+
+Identifiers must start with a letter, and subsequently include alphanumeric
+characters and underscores. Identifiers with other characters must be delimited
+with double quotes (`"`). When delimited with double quotes, identifiers can use
+any character. Escape a `"` with another preceding double quote in a delimited
+identifier.
+
+Identifiers are not treated as case sensitive.
+
+Following are some valid examples:
+
+```sql
+tablename
+SchemaName
+example_catalog.a_schema."table$partitions"
+"identifierWith""double""quotes"
+```
+
+The following identifiers are invalid in Trino and must be quoted when used:
+
+```text
+table-name
+123SchemaName
+colum$name@field
+```
 

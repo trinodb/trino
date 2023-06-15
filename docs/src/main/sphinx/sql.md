@@ -16,6 +16,7 @@ sql/alter-view
 sql/analyze
 sql/call
 sql/comment
+sql/comments
 sql/commit
 sql/create-materialized-view
 sql/create-role

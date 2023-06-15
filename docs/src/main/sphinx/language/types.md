@@ -41,30 +41,54 @@ This type captures boolean values `true` and `false`.
 
 ## Integer
 
+Integer numbers can be expressed as numeric literals in the following formats:
+
+* Decimal integer. Examples are `-7`, `0`, or `3`.
+* Hexadecimal integer composed of `0X` or `0x` and the value. Examples are
+  `0x0A` for decimal `10` or `0x11` for decimal `17`.
+* Octal integer composed of `0O` or `0o` and the value. Examples are `0o40` for
+  decimal `32` or `0o11` for decimal `9`.
+* Binary integer composed of `0B` or `0b` and the value. Examples are `0b1001`
+  for decimal `9` or `0b101010` for decimal `42``.
+
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, decimal integer `123_456.789_123` is
+equivalent to `123456.789123`. Preceding and trailing underscores are not
+permitted.
+
+Integers are supported by the following data types.
+
 ### `TINYINT`
 
 A 8-bit signed two's complement integer with a minimum value of
-`-2^7` and a maximum value of `2^7 - 1`.
+`-2^7` or `-0x80` and a maximum value of `2^7 - 1` or `0x7F`.
 
 ### `SMALLINT`
 
 A 16-bit signed two's complement integer with a minimum value of
-`-2^15` and a maximum value of `2^15 - 1`.
+`-2^15` or `-0x8000` and a maximum value of `2^15 - 1` or `0x7FFF`.
 
-### `INTEGER`
+### `INTEGER` or `INT`
 
-A 32-bit signed two's complement integer with a minimum value of
-`-2^31` and a maximum value of `2^31 - 1`.  The name `INT` is
-also available for this type.
+A 32-bit signed two's complement integer with a minimum value of `-2^31` or
+`-0x80000000` and a maximum value of `2^31 - 1` or `0x7FFFFFFF`.  The names
+`INTEGER` and `INT` can both be used for this type.
 
 ### `BIGINT`
 
-A 64-bit signed two's complement integer with a minimum value of
-`-2^63` and a maximum value of `2^63 - 1`.
+A 64-bit signed two's complement integer with a minimum value of `-2^63` or
+`-0x8000000000000000` and a maximum value of `2^63 - 1` or `0x7FFFFFFFFFFFFFFF`.
 
 (floating-point-data-types)=
 
 ## Floating-point
+
+Floating-point, fixed-precision numbers can be expressed as numeric literal
+using scientific notation such as `1.03e1` and are cast as `DOUBLE` data type.
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, value `123_456.789e4` is equivalent to
+`123456.789e4`. Preceding underscores, trailing underscores, and underscores
+beside the comma (`.`) are not permitted.
 
 ### `REAL`
 
@@ -84,9 +108,20 @@ Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
 ## Fixed-precision
 
+Fixed-precision numbers can be expressed as numeric literals such as `1.1`, and
+are supported by the `DECIMAL` data type.
+
+Underscore characters are ignored within literal values, and can be used to
+increase readability. For example, decimal `123_456.789_123` is equivalent to
+`123456.789123`. Preceding underscores, trailing underscores, and underscores
+beside the comma (`.`) are not permitted.
+
+Leading zeros in literal values are permitted and ignored. For example,
+`000123.456` is equivalent to `123.456`.
+
 ### `DECIMAL`
 
-A fixed precision decimal number. Precision up to 38 digits is supported
+A fixed-precision decimal number. Precision up to 38 digits is supported
 but performance is best up to 18 digits.
 
 The decimal type takes two literal parameters:
@@ -134,9 +169,13 @@ Example type definitions: `char`, `char(20)`
 
 Variable length binary data.
 
-SQL statements support usage of binary data with the prefix `X`. The
-binary data has to use hexadecimal format. For example, the binary form of
-`eh?` is `X'65683F'`.
+SQL statements support usage of binary literal data with the prefix `X` or `x`.
+The binary data has to use hexadecimal format. For example, the binary form of
+`eh?` is `X'65683F'` as you can confirm with the following statement:
+
+```sql
+SELECT from_utf8(x'65683F');
+```
 
 :::{note}
 Binary strings with length are not yet supported: `varbinary(n)`
