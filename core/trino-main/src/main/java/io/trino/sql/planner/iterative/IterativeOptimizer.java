@@ -18,21 +18,15 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.cost.CachingCostProvider;
-import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.CostCalculator;
-import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
-import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
-import io.trino.spi.TrinoException;
-import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -44,21 +38,14 @@ import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
-import static java.lang.String.format;
 import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.stream.Collectors.joining;
 
 public class IterativeOptimizer
         implements PlanOptimizer
@@ -119,9 +106,9 @@ public class IterativeOptimizer
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
         Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector, tableStatsProvider);
+        Context context = new Context(statsCalculator, costCalculator, memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector, tableStatsProvider);
         exploreGroup(memo.getRootGroup(), context);
-        planOptimizersStatsCollector.add(context.getIterativeOptimizerStatsCollector());
+        planOptimizersStatsCollector.add(context.getStatsCollector());
 
         return memo.extract();
     }
@@ -154,7 +141,7 @@ public class IterativeOptimizer
 
     private boolean exploreNode(int group, Context context)
     {
-        PlanNode node = context.memo.getNode(group);
+        PlanNode node = context.getMemo().getNode(group);
 
         boolean done = false;
         boolean progress = false;
@@ -171,13 +158,13 @@ public class IterativeOptimizer
                 boolean invoked = false;
                 boolean applied = false;
 
-                if (rule.isEnabled(context.session)) {
+                if (rule.isEnabled(context.getSession())) {
                     invoked = true;
                     Rule.Result result = transform(node, rule, context);
                     timeEnd = nanoTime();
 
                     if (result.getTransformedPlan().isPresent()) {
-                        node = context.memo.replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
+                        node = context.getMemo().replace(group, result.getTransformedPlan().get(), rule.getClass().getName());
 
                         applied = true;
                         done = false;
@@ -199,14 +186,14 @@ public class IterativeOptimizer
     {
         Capture<T> nodeCapture = newCapture();
         Pattern<T> pattern = rule.getPattern().capturedAs(nodeCapture);
-        Iterator<Match> matches = pattern.match(node, context.lookup).iterator();
+        Iterator<Match> matches = pattern.match(node, context.getLookup()).iterator();
         while (matches.hasNext()) {
             Match match = matches.next();
             long duration;
             Rule.Result result;
             try {
                 long start = nanoTime();
-                result = rule.apply(match.capture(nodeCapture), match.captures(), ruleContext(context));
+                result = rule.apply(match.capture(nodeCapture), match.captures(), context.toRuleContext());
 
                 if (LOG.isDebugEnabled() && !result.isEmpty()) {
                     LOG.debug(
@@ -214,20 +201,20 @@ public class IterativeOptimizer
                             rule.getClass().getName(),
                             PlanPrinter.textLogicalPlan(
                                     node,
-                                    context.symbolAllocator.getTypes(),
+                                    context.getSymbolAllocator().getTypes(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
-                                    context.session,
+                                    context.getSession(),
                                     0,
                                     false),
                             PlanPrinter.textLogicalPlan(
                                     result.getTransformedPlan().get(),
-                                    context.symbolAllocator.getTypes(),
+                                    context.getSymbolAllocator().getTypes(),
                                     plannerContext.getMetadata(),
                                     plannerContext.getFunctionManager(),
                                     StatsAndCosts.empty(),
-                                    context.session,
+                                    context.getSession(),
                                     0,
                                     false));
                 }
@@ -235,7 +222,7 @@ public class IterativeOptimizer
             }
             catch (RuntimeException e) {
                 stats.recordFailure(rule);
-                context.iterativeOptimizerStatsCollector.recordFailure(rule);
+                context.getStatsCollector().recordFailure(rule);
                 throw e;
             }
             stats.record(rule, duration, !result.isEmpty());
@@ -252,7 +239,7 @@ public class IterativeOptimizer
     {
         boolean progress = false;
 
-        PlanNode expression = context.memo.getNode(group);
+        PlanNode expression = context.getMemo().getNode(group);
         for (PlanNode child : expression.getSources()) {
             checkState(child instanceof GroupReference, "Expected child to be a group reference. Found: " + child.getClass().getName());
 
@@ -262,134 +249,5 @@ public class IterativeOptimizer
         }
 
         return progress;
-    }
-
-    private Rule.Context ruleContext(Context context)
-    {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
-
-        return new Rule.Context()
-        {
-            @Override
-            public Lookup getLookup()
-            {
-                return context.lookup;
-            }
-
-            @Override
-            public PlanNodeIdAllocator getIdAllocator()
-            {
-                return context.idAllocator;
-            }
-
-            @Override
-            public SymbolAllocator getSymbolAllocator()
-            {
-                return context.symbolAllocator;
-            }
-
-            @Override
-            public Session getSession()
-            {
-                return context.session;
-            }
-
-            @Override
-            public StatsProvider getStatsProvider()
-            {
-                return statsProvider;
-            }
-
-            @Override
-            public CostProvider getCostProvider()
-            {
-                return costProvider;
-            }
-
-            @Override
-            public void checkTimeoutNotExhausted()
-            {
-                context.checkTimeoutNotExhausted();
-            }
-
-            @Override
-            public WarningCollector getWarningCollector()
-            {
-                return context.warningCollector;
-            }
-        };
-    }
-
-    private static class Context
-    {
-        private final Memo memo;
-        private final Lookup lookup;
-        private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
-        private final long startTimeInNanos;
-        private final long timeoutInMilliseconds;
-        private final Session session;
-        private final WarningCollector warningCollector;
-        private final TableStatsProvider tableStatsProvider;
-
-        private final PlanOptimizersStatsCollector iterativeOptimizerStatsCollector;
-
-        public Context(
-                Memo memo,
-                Lookup lookup,
-                PlanNodeIdAllocator idAllocator,
-                SymbolAllocator symbolAllocator,
-                long startTimeInNanos,
-                long timeoutInMilliseconds,
-                Session session,
-                WarningCollector warningCollector,
-                TableStatsProvider tableStatsProvider)
-        {
-            checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
-
-            this.memo = memo;
-            this.lookup = lookup;
-            this.idAllocator = idAllocator;
-            this.symbolAllocator = symbolAllocator;
-            this.startTimeInNanos = startTimeInNanos;
-            this.timeoutInMilliseconds = timeoutInMilliseconds;
-            this.session = session;
-            this.warningCollector = warningCollector;
-            this.iterativeOptimizerStatsCollector = createPlanOptimizersStatsCollector();
-            this.tableStatsProvider = tableStatsProvider;
-        }
-
-        public void checkTimeoutNotExhausted()
-        {
-            if ((NANOSECONDS.toMillis(nanoTime() - startTimeInNanos)) >= timeoutInMilliseconds) {
-                String message = format("The optimizer exhausted the time limit of %d ms", timeoutInMilliseconds);
-                List<QueryPlanOptimizerStatistics> topRulesByTime = iterativeOptimizerStatsCollector.getTopRuleStats(5);
-                if (topRulesByTime.isEmpty()) {
-                    message += ": no rules invoked";
-                }
-                else {
-                    message += ": Top rules: " + topRulesByTime.stream()
-                            .map(ruleStats -> format(
-                                    "%s: %s ms, %s invocations, %s applications",
-                                    ruleStats.rule(),
-                                    ruleStats.totalTime(),
-                                    ruleStats.invocations(),
-                                    ruleStats.applied()))
-                            .collect(joining(",\n\t\t", "{\n\t\t", " }"));
-                }
-                throw new TrinoException(OPTIMIZER_TIMEOUT, message);
-            }
-        }
-
-        public PlanOptimizersStatsCollector getIterativeOptimizerStatsCollector()
-        {
-            return iterativeOptimizerStatsCollector;
-        }
-
-        void recordRuleInvocation(Rule<?> rule, boolean invoked, boolean applied, long elapsedNanos)
-        {
-            iterativeOptimizerStatsCollector.recordRule(rule, invoked, applied, elapsedNanos);
-        }
     }
 }
