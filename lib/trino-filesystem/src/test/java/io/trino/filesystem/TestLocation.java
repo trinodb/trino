@@ -49,9 +49,6 @@ class TestLocation
         // port or userInfo can be given even if host is not (note: this documents current state, but does not imply the intent to support such locations)
         assertLocation("scheme://:1/some/path", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "some/path");
         assertLocation("scheme://@:1/some/path", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "some/path");
-        assertLocation("scheme://@", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "");
-        assertLocation("scheme://@:1", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "");
-        assertLocation("scheme://:1", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "");
         assertLocation("scheme://@/", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "");
         assertLocation("scheme://@:1/", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "");
         assertLocation("scheme://:1/", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "");
@@ -74,7 +71,6 @@ class TestLocation
         assertLocation("scheme://host///path//", "scheme", Optional.empty(), "host", "//path//");
 
         // the path can be empty
-        assertLocation("scheme://host", "scheme", Optional.empty(), "host", "");
         assertLocation("scheme://", "scheme", Optional.empty(), "", "");
         assertLocation("scheme://host/", "scheme", Optional.empty(), "host", "");
         assertLocation("scheme:///", "scheme", Optional.empty(), "", "");
@@ -129,6 +125,36 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("scheme://@:/"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://@:/");
+
+        // no path
+        assertThatThrownBy(() -> Location.of("scheme://host"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://host");
+
+        assertThatThrownBy(() -> Location.of("scheme://userInfo@host"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://userInfo@host");
+
+        assertThatThrownBy(() -> Location.of("scheme://userInfo@host:1234"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://userInfo@host:1234");
+
+        // no path and empty host name
+        assertThatThrownBy(() -> Location.of("scheme://@"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://@");
+
+        assertThatThrownBy(() -> Location.of("scheme://@:1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://@:1");
+
+        assertThatThrownBy(() -> Location.of("scheme://:1"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: scheme://:1");
+
+        assertThatThrownBy(() -> Location.of("scheme://:"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid port in file system location: scheme://:");
 
         // fragment is not allowed
         assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path#fragement"))
@@ -217,7 +243,6 @@ class TestLocation
         Location.of("/name").verifyValidFileLocation();
         Location.of("/path/name").verifyValidFileLocation();
 
-        assertInvalidFileLocation("scheme://userInfo@host", "File location must contain a path: scheme://userInfo@host");
         assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
         assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/': scheme://userInfo@host/name/");
         assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace: scheme://userInfo@host/name ");
@@ -272,10 +297,6 @@ class TestLocation
         assertParentDirectoryFailure("scheme://", "File location must contain a path: scheme://");
         assertParentDirectoryFailure("scheme:///", "File location must contain a path: scheme:///");
 
-        assertParentDirectoryFailure("scheme://host", "File location must contain a path: scheme://host");
-        assertParentDirectoryFailure("scheme://userInfo@host", "File location must contain a path: scheme://userInfo@host");
-        assertParentDirectoryFailure("scheme://userInfo@host:1234", "File location must contain a path: scheme://userInfo@host:1234");
-
         assertParentDirectoryFailure("scheme://host/", "File location must contain a path: scheme://host/");
         assertParentDirectoryFailure("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
         assertParentDirectoryFailure("scheme://userInfo@host:1234/", "File location must contain a path: scheme://userInfo@host:1234/");
@@ -285,7 +306,7 @@ class TestLocation
         assertParentDirectoryFailure("scheme://userInfo@host:1234//", "File location must contain a path: scheme://userInfo@host:1234//");
 
         assertParentDirectory("scheme://userInfo@host/path/name", Location.of("scheme://userInfo@host/path"));
-        assertParentDirectory("scheme://userInfo@host:1234/name", Location.of("scheme://userInfo@host:1234"));
+        assertParentDirectory("scheme://userInfo@host:1234/name", Location.of("scheme://userInfo@host:1234/"));
 
         assertParentDirectory("scheme://userInfo@host/path//name", Location.of("scheme://userInfo@host/path/"));
         assertParentDirectory("scheme://userInfo@host/path///name", Location.of("scheme://userInfo@host/path//"));
@@ -326,7 +347,6 @@ class TestLocation
     @Test
     void testAppendPath()
     {
-        assertAppendPath("scheme://userInfo@host", "name", Location.of("scheme://userInfo@host/name"));
         assertAppendPath("scheme://userInfo@host/", "name", Location.of("scheme://userInfo@host/name"));
 
         assertAppendPath("scheme://userInfo@host:1234/path", "name", Location.of("scheme://userInfo@host:1234/path/name"));
@@ -354,7 +374,6 @@ class TestLocation
     @Test
     void testAppendSuffix()
     {
-        assertAppendSuffix("scheme://userInfo@host", ".ext", Location.of("scheme://userInfo@host/.ext"));
         assertAppendSuffix("scheme://userInfo@host/", ".ext", Location.of("scheme://userInfo@host/.ext"));
 
         assertAppendSuffix("scheme://userInfo@host:1234/path", ".ext", Location.of("scheme://userInfo@host:1234/path.ext"));

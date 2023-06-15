@@ -157,9 +157,9 @@ public class TestLocations
     @Test
     public void testDirectoryLocationEquivalence()
     {
-        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority", true);
-        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority/", true);
-        assertDirectoryLocationEquivalence("scheme://authority", "scheme://authority//", false);
+        assertDirectoryLocationEquivalence("scheme://authority/", "scheme://authority/", true);
+        assertDirectoryLocationEquivalence("scheme://authority/", "scheme://authority//", false);
+        assertDirectoryLocationEquivalence("scheme://authority/", "scheme://authority///", false);
         assertDirectoryLocationEquivalence("scheme://userInfo@host:1234/dir", "scheme://userInfo@host:1234/dir/", true);
         assertDirectoryLocationEquivalence("scheme://authority/some/path", "scheme://authority/some/path", true);
         assertDirectoryLocationEquivalence("scheme://authority/some/path", "scheme://authority/some/path/", true);
