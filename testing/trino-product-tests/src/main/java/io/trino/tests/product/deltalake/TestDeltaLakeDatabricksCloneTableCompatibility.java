@@ -14,8 +14,10 @@
 package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
+import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -30,12 +32,22 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
+import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getDatabricksRuntimeVersion;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 
 public class TestDeltaLakeDatabricksCloneTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
+    private DatabricksVersion databricksRuntimeVersion;
+
+    @BeforeMethodWithContext
+    public void setup()
+    {
+        super.setUp();
+        databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
+    }
+
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "shallowTrueFalse")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testReadFromShallowClonedTable(String clone, boolean partitioned)
@@ -152,7 +164,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     (partitioned ? "PARTITIONED BY (b_string) " : "") +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + baseTable + "'" +
                     " TBLPROPERTIES (" +
-                    " 'delta.columnMapping.mode'='name' ");
+                    " 'delta.columnMapping.mode'='name' )");
 
             onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (1, \"a\")");
 
