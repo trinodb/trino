@@ -23,6 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -44,10 +45,10 @@ public final class SpannerQueryRunner
             TestingSpannerInstance instance,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> tables)
+            Iterable<TpchTable<?>> tables, boolean addTpcDsTables)
             throws Exception
     {
-        return createSpannerQueryRunner(instance, extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {});
+        return createSpannerQueryRunner(instance, extraProperties, ImmutableMap.of(), connectorProperties, tables, runner -> {}, addTpcDsTables);
     }
 
     public static DistributedQueryRunner createSpannerQueryRunner(
@@ -56,7 +57,8 @@ public final class SpannerQueryRunner
             Map<String, String> coordinatorProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables,
-            Consumer<QueryRunner> moreSetup)
+            Consumer<QueryRunner> moreSetup,
+            boolean addTpcDsTables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -88,13 +90,12 @@ public final class SpannerQueryRunner
             connectorProperties.putIfAbsent("spanner.emulated.host", "localhost:9010");*/
             queryRunner.installPlugin(new SpannerPlugin());
             queryRunner.createCatalog("spanner", "spanner", connectorProperties);
-            MaterializedResult execute1 = queryRunner.execute("create table emp WITH (PRIMARY_KEYS = ARRAY['id']) as select 1 as id,'T' as name");
-            System.out.println(execute1);
-            MaterializedResult execute2 = queryRunner.execute("select * from emp");
-            System.out.println(execute2);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
-            MaterializedResult execute = queryRunner.execute("SHOW TABLES FROM spanner.default");
-            System.out.println(execute);
+            if (addTpcDsTables) {
+                copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+                MaterializedResult execute = queryRunner.execute("SHOW TABLES FROM spanner.default");
+                System.out.println(execute);
+            }
+
 /*
             MaterializedResult rows = queryRunner.execute("SELECT * FROM spanner.default.customer");
             System.out.println(rows);
@@ -121,11 +122,7 @@ public final class SpannerQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createSpannerQueryRunner(
-                new TestingSpannerInstance(),
-                ImmutableMap.of("http-server.http.port", "8080"),
-                ImmutableMap.of(),
-                TpchTable.getTables());
+        DistributedQueryRunner queryRunner = getSpannerQueryRunner();
 
         queryRunner.installPlugin(new JmxPlugin());
         queryRunner.createCatalog("jmx", "jmx");
@@ -133,6 +130,17 @@ public final class SpannerQueryRunner
         Logger log = Logger.get(SpannerQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    }
+
+    @NotNull
+    public static DistributedQueryRunner getSpannerQueryRunner()
+            throws Exception
+    {
+        return createSpannerQueryRunner(
+                new TestingSpannerInstance(),
+                ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
+                TpchTable.getTables(), false);
     }
 
     private static void copyTpchTables(
