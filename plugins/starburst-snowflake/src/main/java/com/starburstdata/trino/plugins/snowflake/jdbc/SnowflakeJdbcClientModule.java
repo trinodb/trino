@@ -34,7 +34,7 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.ptf.Query;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.type.TypeManager;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 

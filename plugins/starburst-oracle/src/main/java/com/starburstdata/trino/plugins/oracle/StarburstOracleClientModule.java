@@ -34,7 +34,7 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.plugin.oracle.OracleSessionProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import oracle.jdbc.driver.OracleDriver;
 
 import java.lang.annotation.ElementType;

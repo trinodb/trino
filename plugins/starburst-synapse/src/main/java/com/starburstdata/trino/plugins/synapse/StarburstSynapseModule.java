@@ -34,7 +34,7 @@ import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
