@@ -63,7 +63,7 @@ public class TestMariaDbClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DefaultIdentifierMapping.DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     @Test

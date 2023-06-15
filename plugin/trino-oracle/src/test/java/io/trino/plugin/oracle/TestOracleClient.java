@@ -59,7 +59,7 @@ public class TestOracleClient
                 throw new UnsupportedOperationException();
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DefaultIdentifierMapping.DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     private static final ConnectorSession SESSION = TestingConnectorSession.SESSION;

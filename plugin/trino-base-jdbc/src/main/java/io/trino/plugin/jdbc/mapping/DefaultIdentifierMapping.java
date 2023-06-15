@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc.mapping;
 
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -22,12 +23,18 @@ import java.sql.SQLException;
 
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class DefaultIdentifierMapping
         implements IdentifierMapping
 {
-    // Caching this on a field is LazyConnectorFactory friendly
-    private Boolean storesUpperCaseIdentifiers;
+    private final RemoteIdentifierSupplier remoteIdentifierSupplier;
+
+    @Inject
+    public DefaultIdentifierMapping(RemoteIdentifierSupplier remoteIdentifierSupplier)
+    {
+        this.remoteIdentifierSupplier = requireNonNull(remoteIdentifierSupplier, "remoteIdentifierSupplier is null");
+    }
 
     @Override
     public String fromRemoteSchemaName(String remoteSchemaName)
@@ -65,26 +72,38 @@ public class DefaultIdentifierMapping
         return toRemoteIdentifier(connection, columnName);
     }
 
-    private String toRemoteIdentifier(Connection connection, String identifier)
+    public static class DatabaseMetaDataRemoteIdentifierSupplier
+            implements RemoteIdentifierSupplier
     {
-        if (storesUpperCaseIdentifiers(connection)) {
-            return identifier.toUpperCase(ENGLISH);
+        private Boolean storesUpperCaseIdentifiers;
+
+        @Override
+        public String toRemoteIdentifier(Connection connection, String identifier)
+        {
+            if (storesUpperCaseIdentifiers(connection)) {
+                return identifier.toUpperCase(ENGLISH);
+            }
+            return identifier;
         }
-        return identifier;
+
+        private boolean storesUpperCaseIdentifiers(Connection connection)
+        {
+            if (storesUpperCaseIdentifiers != null) {
+                return storesUpperCaseIdentifiers;
+            }
+            try {
+                DatabaseMetaData metadata = connection.getMetaData();
+                storesUpperCaseIdentifiers = metadata.storesUpperCaseIdentifiers();
+                return storesUpperCaseIdentifiers;
+            }
+            catch (SQLException e) {
+                throw new TrinoException(JDBC_ERROR, e);
+            }
+        }
     }
 
-    private boolean storesUpperCaseIdentifiers(Connection connection)
+    private String toRemoteIdentifier(Connection connection, String identifier)
     {
-        if (storesUpperCaseIdentifiers != null) {
-            return storesUpperCaseIdentifiers;
-        }
-        try {
-            DatabaseMetaData metadata = connection.getMetaData();
-            storesUpperCaseIdentifiers = metadata.storesUpperCaseIdentifiers();
-            return storesUpperCaseIdentifiers;
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        return remoteIdentifierSupplier.toRemoteIdentifier(connection, identifier);
     }
 }

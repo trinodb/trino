@@ -67,7 +67,7 @@ public class TestMySqlClient
             },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             TESTING_TYPE_MANAGER,
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DefaultIdentifierMapping.DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     @Test

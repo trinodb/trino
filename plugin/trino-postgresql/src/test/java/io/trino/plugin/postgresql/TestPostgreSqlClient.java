@@ -116,7 +116,7 @@ public class TestPostgreSqlClient
             session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             TESTING_TYPE_MANAGER,
-            new DefaultIdentifierMapping(),
+            new DefaultIdentifierMapping(new DefaultIdentifierMapping.DatabaseMetaDataRemoteIdentifierSupplier()),
             RemoteQueryModifier.NONE);
 
     private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);

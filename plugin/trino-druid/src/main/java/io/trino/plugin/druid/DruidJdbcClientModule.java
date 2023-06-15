@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.mapping.RemoteIdentifierSupplier;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.ptf.ConnectorTableFunction;
 import org.apache.calcite.avatica.remote.Driver;
@@ -31,6 +32,7 @@ import org.apache.calcite.avatica.remote.Driver;
 import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class DruidJdbcClientModule
         implements Module
@@ -38,6 +40,7 @@ public class DruidJdbcClientModule
     @Override
     public void configure(Binder binder)
     {
+        newOptionalBinder(binder, RemoteIdentifierSupplier.class).setBinding().to(DruidRemoteIdentifierSupplier.class).in(Scopes.SINGLETON);
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(DruidJdbcClient.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
     }

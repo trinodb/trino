@@ -94,7 +94,7 @@ class TestingH2JdbcClient
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        this(config, connectionFactory, new DefaultIdentifierMapping());
+        this(config, connectionFactory, new DefaultIdentifierMapping(new DefaultIdentifierMapping.DatabaseMetaDataRemoteIdentifierSupplier()));
     }
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, IdentifierMapping identifierMapping)
