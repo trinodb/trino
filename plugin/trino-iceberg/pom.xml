@@ -568,6 +568,18 @@
                 <artifactId>antlr4-maven-plugin</artifactId>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <!-- dependency plugin fails to recognize software.amazon.awssdk:utils as a compile-time dependency,
+                             as it is not directly used, however most of the other dependencies from software.amazon.awssdk
+                             expect it to be present at compile time -->
+                        <ignoredDependency>software.amazon.awssdk:utils</ignoredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
                 <configuration>

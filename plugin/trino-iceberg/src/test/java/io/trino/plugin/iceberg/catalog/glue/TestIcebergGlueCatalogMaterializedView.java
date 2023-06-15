@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.BaseIcebergMaterializedViewTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -25,17 +26,14 @@ import software.amazon.awssdk.services.glue.GlueAsyncClient;
 import software.amazon.awssdk.services.glue.model.BatchDeleteTableRequest;
 import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.GetTablesRequest;
-import software.amazon.awssdk.services.glue.model.GetTablesResponse;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.util.Collection;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncPaginatedRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestIcebergGlueCatalogMaterializedView
@@ -81,17 +79,16 @@ public class TestIcebergGlueCatalogMaterializedView
     private static void cleanUpSchema(String schema)
     {
         GlueAsyncClient glueClient = GlueAsyncClient.create();
-        Set<String> tableNames = getPaginatedResults(
-                glueClient::getTables,
-                GetTablesRequest.builder().databaseName(schema),
-                GetTablesRequest.Builder::nextToken,
-                GetTablesRequest.Builder::build,
-                GetTablesResponse::nextToken,
-                new AwsApiCallStats())
-                .map(GetTablesResponse::tableList)
-                .flatMap(Collection::stream)
-                .map(Table::name)
-                .collect(toImmutableSet());
+
+        ImmutableSet.Builder<String> tableNamesBuilder = ImmutableSet.builder();
+        awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(schema).build()),
+                tables -> {
+                    tables.tableList().stream()
+                            .map(Table::name)
+                            .forEach(tableNamesBuilder::add);
+                },
+                new AwsApiCallStats());
+        Set<String> tableNames = tableNamesBuilder.build();
         awsSyncRequest(glueClient::batchDeleteTable, BatchDeleteTableRequest.builder()
                 .databaseName(schema)
                 .tablesToDelete(tableNames).build(), null);

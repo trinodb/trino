@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -26,22 +27,20 @@ import org.testng.annotations.Test;
 import software.amazon.awssdk.services.glue.GlueAsyncClient;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTableVersionsRequest;
-import software.amazon.awssdk.services.glue.model.GetTableVersionsResponse;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.TableVersion;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
+import software.amazon.awssdk.services.glue.paginators.GetTableVersionsPublisher;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncPaginatedRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -133,15 +132,12 @@ public class TestIcebergGlueCatalogSkipArchive
 
     private List<TableVersion> getTableVersions(String databaseName, String tableName)
     {
-        return getPaginatedResults(
-                glueClient::getTableVersions,
-                GetTableVersionsRequest.builder().databaseName(databaseName).tableName(tableName),
-                GetTableVersionsRequest.Builder::nextToken,
-                GetTableVersionsRequest.Builder::build,
-                GetTableVersionsResponse::nextToken,
-                new AwsApiCallStats())
-                .map(GetTableVersionsResponse::tableVersions)
-                .flatMap(Collection::stream)
-                .collect(toImmutableList());
+        ImmutableList.Builder<TableVersion> tableVersionBuilder = ImmutableList.builder();
+        GetTableVersionsPublisher tableVersionsPaginator = glueClient.getTableVersionsPaginator(
+                GetTableVersionsRequest.builder().databaseName(databaseName).tableName(tableName).build());
+        awsSyncPaginatedRequest(tableVersionsPaginator,
+                versions -> tableVersionBuilder.addAll(versions.tableVersions()),
+                new AwsApiCallStats());
+        return tableVersionBuilder.build();
     }
 }

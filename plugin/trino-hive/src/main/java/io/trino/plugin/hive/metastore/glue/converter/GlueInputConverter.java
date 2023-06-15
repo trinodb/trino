@@ -41,26 +41,26 @@ public final class GlueInputConverter
 
     public static DatabaseInput convertDatabase(Database database)
     {
-        DatabaseInput.Builder input = DatabaseInput.builder()
+        return DatabaseInput.builder()
                 .name(database.getDatabaseName())
-                .parameters(database.getParameters());
-        database.getComment().ifPresent(input::description);
-        database.getLocation().ifPresent(input::locationUri);
-        return input.build();
+                .parameters(database.getParameters())
+                .applyMutation(builder -> database.getComment().ifPresent(builder::description))
+                .applyMutation(builder -> database.getLocation().ifPresent(builder::locationUri))
+                .build();
     }
 
     public static TableInput convertTable(Table table)
     {
-        TableInput.Builder input = TableInput.builder()
+        return TableInput.builder()
                 .name(table.getTableName())
                 .owner(table.getOwner().orElse(null))
                 .tableType(table.getTableType())
                 .storageDescriptor(convertStorage(table.getStorage(), table.getDataColumns()))
                 .partitionKeys(table.getPartitionColumns().stream().map(GlueInputConverter::convertColumn).collect(toImmutableList()))
-                .parameters(table.getParameters());
-        table.getViewOriginalText().ifPresent(input::viewOriginalText);
-        table.getViewExpandedText().ifPresent(input::viewExpandedText);
-        return input.build();
+                .parameters(table.getParameters())
+                .applyMutation(builder -> table.getViewOriginalText().ifPresent(builder::viewOriginalText))
+                .applyMutation(builder -> table.getViewExpandedText().ifPresent(builder::viewExpandedText))
+                .build();
     }
 
     public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
@@ -74,12 +74,11 @@ public final class GlueInputConverter
 
     public static PartitionInput convertPartition(Partition partition)
     {
-        PartitionInput input = PartitionInput.builder()
+        return PartitionInput.builder()
                 .values(partition.getValues())
                 .storageDescriptor(convertStorage(partition.getStorage(), partition.getColumns()))
                 .parameters(partition.getParameters())
                 .build();
-        return input;
     }
 
     private static StorageDescriptor convertStorage(Storage storage, List<Column> columns)

@@ -25,7 +25,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 
-@DefunctConfig("hive.metastore.glue.use-instance-credentials")
+@DefunctConfig({"hive.metastore.glue.use-instance-credentials", "hive.metastore.glue.pin-client-to-current-region"})
 public class GlueHiveMetastoreConfig
 {
     private Optional<String> glueRegion = Optional.empty();
@@ -33,7 +33,6 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueStsRegion = Optional.empty();
     private Optional<String> glueStsEndpointUrl = Optional.empty();
     private Optional<String> glueProxyApiId = Optional.empty();
-    private boolean pinGlueClientToCurrentRegion;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 30;
     private Optional<String> defaultWarehouseDir = Optional.empty();
@@ -111,19 +110,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGlueProxyApiId(String glueProxyApiId)
     {
         this.glueProxyApiId = Optional.ofNullable(glueProxyApiId);
-        return this;
-    }
-
-    public boolean getPinGlueClientToCurrentRegion()
-    {
-        return pinGlueClientToCurrentRegion;
-    }
-
-    @Config("hive.metastore.glue.pin-client-to-current-region")
-    @ConfigDescription("Should the Glue client be pinned to the current EC2 region")
-    public GlueHiveMetastoreConfig setPinGlueClientToCurrentRegion(boolean pinGlueClientToCurrentRegion)
-    {
-        this.pinGlueClientToCurrentRegion = pinGlueClientToCurrentRegion;
         return this;
     }
 

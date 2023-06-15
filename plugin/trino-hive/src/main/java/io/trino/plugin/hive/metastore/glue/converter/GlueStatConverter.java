@@ -170,8 +170,10 @@ public class GlueStatConverter
                         nullsCount,
                         fromMetastoreDistinctValuesCount(distinctValues, nullsCount, rowCount));
             }
+            case UNKNOWN_TO_SDK_VERSION: {
+                throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + catalogColumnStatisticsData);
+            }
         }
-
         throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + catalogColumnStatisticsData);
     }
 

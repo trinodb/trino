@@ -63,10 +63,8 @@ import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
-import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTablesRequest;
-import software.amazon.awssdk.services.glue.model.GetTablesResponse;
 import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
 
@@ -89,8 +87,8 @@ import static io.trino.plugin.hive.TrinoViewUtil.createViewProperties;
 import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
 import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncPaginatedRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
@@ -180,17 +178,11 @@ public class TrinoGlueCatalog
     public List<String> listNamespaces(ConnectorSession session)
     {
         try {
-            return getPaginatedResults(
-                    glueClient::getDatabases,
-                    GetDatabasesRequest.builder(),
-                    GetDatabasesRequest.Builder::nextToken,
-                    GetDatabasesRequest.Builder::build,
-                    GetDatabasesResponse::nextToken,
-                    stats.getGetDatabases())
-                    .map(GetDatabasesResponse::databaseList)
-                    .flatMap(List::stream)
-                    .map(software.amazon.awssdk.services.glue.model.Database::name)
-                    .collect(toImmutableList());
+            ImmutableList.Builder<String> databaseNames = ImmutableList.builder();
+            awsSyncPaginatedRequest(glueClient.getDatabasesPaginator(GetDatabasesRequest.builder().build()),
+                    getDatabasesResponse -> getDatabasesResponse.databaseList().forEach(database -> databaseNames.add(database.name())),
+                    stats.getGetDatabases());
+            return databaseNames.build();
         }
         catch (AwsServiceException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, e);
@@ -299,19 +291,13 @@ public class TrinoGlueCatalog
             List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
-                    // Add all tables from a namespace together, in case it is removed while fetching paginated results
-                    tables.addAll(
-                            getPaginatedResults(
-                                    glueClient::getTables,
-                                    GetTablesRequest.builder().databaseName(glueNamespace),
-                                    GetTablesRequest.Builder::nextToken,
-                                    GetTablesRequest.Builder::build,
-                                    GetTablesResponse::nextToken,
-                                    stats.getGetTables())
-                                    .map(GetTablesResponse::tableList)
-                                    .flatMap(List::stream)
-                                    .map(table -> new SchemaTableName(glueNamespace, table.name()))
-                                    .collect(toImmutableList()));
+                    awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(glueNamespace).build()),
+                            getTablesResponse -> {
+                                getTablesResponse.tableList().stream()
+                                        .map(table -> new SchemaTableName(glueNamespace, table.name()))
+                                        .forEach(tables::add);
+                            },
+                            stats.getGetTables());
                 }
                 catch (EntityNotFoundException | AccessDeniedException e) {
                     // Namespace may have been deleted or permission denied
@@ -692,18 +678,14 @@ public class TrinoGlueCatalog
             List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
-                    views.addAll(getPaginatedResults(
-                            glueClient::getTables,
-                            GetTablesRequest.builder().databaseName(glueNamespace),
-                            GetTablesRequest.Builder::nextToken,
-                            GetTablesRequest.Builder::build,
-                            GetTablesResponse::nextToken,
-                            stats.getGetTables())
-                            .map(GetTablesResponse::tableList)
-                            .flatMap(List::stream)
-                            .filter(table -> isPrestoView(getTableParameters(table)) && !isTrinoMaterializedView(getTableType(table), getTableParameters(table))) // TODO isTrinoMaterializedView should not be needed, isPrestoView should not return true for materialized views
-                            .map(table -> new SchemaTableName(glueNamespace, table.name()))
-                            .collect(toImmutableList()));
+                    awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(glueNamespace).build()),
+                            getTablesResponse -> {
+                                getTablesResponse.tableList().stream()
+                                        .filter(table -> isPrestoView(getTableParameters(table)) && !isTrinoMaterializedView(getTableType(table), getTableParameters(table))) // TODO isTrinoMaterializedView should not be needed, isPrestoView should not return true for materialized views
+                                        .map(table -> new SchemaTableName(glueNamespace, table.name()))
+                                        .forEach(views::add);
+                            },
+                            stats.getGetTables());
                 }
                 catch (EntityNotFoundException | AccessDeniedException e) {
                     // Namespace may have been deleted or permission denied
@@ -804,18 +786,14 @@ public class TrinoGlueCatalog
             List<String> namespaces = listNamespaces(session, namespace);
             for (String glueNamespace : namespaces) {
                 try {
-                    materializedViews.addAll(getPaginatedResults(
-                            glueClient::getTables,
-                            GetTablesRequest.builder().databaseName(glueNamespace),
-                            GetTablesRequest.Builder::nextToken,
-                            GetTablesRequest.Builder::build,
-                            GetTablesResponse::nextToken,
-                            stats.getGetTables())
-                            .map(GetTablesResponse::tableList)
-                            .flatMap(List::stream)
-                            .filter(table -> isTrinoMaterializedView(getTableType(table), getTableParameters(table)))
-                            .map(table -> new SchemaTableName(glueNamespace, table.name()))
-                            .collect(toImmutableList()));
+                    awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(glueNamespace).build()),
+                            getTablesResponse -> {
+                                getTablesResponse.tableList().stream()
+                                        .filter(table -> isTrinoMaterializedView(getTableType(table), getTableParameters(table)))
+                                        .map(table -> new SchemaTableName(glueNamespace, table.name()))
+                                        .forEach(materializedViews::add);
+                            },
+                            stats.getGetTables());
                 }
                 catch (EntityNotFoundException | AccessDeniedException e) {
                     // Namespace may have been deleted or permission denied

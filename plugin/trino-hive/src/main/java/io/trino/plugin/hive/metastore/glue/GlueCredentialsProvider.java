@@ -20,7 +20,6 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.regions.internal.util.EC2MetadataUtils;
 import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.StsClientBuilder;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleCredentialsProvider;
@@ -60,9 +59,6 @@ public class GlueCredentialsProvider
                 }
                 else if (config.getGlueStsRegion().isPresent()) {
                     stsClientBuilder.region(Region.of(config.getGlueStsRegion().get()));
-                }
-                else if (config.getPinGlueClientToCurrentRegion()) {
-                    stsClientBuilder.region(Region.of(EC2MetadataUtils.getEC2InstanceRegion()));
                 }
 
                 provider = StsAssumeRoleCredentialsProvider.builder()

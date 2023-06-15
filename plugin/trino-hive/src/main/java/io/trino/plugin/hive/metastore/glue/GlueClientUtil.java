@@ -21,7 +21,6 @@ import software.amazon.awssdk.core.retry.RetryPolicy;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.regions.internal.util.EC2MetadataUtils;
 import software.amazon.awssdk.services.glue.GlueAsyncClient;
 import software.amazon.awssdk.services.glue.GlueAsyncClientBuilder;
 
@@ -64,10 +63,6 @@ public final class GlueClientUtil
         else if (config.getGlueRegion().isPresent()) {
             glueAsyncClientBuilder.region(Region.of(config.getGlueRegion().get()));
         }
-        else if (config.getPinGlueClientToCurrentRegion()) {
-            glueAsyncClientBuilder.region(Region.of(EC2MetadataUtils.getEC2InstanceRegion()));
-        }
-
         glueAsyncClientBuilder.credentialsProvider(credentialsProvider);
 
         return glueAsyncClientBuilder.build();

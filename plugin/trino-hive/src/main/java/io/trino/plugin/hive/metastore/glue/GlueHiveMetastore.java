@@ -94,15 +94,12 @@ import software.amazon.awssdk.services.glue.model.ErrorDetail;
 import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.GetDatabaseResponse;
 import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
-import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 import software.amazon.awssdk.services.glue.model.GetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.GetPartitionResponse;
 import software.amazon.awssdk.services.glue.model.GetPartitionsRequest;
-import software.amazon.awssdk.services.glue.model.GetPartitionsResponse;
 import software.amazon.awssdk.services.glue.model.GetTableRequest;
 import software.amazon.awssdk.services.glue.model.GetTableResponse;
 import software.amazon.awssdk.services.glue.model.GetTablesRequest;
-import software.amazon.awssdk.services.glue.model.GetTablesResponse;
 import software.amazon.awssdk.services.glue.model.GlueResponse;
 import software.amazon.awssdk.services.glue.model.PartitionError;
 import software.amazon.awssdk.services.glue.model.PartitionInput;
@@ -112,6 +109,7 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 import software.amazon.awssdk.services.glue.model.UpdateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.UpdatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.UpdateTableRequest;
+import software.amazon.awssdk.services.glue.paginators.GetPartitionsPublisher;
 
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
@@ -135,7 +133,6 @@ import java.util.function.Predicate;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Comparators.lexicographical;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -145,8 +142,8 @@ import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncPaginatedRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
@@ -265,18 +262,12 @@ public class GlueHiveMetastore
     public List<String> getAllDatabases()
     {
         try {
-            List<String> databaseNames = getPaginatedResults(
-                    glueClient::getDatabases,
-                    GetDatabasesRequest.builder(),
-                    GetDatabasesRequest.Builder::nextToken,
-                    GetDatabasesRequest.Builder::build,
-                    GetDatabasesResponse::nextToken,
-                    stats.getGetDatabases())
-                    .map(GetDatabasesResponse::databaseList)
-                    .flatMap(List::stream)
-                    .map(software.amazon.awssdk.services.glue.model.Database::name)
-                    .collect(toImmutableList());
-            return databaseNames;
+            ImmutableList.Builder<String> databaseNames = ImmutableList.builder();
+            awsSyncPaginatedRequest(glueClient.getDatabasesPaginator(GetDatabasesRequest.builder().build()),
+                    getDatabasesResponse -> getDatabasesResponse.databaseList().forEach(database -> databaseNames.add(database.name())),
+                    stats.getGetDatabases());
+
+            return databaseNames.build();
         }
         catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
@@ -441,19 +432,16 @@ public class GlueHiveMetastore
     public List<String> getAllTables(String databaseName)
     {
         try {
-            List<String> tableNames = getPaginatedResults(
-                    glueClient::getTables,
-                    GetTablesRequest.builder().databaseName(databaseName),
-                    GetTablesRequest.Builder::nextToken,
-                    GetTablesRequest.Builder::build,
-                    GetTablesResponse::nextToken,
-                    stats.getGetTables())
-                    .map(GetTablesResponse::tableList)
-                    .flatMap(List::stream)
-                    .filter(tableFilter)
-                    .map(software.amazon.awssdk.services.glue.model.Table::name)
-                    .collect(toImmutableList());
-            return tableNames;
+            ImmutableList.Builder<String> tableNamesBuilder = ImmutableList.builder();
+            awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(databaseName).build()),
+                    tables -> {
+                        tables.tableList().stream()
+                                .filter(tableFilter)
+                                .map(software.amazon.awssdk.services.glue.model.Table::name)
+                                .forEach(tableNamesBuilder::add);
+                    },
+                    stats.getGetTables());
+            return tableNamesBuilder.build();
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
             // database does not exist or permission denied
@@ -491,19 +479,16 @@ public class GlueHiveMetastore
     private List<String> getAllViews(String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> additionalFilter)
     {
         try {
-            List<String> views = getPaginatedResults(
-                    glueClient::getTables,
-                    GetTablesRequest.builder().databaseName(databaseName),
-                    GetTablesRequest.Builder::nextToken,
-                    GetTablesRequest.Builder::build,
-                    GetTablesResponse::nextToken,
-                    stats.getGetTables())
-                    .map(GetTablesResponse::tableList)
-                    .flatMap(List::stream)
-                    .filter(VIEWS_FILTER.and(additionalFilter))
-                    .map(software.amazon.awssdk.services.glue.model.Table::name)
-                    .collect(toImmutableList());
-            return views;
+            ImmutableList.Builder<String> viewsBuilder = ImmutableList.builder();
+            awsSyncPaginatedRequest(glueClient.getTablesPaginator(GetTablesRequest.builder().databaseName(databaseName).build()),
+                    tables -> {
+                        tables.tableList().stream()
+                                .filter(VIEWS_FILTER.and(additionalFilter))
+                                .map(software.amazon.awssdk.services.glue.model.Table::name)
+                                .forEach(viewsBuilder::add);
+                    },
+                    stats.getGetTables());
+            return viewsBuilder.build();
         }
         catch (EntityNotFoundException | AccessDeniedException e) {
             // database does not exist or permission denied
@@ -890,26 +875,27 @@ public class GlueHiveMetastore
     private List<List<String>> getPartitionValues(String databaseName, String tableName, String expression, @Nullable Segment segment)
     {
         try {
-            // Reuse immutable field instances opportunistically between partitions
-            return getPaginatedResults(
-                    glueClient::getPartitions,
-                    GetPartitionsRequest.builder()
-                            .databaseName(databaseName)
-                            .tableName(tableName)
-                            .expression(expression)
-                            .segment(segment)
-                            // We are interested in the partition values and excluding column schema
-                            // avoids the problem of a large response.
-                            .excludeColumnSchema(true)
-                            .maxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS),
-                    GetPartitionsRequest.Builder::nextToken,
-                    GetPartitionsRequest.Builder::build,
-                    GetPartitionsResponse::nextToken,
-                    stats.getGetPartitions())
-                    .map(GetPartitionsResponse::partitions)
-                    .flatMap(List::stream)
-                    .map(software.amazon.awssdk.services.glue.model.Partition::values)
-                    .collect(toImmutableList());
+            GetPartitionsRequest partitionsRequest = GetPartitionsRequest.builder()
+                    .databaseName(databaseName)
+                    .tableName(tableName)
+                    .expression(expression)
+                    .segment(segment)
+                    // We are interested in the partition values and excluding column schema
+                    // avoids the problem of a large response.
+                    .excludeColumnSchema(true)
+                    .maxResults(AWS_GLUE_GET_PARTITIONS_MAX_RESULTS).build();
+
+            ImmutableList.Builder<List<String>> partitionValuesBuilder = ImmutableList.builder();
+            GetPartitionsPublisher partitionsPaginator = glueClient.getPartitionsPaginator(partitionsRequest);
+            awsSyncPaginatedRequest(partitionsPaginator,
+                    getPartitionsResponse -> {
+                        getPartitionsResponse.partitions().stream()
+                                .map(software.amazon.awssdk.services.glue.model.Partition::values)
+                                .forEach(partitionValuesBuilder::add);
+                    },
+                    stats.getGetPartitions());
+
+            return partitionValuesBuilder.build();
         }
         catch (AwsServiceException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

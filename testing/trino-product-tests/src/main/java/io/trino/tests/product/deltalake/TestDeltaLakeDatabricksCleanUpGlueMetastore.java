@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.tempto.ProductTest;
@@ -22,13 +23,11 @@ import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
 import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
-import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
 
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncPaginatedRequest;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.awsSyncRequest;
-import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.System.currentTimeMillis;
@@ -45,18 +44,14 @@ public class TestDeltaLakeDatabricksCleanUpGlueMetastore
     {
         GlueAsyncClient glueClient = GlueAsyncClient.create();
         long creationTimeMillisThreshold = currentTimeMillis() - DAYS.toMillis(1);
-        List<String> orphanedDatabases = getPaginatedResults(
-                glueClient::getDatabases,
-                GetDatabasesRequest.builder(),
-                GetDatabasesRequest.Builder::nextToken,
-                GetDatabasesRequest.Builder::build,
-                GetDatabasesResponse::nextToken,
-                new AwsApiCallStats())
-                .map(GetDatabasesResponse::databaseList)
-                .flatMap(List::stream)
-                .filter(database -> isOrphanedTestDatabase(database, creationTimeMillisThreshold))
-                .map(Database::name)
-                .collect(toImmutableList());
+        ImmutableList.Builder<String> databaseNames = ImmutableList.builder();
+        awsSyncPaginatedRequest(glueClient.getDatabasesPaginator(GetDatabasesRequest.builder().build()),
+                getDatabasesResponse -> getDatabasesResponse.databaseList()
+                        .stream()
+                        .filter(database -> isOrphanedTestDatabase(database, creationTimeMillisThreshold))
+                        .forEach(glueDatabase -> databaseNames.add(glueDatabase.name())),
+                new AwsApiCallStats());
+        List<String> orphanedDatabases = databaseNames.build();
 
         if (!orphanedDatabases.isEmpty()) {
             log.info("Found %s %s* databases that look orphaned, removing", orphanedDatabases.size(), TEST_DATABASE_NAME_PREFIX);
