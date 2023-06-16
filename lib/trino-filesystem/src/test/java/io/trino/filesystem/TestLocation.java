@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem;
 
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -234,6 +235,22 @@ class TestLocation
     @Test
     void testParentDirectory()
     {
+        assertParentDirectoryFailure("scheme:/", "File location must contain a path: scheme:/");
+        assertParentDirectoryFailure("scheme://", "File location must contain a path: scheme://");
+        assertParentDirectoryFailure("scheme:///", "File location must contain a path: scheme:///");
+
+        assertParentDirectoryFailure("scheme://host", "File location must contain a path: scheme://host");
+        assertParentDirectoryFailure("scheme://userInfo@host", "File location must contain a path: scheme://userInfo@host");
+        assertParentDirectoryFailure("scheme://userInfo@host:1234", "File location must contain a path: scheme://userInfo@host:1234");
+
+        assertParentDirectoryFailure("scheme://host/", "File location must contain a path: scheme://host/");
+        assertParentDirectoryFailure("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
+        assertParentDirectoryFailure("scheme://userInfo@host:1234/", "File location must contain a path: scheme://userInfo@host:1234/");
+
+        assertParentDirectoryFailure("scheme://host//", "File location must contain a path: scheme://host//");
+        assertParentDirectoryFailure("scheme://userInfo@host//", "File location must contain a path: scheme://userInfo@host//");
+        assertParentDirectoryFailure("scheme://userInfo@host:1234//", "File location must contain a path: scheme://userInfo@host:1234//");
+
         assertParentDirectory("scheme://userInfo@host/path/name", Location.of("scheme://userInfo@host/path"));
         assertParentDirectory("scheme://userInfo@host:1234/name", Location.of("scheme://userInfo@host:1234"));
 
@@ -241,6 +258,8 @@ class TestLocation
         assertParentDirectory("scheme://userInfo@host/path///name", Location.of("scheme://userInfo@host/path//"));
         assertParentDirectory("scheme://userInfo@host/path:/name", Location.of("scheme://userInfo@host/path:"));
 
+        assertParentDirectoryFailure("/", "File location must contain a path: /");
+        assertParentDirectoryFailure("//", "File location must contain a path: //");
         assertParentDirectory("/path/name", Location.of("/path"));
         assertParentDirectory("/name", Location.of("/"));
 
@@ -260,6 +279,12 @@ class TestLocation
         Location parentDirectory = location.parentDirectory();
 
         assertLocation(parentDirectory, parentLocation);
+    }
+
+    private static void assertParentDirectoryFailure(String locationString, @Language("RegExp") String expectedMessagePattern)
+    {
+        assertThatThrownBy(Location.of(locationString)::parentDirectory)
+                .hasMessageMatching(expectedMessagePattern);
     }
 
     @Test
