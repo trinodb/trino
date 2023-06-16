@@ -5924,9 +5924,16 @@ public abstract class BaseConnectorTest
                         .isNotFullyPushedDown(ProjectNode.class);
             }
             else {
+                // With Projection Pushdown enabled
                 assertThat(query(selectQuery))
                         .matches(expectedResult)
                         .isFullyPushedDown();
+
+                // With Projection Pushdown disabled
+                Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled();
+                assertThat(query(sessionWithoutPushdown, selectQuery))
+                        .matches(expectedResult)
+                        .isNotFullyPushedDown(ProjectNode.class);
             }
         }
     }
@@ -6047,9 +6054,7 @@ public abstract class BaseConnectorTest
                 "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
             MaterializedResult expectedResult = computeActual("SELECT val + 2 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)");
             String selectQuery = "SELECT root.leaf2 FROM " + testTable.getName();
-            Session sessionWithoutPushdown = Session.builder(getSession())
-                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
-                    .build();
+            Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled();
 
             assertQueryStats(
                     getSession(),
@@ -6165,6 +6170,13 @@ public abstract class BaseConnectorTest
     protected boolean supportsPhysicalPushdown()
     {
         return true;
+    }
+
+    protected Session sessionWithProjectionPushdownDisabled()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
+                .build();
     }
 
     protected static final class DataMappingTestSetup
