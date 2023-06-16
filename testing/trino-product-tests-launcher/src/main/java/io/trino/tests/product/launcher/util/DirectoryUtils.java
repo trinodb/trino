@@ -21,7 +21,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
 
-public class DirectoryUtils
+public final class DirectoryUtils
 {
     private DirectoryUtils() {}
 
