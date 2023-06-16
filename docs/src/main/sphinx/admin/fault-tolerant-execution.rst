@@ -432,7 +432,7 @@ the property may be configured for:
        sinks.
      - ``1GB``
      - Any
-   * - ``exchange.source-concurrent-reader``
+   * - ``exchange.source-concurrent-readers``
      - Number of concurrent readers to read from spooling storage. The
        larger the number of concurrent readers, the larger the read parallelism
        and memory usage.
