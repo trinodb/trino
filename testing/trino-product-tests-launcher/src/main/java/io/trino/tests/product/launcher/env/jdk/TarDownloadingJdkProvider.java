@@ -13,12 +13,14 @@
  */
 package io.trino.tests.product.launcher.env.jdk;
 
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
 import io.airlift.log.Logger;
 import io.trino.testing.containers.TestContainers.DockerArchitecture;
 import io.trino.testing.containers.TestContainers.DockerArchitectureInfo;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
-import io.trino.tests.product.launcher.util.DirectoryUtils;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
@@ -32,14 +34,15 @@ import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
+import static io.trino.tests.product.launcher.util.DirectoryUtils.getOnlyDescendant;
 import static io.trino.tests.product.launcher.util.UriDownloader.download;
 import static java.nio.file.Files.exists;
 import static java.nio.file.Files.isDirectory;
@@ -74,49 +77,55 @@ public abstract class TarDownloadingJdkProvider
     public DockerContainer applyTo(DockerContainer container)
     {
         ensureDownloadPathExists();
-
-        DockerArchitectureInfo architecture = getDockerArchitectureInfo(DockerImageName.parse(container.getDockerImageName()));
-        String downloadUri = getDownloadUri(architecture.imageArch());
-        String fullName = "JDK distribution '%s' for %s".formatted(getDescription(), architecture.imageArch());
-
-        verify(!isNullOrEmpty(downloadUri), "There is no download uri for " + fullName);
-        Path targetDownloadPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH) + ".tar.gz");
-        Path extractPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH));
-
-        if (exists(targetDownloadPath)) {
-            log.info("%s already downloaded to %s", fullName, targetDownloadPath);
-        }
-        else if (!exists(extractPath)) { // Distribution not extracted and not downloaded yet
-            log.info("Downloading %s from %s to %s", fullName, downloadUri, targetDownloadPath);
-            download(downloadUri, targetDownloadPath, new EveryNthPercentProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), 5));
-            log.info("Downloaded %s to %s", fullName, targetDownloadPath);
-        }
-
-        if (exists(extractPath)) {
-            log.info("%s already extracted to %s", fullName, extractPath);
-        }
-        else {
-            extractTar(targetDownloadPath, extractPath);
-            try {
-                Files.deleteIfExists(targetDownloadPath);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        }
-
-        Path javaHomePath = getExtractedRootResolver().apply(extractPath);
-        verify(exists(javaHomePath.resolve("bin/java")), "bin/java does not exist in %s", javaHomePath);
-
-        log.info("Mounting %s from %s in container '%s':%s", fullName, javaHomePath, container.getLogicalName(), getJavaHome());
+        String javaHome = getJavaHome();
         return container
-                .withFileSystemBind(javaHomePath.toAbsolutePath().toString(), getJavaHome())
-                .withEnv("JAVA_HOME", getJavaHome());
-    }
+                .withCreateContainerCmdModifier(cmd -> {
+                    DockerArchitectureInfo architecture = getDockerArchitectureInfo(DockerImageName.parse(container.getDockerImageName()));
+                    String downloadUri = getDownloadUri(architecture.imageArch());
+                    String fullName = "JDK distribution '%s' for %s".formatted(getDescription(), architecture.imageArch());
 
-    protected Function<Path, Path> getExtractedRootResolver()
-    {
-        return DirectoryUtils::getOnlyDescendant;
+                    verify(!isNullOrEmpty(downloadUri), "There is no download uri for " + fullName);
+                    Path targetDownloadPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH) + ".tar.gz");
+                    Path extractPath = downloadPath.resolve(getName() + "-" + architecture.imageArch().toString().toLowerCase(ENGLISH));
+
+                    synchronized (TarDownloadingJdkProvider.this) {
+                        if (exists(targetDownloadPath)) {
+                            log.info("%s already downloaded to %s", fullName, targetDownloadPath);
+                        }
+                        else if (!exists(extractPath)) { // Distribution not extracted and not downloaded yet
+                            log.info("Downloading %s from %s to %s", fullName, downloadUri, targetDownloadPath);
+                            download(downloadUri, targetDownloadPath, new EveryNthPercentProgress(progress -> log.info("Downloading %s %d%%...", fullName, progress), 5));
+                            log.info("Downloaded %s to %s", fullName, targetDownloadPath);
+                        }
+
+                        if (exists(extractPath)) {
+                            log.info("%s already extracted to %s", fullName, extractPath);
+                        }
+                        else {
+                            extractTar(targetDownloadPath, extractPath);
+                            try {
+                                Files.deleteIfExists(targetDownloadPath);
+                            }
+                            catch (IOException e) {
+                                throw new UncheckedIOException(e);
+                            }
+                        }
+                    }
+
+                    Path javaHomePath = getOnlyDescendant(extractPath);
+                    verify(exists(javaHomePath.resolve("bin/java")), "bin/java does not exist in %s", javaHomePath);
+
+                    log.info("Mounting %s from %s in container '%s':%s", fullName, javaHomePath, container.getLogicalName(), javaHome);
+
+                    Bind[] binds = cmd.getHostConfig().getBinds();
+                    binds = Arrays.copyOf(binds, binds.length + 1);
+                    binds[binds.length - 1] = new Bind(
+                            javaHomePath.toAbsolutePath().toString(),
+                            new Volume(javaHome),
+                            AccessMode.ro);
+                    cmd.getHostConfig().setBinds(binds);
+                })
+                .withEnv("JAVA_HOME", javaHome);
     }
 
     private static void extractTar(Path filePath, Path extractPath)
