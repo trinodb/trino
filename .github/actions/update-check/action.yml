@@ -1,15 +1,15 @@
 name: "update-check-action"
-description: "Creates or updates a check for a specific PR"
+description: "Creates or updates a check for a specific PR and/or a comment"
 inputs:
   pull_request_number:
     description: "Number of the pull request to update checks in"
     required: true
   check_name:
     description: "Name of the check to update"
-    required: true
+    required: false
   conclusion:
     description: "Conclusion to set for the check"
-    required: true
+    required: false
   github_token:
     description: "GitHub token to authenticate with"
     default: ${{ github.token }}
@@ -25,7 +25,7 @@ runs:
   steps:
     - uses: actions/github-script@v6
       id: update-check-run
-      if: ${{ always() }}
+      if: always() && inputs.check_name != '' && inputs.conclusion != ''
       env:
         number: ${{ inputs.pull_request_number }}
         check_name: ${{ inputs.check_name }}
@@ -63,7 +63,7 @@ runs:
           return result;
     - uses: actions/github-script@v6
       id: comment
-      if: ${{ always() }}
+      if: always()
       env:
         number: ${{ inputs.pull_request_number }}
         run_id: ${{ inputs.run_id }}
@@ -83,21 +83,31 @@ runs:
             exclude_pull_requests: true
           });
 
-          const message = "The CI workflow run with tests that require additional secrets finished as " + process.env.conclusion + ": " + run.html_url
+          const started = "The CI workflow run with tests that require additional secrets has been started: " + run.html_url
+          const finished = "The CI workflow run with tests that require additional secrets finished as " + process.env.conclusion + ": " + run.html_url
           const comments = await github.paginate(github.rest.issues.listComments.endpoint.merge({
             ...context.repo,
             issue_number: process.env.number
           }))
-          const exists = comments.filter(comment => comment.body === message).length != 0
+          const comment = comments.find(comment => comment.body === started || comment.body === finished)
 
-          if (exists) {
-            return;
+          if (comment !== undefined) {
+            if (comment.body === finished) {
+              return;
+            }
+            const { data: result } = await github.rest.issues.updateComment({
+              ...context.repo,
+              comment.id,
+              body: finished
+            });
+
+            return result;
           }
 
           const { data: result } = await github.rest.issues.createComment({
             ...context.repo,
             issue_number: process.env.number,
-            body: message
+            body: started
           });
 
           return result;
