@@ -34,8 +34,6 @@ public class SnowflakeSplit
     private final long fileSize;
     private final Properties schema;
     private final List<HostAddress> addresses;
-    private final String database;
-    private final String table;
     private final boolean forceLocalScheduling;
 
     private final SnowflakeStageAccessInfo stageAccessInfo;
@@ -45,8 +43,6 @@ public class SnowflakeSplit
             SnowflakeStageAccessInfo stageAccessInfo)
     {
         this(
-                hiveSplit.getDatabase(),
-                hiveSplit.getTable(),
                 hiveSplit.getPath(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
@@ -59,8 +55,6 @@ public class SnowflakeSplit
 
     @JsonCreator
     public SnowflakeSplit(
-            @JsonProperty("database") String database,
-            @JsonProperty("table") String table,
             @JsonProperty("path") String path,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
@@ -73,14 +67,10 @@ public class SnowflakeSplit
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(fileSize >= 0, "fileSize must be positive");
-        requireNonNull(database, "database is null");
-        requireNonNull(table, "table is null");
         requireNonNull(path, "path is null");
         requireNonNull(schema, "schema is null");
         requireNonNull(addresses, "addresses is null");
 
-        this.database = database;
-        this.table = table;
         this.path = path;
         this.start = start;
         this.length = length;
@@ -90,18 +80,6 @@ public class SnowflakeSplit
         this.forceLocalScheduling = forceLocalScheduling;
 
         this.stageAccessInfo = requireNonNull(stageAccessInfo, "stageAccessInfo is null");
-    }
-
-    @JsonProperty
-    public String getDatabase()
-    {
-        return database;
-    }
-
-    @JsonProperty
-    public String getTable()
-    {
-        return table;
     }
 
     @JsonProperty
@@ -162,8 +140,6 @@ public class SnowflakeSplit
                 .put("length", length)
                 .put("fileSize", fileSize)
                 .put("hosts", addresses)
-                .put("database", database)
-                .put("table", table)
                 .buildOrThrow();
     }
 
