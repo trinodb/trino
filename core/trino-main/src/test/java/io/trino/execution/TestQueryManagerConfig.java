@@ -100,6 +100,10 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(true)
                 .setFaultTolerantExecutionMinSourceStageProgress(0.2)
+                .setFaultTolerantExecutionSmallStageEstimationEnabled(true)
+                .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(20, GIGABYTE))
+                .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.2)
+                .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setMaxWriterTasksCount(100));
     }
 
@@ -169,6 +173,10 @@ public class TestQueryManagerConfig
                 .put("experimental.fault-tolerant-execution-force-preferred-write-partitioning-enabled", "false")
                 .put("fault-tolerant-execution-min-source-stage-progress", "0.3")
                 .put("query.max-writer-task-count", "101")
+                .put("fault-tolerant-execution-small-stage-estimation-enabled", "false")
+                .put("fault-tolerant-execution-small-stage-estimation-threshold", "6GB")
+                .put("fault-tolerant-execution-small-stage-source-size-multiplier", "1.6")
+                .put("fault-tolerant-execution-small-stage-require-no-more-partitions", "true")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -233,6 +241,10 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionMinPartitionCountForWrite(99)
                 .setFaultTolerantExecutionForcePreferredWritePartitioningEnabled(false)
                 .setFaultTolerantExecutionMinSourceStageProgress(0.3)
+                .setFaultTolerantExecutionSmallStageEstimationEnabled(false)
+                .setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize.of(6, GIGABYTE))
+                .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.6)
+                .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setMaxWriterTasksCount(101);
 
         assertFullMapping(properties, expected);
