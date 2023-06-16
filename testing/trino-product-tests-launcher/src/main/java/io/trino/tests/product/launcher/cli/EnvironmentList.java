@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.trino.tests.product.launcher.env.EnvironmentFactory;
 import io.trino.tests.product.launcher.env.EnvironmentModule;
@@ -25,12 +24,11 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 import picocli.CommandLine.ExitCode;
 import picocli.CommandLine.Option;
 
+import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
+import java.util.List;
 import java.util.concurrent.Callable;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Command;
 
@@ -39,27 +37,20 @@ import static picocli.CommandLine.Command;
         description = "List environments",
         usageHelpAutoWidth = true)
 public final class EnvironmentList
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
-    private final Module additionalEnvironments;
-
-    public EnvironmentList(Extensions extensions)
+    public EnvironmentList(OutputStream outputStream, Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(EnvironmentList.Execution.class, outputStream, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
-                        .build(),
-                EnvironmentList.Execution.class);
+        return ImmutableList.of(new EnvironmentModule(EnvironmentOptions.empty(), extensions.getAdditionalEnvironments()));
     }
 
     public static class Execution
@@ -70,17 +61,11 @@ public final class EnvironmentList
         private final EnvironmentConfigFactory configFactory;
 
         @Inject
-        public Execution(EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
+        public Execution(PrintStream out, EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
         {
             this.factory = requireNonNull(factory, "factory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
-
-            try {
-                this.out = new PrintStream(System.out, true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException("Could not create print stream", e);
-            }
+            this.out = requireNonNull(out, "out is null");
         }
 
         @Override

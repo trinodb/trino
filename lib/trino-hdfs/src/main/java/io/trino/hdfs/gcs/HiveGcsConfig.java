@@ -15,13 +15,47 @@ package io.trino.hdfs.gcs;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
+
+import javax.annotation.Nullable;
+
+import static com.google.common.base.Preconditions.checkState;
 
 public class HiveGcsConfig
 {
     private boolean useGcsAccessToken;
+    private String jsonKey;
     private String jsonKeyFilePath;
 
+    public boolean isUseGcsAccessToken()
+    {
+        return useGcsAccessToken;
+    }
+
+    @Config("hive.gcs.use-access-token")
+    @ConfigDescription("Use client-provided OAuth token to access Google Cloud Storage")
+    public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
+    {
+        this.useGcsAccessToken = useGcsAccessToken;
+        return this;
+    }
+
+    @Nullable
+    public String getJsonKey()
+    {
+        return jsonKey;
+    }
+
+    @Config("hive.gcs.json-key")
+    @ConfigSecuritySensitive
+    public HiveGcsConfig setJsonKey(String jsonKey)
+    {
+        this.jsonKey = jsonKey;
+        return this;
+    }
+
+    @Nullable
     @FileExists
     public String getJsonKeyFilePath()
     {
@@ -36,16 +70,14 @@ public class HiveGcsConfig
         return this;
     }
 
-    public boolean isUseGcsAccessToken()
+    public void validate()
     {
-        return useGcsAccessToken;
-    }
+        // This cannot be normal validation, as it would make it impossible to write TestHiveGcsConfig.testExplicitPropertyMappings
 
-    @Config("hive.gcs.use-access-token")
-    @ConfigDescription("Use client-provided OAuth token to access Google Cloud Storage")
-    public HiveGcsConfig setUseGcsAccessToken(boolean useGcsAccessToken)
-    {
-        this.useGcsAccessToken = useGcsAccessToken;
-        return this;
+        if (useGcsAccessToken) {
+            checkState(jsonKey == null, "Cannot specify 'hive.gcs.json-key' when 'hive.gcs.use-access-token' is set");
+            checkState(jsonKeyFilePath == null, "Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
+        }
+        checkState(jsonKey == null || jsonKeyFilePath == null, "'hive.gcs.json-key' and 'hive.gcs.json-key-file-path' cannot be both set");
     }
 }

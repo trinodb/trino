@@ -21,7 +21,6 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.cli.EnvironmentUp.EnvironmentUpOptions;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -38,16 +37,18 @@ import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.docker.DockerFiles.ROOT_PATH;
 import static java.util.Objects.requireNonNull;
 
@@ -56,7 +57,7 @@ import static java.util.Objects.requireNonNull;
         description = "Describes provided environment",
         usageHelpAutoWidth = true)
 public class EnvironmentDescribe
-        implements Callable<Integer>
+        extends LauncherCommand
 {
     private static final Logger log = Logger.get(EnvironmentDescribe.class);
 
@@ -69,23 +70,17 @@ public class EnvironmentDescribe
     @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private final Module additionalEnvironments;
-
-    public EnvironmentDescribe(Extensions extensions)
+    public EnvironmentDescribe(OutputStream outputStream, Extensions extensions)
     {
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(EnvironmentDescribe.Execution.class, outputStream, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(environmentUpOptions.toModule())
-                        .build(),
-                EnvironmentDescribe.Execution.class);
+        return ImmutableList.of(
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                environmentUpOptions.toModule());
     }
 
     public static class Execution
@@ -116,15 +111,23 @@ public class EnvironmentDescribe
         private final EnvironmentOptions environmentOptions;
         private final EnvironmentUpOptions environmentUpOptions;
         private final Path dockerFilesBasePath;
+        private final PrintStream printStream;
 
         @Inject
-        public Execution(DockerFiles dockerFiles, EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions environmentOptions, EnvironmentUpOptions environmentUpOptions)
+        public Execution(
+                DockerFiles dockerFiles,
+                EnvironmentFactory environmentFactory,
+                EnvironmentConfig environmentConfig,
+                EnvironmentOptions environmentOptions,
+                EnvironmentUpOptions environmentUpOptions,
+                PrintStream printStream)
         {
             this.dockerFilesBasePath = dockerFiles.getDockerFilesHostPath();
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
             this.environmentUpOptions = requireNonNull(environmentUpOptions, "environmentUpOptions is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
         }
 
         @Override
@@ -133,7 +136,7 @@ public class EnvironmentDescribe
         {
             Optional<Path> environmentLogPath = environmentUpOptions.logsDirBase.map(dir -> dir.resolve(environmentUpOptions.environment));
 
-            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, environmentConfig, environmentUpOptions.extraOptions)
+            Environment.Builder builder = environmentFactory.get(environmentUpOptions.environment, printStream, environmentConfig, environmentUpOptions.extraOptions)
                     .setContainerOutputMode(environmentOptions.output)
                     .setLogsBaseDir(environmentLogPath);
 
@@ -154,7 +157,7 @@ public class EnvironmentDescribe
                 containersTable.addSeparator();
             }
 
-            log.info("Environment '%s' containers:\n%s", environmentUpOptions.environment, containersTable.render());
+            printStream.printf("Environment '%s' containers:\n%s\n", environmentUpOptions.environment, containersTable.render());
 
             ConsoleTable mountsTable = new ConsoleTable();
             mountsTable.addHeader(MOUNTS_LIST_HEADER);
@@ -189,7 +192,7 @@ public class EnvironmentDescribe
                 mountsTable.addSeparator();
             }
 
-            log.info("Environment '%s' file mounts:\n%s", environmentUpOptions.environment, mountsTable.render());
+            printStream.printf("Environment '%s' file mounts:\n%s\n", environmentUpOptions.environment, mountsTable.render());
 
             return ExitCode.OK;
         }

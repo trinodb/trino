@@ -60,8 +60,6 @@ public class TestHiveSplit
         AcidInfo acidInfo = acidInfoBuilder.build().get();
 
         HiveSplit expected = new HiveSplit(
-                "db",
-                "table",
                 "partitionId",
                 "path",
                 42,
@@ -73,7 +71,6 @@ public class TestHiveSplit
                 addresses,
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                0,
                 true,
                 TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new HiveTypeName("string"))),
                 Optional.of(new HiveSplit.BucketConversion(
@@ -84,14 +81,11 @@ public class TestHiveSplit
                 Optional.empty(),
                 false,
                 Optional.of(acidInfo),
-                555534,
                 SplitWeight.fromProportion(2.0)); // some non-standard value
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getDatabase(), expected.getDatabase());
-        assertEquals(actual.getTable(), expected.getTable());
         assertEquals(actual.getPartitionName(), expected.getPartitionName());
         assertEquals(actual.getPath(), expected.getPath());
         assertEquals(actual.getStart(), expected.getStart());
@@ -106,7 +100,6 @@ public class TestHiveSplit
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
-        assertEquals(actual.getSplitNumber(), expected.getSplitNumber());
         assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
     }
 }

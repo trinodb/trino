@@ -134,8 +134,6 @@ public abstract class AbstractFileFormat
         Properties schema = createSchema(getFormat(), schemaColumnNames, schemaColumnTypes);
 
         HiveSplit split = new HiveSplit(
-                "schema_name",
-                "table_name",
                 "",
                 targetFile.getPath(),
                 0,
@@ -147,14 +145,12 @@ public abstract class AbstractFileFormat
                 ImmutableList.of(),
                 OptionalInt.empty(),
                 OptionalInt.empty(),
-                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 Optional.empty(),
                 false,
                 Optional.empty(),
-                0,
                 SplitWeight.standard());
 
         return factory.createPageSource(

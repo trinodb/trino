@@ -135,7 +135,7 @@ public class HivePageSourceProvider
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
                 hiveColumns,
-                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getBucketConversion().map(BucketConversion::bucketColumnHandles).orElse(ImmutableList.of()),
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
@@ -595,18 +595,18 @@ public class HivePageSourceProvider
                     .collect(toList());
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = uniqueIndex(baseColumnMapping, mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex());
 
-            int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+            int[] bucketColumnIndices = conversion.bucketColumnHandles().stream()
                     .mapToInt(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getIndex())
                     .toArray();
-            List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
+            List<HiveType> bucketColumnHiveTypes = conversion.bucketColumnHandles().stream()
                     .map(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getHiveColumnHandle().getHiveType())
                     .collect(toImmutableList());
             return new BucketAdaptation(
                     bucketColumnIndices,
                     bucketColumnHiveTypes,
-                    conversion.getBucketingVersion(),
-                    conversion.getTableBucketCount(),
-                    conversion.getPartitionBucketCount(),
+                    conversion.bucketingVersion(),
+                    conversion.tableBucketCount(),
+                    conversion.partitionBucketCount(),
                     bucketNumber.getAsInt());
         });
     }
@@ -674,11 +674,11 @@ public class HivePageSourceProvider
                     .filter(mapping -> mapping.getHiveColumnHandle().isBaseColumn())
                     .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex(), identity()));
 
-            int[] bucketColumnIndices = new int[validation.getBucketColumns().size()];
+            int[] bucketColumnIndices = new int[validation.bucketColumns().size()];
 
             List<TypeInfo> bucketColumnTypes = new ArrayList<>();
-            for (int i = 0; i < validation.getBucketColumns().size(); i++) {
-                HiveColumnHandle column = validation.getBucketColumns().get(i);
+            for (int i = 0; i < validation.bucketColumns().size(); i++) {
+                HiveColumnHandle column = validation.bucketColumns().get(i);
                 ColumnMapping mapping = baseHiveColumnToBlockIndex.get(column.getBaseHiveColumnIndex());
                 if (mapping == null) {
                     // The bucket column is not read by the query, and thus invalid bucketing cannot
@@ -694,8 +694,8 @@ public class HivePageSourceProvider
                     path,
                     bucketColumnIndices,
                     bucketColumnTypes,
-                    validation.getBucketingVersion(),
-                    validation.getBucketCount(),
+                    validation.bucketingVersion(),
+                    validation.bucketCount(),
                     bucketNumber.orElseThrow()));
         });
     }

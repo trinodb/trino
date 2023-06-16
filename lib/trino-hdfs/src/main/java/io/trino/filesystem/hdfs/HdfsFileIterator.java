@@ -72,7 +72,8 @@ class HdfsFileIterator
 
         verify(path.startsWith(root), "iterator path [%s] not a child of listing path [%s] for location [%s]", path, root, listingLocation);
 
-        Location location = listingLocation.appendPath(path.substring(root.length() + 1));
+        int index = root.endsWith("/") ? root.length() : root.length() + 1;
+        Location location = listingLocation.appendPath(path.substring(index));
 
         List<Block> blocks = Stream.of(status.getBlockLocations())
                 .map(HdfsFileIterator::toTrinoBlock)

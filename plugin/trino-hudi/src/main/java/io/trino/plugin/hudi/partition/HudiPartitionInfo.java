@@ -23,13 +23,9 @@ public interface HudiPartitionInfo
 {
     String getRelativePartitionPath();
 
-    String getHivePartitionName();
-
     List<HivePartitionKey> getHivePartitionKeys();
 
     boolean doesMatchPredicates();
-
-    String getComparingKey();
 
     void loadPartitionInfo(Optional<Partition> partition);
 }

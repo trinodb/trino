@@ -24,6 +24,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveGcsConfig
 {
@@ -31,8 +32,9 @@ public class TestHiveGcsConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveGcsConfig.class)
-                .setJsonKeyFilePath(null)
-                .setUseGcsAccessToken(false));
+                .setUseGcsAccessToken(false)
+                .setJsonKey(null)
+                .setJsonKeyFilePath(null));
     }
 
     @Test
@@ -42,14 +44,41 @@ public class TestHiveGcsConfig
         Path jsonKeyFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .put("hive.gcs.use-access-token", "true")
+                .put("hive.gcs.json-key", "{}")
+                .put("hive.gcs.json-key-file-path", jsonKeyFile.toString())
                 .buildOrThrow();
 
         HiveGcsConfig expected = new HiveGcsConfig()
-                .setJsonKeyFilePath(jsonKeyFile.toString())
-                .setUseGcsAccessToken(true);
+                .setUseGcsAccessToken(true)
+                .setJsonKey("{}")
+                .setJsonKeyFilePath(jsonKeyFile.toString());
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testValidation()
+    {
+        assertThatThrownBy(
+                new HiveGcsConfig()
+                        .setUseGcsAccessToken(true)
+                        .setJsonKey("{}}")::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot specify 'hive.gcs.json-key' when 'hive.gcs.use-access-token' is set");
+
+        assertThatThrownBy(
+                new HiveGcsConfig()
+                        .setUseGcsAccessToken(true)
+                        .setJsonKeyFilePath("/dev/null")::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
+
+        assertThatThrownBy(
+                new HiveGcsConfig()
+                        .setJsonKey("{}")
+                        .setJsonKeyFilePath("/dev/null")::validate)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("'hive.gcs.json-key' and 'hive.gcs.json-key-file-path' cannot be both set");
     }
 }

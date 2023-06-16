@@ -100,7 +100,7 @@ public class HiveFileIterator
             return new FileStatusIterator(table, location, fileSystem, directoryLister, namenodeStats, nestedDirectoryPolicy);
         }
         catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Filed to list files for location: " + location, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to list files for location: " + location, e);
         }
     }
 

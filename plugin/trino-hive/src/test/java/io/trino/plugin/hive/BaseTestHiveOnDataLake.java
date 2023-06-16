@@ -1719,6 +1719,75 @@ public abstract class BaseTestHiveOnDataLake
         assertUpdate("DROP TABLE " + getFullyQualifiedTestTableName(tableName));
     }
 
+    @Test
+    public void testUnpartitionedTableExternalLocationWithTrainingSlash()
+    {
+        String tableName = "test_external_location_trailing_slash_" + randomNameSuffix();
+        String tableLocationWithTrailingSlash = format("s3://%s/%s/%s/", bucketName, HIVE_TEST_SCHEMA, tableName);
+        byte[] contents = "Trino\nSQL\non\neverything".getBytes(UTF_8);
+        String dataFilePath = format("%s/%s/data.txt", HIVE_TEST_SCHEMA, tableName);
+        hiveMinioDataLake.getMinioClient().putObject(bucketName, contents, dataFilePath);
+
+        assertUpdate(format(
+                "CREATE TABLE %s (" +
+                        "  a_varchar varchar) " +
+                        "WITH (" +
+                        "   external_location='%s'," +
+                        "   format='TEXTFILE')",
+                tableName,
+                tableLocationWithTrailingSlash));
+        assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'SQL', 'on', 'everything'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testUnpartitionedTableExternalLocationOnTopOfTheBucket()
+    {
+        String topBucketName = "test-hive-unpartitioned-top-of-the-bucket-" + randomNameSuffix();
+        hiveMinioDataLake.getMinio().createBucket(topBucketName);
+        String tableName = "test_external_location_top_of_the_bucket_" + randomNameSuffix();
+
+        byte[] contents = "Trino\nSQL\non\neverything".getBytes(UTF_8);
+        hiveMinioDataLake.getMinioClient().putObject(topBucketName, contents, "data.txt");
+
+        assertUpdate(format(
+                "CREATE TABLE %s (" +
+                        "  a_varchar varchar) " +
+                        "WITH (" +
+                        "   external_location='%s'," +
+                        "   format='TEXTFILE')",
+                tableName,
+                format("s3://%s/", topBucketName)));
+        assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'SQL', 'on', 'everything'");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionedTableExternalLocationOnTopOfTheBucket()
+    {
+        String topBucketName = "test-hive-partitioned-top-of-the-bucket-" + randomNameSuffix();
+        hiveMinioDataLake.getMinio().createBucket(topBucketName);
+        String tableName = "test_external_location_top_of_the_bucket_" + randomNameSuffix();
+
+        assertUpdate(format(
+                "CREATE TABLE %s (" +
+                        "  a_varchar varchar, " +
+                        "  pkey integer) " +
+                        "WITH (" +
+                        "   external_location='%s'," +
+                        "   partitioned_by=ARRAY['pkey'])",
+                tableName,
+                format("s3://%s/", topBucketName)));
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1) , ('b', 1), ('c', 2), ('d', 2)", 4);
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a', 1), ('b',1), ('c', 2), ('d', 2)");
+        assertUpdate("DELETE FROM " + tableName + " where pkey = 2");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('a', 1), ('b',1)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     private void renamePartitionResourcesOutsideTrino(String tableName, String partitionColumn, String regionKey)
     {
         String partitionName = format("%s=%s", partitionColumn, regionKey);

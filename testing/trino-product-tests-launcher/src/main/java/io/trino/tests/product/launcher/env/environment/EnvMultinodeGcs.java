@@ -40,6 +40,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.configur
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermissions.fromString;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -72,11 +73,13 @@ public class EnvMultinodeGcs
         String gcpBase64EncodedCredentials = requireEnv("GCP_CREDENTIALS_KEY");
         String gcpStorageBucket = requireEnv("GCP_STORAGE_BUCKET");
 
+        byte[] gcpCredentialsBytes = Base64.getDecoder().decode(gcpBase64EncodedCredentials);
+        String gcpCredentials = new String(gcpCredentialsBytes, UTF_8);
         File gcpCredentialsFile;
         try {
             gcpCredentialsFile = Files.createTempFile("gcp-credentials", ".xml", PosixFilePermissions.asFileAttribute(fromString("rw-r--r--"))).toFile();
             gcpCredentialsFile.deleteOnExit();
-            Files.write(gcpCredentialsFile.toPath(), Base64.getDecoder().decode(gcpBase64EncodedCredentials));
+            Files.write(gcpCredentialsFile.toPath(), gcpCredentialsBytes);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -98,16 +101,12 @@ public class EnvMultinodeGcs
         });
 
         builder.configureContainer(COORDINATOR, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile));
+                .withEnv("GCP_CREDENTIALS", gcpCredentials));
 
         builder.configureContainer(WORKER, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile));
+                .withEnv("GCP_CREDENTIALS", gcpCredentials));
 
         builder.configureContainer(TESTS, container -> container
-                .withCopyFileToContainer(forHostPath(gcpCredentialsFile.toPath()), containerGcpCredentialsFile)
-                .withEnv("GCP_CREDENTIALS_FILE_PATH", containerGcpCredentialsFile)
                 .withEnv("GCP_STORAGE_BUCKET", gcpStorageBucket)
                 .withEnv("GCP_TEST_DIRECTORY", gcsTestDirectory));
 
