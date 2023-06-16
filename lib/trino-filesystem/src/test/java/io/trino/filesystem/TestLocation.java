@@ -88,44 +88,44 @@ class TestLocation
 
         assertThatThrownBy(() -> Location.of(""))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("location is empty");
+                .hasMessage("location is empty");
         assertThatThrownBy(() -> Location.of("  "))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("location is blank");
+                .hasMessage("location is blank");
         assertThatThrownBy(() -> Location.of("x"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("scheme");
+                .hasMessage("No scheme for file system location: x");
         assertThatThrownBy(() -> Location.of("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("port");
+                .hasMessage("Invalid port in file system location: scheme://host:invalid/path");
 
         // fragment is not allowed
         assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path#fragement"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Fragment");
+                .hasMessage("Fragment is not allowed in a file system location: scheme://userInfo@host/some/path#fragement");
         assertThatThrownBy(() -> Location.of("scheme://userInfo@ho#st/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Fragment");
+                .hasMessage("Fragment is not allowed in a file system location: scheme://userInfo@ho#st/some/path");
         assertThatThrownBy(() -> Location.of("scheme://user#Info@host/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Fragment");
+                .hasMessage("Fragment is not allowed in a file system location: scheme://user#Info@host/some/path");
         assertThatThrownBy(() -> Location.of("sc#heme://userInfo@host/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Fragment");
+                .hasMessage("Fragment is not allowed in a file system location: sc#heme://userInfo@host/some/path");
 
         // query component is not allowed
         assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path?fragement"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("query");
+                .hasMessage("URI query component is not allowed in a file system location: scheme://userInfo@host/some/path?fragement");
         assertThatThrownBy(() -> Location.of("scheme://userInfo@ho?st/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("query");
+                .hasMessage("URI query component is not allowed in a file system location: scheme://userInfo@ho?st/some/path");
         assertThatThrownBy(() -> Location.of("scheme://user?Info@host/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("query");
+                .hasMessage("URI query component is not allowed in a file system location: scheme://user?Info@host/some/path");
         assertThatThrownBy(() -> Location.of("sc?heme://userInfo@host/some/path"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("query");
+                .hasMessage("URI query component is not allowed in a file system location: sc?heme://userInfo@host/some/path");
     }
 
     private static void assertLocation(String locationString, String scheme, Optional<String> userInfo, String host, String path)
@@ -184,14 +184,14 @@ class TestLocation
         Location.of("/name").verifyValidFileLocation();
         Location.of("/path/name").verifyValidFileLocation();
 
-        assertInvalidFileLocation("scheme://userInfo@host", "File location must contain a path");
-        assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path");
-        assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/'");
-        assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace");
+        assertInvalidFileLocation("scheme://userInfo@host", "File location must contain a path: scheme://userInfo@host");
+        assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
+        assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/': scheme://userInfo@host/name/");
+        assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace: scheme://userInfo@host/name ");
 
-        assertInvalidFileLocation("/", "File location must contain a path");
-        assertInvalidFileLocation("/name/", "File location cannot end with '/'");
-        assertInvalidFileLocation("/name ", "File location cannot end with whitespace");
+        assertInvalidFileLocation("/", "File location must contain a path: /");
+        assertInvalidFileLocation("/name/", "File location cannot end with '/': /name/");
+        assertInvalidFileLocation("/name ", "File location cannot end with whitespace: /name ");
     }
 
     private static void assertInvalidFileLocation(String locationString, String expectedErrorMessage)
@@ -200,15 +200,15 @@ class TestLocation
         assertThatThrownBy(location::verifyValidFileLocation)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(locationString)
-                .hasMessageContaining(expectedErrorMessage);
+                .hasMessage(expectedErrorMessage);
         assertThatThrownBy(location::fileName)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(locationString)
-                .hasMessageContaining(expectedErrorMessage);
+                .hasMessage(expectedErrorMessage);
         assertThatThrownBy(location::parentDirectory)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(locationString)
-                .hasMessageContaining(expectedErrorMessage);
+                .hasMessage(expectedErrorMessage);
     }
 
     @Test
