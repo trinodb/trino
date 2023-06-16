@@ -45,6 +45,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -65,19 +66,6 @@ public class TestStarburstOracleClient
                     .setJdbcTypeHandle(new JdbcTypeHandle(OracleTypes.BINARY_DOUBLE, Optional.of("BINARY DOUBLE"), Optional.of(0), Optional.of(0), Optional.empty(), Optional.empty()))
                     .build();
 
-    private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
-            NOOP_LICENSE_MANAGER,
-            new BaseJdbcConfig(),
-            new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
-            new JdbcStatisticsConfig(),
-            new OracleConfig(),
-            session -> {
-                throw new UnsupportedOperationException();
-            },
-            new DefaultQueryBuilder(RemoteQueryModifier.NONE),
-            new DefaultIdentifierMapping(),
-            RemoteQueryModifier.NONE);
-
     public static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
                     .addAll(new TypeHandlingJdbcSessionProperties(new TypeHandlingJdbcConfig()).getSessionProperties())
@@ -85,6 +73,29 @@ public class TestStarburstOracleClient
                     .addAll(new StarburstOracleSessionProperties(NOOP_LICENSE_MANAGER, new StarburstOracleConfig()).getSessionProperties())
                     .build())
             .build();
+
+    private final JdbcClient jdbcClient;
+
+    public TestStarburstOracleClient()
+    {
+        this(new StarburstOracleClient(
+                NOOP_LICENSE_MANAGER,
+                new BaseJdbcConfig(),
+                new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
+                new JdbcStatisticsConfig(),
+                new OracleConfig(),
+                session -> {
+                    throw new UnsupportedOperationException();
+                },
+                new DefaultQueryBuilder(RemoteQueryModifier.NONE),
+                new DefaultIdentifierMapping(),
+                RemoteQueryModifier.NONE));
+    }
+
+    public TestStarburstOracleClient(JdbcClient jdbcClient)
+    {
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+    }
 
     @Test
     public void testImplementCount()
@@ -166,14 +177,14 @@ public class TestStarburstOracleClient
 
     private void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
     {
-        Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
+        Optional<JdbcExpression> result = jdbcClient.implementAggregation(SESSION, aggregateFunction, assignments);
         if (expectedExpression.isEmpty()) {
             assertThat(result).isEmpty();
         }
         else {
             assertThat(result).isPresent();
             assertEquals(result.get().getExpression(), expectedExpression.get());
-            Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
+            Optional<ColumnMapping> columnMapping = jdbcClient.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
             assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
             assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
         }
