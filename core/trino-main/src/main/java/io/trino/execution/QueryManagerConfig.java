@@ -135,6 +135,11 @@ public class QueryManagerConfig
     private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
     private double faultTolerantExecutionMinSourceStageProgress = 0.2;
 
+    private boolean faultTolerantExecutionSmallStageEstimationEnabled = true;
+    private DataSize faultTolerantExecutionSmallStageEstimationThreshold = DataSize.of(20, GIGABYTE);
+    private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
+    private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
+
     @Min(1)
     public int getScheduleSplitBatchSize()
     {
@@ -983,6 +988,59 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionMinSourceStageProgress(double faultTolerantExecutionMinSourceStageProgress)
     {
         this.faultTolerantExecutionMinSourceStageProgress = faultTolerantExecutionMinSourceStageProgress;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionSmallStageEstimationEnabled()
+    {
+        return faultTolerantExecutionSmallStageEstimationEnabled;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-estimation-enabled")
+    @ConfigDescription("Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageEstimationEnabled(boolean faultTolerantExecutionSmallStageEstimationEnabled)
+    {
+        this.faultTolerantExecutionSmallStageEstimationEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionSmallStageEstimationThreshold()
+    {
+        return faultTolerantExecutionSmallStageEstimationThreshold;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-estimation-threshold")
+    @ConfigDescription("Threshold until which stage is considered small")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageEstimationThreshold(DataSize faultTolerantExecutionSmallStageEstimationThreshold)
+    {
+        this.faultTolerantExecutionSmallStageEstimationThreshold = faultTolerantExecutionSmallStageEstimationThreshold;
+        return this;
+    }
+
+    @DecimalMin("1.0")
+    public double getFaultTolerantExecutionSmallStageSourceSizeMultiplier()
+    {
+        return faultTolerantExecutionSmallStageSourceSizeMultiplier;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-source-size-multiplier")
+    @ConfigDescription("Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageSourceSizeMultiplier(double faultTolerantExecutionSmallStageSourceSizeMultiplier)
+    {
+        this.faultTolerantExecutionSmallStageSourceSizeMultiplier = faultTolerantExecutionSmallStageSourceSizeMultiplier;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionSmallStageRequireNoMorePartitions()
+    {
+        return faultTolerantExecutionSmallStageRequireNoMorePartitions;
+    }
+
+    @Config("fault-tolerant-execution-small-stage-require-no-more-partitions")
+    @ConfigDescription("Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small")
+    public QueryManagerConfig setFaultTolerantExecutionSmallStageRequireNoMorePartitions(boolean faultTolerantExecutionSmallStageRequireNoMorePartitions)
+    {
+        this.faultTolerantExecutionSmallStageRequireNoMorePartitions = faultTolerantExecutionSmallStageRequireNoMorePartitions;
         return this;
     }
 
