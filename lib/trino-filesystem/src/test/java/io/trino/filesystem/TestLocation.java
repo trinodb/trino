@@ -42,8 +42,22 @@ class TestLocation
         assertLocation("scheme:///some/path", "scheme", Optional.empty(), "", "some/path");
         // userInfo can be empty string
         assertLocation("scheme://user@/some/path", "scheme", Optional.of("user"), "", "some/path");
+        // userInfo can be arbitrary string (note: this documents current state, but does not imply the intent to support such locations)
+        assertLocation("scheme://host:1234/some/path//@here:444/there", Optional.of("scheme"), Optional.of("host:1234/some/path//"), Optional.of("here"), OptionalInt.of(444), "there");
         // host and userInfo can both be empty
         assertLocation("scheme://@/some/path", "scheme", Optional.of(""), "", "some/path");
+        // port or userInfo can be given even if host is not (note: this documents current state, but does not imply the intent to support such locations)
+        assertLocation("scheme://:1/some/path", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "some/path");
+        assertLocation("scheme://@:1/some/path", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "some/path");
+        assertLocation("scheme://@", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "");
+        assertLocation("scheme://@:1", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "");
+        assertLocation("scheme://:1", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "");
+        assertLocation("scheme://@/", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "");
+        assertLocation("scheme://@:1/", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "");
+        assertLocation("scheme://:1/", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "");
+        assertLocation("scheme://@//", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "/");
+        assertLocation("scheme://@:1//", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.of(1), "/");
+        assertLocation("scheme://:1//", Optional.of("scheme"), Optional.empty(), Optional.empty(), OptionalInt.of(1), "/");
 
         // port is allowed
         assertLocation("hdfs://hadoop:9000/some/path", "hdfs", "hadoop", 9000, "some/path");
@@ -71,12 +85,20 @@ class TestLocation
 
         // the location can be just a path
         assertLocation("/", "");
+        assertLocation("//", "/");
+        assertLocation("///", "//");
         assertLocation("/abc", "abc");
+        assertLocation("//abc", "/abc");
+        assertLocation("///abc", "//abc");
         assertLocation("/abc/xyz", "abc/xyz");
         assertLocation("/foo://host:port/path", "foo://host:port/path");
 
         // special handling for Locations without hostnames
         assertLocation("file:/", "file", "");
+        assertLocation("file://", "file", "");
+        assertLocation("file:///", "file", "");
+        assertLocation("file:////", "file", "/");
+        assertLocation("file://///", "file", "//");
         assertLocation("file:/hello.txt", "file", "hello.txt");
         assertLocation("file:/some/path", "file", "some/path");
         assertLocation("file:/some@what/path", "file", "some@what/path");
@@ -98,6 +120,15 @@ class TestLocation
         assertThatThrownBy(() -> Location.of("scheme://host:invalid/path"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Invalid port in file system location: scheme://host:invalid/path");
+        assertThatThrownBy(() -> Location.of("scheme://:"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid port in file system location: scheme://:");
+        assertThatThrownBy(() -> Location.of("scheme://:/"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid port in file system location: scheme://:/");
+        assertThatThrownBy(() -> Location.of("scheme://@:/"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid port in file system location: scheme://@:/");
 
         // fragment is not allowed
         assertThatThrownBy(() -> Location.of("scheme://userInfo@host/some/path#fragement"))
@@ -130,32 +161,34 @@ class TestLocation
 
     private static void assertLocation(String locationString, String scheme, Optional<String> userInfo, String host, String path)
     {
-        Location location = Location.of(locationString);
         Optional<String> expectedHost = host.isEmpty() ? Optional.empty() : Optional.of(host);
-        assertLocation(location, locationString, Optional.of(scheme), userInfo, expectedHost, OptionalInt.empty(), path);
+        assertLocation(locationString, Optional.of(scheme), userInfo, expectedHost, OptionalInt.empty(), path);
     }
 
     private static void assertLocation(String locationString, String scheme, String path)
     {
-        Location location = Location.of(locationString);
-        assertLocation(location, locationString, Optional.of(scheme), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
+        assertLocation(locationString, Optional.of(scheme), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
     }
 
     private static void assertLocation(String locationString, String scheme, String host, int port, String path)
     {
-        Location location = Location.of(locationString);
-        assertLocation(location, locationString, Optional.of(scheme), Optional.empty(), Optional.of(host), OptionalInt.of(port), path);
+        assertLocation(locationString, Optional.of(scheme), Optional.empty(), Optional.of(host), OptionalInt.of(port), path);
     }
 
     private static void assertLocation(String locationString, String path)
     {
-        Location location = Location.of(locationString);
-        assertLocation(location, locationString, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
+        assertLocation(locationString, Optional.empty(), Optional.empty(), Optional.empty(), OptionalInt.empty(), path);
     }
 
     private static void assertLocation(Location actual, Location expected)
     {
         assertLocation(actual, expected.toString(), expected.scheme(), expected.userInfo(), expected.host(), expected.port(), expected.path());
+    }
+
+    private static void assertLocation(String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
+    {
+        Location location = Location.of(locationString);
+        assertLocation(location, locationString, scheme, userInfo, host, port, path);
     }
 
     private static void assertLocation(Location location, String locationString, Optional<String> scheme, Optional<String> userInfo, Optional<String> host, OptionalInt port, String path)
