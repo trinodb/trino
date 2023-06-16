@@ -277,7 +277,7 @@ public final class Location
         // file path must not be empty
         checkState(!path.isEmpty() && !path.equals("/"), "File location must contain a path: %s", location);
         // file path cannot end with a slash
-        checkState(!path.endsWith("/"), "File location cannot end with '/': '%s'", location);
+        checkState(!path.endsWith("/"), "File location cannot end with '/': %s", location);
         // file path cannot end with whitespace
         checkState(!isWhitespace(path.charAt(path.length() - 1)), "File location cannot end with whitespace: %s", location);
     }
