@@ -187,6 +187,10 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT = "fault_tolerant_execution_min_partition_count";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT_FOR_WRITE = "fault_tolerant_execution_min_partition_count_for_write";
     public static final String FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS = "fault_tolerant_execution_min_source_stage_progress";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED = "fault_tolerant_execution_small_stage_estimation_enabled";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD = "fault_tolerant_execution_small_stage_estimation_threshold";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER = "fault_tolerant_execution_small_stage_source_size_multiplier";
+    private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -949,6 +953,33 @@ public final class SystemSessionProperties
                         "Minimal progress of source stage to consider scheduling of parent stage",
                         queryManagerConfig.getFaultTolerantExecutionMinSourceStageProgress(),
                         true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED,
+                        "Enable small stage estimation heuristic, used for more aggresive speculative stage scheduling",
+                        queryManagerConfig.isFaultTolerantExecutionSmallStageEstimationEnabled(),
+                        false),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD,
+                        "Threshold until which stage is considered small",
+                        queryManagerConfig.getFaultTolerantExecutionSmallStageEstimationThreshold(),
+                        false),
+                doubleProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER,
+                        "Multiplier used for heuristic estimation is stage is small; the bigger the more conservative estimation is",
+                        queryManagerConfig.getFaultTolerantExecutionSmallStageSourceSizeMultiplier(),
+                        value -> {
+                            if (value < 1.0) {
+                                throw new TrinoException(
+                                        INVALID_SESSION_PROPERTY,
+                                        format("%s must be greater than or equal to 1.0: %s", FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, value));
+                            }
+                        },
+                        false),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS,
+                        "Is it required for all stage partitions (tasks) to be enumerated for stage to be used in heuristic to determine if parent stage is small",
+                        queryManagerConfig.isFaultTolerantExecutionSmallStageRequireNoMorePartitions(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1768,6 +1799,26 @@ public final class SystemSessionProperties
     public static double getFaultTolerantExecutionMinSourceStageProgress(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_SOURCE_STAGE_PROGRESS, Double.class);
+    }
+
+    public static boolean isFaultTolerantExecutionSmallStageEstimationEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_ENABLED, Boolean.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionSmallStageEstimationThreshold(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_ESTIMATION_THRESHOLD, DataSize.class);
+    }
+
+    public static double getFaultTolerantExecutionSmallStageSourceSizeMultiplier(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER, Double.class);
+    }
+
+    public static boolean isFaultTolerantExecutionSmallStageRequireNoMorePartitions(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS, Boolean.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)
