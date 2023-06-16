@@ -263,6 +263,9 @@ class TestLocation
         assertParentDirectory("/path/name", Location.of("/path"));
         assertParentDirectory("/name", Location.of("/"));
 
+        assertParentDirectoryFailure("/path/name/", "File location cannot end with '/': '/path/name/'");
+        assertParentDirectoryFailure("/name/", "File location cannot end with '/': '/name/'");
+
         assertParentDirectory("/path//name", Location.of("/path/"));
         assertParentDirectory("/path///name", Location.of("/path//"));
         assertParentDirectory("/path:/name", Location.of("/path:"));
