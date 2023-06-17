@@ -23,6 +23,7 @@ import java.util.Optional;
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.REGION_COLUMNS;
 import static io.trino.plugin.kudu.TestKuduConnectorTest.createKuduTableForWrites;
+import static io.trino.plugin.kudu.TestingKuduServer.EARLIEST_TAG;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,9 +55,6 @@ public abstract class BaseKuduConnectorSmokeTest
                 return false;
 
             case SUPPORTS_RENAME_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
                 return false;
 
             case SUPPORTS_COMMENT_ON_TABLE:
@@ -148,6 +146,20 @@ public abstract class BaseKuduConnectorSmokeTest
         assertUpdate("UPDATE " + tableName + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
         assertThat(query("SELECT a, b FROM " + tableName))
                 .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithTableComment()
+    {
+        String tableName = "test_create_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint WITH (primary_key=true)) COMMENT 'test comment' WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)");
+
+        // Kudu versions < 1.15.0 ignore a table comment
+        String expected = getKuduServerVersion().equals(EARLIEST_TAG) ? null : "test comment";
+        assertThat(getTableComment(tableName)).isEqualTo(expected);
+
         assertUpdate("DROP TABLE " + tableName);
     }
 }
