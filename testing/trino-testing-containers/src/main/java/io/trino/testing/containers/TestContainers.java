@@ -31,6 +31,7 @@ import static com.github.dockerjava.api.model.Ports.Binding.bindPort;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.padEnd;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.containers.ConditionalPullPolicy.TESTCONTAINERS_NEVER_PULL;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Locale.ENGLISH;
@@ -85,6 +86,7 @@ public final class TestContainers
 
     public static DockerArchitectureInfo getDockerArchitectureInfo(DockerImageName imageName)
     {
+        checkState(!TESTCONTAINERS_NEVER_PULL, "Cannot get arch for image %s without pulling it, and pulling is forbidden", imageName);
         DockerClient client = DockerClientFactory.lazyClient();
         if (!imageExists(client, imageName)) {
             pullImage(client, imageName);
