@@ -304,6 +304,7 @@ public class KuduClientSession
 
             Schema schema = buildSchema(columns);
             CreateTableOptions options = buildCreateTableOptions(schema, properties);
+            tableMetadata.getComment().ifPresent(options::setComment);
             return client.createTable(rawName, schema, options);
         }
         catch (KuduException e) {
