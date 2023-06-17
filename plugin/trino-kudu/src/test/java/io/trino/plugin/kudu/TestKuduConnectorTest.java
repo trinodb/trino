@@ -75,7 +75,6 @@ public class TestKuduConnectorTest
             case SUPPORTS_DROP_SCHEMA_CASCADE:
                 return false;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
@@ -996,6 +995,31 @@ public class TestKuduConnectorTest
             throws Exception
     {
         throw new SkipException("Kudu doesn't support concurrent update of different columns in a row");
+    }
+
+    @Override
+    public void testCreateTableWithTableComment()
+    {
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        String tableName = "test_create_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint WITH (primary_key=true)) COMMENT 'test comment' " +
+                "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)");
+        assertEquals(getTableComment("kudu", "default", tableName), "test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    public void testCreateTableWithTableCommentSpecialCharacter(String comment)
+    {
+        // TODO Remove this overriding test once kudu connector can create tables with default partitions
+        try (TestTable table = new TestTable(getQueryRunner()::execute,
+                "test_create_",
+                "(a bigint WITH (primary_key=true)) COMMENT " + varcharLiteral(comment) +
+                        "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)")) {
+            assertEquals(getTableComment("kudu", "default", table.getName()), comment);
+        }
     }
 
     @Override
