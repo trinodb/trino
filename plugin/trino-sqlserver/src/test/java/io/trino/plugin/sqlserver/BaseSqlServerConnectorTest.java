@@ -171,6 +171,7 @@ public abstract class BaseSqlServerConnectorTest
                     .hasMessageMatching("(?s).*(" +
                             "No task completed before timeout|" +
                             "was deadlocked on lock resources with another process and has been chosen as the deadlock victim|" +
+                            "Lock request time out period exceeded|" +
                             // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
                             "Expecting actual not to be empty).*");
             throw new SkipException("to be fixed");
