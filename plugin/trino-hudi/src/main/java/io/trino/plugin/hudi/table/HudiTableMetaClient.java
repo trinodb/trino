@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hudi.HudiUtil.isHudiTable;
+import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
 import static java.util.Objects.requireNonNull;
 
 public class HudiTableMetaClient
@@ -61,7 +61,7 @@ public class HudiTableMetaClient
     {
         this.metaPath = requireNonNull(basePath, "basePath is null").appendPath(METAFOLDER_NAME);
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        checkArgument(isHudiTable(fileSystem, basePath), "Could not check if %s is a valid table", basePath);
+        checkArgument(hudiMetadataExists(fileSystem, basePath), "Could not check if %s is a valid table", basePath);
         this.basePath = basePath;
 
         this.tableConfig = new HudiTableConfig(fileSystem, metaPath);

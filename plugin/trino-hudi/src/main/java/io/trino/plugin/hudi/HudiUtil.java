@@ -74,7 +74,7 @@ public final class HudiUtil
         return dotIndex == -1 ? "" : fileName.substring(dotIndex);
     }
 
-    public static boolean isHudiTable(TrinoFileSystem trinoFileSystem, Location baseLocation)
+    public static boolean hudiMetadataExists(TrinoFileSystem trinoFileSystem, Location baseLocation)
     {
         try {
             Location metaLocation = baseLocation.appendPath(METAFOLDER_NAME);
