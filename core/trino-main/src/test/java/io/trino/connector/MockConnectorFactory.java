@@ -104,6 +104,7 @@ public class MockConnectorFactory
     private final ApplyJoin applyJoin;
     private final ApplyTopN applyTopN;
     private final ApplyFilter applyFilter;
+    private final ApplyFilterForPtf applyFilterForPtf;
     private final ApplyTableFunction applyTableFunction;
     private final ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
@@ -152,6 +153,7 @@ public class MockConnectorFactory
             ApplyJoin applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
+            ApplyFilterForPtf applyFilterForPtf,
             ApplyTableFunction applyTableFunction,
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
@@ -197,6 +199,7 @@ public class MockConnectorFactory
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
+        this.applyFilterForPtf = requireNonNull(applyFilterForPtf, "applyFilterForPtf is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
@@ -252,6 +255,7 @@ public class MockConnectorFactory
                 applyJoin,
                 applyTopN,
                 applyFilter,
+                applyFilterForPtf,
                 applyTableFunction,
                 applyTableScanRedirect,
                 redirectTable,
@@ -346,6 +350,12 @@ public class MockConnectorFactory
     }
 
     @FunctionalInterface
+    public interface ApplyFilterForPtf
+    {
+        Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> apply(ConnectorSession session, ConnectorTableFunctionHandle handle, Constraint<Integer> constraint);
+    }
+
+    @FunctionalInterface
     public interface ApplyTableScanRedirect
     {
         Optional<TableScanRedirectApplicationResult> apply(ConnectorSession session, ConnectorTableHandle handle);
@@ -389,6 +399,7 @@ public class MockConnectorFactory
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
+        private ApplyFilterForPtf applyFilterForPtf = ((session, handle, constraint) -> Optional.empty());
         private ApplyTableFunction applyTableFunction = (session, handle) -> Optional.empty();
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable = (session, tableName) -> Optional.empty();
@@ -537,6 +548,12 @@ public class MockConnectorFactory
         public Builder withApplyFilter(ApplyFilter applyFilter)
         {
             this.applyFilter = applyFilter;
+            return this;
+        }
+
+        public Builder withApplyFilterForPtf(ApplyFilterForPtf applyFilterForPtf)
+        {
+            this.applyFilterForPtf = applyFilterForPtf;
             return this;
         }
 
@@ -750,6 +767,7 @@ public class MockConnectorFactory
                     applyJoin,
                     applyTopN,
                     applyFilter,
+                    applyFilterForPtf,
                     applyTableFunction,
                     applyTableScanRedirect,
                     redirectTable,

@@ -21,6 +21,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -171,7 +172,8 @@ public class ImplementTableFunctionSource
                     ImmutableSet.of(),
                     0,
                     Optional.empty(),
-                    node.getHandle()));
+                    node.getHandle(),
+                    TupleDomain.all()));
         }
 
         if (node.getSources().size() == 1) {
@@ -193,7 +195,8 @@ public class ImplementTableFunctionSource
                     ImmutableSet.of(),
                     0,
                     Optional.empty(),
-                    node.getHandle()));
+                    node.getHandle(),
+                    TupleDomain.all()));
         }
         Map<String, SourceWithProperties> sources = mapSourcesByName(node.getSources(), node.getTableArgumentProperties());
         ImmutableList.Builder<NodeWithSymbols> intermediateResultsBuilder = ImmutableList.builder();
@@ -288,7 +291,8 @@ public class ImplementTableFunctionSource
                 ImmutableSet.of(),
                 0,
                 Optional.empty(),
-                node.getHandle()));
+                node.getHandle(),
+                TupleDomain.all()));
     }
 
     private static Map<String, SourceWithProperties> mapSourcesByName(List<PlanNode> sources, List<TableArgumentProperties> properties)

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.connector.MockConnectorFactory.ApplyAggregation;
 import io.trino.connector.MockConnectorFactory.ApplyFilter;
+import io.trino.connector.MockConnectorFactory.ApplyFilterForPtf;
 import io.trino.connector.MockConnectorFactory.ApplyJoin;
 import io.trino.connector.MockConnectorFactory.ApplyProjection;
 import io.trino.connector.MockConnectorFactory.ApplyTableFunction;
@@ -148,6 +149,7 @@ public class MockConnector
     private final MockConnectorFactory.ApplyJoin applyJoin;
     private final MockConnectorFactory.ApplyTopN applyTopN;
     private final MockConnectorFactory.ApplyFilter applyFilter;
+    private final MockConnectorFactory.ApplyFilterForPtf applyFilterForPtf;
     private final MockConnectorFactory.ApplyTableFunction applyTableFunction;
     private final MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable;
@@ -194,6 +196,7 @@ public class MockConnector
             ApplyJoin applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
+            ApplyFilterForPtf applyFilterForPtf,
             ApplyTableFunction applyTableFunction,
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<CatalogSchemaTableName>> redirectTable,
@@ -238,6 +241,7 @@ public class MockConnector
         this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
+        this.applyFilterForPtf = requireNonNull(applyFilterForPtf, "applyFilter is null");
         this.applyTableFunction = requireNonNull(applyTableFunction, "applyTableFunction is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.redirectTable = requireNonNull(redirectTable, "redirectTable is null");
@@ -451,6 +455,12 @@ public class MockConnector
         public Optional<ConstraintApplicationResult<ConnectorTableHandle, ColumnHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint<ColumnHandle> constraint)
         {
             return applyFilter.apply(session, handle, constraint);
+        }
+
+        @Override
+        public Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> applyFilter(ConnectorSession session, ConnectorTableFunctionHandle handle, Constraint<Integer> constraint)
+        {
+            return applyFilterForPtf.apply(session, handle, constraint);
         }
 
         @Override

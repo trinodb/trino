@@ -1102,6 +1102,20 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    default Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> applyFilter(ConnectorSession session, ConnectorTableFunctionHandle handle, Constraint<Integer> constraint)
+    {
+        // applyFilter is expected not to be invoked with a "false" constraint
+        if (constraint.getSummary().isNone()) {
+            throw new IllegalArgumentException("constraint summary is NONE");
+        }
+        if (FALSE.equals(constraint.getExpression())) {
+            // DomainTranslator translates FALSE expressions into TupleDomain.none() (via Visitor#visitBooleanLiteral)
+            // so the remaining expression shouldn't be FALSE and therefore the translated connectorExpression shouldn't be FALSE either.
+            throw new IllegalArgumentException("constraint expression is FALSE");
+        }
+        return Optional.empty();
+    }
+
     /**
      * Attempt to push down the provided projections into the table.
      * <p>

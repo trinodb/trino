@@ -149,6 +149,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
 import io.trino.sql.planner.iterative.rule.PushDownProjectionsFromPatternRecognition;
+import io.trino.sql.planner.iterative.rule.PushFilterIntoTableFunction;
 import io.trino.sql.planner.iterative.rule.PushFilterThroughCountAggregation;
 import io.trino.sql.planner.iterative.rule.PushInequalityFilterExpressionBelowJoinRuleSet;
 import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
@@ -454,6 +455,7 @@ public class PlanOptimizers
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
+                                        new PushFilterIntoTableFunction(plannerContext, typeAnalyzer),
                                         new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
                                 .build()),
                 new IterativeOptimizer(
@@ -594,7 +596,8 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(plannerContext),
                                 new PruneTableScanColumns(metadata),
-                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))));
+                                new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false),
+                                new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))));
 
         Set<Rule<?>> pushIntoTableScanRulesExceptJoins = ImmutableSet.<Rule<?>>builder()
                 .addAll(columnPruningRules)
@@ -603,6 +606,7 @@ public class PlanOptimizers
                 .add(new RemoveRedundantIdentityProjections())
                 .add(new PushLimitIntoTableScan(metadata))
                 .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                .add(new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))
                 .add(new PushSampleIntoTableScan(metadata))
                 .add(new PushAggregationIntoTableScan(plannerContext, typeAnalyzer))
                 .add(new PushDistinctLimitIntoTableScan(plannerContext, typeAnalyzer))
@@ -667,6 +671,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))
                                 .build()),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
@@ -732,6 +737,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))
                                 .build()),
                 pushProjectionIntoTableScanOptimizer,
                 // Projection pushdown rules may push reducing projections (e.g. dereferences) below filters for potential
@@ -746,6 +752,7 @@ public class PlanOptimizers
                         ImmutableSet.<Rule<?>>builder()
                                 .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                                 .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
+                                .add(new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))
                                 .build()),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
@@ -811,6 +818,7 @@ public class PlanOptimizers
                 costCalculator,
                 ImmutableSet.of(
                         new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, true),
+                        new PushFilterIntoTableFunction(plannerContext, typeAnalyzer),
                         new RemoveEmptyUnionBranches(),
                         new EvaluateEmptyIntersect(),
                         new RemoveEmptyExceptBranches(),
@@ -906,6 +914,7 @@ public class PlanOptimizers
                         .addAll(simplifyOptimizerRules) // Should be always run after PredicatePushDown
                         .add(new PushPredicateIntoTableScan(plannerContext, typeAnalyzer, false))
                         .add(new RemoveRedundantPredicateAboveTableScan(plannerContext, typeAnalyzer))
+                        .add(new PushFilterIntoTableFunction(plannerContext, typeAnalyzer))
                         .build()));
         // Remove unsupported dynamic filters introduced by PredicatePushdown. Also, cleanup dynamic filters removed by
         // PushPredicateIntoTableScan and RemoveRedundantPredicateAboveTableScan due to those rules replacing table scans with empty ValuesNode

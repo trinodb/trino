@@ -567,7 +567,8 @@ public class AddLocalExchanges
                     prePartitionedInputs,
                     preSortedOrderPrefix,
                     node.getHashSymbol(),
-                    node.getHandle());
+                    node.getHandle(),
+                    node.getEnforcedConstraint());
 
             return deriveProperties(result, child.getProperties());
         }

@@ -398,7 +398,8 @@ public class UnaliasSymbolReferences
                                 ImmutableSet.of(),
                                 0,
                                 node.getHashSymbol().map(mapper::map),
-                                node.getHandle()),
+                                node.getHandle(),
+                                node.getEnforcedConstraint()),
                         mapping);
             }
 

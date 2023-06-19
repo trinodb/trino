@@ -57,6 +57,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -596,6 +597,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ConstraintApplicationResult<TableHandle, ColumnHandle>> applyFilter(Session session, TableHandle table, Constraint constraint)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> applyFilter(Session session, TableFunctionHandle handle, Constraint<Integer> constraint)
     {
         return Optional.empty();
     }

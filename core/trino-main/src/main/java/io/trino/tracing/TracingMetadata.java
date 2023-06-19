@@ -76,6 +76,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -890,6 +891,19 @@ public class TracingMetadata
         Span span = startSpan("applyFilter", table);
         try (var ignored = scopedSpan(span)) {
             return delegate.applyFilter(session, table, constraint);
+        }
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> applyFilter(Session session, TableFunctionHandle handle, Constraint<Integer> constraint)
+    {
+        Span span = startSpan("applyFilter");
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName());
+            span.setAttribute(TrinoAttributes.HANDLE, handle.toString());
+        }
+        try (var ignored = scopedSpan(span)) {
+            return delegate.applyFilter(session, handle, constraint);
         }
     }
 

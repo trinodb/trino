@@ -3783,7 +3783,8 @@ public abstract class BaseHiveConnectorTest
                     QualifiedObjectName name = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
                     TableHandle table = metadata.getTableHandle(transactionSession, name)
                             .orElseThrow(() -> new AssertionError("table not found: " + name));
-                    table = metadata.applyFilter(transactionSession, table, Constraint.alwaysTrue())
+                    Constraint<ColumnHandle> constraint = Constraint.alwaysTrue();
+                    table = metadata.applyFilter(transactionSession, table, constraint)
                             .orElseThrow(() -> new AssertionError("applyFilter did not return a result"))
                             .getHandle();
                     return propertyGetter.apply((HiveTableHandle) table.getConnectorHandle());

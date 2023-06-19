@@ -330,7 +330,7 @@ public class PushPredicateIntoTableScan
         verify(newTablePartitioning.equals(oldTablePartitioning), "Partitioning must not change after predicate is pushed down");
     }
 
-    private static SplitExpression splitExpression(PlannerContext plannerContext, Expression predicate)
+    public static SplitExpression splitExpression(PlannerContext plannerContext, Expression predicate)
     {
         Metadata metadata = plannerContext.getMetadata();
 
@@ -386,7 +386,7 @@ public class PushPredicateIntoTableScan
         return expression;
     }
 
-    public static TupleDomain<ColumnHandle> computeEnforced(TupleDomain<ColumnHandle> predicate, TupleDomain<ColumnHandle> unenforced)
+    public static <T> TupleDomain<T> computeEnforced(TupleDomain<T> predicate, TupleDomain<T> unenforced)
     {
         // The engine requested the connector to apply a filter with a non-none TupleDomain.
         // A TupleDomain is effectively a list of column-Domain pairs.
@@ -398,23 +398,23 @@ public class PushPredicateIntoTableScan
         // In all 3 cases shown above, the unenforced is not TupleDomain.none().
         checkArgument(!unenforced.isNone(), "Unexpected unenforced none tuple domain");
 
-        Map<ColumnHandle, Domain> predicateDomains = predicate.getDomains().get();
-        Map<ColumnHandle, Domain> unenforcedDomains = unenforced.getDomains().get();
-        ImmutableMap.Builder<ColumnHandle, Domain> enforcedDomainsBuilder = ImmutableMap.builder();
-        for (Map.Entry<ColumnHandle, Domain> entry : predicateDomains.entrySet()) {
-            ColumnHandle predicateColumnHandle = entry.getKey();
+        Map<T, Domain> predicateDomains = predicate.getDomains().get();
+        Map<T, Domain> unenforcedDomains = unenforced.getDomains().get();
+        ImmutableMap.Builder<T, Domain> enforcedDomainsBuilder = ImmutableMap.builder();
+        for (Map.Entry<T, Domain> entry : predicateDomains.entrySet()) {
+            T column = entry.getKey();
             Domain predicateDomain = entry.getValue();
-            if (unenforcedDomains.containsKey(predicateColumnHandle)) {
-                Domain unenforcedDomain = unenforcedDomains.get(predicateColumnHandle);
+            if (unenforcedDomains.containsKey(column)) {
+                Domain unenforcedDomain = unenforcedDomains.get(column);
                 checkArgument(
                         predicateDomain.contains(unenforcedDomain),
                         "Unexpected unenforced domain %s on column %s. Expected all, none, or a domain equal to or narrower than %s",
                         unenforcedDomain,
-                        predicateColumnHandle,
+                        column,
                         predicateDomain);
             }
             else {
-                enforcedDomainsBuilder.put(predicateColumnHandle, predicateDomain);
+                enforcedDomainsBuilder.put(column, predicateDomain);
             }
         }
         return TupleDomain.withColumnDomains(enforcedDomainsBuilder.buildOrThrow());
@@ -426,7 +426,7 @@ public class PushPredicateIntoTableScan
         return pruneWithPredicateExpression;
     }
 
-    private static class SplitExpression
+    public static class SplitExpression
     {
         private final Expression dynamicFilter;
         private final Expression deterministicPredicate;

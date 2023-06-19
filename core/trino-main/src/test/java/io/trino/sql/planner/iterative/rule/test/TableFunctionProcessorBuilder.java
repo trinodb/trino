@@ -16,7 +16,9 @@ package io.trino.sql.planner.iterative.rule.test;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.TableFunctionHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
@@ -45,6 +47,8 @@ public class TableFunctionProcessorBuilder
     private Set<Symbol> prePartitioned = ImmutableSet.of();
     private int preSorted;
     private Optional<Symbol> hashSymbol = Optional.empty();
+    private CatalogHandle catalogHandle = TEST_CATALOG_HANDLE;
+    private ConnectorTableFunctionHandle connectorTableFunctionHandle;
 
     public TableFunctionProcessorBuilder() {}
 
@@ -114,6 +118,18 @@ public class TableFunctionProcessorBuilder
         return this;
     }
 
+    public TableFunctionProcessorBuilder catalogHandle(CatalogHandle catalogHandle)
+    {
+        this.catalogHandle = catalogHandle;
+        return this;
+    }
+
+    public TableFunctionProcessorBuilder connectorTableFunctionHandle(ConnectorTableFunctionHandle connectorTableFunctionHandle)
+    {
+        this.connectorTableFunctionHandle = connectorTableFunctionHandle;
+        return this;
+    }
+
     public TableFunctionProcessorNode build(PlanNodeIdAllocator idAllocator)
     {
         return new TableFunctionProcessorNode(
@@ -129,6 +145,11 @@ public class TableFunctionProcessorBuilder
                 prePartitioned,
                 preSorted,
                 hashSymbol,
-                new TableFunctionHandle(TEST_CATALOG_HANDLE, new ConnectorTableFunctionHandle() {}, TestingTransactionHandle.create()));
+                new TableFunctionHandle(
+                        catalogHandle,
+                        connectorTableFunctionHandle == null ?
+                                new ConnectorTableFunctionHandle() {} : connectorTableFunctionHandle,
+                        TestingTransactionHandle.create()),
+                TupleDomain.all());
     }
 }

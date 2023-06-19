@@ -14,14 +14,17 @@
 package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.TableFunctionHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
+import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,6 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.Objects.requireNonNull;
@@ -70,6 +74,9 @@ public class TableFunctionProcessorNode
 
     private final TableFunctionHandle handle;
 
+    @Nullable // null on workers
+    private final TupleDomain<Integer> enforcedConstraint;
+
     @JsonCreator
     public TableFunctionProcessorNode(
             @JsonProperty("id") PlanNodeId id,
@@ -85,6 +92,39 @@ public class TableFunctionProcessorNode
             @JsonProperty("preSorted") int preSorted,
             @JsonProperty("hashSymbol") Optional<Symbol> hashSymbol,
             @JsonProperty("handle") TableFunctionHandle handle)
+    {
+        this(
+                id,
+                name,
+                properOutputs,
+                source,
+                pruneWhenEmpty,
+                passThroughSpecifications,
+                requiredSymbols,
+                markerSymbols,
+                specification,
+                prePartitioned,
+                preSorted,
+                hashSymbol,
+                handle,
+                null);
+    }
+
+    public TableFunctionProcessorNode(
+            PlanNodeId id,
+            String name,
+            List<Symbol> properOutputs,
+            Optional<PlanNode> source,
+            boolean pruneWhenEmpty,
+            List<PassThroughSpecification> passThroughSpecifications,
+            List<List<Symbol>> requiredSymbols,
+            Optional<Map<Symbol, Symbol>> markerSymbols,
+            Optional<DataOrganizationSpecification> specification,
+            Set<Symbol> prePartitioned,
+            int preSorted,
+            Optional<Symbol> hashSymbol,
+            TableFunctionHandle handle,
+            TupleDomain<Integer> enforcedConstraint)
     {
         super(id);
         this.name = requireNonNull(name, "name is null");
@@ -114,6 +154,7 @@ public class TableFunctionProcessorNode
         checkArgument(preSorted == 0 || partitionBy.equals(prePartitioned), "to specify pre-sorted symbols, it is required that all partitioning symbols are pre-partitioned");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
         this.handle = requireNonNull(handle, "handle is null");
+        this.enforcedConstraint = enforcedConstraint;
     }
 
     @JsonProperty
@@ -211,6 +252,14 @@ public class TableFunctionProcessorNode
         return symbols.build();
     }
 
+    @Nullable
+    @JsonIgnore
+    public TupleDomain<Integer> getEnforcedConstraint()
+    {
+        checkState(enforcedConstraint != null, "enforcedConstraint should only be used in planner. It is not transported to workers.");
+        return enforcedConstraint;
+    }
+
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
@@ -234,6 +283,7 @@ public class TableFunctionProcessorNode
                 prePartitioned,
                 preSorted,
                 hashSymbol,
-                handle);
+                handle,
+                enforcedConstraint);
     }
 }

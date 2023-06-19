@@ -416,7 +416,8 @@ public class SymbolMapper
                         .collect(toImmutableSet()),
                 newSpecification.map(SpecificationWithPreSortedPrefix::preSorted).orElse(node.getPreSorted()),
                 node.getHashSymbol().map(this::map),
-                node.getHandle());
+                node.getHandle(),
+                node.getEnforcedConstraint());
     }
 
     public LimitNode map(LimitNode node, PlanNode source)

@@ -82,6 +82,7 @@ public class PruneTableFunctionProcessorColumns
                 node.getPrePartitioned(),
                 node.getPreSorted(),
                 node.getHashSymbol(),
-                node.getHandle()));
+                node.getHandle(),
+                node.getEnforcedConstraint()));
     }
 }

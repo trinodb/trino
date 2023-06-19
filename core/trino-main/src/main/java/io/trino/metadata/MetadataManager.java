@@ -91,6 +91,7 @@ import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.QualifiedFunctionName;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
@@ -1826,6 +1827,16 @@ public final class MetadataManager
                 metadata.applyFilter(connectorSession, table.getConnectorHandle(), constraint);
         return connectorTableHandleObjectConstraintApplicationResult
                 .map(result -> result.transform(handle -> new TableHandle(catalogHandle, handle, table.getTransaction())));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableFunctionHandle, Integer>> applyFilter(Session session, TableFunctionHandle handle, Constraint<Integer> constraint)
+    {
+        CatalogHandle catalogHandle = handle.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+        return metadata.applyFilter(connectorSession, handle.getFunctionHandle(), constraint);
     }
 
     @Override
