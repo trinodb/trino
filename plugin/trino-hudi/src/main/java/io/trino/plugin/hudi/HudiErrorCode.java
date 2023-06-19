@@ -31,7 +31,9 @@ public enum HudiErrorCode
     HUDI_CURSOR_ERROR(6, EXTERNAL),
     HUDI_FILESYSTEM_ERROR(7, EXTERNAL),
     HUDI_PARTITION_NOT_FOUND(8, EXTERNAL),
-    HUDI_UNSUPPORTED_TABLE_TYPE(9, EXTERNAL);
+    // HUDI_UNSUPPORTED_TABLE_TYPE(9, EXTERNAL), // Unused. Could be mistaken with HUDI_UNKNOWN_TABLE_TYPE.
+
+    /**/;
 
     private final ErrorCode errorCode;
 
