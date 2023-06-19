@@ -14,6 +14,7 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
+import io.trino.tests.product.hudi.TestHudiHiveTablesCompatibility;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
@@ -31,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * @see TestIcebergRedirectionToHive
  * @see TestIcebergHiveViewsCompatibility
+ * @see TestHudiHiveTablesCompatibility
  */
 public class TestIcebergHiveTablesCompatibility
         extends ProductTest
