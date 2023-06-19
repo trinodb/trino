@@ -1287,6 +1287,7 @@ class RelationPlanner
 
     private RelationPlan planUnnest(PlanBuilder subPlan, Unnest node, List<Symbol> replicatedColumns, Optional<Expression> filter, Join.Type type, Scope outputScope)
     {
+        subPlan = subqueryPlanner.handleSubqueries(subPlan, node.getExpressions(), analysis.getSubqueries(node));
         subPlan = subPlan.appendProjections(node.getExpressions(), symbolAllocator, idAllocator);
 
         Map<Field, Symbol> allocations = analysis.getOutputDescriptor(node)
