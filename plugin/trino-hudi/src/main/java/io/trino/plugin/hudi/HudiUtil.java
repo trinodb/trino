@@ -80,14 +80,11 @@ public final class HudiUtil
             Location metaLocation = baseLocation.appendPath(METAFOLDER_NAME);
             FileIterator iterator = trinoFileSystem.listFiles(metaLocation);
             // If there is at least one file in the .hoodie directory, it's a valid Hudi table
-            if (!iterator.hasNext()) {
-                return false;
-            }
+            return iterator.hasNext();
         }
         catch (IOException e) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed to check for Hudi table at location: " + baseLocation, e);
         }
-        return true;
     }
 
     public static boolean partitionMatchesPredicates(
