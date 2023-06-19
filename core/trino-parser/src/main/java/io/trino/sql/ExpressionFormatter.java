@@ -177,10 +177,9 @@ public final class ExpressionFormatter
         @Override
         protected String visitAtTimeZone(AtTimeZone node, Void context)
         {
-            return new StringBuilder()
-                    .append(process(node.getValue(), context))
-                    .append(" AT TIME ZONE ")
-                    .append(process(node.getTimeZone(), context)).toString();
+            return process(node.getValue(), context) +
+                    " AT TIME ZONE " +
+                    process(node.getTimeZone(), context);
         }
 
         @Override
@@ -716,17 +715,11 @@ public final class ExpressionFormatter
         @Override
         protected String visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
         {
-            return new StringBuilder()
-                    .append("(")
-                    .append(process(node.getValue(), context))
-                    .append(' ')
-                    .append(node.getOperator().getValue())
-                    .append(' ')
-                    .append(node.getQuantifier().toString())
-                    .append(' ')
-                    .append(process(node.getSubquery(), context))
-                    .append(")")
-                    .toString();
+            return "(%s %s %s %s)".formatted(
+                    process(node.getValue(), context),
+                    node.getOperator().getValue(),
+                    node.getQuantifier(),
+                    process(node.getSubquery(), context));
         }
 
         @Override
