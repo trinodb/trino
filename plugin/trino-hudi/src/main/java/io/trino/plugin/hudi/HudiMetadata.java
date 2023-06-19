@@ -146,14 +146,15 @@ public class HudiMetadata
         if (!isHudiTable(session, tableOptional.get())) {
             return Optional.empty();
         }
-        switch (name.getTableType()) {
-            case DATA:
-                break;
-            case TIMELINE:
+        return switch (name.getTableType()) {
+            case DATA ->
+                // TODO (https://github.com/trinodb/trino/issues/17973) remove DATA table type
+                    Optional.empty();
+            case TIMELINE -> {
                 SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
-                return Optional.of(new TimelineTable(fileSystemFactory.create(session), systemTableName, tableOptional.get()));
-        }
-        return Optional.empty();
+                yield Optional.of(new TimelineTable(fileSystemFactory.create(session), systemTableName, tableOptional.get()));
+            }
+        };
     }
 
     @Override
