@@ -1275,12 +1275,24 @@ public class HiveMetadata
 
     private static Location getValidatedExternalLocation(String location)
     {
+        Location validated;
         try {
-            return Location.of(location);
+            validated = Location.of(location);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
         }
+
+        // TODO (https://github.com/trinodb/trino/issues/17803) We cannot accept locations with double slash until all relevant Hive connector components are migrated off Hadoop Path.
+        // Hadoop Path "normalizes location", e.g.:
+        //  - removes double slashes (such locations are rejected),
+        //  - removes trailing slash (such locations are accepted; foo/bar and foo/bar/ are treated as equivalent, and rejecting locations with trailing slash could pose UX issues)
+        //  - replaces file:///<local-path> with file:/<local-path> (such locations are accepted).
+        if (validated.path().contains("//")) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Unsupported location that cannot be internally represented: " + location);
+        }
+
+        return validated;
     }
 
     private void checkExternalPath(HdfsContext context, Path path)

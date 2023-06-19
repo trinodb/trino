@@ -453,7 +453,10 @@ public final class HiveWriteUtils
             }
         }
 
-        return Location.of(location).appendPath(escapeTableName(tableName));
+        // Note: this results in `databaseLocation` being a "normalized location", e.g. not containing double slashes.
+        // TODO (https://github.com/trinodb/trino/issues/17803): We need to use normalized location until all relevant Hive connector components are migrated off Hadoop Path.
+        Location databaseLocation = Location.of(databasePath.toString());
+        return databaseLocation.appendPath(escapeTableName(tableName));
     }
 
     public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
