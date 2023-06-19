@@ -16,6 +16,8 @@ package io.trino.tests.product.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tests.product.deltalake.TestHiveAndDeltaLakeCompatibility;
+import io.trino.tests.product.hudi.TestHudiHiveViewsCompatibility;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,6 +36,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Tests interactions between Iceberg and Hive connectors, when one tries to read a view created by the other.
  *
  * @see TestIcebergHiveTablesCompatibility
+ * @see TestHiveAndDeltaLakeCompatibility
+ * @see TestHudiHiveViewsCompatibility
  */
 public class TestIcebergHiveViewsCompatibility
         extends ProductTest
