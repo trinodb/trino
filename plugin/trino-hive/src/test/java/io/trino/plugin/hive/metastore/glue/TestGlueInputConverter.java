@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.PartitionInput;
+import com.amazonaws.services.glue.model.SkewedInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableList;
@@ -109,5 +110,7 @@ public class TestGlueInputConverter
             assertEquals(actual.getBucketColumns(), bucketProperty.getBucketedBy());
             assertEquals(actual.getNumberOfBuckets().intValue(), bucketProperty.getBucketCount());
         }
+
+        assertEquals(actual.getSkewedInfo(), new SkewedInfo());
     }
 }

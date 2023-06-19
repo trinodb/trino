@@ -17,6 +17,7 @@ import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.Order;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.SerDeInfo;
+import com.amazonaws.services.glue.model.SkewedInfo;
 import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
@@ -96,6 +97,7 @@ public final class GlueInputConverter
         sd.setInputFormat(storage.getStorageFormat().getInputFormatNullable());
         sd.setOutputFormat(storage.getStorageFormat().getOutputFormatNullable());
         sd.setParameters(ImmutableMap.of());
+        sd.setSkewedInfo(new SkewedInfo());
 
         Optional<HiveBucketProperty> bucketProperty = storage.getBucketProperty();
         if (bucketProperty.isPresent()) {
