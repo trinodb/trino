@@ -2453,6 +2453,13 @@ public class TestAnalyzer
                 "   c(z) AS (SELECT y * 10 FROM b)" +
                 "SELECT * FROM a, b, c");
 
+        analyze("""
+                WITH
+                    a(x) AS (SELECT ARRAY[1, 2, 3]),
+                    b AS (SELECT * FROM (VALUES 4), UNNEST ((SELECT x FROM a)))
+                SELECT * FROM b
+                """);
+
         analyze("WITH RECURSIVE a(x) AS (SELECT 1)," +
                 "   b(y) AS (" +
                 "       SELECT x FROM a" +

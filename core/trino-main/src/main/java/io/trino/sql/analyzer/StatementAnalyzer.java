@@ -1615,6 +1615,7 @@ class StatementAnalyzer
                 List<Field> expressionOutputs = new ArrayList<>();
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
+                analysis.recordSubqueries(node, expressionAnalysis);
                 Type expressionType = expressionAnalysis.getType(expression);
                 if (expressionType instanceof ArrayType) {
                     Type elementType = ((ArrayType) expressionType).getElementType();

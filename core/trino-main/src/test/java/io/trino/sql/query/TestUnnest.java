@@ -235,4 +235,29 @@ public class TestUnnest
                 + "     AS t(a) "
                 + "     CROSS JOIN UNNEST(a) t(x, y)");
     }
+
+    @Test
+    void testSubqueries()
+    {
+        assertThat(assertions.query(
+                """
+                WITH
+                    a(x) AS (SELECT ARRAY[1, 2, 3]),
+                    b AS (SELECT * FROM (VALUES 4), UNNEST ((SELECT x FROM a)))
+                SELECT * FROM b
+                """))
+                .matches("VALUES (4, 1), (4, 2), (4, 3)");
+
+        assertThat(assertions.query("SELECT * FROM UNNEST ((SELECT ARRAY[1, 2, 3]))"))
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query("SELECT * FROM (VALUES ARRAY[1, 2, 3]) t(a), UNNEST ((SELECT a))"))
+                .matches(
+                        """
+                        VALUES
+                            (ARRAY[1, 2, 3], 1),
+                            (ARRAY[1, 2, 3], 2),
+                            (ARRAY[1, 2, 3], 3)
+                        """);
+    }
 }
