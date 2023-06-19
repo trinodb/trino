@@ -312,8 +312,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          S3_BUCKET: "trino-ci-test"
-          S3_BUCKET_ENDPOINT: "https://s3.us-east-2.amazonaws.com"
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_BUCKET_ENDPOINT: "https://s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
@@ -327,9 +327,9 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: "trino-ci-test"
-          S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
@@ -642,8 +642,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: trino-ci-s3fs-test
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_S3FS_TESTS_BUCKET }}
         if: >-
           contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests') &&
           (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.AWS_ACCESS_KEY_ID != '' || env.AWS_SECRET_ACCESS_KEY != '')
@@ -657,8 +657,8 @@ jobs:
           ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: trino-ci-test
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
         # Run tests if any of the secrets is present. Do not skip tests when one secret renamed, or secret name has a typo.
         if: >-
@@ -704,8 +704,8 @@ jobs:
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: us-east-2
-          S3_BUCKET: trino-ci-test
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
@@ -1090,8 +1090,8 @@ jobs:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
-          S3_BUCKET: trino-ci-test
-          AWS_REGION: us-east-2
+          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           DATABRICKS_73_JDBC_URL: ${{ secrets.DATABRICKS_73_JDBC_URL }}
