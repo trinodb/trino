@@ -16,6 +16,7 @@ package io.trino.client.auth.kerberos;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.security.auth.module.Krb5LoginModule;
+import io.trino.client.ClientException;
 import org.ietf.jgss.GSSException;
 
 import javax.security.auth.Subject;
@@ -30,11 +31,12 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.Boolean.getBoolean;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag.REQUIRED;
 
-public class LoginBasedSubjectProvider
-        implements SubjectProvider
+public class LoginBasedUnconstrainedContextProvider
+        extends AbstractUnconstrainedContextProvider
 {
     private final Optional<String> principal;
     private final Optional<File> keytab;
@@ -43,7 +45,7 @@ public class LoginBasedSubjectProvider
     @GuardedBy("this")
     private LoginContext loginContext;
 
-    public LoginBasedSubjectProvider(
+    public LoginBasedUnconstrainedContextProvider(
             Optional<String> principal,
             Optional<File> kerberosConfig,
             Optional<File> keytab,
@@ -78,43 +80,47 @@ public class LoginBasedSubjectProvider
 
     @Override
     public void refresh()
-            throws LoginException, GSSException
+            throws GSSException
     {
         // TODO: do we need to call logout() on the LoginContext?
-
-        loginContext = new LoginContext("", null, null, new Configuration()
-        {
-            @Override
-            public AppConfigurationEntry[] getAppConfigurationEntry(String name)
+        try {
+            loginContext = new LoginContext("", null, null, new Configuration()
             {
-                ImmutableMap.Builder<String, String> options = ImmutableMap.builder();
-                options.put("refreshKrb5Config", "true");
-                options.put("doNotPrompt", "true");
-                options.put("useKeyTab", "true");
+                @Override
+                public AppConfigurationEntry[] getAppConfigurationEntry(String name)
+                {
+                    ImmutableMap.Builder<String, String> options = ImmutableMap.builder();
+                    options.put("refreshKrb5Config", "true");
+                    options.put("doNotPrompt", "true");
+                    options.put("useKeyTab", "true");
 
-                if (getBoolean("trino.client.debugKerberos")) {
-                    options.put("debug", "true");
+                    if (getBoolean("trino.client.debugKerberos")) {
+                        options.put("debug", "true");
+                    }
+
+                    keytab.ifPresent(file -> options.put("keyTab", file.getAbsolutePath()));
+
+                    credentialCache.ifPresent(file -> {
+                        options.put("ticketCache", file.getAbsolutePath());
+                        options.put("renewTGT", "true");
+                    });
+
+                    if (!keytab.isPresent() || credentialCache.isPresent()) {
+                        options.put("useTicketCache", "true");
+                    }
+
+                    principal.ifPresent(value -> options.put("principal", value));
+
+                    return new AppConfigurationEntry[] {
+                            new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow())
+                    };
                 }
+            });
 
-                keytab.ifPresent(file -> options.put("keyTab", file.getAbsolutePath()));
-
-                credentialCache.ifPresent(file -> {
-                    options.put("ticketCache", file.getAbsolutePath());
-                    options.put("renewTGT", "true");
-                });
-
-                if (!keytab.isPresent() || credentialCache.isPresent()) {
-                    options.put("useTicketCache", "true");
-                }
-
-                principal.ifPresent(value -> options.put("principal", value));
-
-                return new AppConfigurationEntry[] {
-                        new AppConfigurationEntry(Krb5LoginModule.class.getName(), REQUIRED, options.buildOrThrow())
-                };
-            }
-        });
-
-        loginContext.login();
+            loginContext.login();
+        }
+        catch (LoginException e) {
+            throw new ClientException(format("Kerberos login error for [%s]: %s", principal.orElse("not defined"), e.getMessage()), e);
+        }
     }
 }
