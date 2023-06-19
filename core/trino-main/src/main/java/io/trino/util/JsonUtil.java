@@ -102,6 +102,8 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
+    private JsonUtil() {}
+
     public static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
 
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
@@ -110,8 +112,6 @@ public final class JsonUtil
     private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(JSON_FACTORY);
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
-
-    private JsonUtil() {}
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
