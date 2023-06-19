@@ -52,14 +52,15 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
-import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
-import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.util.HiveUtil.columnMetadataGetter;
 import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
+import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
+import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
 import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -100,9 +101,14 @@ public class HudiMetadata
         if (table.isEmpty()) {
             return null;
         }
-        if (!isHudiTable(session, table.get())) {
+        if (!isHudiTable(table.get())) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
+        Location location = Location.of(table.get().getStorage().getLocation());
+        if (!hudiMetadataExists(fileSystemFactory.create(session), location)) {
+            throw new TrinoException(HUDI_BAD_DATA, "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, location));
+        }
+
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -110,19 +116,6 @@ public class HudiMetadata
                 COPY_ON_WRITE,
                 TupleDomain.all(),
                 TupleDomain.all());
-    }
-
-    private boolean isHudiTable(ConnectorSession session, Table table)
-    {
-        if (!MANAGED_TABLE.name().equals(table.getTableType()) && !EXTERNAL_TABLE.name().equals(table.getTableType())) {
-            // Views are not Hudi tables
-            return false;
-        }
-        if (table.getStorage().getOptionalLocation().isEmpty() || table.getStorage().getOptionalLocation().get().isEmpty()) {
-            // No location or empty location cannot be a valid Hudi table
-            return false;
-        }
-        return HudiUtil.isHudiTable(fileSystemFactory.create(session), Location.of(table.getStorage().getLocation()));
     }
 
     @Override
@@ -143,7 +136,7 @@ public class HudiMetadata
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
-        if (!isHudiTable(session, tableOptional.get())) {
+        if (!isHudiTable(tableOptional.get())) {
             return Optional.empty();
         }
         return switch (name.getTableType()) {
