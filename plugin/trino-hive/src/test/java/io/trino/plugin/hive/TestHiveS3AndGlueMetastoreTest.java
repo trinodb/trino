@@ -129,7 +129,8 @@ public class TestHiveS3AndGlueMetastoreTest
         assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
         String actualTableLocation = getTableLocation(tableName);
-        assertThat(actualTableLocation).isEqualTo(location);
+        String expectedLocation = location.endsWith("/") ? location.substring(0, location.length() - 1) : location;
+        assertThat(actualTableLocation).isEqualTo(expectedLocation);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");

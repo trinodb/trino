@@ -15,18 +15,21 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.filesystem.Location;
+import org.apache.hadoop.fs.Path;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class LocationHandle
 {
-    private final Location targetPath;
-    private final Location writePath;
+    private final Path targetPath;
+    private final Path writePath;
     private final WriteMode writeMode;
 
-    public LocationHandle(Location targetPath, Location writePath, WriteMode writeMode)
+    public LocationHandle(
+            Path targetPath,
+            Path writePath,
+            WriteMode writeMode)
     {
         if (writeMode.isWritePathSameAsTargetPath() && !targetPath.equals(writePath)) {
             throw new IllegalArgumentException(format("targetPath is expected to be same as writePath for writeMode %s", writeMode));
@@ -43,19 +46,19 @@ public class LocationHandle
             @JsonProperty("writeMode") WriteMode writeMode)
     {
         this(
-                Location.of(requireNonNull(targetPath, "targetPath is null")),
-                Location.of(requireNonNull(writePath, "writePath is null")),
+                new Path(requireNonNull(targetPath, "targetPath is null")),
+                new Path(requireNonNull(writePath, "writePath is null")),
                 writeMode);
     }
 
     // This method should only be called by LocationService
-    Location getTargetPath()
+    Path getTargetPath()
     {
         return targetPath;
     }
 
     // This method should only be called by LocationService
-    Location getWritePath()
+    Path getWritePath()
     {
         return writePath;
     }

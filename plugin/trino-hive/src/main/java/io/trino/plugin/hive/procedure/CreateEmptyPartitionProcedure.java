@@ -137,8 +137,8 @@ public class CreateEmptyPartitionProcedure
                         new PartitionUpdate(
                                 partitionName,
                                 UpdateMode.NEW,
-                                writeInfo.writePath().toString(),
-                                writeInfo.targetPath().toString(),
+                                writeInfo.getWritePath(),
+                                writeInfo.getTargetPath(),
                                 ImmutableList.of(),
                                 0,
                                 0,

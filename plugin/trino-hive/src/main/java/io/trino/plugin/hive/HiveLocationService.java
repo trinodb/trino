@@ -14,7 +14,6 @@
 package io.trino.plugin.hive;
 
 import com.google.inject.Inject;
-import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
@@ -57,32 +56,32 @@ public class HiveLocationService
     }
 
     @Override
-    public Location forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
+    public Path forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName)
     {
         HdfsContext context = new HdfsContext(session);
-        Location targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
+        Path targetPath = getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName);
 
         // verify the target directory for table
-        if (pathExists(context, hdfsEnvironment, new Path(targetPath.toString()))) {
+        if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
         return targetPath;
     }
 
     @Override
-    public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation)
+    public LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
         HdfsContext context = new HdfsContext(session);
-        Location targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
+        Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
-        if (pathExists(context, hdfsEnvironment, new Path(targetPath.toString()))) {
+        if (pathExists(context, hdfsEnvironment, targetPath)) {
             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
         if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), externalLocation.isPresent())) {
-            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
+            Path writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_NEW_DIRECTORY);
@@ -92,10 +91,10 @@ public class HiveLocationService
     public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
         HdfsContext context = new HdfsContext(session);
-        Location targetPath = Location.of(table.getStorage().getLocation());
+        Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(context, new Path(targetPath.toString()), false) && !isTransactionalTable(table.getParameters())) {
-            Location writePath = createTemporaryPath(context, hdfsEnvironment, new Path(targetPath.toString()), temporaryStagingDirectoryPath);
+            Path writePath = createTemporaryPath(context, hdfsEnvironment, targetPath, temporaryStagingDirectoryPath);
             return new LocationHandle(targetPath, writePath, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
@@ -105,7 +104,7 @@ public class HiveLocationService
     public LocationHandle forOptimize(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
         // For OPTIMIZE write result files directly to table directory; that is needed by the commit logic in HiveMetadata#finishTableExecute
-        Location targetPath = Location.of(table.getStorage().getLocation());
+        Path targetPath = new Path(table.getStorage().getLocation());
         return new LocationHandle(targetPath, targetPath, DIRECT_TO_TARGET_EXISTING_DIRECTORY);
     }
 
@@ -141,23 +140,27 @@ public class HiveLocationService
         if (partition.isPresent()) {
             // existing partition
             WriteMode writeMode = locationHandle.getWriteMode();
-            Location targetPath = Location.of(partition.get().getStorage().getLocation());
-            Location writePath = getPartitionWritePath(locationHandle, partitionName, writeMode, targetPath);
+            Path targetPath = new Path(partition.get().getStorage().getLocation());
+            Path writePath = getPartitionWritePath(locationHandle, partitionName, writeMode, targetPath);
             return new WriteInfo(targetPath, writePath, writeMode);
         }
         // new partition
         return new WriteInfo(
-                locationHandle.getTargetPath().appendPath(partitionName),
-                locationHandle.getWritePath().appendPath(partitionName),
+                new Path(locationHandle.getTargetPath(), partitionName),
+                new Path(locationHandle.getWritePath(), partitionName),
                 locationHandle.getWriteMode());
     }
 
-    private static Location getPartitionWritePath(LocationHandle locationHandle, String partitionName, WriteMode writeMode, Location targetPath)
+    private Path getPartitionWritePath(LocationHandle locationHandle, String partitionName, WriteMode writeMode, Path targetPath)
     {
-        return switch (writeMode) {
-            case STAGE_AND_MOVE_TO_TARGET_DIRECTORY -> locationHandle.getWritePath().appendPath(partitionName);
-            case DIRECT_TO_TARGET_EXISTING_DIRECTORY -> targetPath;
-            case DIRECT_TO_TARGET_NEW_DIRECTORY -> throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
-        };
+        switch (writeMode) {
+            case STAGE_AND_MOVE_TO_TARGET_DIRECTORY:
+                return new Path(locationHandle.getWritePath(), partitionName);
+            case DIRECT_TO_TARGET_EXISTING_DIRECTORY:
+                return targetPath;
+            case DIRECT_TO_TARGET_NEW_DIRECTORY:
+                throw new UnsupportedOperationException(format("inserting into existing partition is not supported for %s", writeMode));
+        }
+        throw new UnsupportedOperationException("Unexpected write mode: " + writeMode);
     }
 }

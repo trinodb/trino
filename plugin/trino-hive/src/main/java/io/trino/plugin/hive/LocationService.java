@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.filesystem.Location;
-import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
@@ -26,9 +25,9 @@ import static java.util.Objects.requireNonNull;
 
 public interface LocationService
 {
-    Location forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
+    Path forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName);
 
-    LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Location> externalLocation);
+    LocationHandle forNewTableAsSelect(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation);
 
     LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table);
 
@@ -48,20 +47,23 @@ public interface LocationService
      */
     WriteInfo getPartitionWriteInfo(LocationHandle locationHandle, Optional<Partition> partition, String partitionName);
 
-    record WriteInfo(Location targetPath, Location writePath, WriteMode writeMode)
+    class WriteInfo
     {
-        public WriteInfo
+        private final Path targetPath;
+        private final Path writePath;
+        private final LocationHandle.WriteMode writeMode;
+
+        public WriteInfo(Path targetPath, Path writePath, LocationHandle.WriteMode writeMode)
         {
-            requireNonNull(targetPath, "targetPath is null");
-            requireNonNull(writePath, "writePath is null");
-            requireNonNull(writeMode, "writeMode is null");
+            this.targetPath = requireNonNull(targetPath, "targetPath is null");
+            this.writePath = requireNonNull(writePath, "writePath is null");
+            this.writeMode = requireNonNull(writeMode, "writeMode is null");
         }
 
         /**
          * Target path for the partition, unpartitioned table, or the query.
          */
-        @Override
-        public Location targetPath()
+        public Path getTargetPath()
         {
             return targetPath;
         }
@@ -71,10 +73,14 @@ public interface LocationService
          * <p>
          * It may be the same as {@code targetPath}.
          */
-        @Override
-        public Location writePath()
+        public Path getWritePath()
         {
             return writePath;
+        }
+
+        public LocationHandle.WriteMode getWriteMode()
+        {
+            return writeMode;
         }
     }
 }

@@ -256,17 +256,17 @@ public class HiveWriterFactory
         this.dataColumns = dataColumns.build();
         this.isCreateTransactionalTable = isCreateTable && transaction.isTransactional();
 
-        Location writePath;
+        Path writePath;
         if (isCreateTable) {
             this.table = null;
             WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
-            checkArgument(writeInfo.writeMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
-            writePath = writeInfo.writePath();
+            checkArgument(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "CREATE TABLE write mode cannot be DIRECT_TO_TARGET_EXISTING_DIRECTORY");
+            writePath = writeInfo.getWritePath();
         }
         else {
             this.table = pageSinkMetadataProvider.getTable()
                     .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName)));
-            writePath = locationService.getQueryWriteInfo(locationHandle).writePath();
+            writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
         }
 
         this.bucketCount = requireNonNull(bucketCount, "bucketCount is null");
@@ -289,12 +289,12 @@ public class HiveWriterFactory
                 .filter(entry -> entry.getValue() != null)
                 .collect(toImmutableMap(Entry::getKey, entry -> entry.getValue().toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(writePath.toString()));
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
         this.conf = toJobConf(conf);
 
         // make sure the FileSystem is created with the correct Configuration object
         try {
-            hdfsEnvironment.getFileSystem(session.getIdentity(), new Path(writePath.toString()), conf);
+            hdfsEnvironment.getFileSystem(session.getIdentity(), writePath, conf);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
@@ -357,10 +357,10 @@ public class HiveWriterFactory
                     // a new partition in a new partitioned table
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
 
-                    if (!writeInfo.writeMode().isWritePathSameAsTargetPath()) {
+                    if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
-                        Location writeInfoTargetPath = writeInfo.targetPath();
+                        Location writeInfoTargetPath = Location.of(writeInfo.getTargetPath().toString());
                         try {
                             if (fileSystem.directoryExists(writeInfoTargetPath).orElse(false)) {
                                 throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
@@ -368,7 +368,7 @@ public class HiveWriterFactory
                                         partitionName,
                                         schemaName,
                                         tableName,
-                                        writeInfo.targetPath()));
+                                        writeInfo.getTargetPath()));
                             }
                         }
                         catch (IOException e) {
@@ -482,7 +482,7 @@ public class HiveWriterFactory
 
         int bucketToUse = bucketNumber.isEmpty() ? 0 : bucketNumber.getAsInt();
 
-        Location path = writeInfo.writePath();
+        Location path = Location.of(writeInfo.getWritePath().toString());
         if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
             String subdir = computeAcidSubdir(transaction);
             String nameFormat = table != null && isInsertOnlyTable(table.getParameters()) ? "%05d_0" : "bucket_%05d";
@@ -632,8 +632,8 @@ public class HiveWriterFactory
                 partitionName,
                 updateMode,
                 path.fileName(),
-                writeInfo.writePath().toString(),
-                writeInfo.targetPath().toString(),
+                writeInfo.getWritePath().toString(),
+                writeInfo.getTargetPath().toString(),
                 onCommit,
                 hiveWriterStats);
     }
