@@ -50,11 +50,12 @@ public class HudiTableMetaClient
 
     private final Location metaPath;
     private final Location basePath;
-    private HudiTableType tableType;
-    private TimelineLayoutVersion timelineLayoutVersion;
-    private HudiTableConfig tableConfig;
+    private final HudiTableType tableType;
+    private final TimelineLayoutVersion timelineLayoutVersion;
+    private final HudiTableConfig tableConfig;
+    private final TrinoFileSystem fileSystem;
+
     private HudiActiveTimeline activeTimeline;
-    private TrinoFileSystem fileSystem;
 
     protected HudiTableMetaClient(
             TrinoFileSystem fileSystem,
