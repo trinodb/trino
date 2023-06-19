@@ -401,9 +401,9 @@ public class TestKuduConnectorTest
 
         assertUpdate(
                 "CREATE TABLE IF NOT EXISTS " + tableName + " (" +
-                    "id INT WITH (primary_key=true)," +
-                    "d bigint, e varchar(50))" +
-                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+                        "id INT WITH (primary_key=true)," +
+                        "d bigint, e varchar(50))" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "id", "a", "b", "c");
 
@@ -426,8 +426,8 @@ public class TestKuduConnectorTest
         final String finalTableName = tableName;
         assertThatThrownBy(() -> assertUpdate(
                 "CREATE TABLE " + tableNameLike + " (LIKE " + finalTableName + ", " +
-                    "d bigint, e varchar(50))" +
-                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
+                        "d bigint, e varchar(50))" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)"))
                 .hasMessageContaining("This connector does not support creating tables with column comment");
         //assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
         //assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
@@ -511,9 +511,9 @@ public class TestKuduConnectorTest
         String tableName = "test_drop_table_" + randomNameSuffix();
         assertUpdate(
                 "CREATE TABLE " + tableName + "(" +
-                    "id INT WITH (primary_key=true)," +
-                    "col bigint)" +
-                    "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
+                        "id INT WITH (primary_key=true)," +
+                        "col bigint)" +
+                        "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
 
         assertUpdate("DROP TABLE " + tableName);
@@ -702,7 +702,7 @@ public class TestKuduConnectorTest
         // TODO Remove this overriding method once kudu connector can create tables with default partitions
         return new TestTable(getQueryRunner()::execute, namePrefix,
                 "(col integer WITH (primary_key=true)) " +
-                "WITH (partition_by_hash_columns = ARRAY['col'], partition_by_hash_buckets = 2)");
+                        "WITH (partition_by_hash_columns = ARRAY['col'], partition_by_hash_buckets = 2)");
     }
 
     /**
