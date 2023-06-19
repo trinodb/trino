@@ -5934,7 +5934,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testProjectionWithCaseSensitiveField()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -5957,7 +5957,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testProjectionPushdownMultipleRows()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -6004,9 +6004,9 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testReadHighlyNestedData()
+    public void testProjectionPushdownWithHighlyNestedData()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -6039,7 +6039,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testProjectionPushdownReadsLessData()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -6079,7 +6079,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testProjectionPushdownPhysicalInputSize()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_DEREFERENCE_PUSHDOWN));
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
