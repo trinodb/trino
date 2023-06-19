@@ -19,27 +19,26 @@ import org.ietf.jgss.GSSException;
 import javax.security.auth.RefreshFailedException;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
-import javax.security.auth.login.LoginException;
 
+import java.security.AccessController;
 import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static java.security.AccessController.getContext;
 
-public class ContextBasedSubjectProvider
-        implements SubjectProvider
+public class DelegatedUnconstrainedContextProvider
+        extends AbstractUnconstrainedContextProvider
 {
-    private final Subject subject = Subject.getSubject(getContext());
+    private final Subject subject = Subject.getSubject(AccessController.getContext());
 
     @Override
-    public Subject getSubject()
+    protected Subject getSubject()
     {
         return subject;
     }
 
     @Override
     public void refresh()
-            throws LoginException, GSSException
+            throws GSSException
     {
         Set<KerberosTicket> credentials = subject.getPrivateCredentials(KerberosTicket.class);
 

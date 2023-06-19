@@ -13,15 +13,11 @@
  */
 package io.trino.client.auth.kerberos;
 
+import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSException;
 
-import javax.security.auth.Subject;
-import javax.security.auth.login.LoginException;
-
-public interface SubjectProvider
+public interface GSSContextProvider
 {
-    Subject getSubject();
-
-    void refresh()
-            throws LoginException, GSSException;
+    GSSContext getContext(String servicePrincipal)
+            throws GSSException;
 }

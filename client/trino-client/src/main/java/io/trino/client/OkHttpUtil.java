@@ -16,10 +16,10 @@ package io.trino.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
-import io.trino.client.auth.kerberos.ContextBasedSubjectProvider;
-import io.trino.client.auth.kerberos.LoginBasedSubjectProvider;
+import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
+import io.trino.client.auth.kerberos.GSSContextProvider;
+import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.SpnegoHandler;
-import io.trino.client.auth.kerberos.SubjectProvider;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
@@ -317,14 +317,14 @@ public final class OkHttpUtil
             Optional<File> credentialCache,
             boolean delegatedKerberos)
     {
-        SubjectProvider subjectProvider;
+        GSSContextProvider contextProvider;
         if (delegatedKerberos) {
-            subjectProvider = new ContextBasedSubjectProvider();
+            contextProvider = new DelegatedUnconstrainedContextProvider();
         }
         else {
-            subjectProvider = new LoginBasedSubjectProvider(principal, kerberosConfig, keytab, credentialCache);
+            contextProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
         }
-        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, subjectProvider);
+        SpnegoHandler handler = new SpnegoHandler(servicePrincipalPattern, remoteServiceName, useCanonicalHostname, contextProvider);
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }
