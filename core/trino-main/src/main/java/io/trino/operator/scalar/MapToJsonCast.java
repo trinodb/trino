@@ -13,6 +13,7 @@
  */
 package io.trino.operator.scalar;
 
+import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
@@ -33,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -45,6 +45,7 @@ import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.JsonUtil.JsonGeneratorWriter;
 import static io.trino.util.JsonUtil.ObjectKeyProvider;
 import static io.trino.util.JsonUtil.canCastToJson;
+import static io.trino.util.JsonUtil.createJsonFactory;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -53,6 +54,8 @@ public class MapToJsonCast
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
+
+    private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
     private MapToJsonCast()
     {
