@@ -87,7 +87,7 @@ public final class PinotQueryBuilder
     private static String getTableName(PinotTableHandle tableHandle, Optional<String> tableNameSuffix)
     {
         return tableNameSuffix
-                .map(suffix -> new StringBuilder(tableHandle.getTableName()).append(suffix).toString())
+                .map(suffix -> tableHandle.getTableName() + suffix)
                 .orElseGet(tableHandle::getTableName);
     }
 

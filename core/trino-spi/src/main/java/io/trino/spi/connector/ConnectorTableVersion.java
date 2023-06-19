@@ -16,6 +16,8 @@ package io.trino.spi.connector;
 
 import io.trino.spi.type.Type;
 
+import java.util.StringJoiner;
+
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableVersion
@@ -52,11 +54,10 @@ public class ConnectorTableVersion
     @Override
     public String toString()
     {
-        return new StringBuilder("ConnectorTableVersion{")
-                .append("pointerType=").append(pointerType)
-                .append(", versionType=").append(versionType)
-                .append(", version=").append(version)
-                .append('}')
+        return new StringJoiner(", ", ConnectorTableVersion.class.getSimpleName() + "[", "]")
+                .add("pointerType=" + pointerType)
+                .add("versionType=" + versionType)
+                .add("version=" + version)
                 .toString();
     }
 }

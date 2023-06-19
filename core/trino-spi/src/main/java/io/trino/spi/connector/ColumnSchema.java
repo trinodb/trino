@@ -16,6 +16,7 @@ package io.trino.spi.connector;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
+import java.util.StringJoiner;
 
 import static io.trino.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
@@ -76,11 +77,10 @@ public final class ColumnSchema
     @Override
     public String toString()
     {
-        return new StringBuilder("ColumnSchema{")
-                .append("name='").append(name).append('\'')
-                .append(", type=").append(type)
-                .append(", hidden=").append(hidden)
-                .append('}')
+        return new StringJoiner(", ", ColumnSchema.class.getSimpleName() + "[", "]")
+                .add("name='" + name + "'")
+                .add("type=" + type)
+                .add("hidden=" + hidden)
                 .toString();
     }
 

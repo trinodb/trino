@@ -80,14 +80,11 @@ public class KinesisShardCheckpointer
 
     private String createCheckpointKey(int iterationNo)
     {
-        return new StringBuilder(this.logicalProcessName)
-                .append("_")
-                .append(this.kinesisSplit.getStreamName())
-                .append("_")
-                .append(this.kinesisSplit.getShardId())
-                .append("_")
-                .append(String.valueOf(iterationNo))
-                .toString();
+        return "%s_%s_%s_%d".formatted(
+                this.logicalProcessName,
+                this.kinesisSplit.getStreamName(),
+                this.kinesisSplit.getShardId(),
+                iterationNo);
     }
 
     // storing last read sequence no. in dynamodb table

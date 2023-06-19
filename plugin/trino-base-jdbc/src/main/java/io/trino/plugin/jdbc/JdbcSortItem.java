@@ -70,10 +70,6 @@ public final class JdbcSortItem
     @Override
     public String toString()
     {
-        return new StringBuilder()
-                .append(column)
-                .append(" ")
-                .append(sortOrder)
-                .toString();
+        return column + " " + sortOrder;
     }
 }
