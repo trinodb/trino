@@ -24,11 +24,9 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -123,9 +121,14 @@ public class TestHiveS3AndGlueMetastoreTest
         String location = locationPattern.formatted(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
-        assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
+        String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+        if (locationPattern.contains("double_slash")) {
+            assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
+            return;
+        }
+        assertUpdate(create, 3);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
         String actualTableLocation = getTableLocation(tableName);
@@ -154,7 +157,9 @@ public class TestHiveS3AndGlueMetastoreTest
         assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
         assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
-        String expectedTableLocation = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName;
+        String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
+                // Hive normalizes double slash
+                .replaceAll("(?<!(s3:))//", "/");
 
         String actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
         assertThat(actualTableLocation).matches(expectedTableLocation);
@@ -179,6 +184,18 @@ public class TestHiveS3AndGlueMetastoreTest
         // Row-level modifications are not supported for Hive tables
     }
 
+    @Override
+    public void testOptimizeWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    {
+        if (locationPattern.contains("double_slash")) {
+            assertThatThrownBy(() -> super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern))
+                    .hasMessageStartingWith("Unsupported location that cannot be internally represented: ")
+                    .hasStackTraceContaining("SQL: CREATE TABLE test_optimize_");
+            return;
+        }
+        super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern);
+    }
+
     @Test(dataProvider = "locationPatternsDataProvider")
     public void testAnalyzeWithProvidedTableLocation(boolean partitioned, String locationPattern)
     {
@@ -186,9 +203,14 @@ public class TestHiveS3AndGlueMetastoreTest
         String location = locationPattern.formatted(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? ",partitioned_by = ARRAY['col_int']" : "");
 
-        assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
+        String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
-                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
+        if (locationPattern.contains("double_slash")) {
+            assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
+            return;
+        }
+        assertUpdate(create, 3);
 
         assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
@@ -285,14 +307,5 @@ public class TestHiveS3AndGlueMetastoreTest
         assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
 
         assertUpdate("DROP SCHEMA \"" + schemaName + "\"");
-    }
-
-    @Override
-    protected List<String> locationPatterns()
-    {
-        // TODO https://github.com/trinodb/trino/issues/17803 Fix correctness issue with double slash
-        return super.locationPatterns().stream()
-                .filter(location -> !location.contains("double_slash"))
-                .collect(toImmutableList());
     }
 }
