@@ -24,7 +24,6 @@ import io.trino.plugin.hudi.timeline.HudiActiveTimeline;
 import io.trino.plugin.hudi.timeline.HudiTimeline;
 import io.trino.plugin.hudi.timeline.TimelineLayout;
 import io.trino.plugin.hudi.timeline.TimelineLayoutVersion;
-import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,9 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_TABLE_TYPE;
 import static io.trino.plugin.hudi.HudiUtil.isHudiTable;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HudiTableMetaClient
@@ -100,7 +97,6 @@ public class HudiTableMetaClient
                 // Include commit action to be able to start doing a MOR over a COW table - no
                 // migration required
                     getActiveTimeline().getCommitsTimeline();
-            default -> throw new TrinoException(HUDI_UNSUPPORTED_TABLE_TYPE, format("Unsupported table type : %s", this.getTableType()));
         };
     }
 
