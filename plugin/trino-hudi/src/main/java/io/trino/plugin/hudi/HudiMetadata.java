@@ -143,6 +143,9 @@ public class HudiMetadata
         if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
+        if (!isHudiTable(session, tableOptional.get())) {
+            return Optional.empty();
+        }
         switch (name.getTableType()) {
             case DATA:
                 break;
