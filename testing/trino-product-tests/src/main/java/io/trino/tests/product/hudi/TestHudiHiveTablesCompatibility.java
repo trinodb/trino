@@ -48,7 +48,7 @@ public class TestHudiHiveTablesCompatibility
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default." + tableName + "$data' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hudi.default.\"" + tableName + "$timeline\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Could not check if hdfs://hadoop-master:9000/user/hive/warehouse/" + tableName + " is a valid table");
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'hudi.default." + tableName + "$timeline' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM hudi.default.\"" + tableName + "$files\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Invalid Hudi table name (unknown type 'files'): " + tableName + "$files");
