@@ -15,7 +15,6 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
@@ -72,8 +71,6 @@ import static java.util.function.Function.identity;
 public class HudiMetadata
         implements ConnectorMetadata
 {
-    public static final Logger log = Logger.get(HudiMetadata.class);
-
     private final HiveMetastore metastore;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
