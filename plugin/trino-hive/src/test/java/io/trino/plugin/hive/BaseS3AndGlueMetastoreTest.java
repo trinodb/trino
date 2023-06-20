@@ -148,12 +148,6 @@ public abstract class BaseS3AndGlueMetastoreTest
                 actualTableLocation = getTableLocation(qualifiedTableName);
                 assertThat(actualTableLocation).matches(expectedTableLocationPattern);
 
-                if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
-                    // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared within schema with location ending with two slashes
-                    assertThatThrownBy(() -> query("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)"))
-                            .hasMessageStartingWith("Location does not have parent: ");
-                    return;
-                }
                 assertUpdate("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
