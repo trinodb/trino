@@ -77,7 +77,7 @@ public class TestDeltaLakeConnectorTest
 {
     protected static final String SCHEMA = "test_schema";
 
-    protected final String bucketName = "trino-ci-test-" + randomNameSuffix();
+    protected final String bucketName = "test-bucket-" + randomNameSuffix();
     protected MinioClient minioClient;
 
     @Override
