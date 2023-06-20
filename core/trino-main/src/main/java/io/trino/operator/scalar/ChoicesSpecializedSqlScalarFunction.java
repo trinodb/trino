@@ -203,6 +203,7 @@ public final class ChoicesSpecializedSqlScalarFunction
                     case NULL_FLAG:
                         score += 1;
                         break;
+                    case BLOCK_POSITION_NOT_NULL:
                     case BLOCK_POSITION:
                         score += 1000;
                         break;
