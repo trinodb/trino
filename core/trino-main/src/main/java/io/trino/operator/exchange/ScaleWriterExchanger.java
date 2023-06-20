@@ -43,7 +43,6 @@ public class ScaleWriterExchanger
     // Start with single writer and increase the writer count based on
     // physical written bytes and buffer utilization.
     private int writerCount = 1;
-    private long lastScaleUpPhysicalWrittenBytes;
     private int nextWriterIndex = -1;
 
     public ScaleWriterExchanger(
@@ -76,9 +75,7 @@ public class ScaleWriterExchanger
         // This also mean that we won't scale local writers if the writing speed can cope up
         // with incoming data. In another word, buffer utilization is below 50%.
         if (writerCount < buffers.size() && memoryManager.getBufferedBytes() >= maxBufferedBytes / 2) {
-            long physicalWrittenBytes = physicalWrittenBytesSupplier.get();
-            if ((physicalWrittenBytes - lastScaleUpPhysicalWrittenBytes) >= writerCount * writerMinSize) {
-                lastScaleUpPhysicalWrittenBytes = physicalWrittenBytes;
+            if (physicalWrittenBytesSupplier.get() >= writerCount * writerMinSize) {
                 writerCount++;
                 log.debug("Increased task writer count: %d", writerCount);
             }
