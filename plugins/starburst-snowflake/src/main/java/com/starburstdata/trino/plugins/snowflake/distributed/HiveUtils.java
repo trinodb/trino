@@ -76,7 +76,7 @@ public final class HiveUtils
             case AZURE:
                 // TransferAgent's stageLocation is in <container>/<path> format
                 String container = extractWasbContainer(transferAgent.getStageLocation());
-                String formattedLocation = format("wasbs://%s@%s.%s", container, transferAgent.getStageInfo().getStorageAccount(), transferAgent.getStageInfo().getEndPoint());
+                String formattedLocation = format("wasbs://%s@%s.%s/", container, transferAgent.getStageInfo().getStorageAccount(), transferAgent.getStageInfo().getEndPoint());
                 String path = extractWasbPath(transferAgent.getStageLocation());
                 if (!path.isEmpty()) {
                     // Ensure we do not have trailing `/` present
