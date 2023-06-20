@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
@@ -47,8 +46,6 @@ public class TestHiveS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(TrinoFileSystemCache.INSTANCE::closeAll);
-
         metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
 
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
