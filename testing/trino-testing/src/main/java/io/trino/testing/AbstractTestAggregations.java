@@ -229,7 +229,15 @@ public abstract class AbstractTestAggregations
     public void testCountDistinct()
     {
         assertQuery("SELECT COUNT(DISTINCT custkey + 1) FROM orders", "SELECT COUNT(*) FROM (SELECT DISTINCT custkey + 1 FROM orders) t");
-        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*) from lineitem where linenumber < 0");
+    }
+
+    @Test
+    public void testMixedDistinctAndZeroOnEmptyInputAggregations()
+    {
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT(*), COUNT(linenumber) from lineitem where linenumber < 0");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), COUNT_IF(linenumber < 0) from lineitem where linenumber < 0", "VALUES (0, 0)");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), approx_distinct(linenumber), approx_distinct(linenumber, 0.5) from lineitem where linenumber < 0", "VALUES (0, 0, 0)");
+        assertQuery("SELECT COUNT(DISTINCT linenumber), approx_distinct(orderkey > 10), approx_distinct(orderkey > 10, 0.5) from lineitem where linenumber < 0", "VALUES (0, 0, 0)");
     }
 
     @Test
