@@ -41,7 +41,7 @@ public class TestHiveRedirectionToHudi
     @BeforeMethodWithContext
     public void setUp()
     {
-        bucketName = System.getenv().getOrDefault("S3_BUCKET", "trino-ci-test");
+        bucketName = System.getenv().getOrDefault("S3_BUCKET", "test-bucket");
     }
 
     @DataProvider

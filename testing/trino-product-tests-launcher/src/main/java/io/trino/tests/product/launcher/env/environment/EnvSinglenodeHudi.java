@@ -56,7 +56,7 @@ public class EnvSinglenodeHudi
     private static final int SPARK_THRIFT_PORT = 10213;
 
     private static final String SPARK_CONTAINER_NAME = "spark";
-    private static final String S3_BUCKET_NAME = "trino-ci-test";
+    private static final String S3_BUCKET_NAME = "test-bucket";
 
     private final PortBinder portBinder;
     private final String hadoopImagesVersion;
@@ -101,7 +101,7 @@ public class EnvSinglenodeHudi
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path minioBucketDirectory;
         try {
-            minioBucketDirectory = Files.createTempDirectory("trino-ci-test", posixFilePermissions);
+            minioBucketDirectory = Files.createTempDirectory("test-bucket-contents", posixFilePermissions);
             minioBucketDirectory.toFile().deleteOnExit();
         }
         catch (IOException e) {
