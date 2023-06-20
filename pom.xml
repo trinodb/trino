@@ -181,7 +181,7 @@
         <dep.okio.version>3.3.0</dep.okio.version>
         <dep.flyway.version>9.21.0</dep.flyway.version>
 
-        <dep.docker.images.version>80</dep.docker.images.version>
+        <dep.docker.images.version>81</dep.docker.images.version>
 
         <!--
           America/Bahia_Banderas has:
