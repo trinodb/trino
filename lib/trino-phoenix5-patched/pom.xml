@@ -44,10 +44,8 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <createDependencyReducedPom>true</createDependencyReducedPom>
                             <createSourcesJar>false</createSourcesJar>
                             <shadeSourcesContent>false</shadeSourcesContent>
-                            <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <promoteTransitiveDependencies>false</promoteTransitiveDependencies>
                             <relocations>
                                 <relocation>
