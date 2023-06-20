@@ -61,6 +61,11 @@ class FunctionCallProvider
         this(true, name, frame, distinct, args, ImmutableList.of(), Optional.empty());
     }
 
+    FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args, SymbolAlias filter)
+    {
+        this(false, name, Optional.empty(), distinct, args, ImmutableList.of(), Optional.ofNullable(filter));
+    }
+
     FunctionCallProvider(QualifiedName name, boolean distinct, List<PlanTestSymbol> args)
     {
         this(false, name, Optional.empty(), distinct, args, ImmutableList.of(), Optional.empty());

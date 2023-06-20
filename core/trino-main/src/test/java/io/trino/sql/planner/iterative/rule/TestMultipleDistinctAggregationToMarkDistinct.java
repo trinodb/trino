@@ -227,7 +227,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input1)"), ImmutableList.of(BIGINT))
                         .addAggregation(p.symbol("output2"), expression("count(DISTINCT input2)"), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input1"), p.symbol("input2"), p.symbol("key")))))
+                                p.values(aggregationSourceId, p.symbol("input1"), p.symbol("input2"), p.symbol("key")))))
                 .doesNotFire();
 
         // big NDV
@@ -265,7 +265,7 @@ public class TestMultipleDistinctAggregationToMarkDistinct
                         .addAggregation(p.symbol("output1"), expression("count(DISTINCT input)"), ImmutableList.of(BIGINT))
                         .addAggregation(p.symbol("output2"), expression("sum(input)"), ImmutableList.of(BIGINT))
                         .source(
-                                p.values(p.symbol("input"), p.symbol("key1"), p.symbol("key2")))))
+                                p.values(aggregationSourceId, p.symbol("input"), p.symbol("key1"), p.symbol("key2")))))
                 .doesNotFire();
     }
 }

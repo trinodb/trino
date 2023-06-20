@@ -25,6 +25,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.DistinctAggregationController;
+import io.trino.sql.planner.iterative.rule.DistinctAggregationToGroupBy;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
@@ -40,6 +41,7 @@ import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -63,7 +65,7 @@ public class TestOptimizeMixedDistinctAggregations
     {
         @Language("SQL") String sql = "SELECT custkey, max(totalprice) AS s, count(DISTINCT orderdate) AS d FROM orders GROUP BY custkey";
 
-        String group = "GROUP";
+        String group = "group_id";
 
         // Original keys
         String groupBy = "CUSTKEY";
@@ -73,8 +75,8 @@ public class TestOptimizeMixedDistinctAggregations
         // Second Aggregation data
         List<String> groupByKeysSecond = ImmutableList.of(groupBy);
         Map<Optional<String>, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol())),
-                Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
+                Optional.of("any_value"), PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol()), "gid-filter-0"),
+                Optional.of("count"), PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()), "gid-filter-1"));
 
         // First Aggregation data
         List<String> groupByKeysFirst = ImmutableList.of(groupBy, distinctAggregation, group);
@@ -90,6 +92,9 @@ public class TestOptimizeMixedDistinctAggregations
         PlanMatchPattern expectedPlanPattern = anyTree(
                 aggregation(singleGroupingSet(groupByKeysSecond), aggregationsSecond, Optional.empty(), SINGLE,
                         project(
+                                ImmutableMap.of(
+                                        "gid-filter-0", expression(group + " = CAST (0 as BIGINT)"),
+                                        "gid-filter-1", expression(group + " = CAST (1 as BIGINT)")),
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, Optional.empty(), SINGLE,
                                         groupId(groups.build(), group,
                                                 tableScan)))));
@@ -102,8 +107,8 @@ public class TestOptimizeMixedDistinctAggregations
     {
         // Second Aggregation data
         Map<String, ExpectedValueProvider<FunctionCall>> aggregationsSecond = ImmutableMap.of(
-                "any_value", PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol())),
-                "count", PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol())));
+                "any_value", PlanMatchPattern.functionCall("any_value", false, ImmutableList.of(anySymbol()), "gid-filter-0"),
+                "count", PlanMatchPattern.functionCall("count", false, ImmutableList.of(anySymbol()), "gid-filter-1"));
 
         // First Aggregation data
         Map<String, ExpectedValueProvider<FunctionCall>> aggregationsFirst = ImmutableMap.of(
@@ -113,8 +118,14 @@ public class TestOptimizeMixedDistinctAggregations
                 anyTree(
                         aggregation(aggregationsSecond,
                                 project(
+                                        ImmutableMap.of(
+                                                "gid-filter-0", expression("group_id = CAST (0 as BIGINT)"),
+                                                "gid-filter-1", expression("group_id = CAST (1 as BIGINT)")),
                                         aggregation(aggregationsFirst,
-                                                anyTree(values(ImmutableMap.of())))))));
+                                                groupId(
+                                                        ImmutableList.of(ImmutableList.of("b"), ImmutableList.of("a")),
+                                                        "group_id",
+                                                        values(ImmutableMap.of("a", 0, "b", 1))))))));
     }
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
@@ -129,8 +140,8 @@ public class TestOptimizeMixedDistinctAggregations
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
+                                new DistinctAggregationToGroupBy(getQueryRunner().getPlannerContext()),
                                 new MultipleDistinctAggregationToMarkDistinct(new DistinctAggregationController(new TaskCountEstimator(() -> 4))))),
-                new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
