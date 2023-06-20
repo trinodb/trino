@@ -59,9 +59,8 @@ public class TestDeltaLakeDatabricksDelete
         onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
-    // Databricks 12.1 added support for deletion vectors
-    // TODO: Add DELTA_LAKE_OSS group once they support creating a table with deletion vectors
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
+    // Databricks 12.1 and OSS Delta 2.4.0 added support for deletion vectors
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testDeletionVectors()
     {
