@@ -141,19 +141,12 @@ public class Assignments
     {
         Expression expression = assignments.get(output);
 
-        return expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(output.getName());
+        return expression instanceof SymbolReference symbolReference && symbolReference.getName().equals(output.getName());
     }
 
     public boolean isIdentity()
     {
-        for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            Expression expression = entry.getValue();
-            Symbol symbol = entry.getKey();
-            if (!(expression instanceof SymbolReference && ((SymbolReference) expression).getName().equals(symbol.getName()))) {
-                return false;
-            }
-        }
-        return true;
+        return assignments.keySet().stream().allMatch(this::isIdentity);
     }
 
     private Collector<Entry<Symbol, Expression>, Builder, Assignments> toAssignments()
