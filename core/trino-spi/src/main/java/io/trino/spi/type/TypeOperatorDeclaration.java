@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
@@ -421,6 +422,7 @@ public final class TypeOperatorDeclaration
                         checkArgument(parameterType.isAssignableFrom(wrap(typeJavaType)),
                                 "Expected argument type to be %s, but is %s", wrap(typeJavaType), parameterType);
                         break;
+                    case BLOCK_POSITION_NOT_NULL:
                     case BLOCK_POSITION:
                         checkArgument(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
                                 "Expected BLOCK_POSITION argument have parameters Block and int");
@@ -502,17 +504,17 @@ public final class TypeOperatorDeclaration
                 OperatorType operatorType,
                 Method method)
         {
-            if (isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class)) {
-                if (parameterTypes.get(0).equals(wrap(typeJavaType))) {
-                    return BOXED_NULLABLE;
-                }
-            }
-            else if (isAnnotationPresent(parameterAnnotations.get(0), BlockPosition.class)) {
+            if (isAnnotationPresent(parameterAnnotations.get(0), BlockPosition.class)) {
                 if (parameterTypes.size() > 1 &&
                         isAnnotationPresent(parameterAnnotations.get(1), BlockIndex.class) &&
                         parameterTypes.get(0).equals(Block.class) &&
                         parameterTypes.get(1).equals(int.class)) {
-                    return BLOCK_POSITION;
+                    return isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class) ? BLOCK_POSITION : BLOCK_POSITION_NOT_NULL;
+                }
+            }
+            else if (isAnnotationPresent(parameterAnnotations.get(0), SqlNullable.class)) {
+                if (parameterTypes.get(0).equals(wrap(typeJavaType))) {
+                    return BOXED_NULLABLE;
                 }
             }
             else if (parameterTypes.size() > 1 && isAnnotationPresent(parameterAnnotations.get(1), IsNull.class)) {

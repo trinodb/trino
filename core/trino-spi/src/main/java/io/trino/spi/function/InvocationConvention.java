@@ -110,6 +110,12 @@ public class InvocationConvention
          */
         NEVER_NULL(false, 1),
         /**
+         * Argument is passed a Block followed by the integer position in the block.
+         * If the actual block position passed to the function argument is null, the
+         * results are undefined.
+         */
+        BLOCK_POSITION_NOT_NULL(false, 2),
+        /**
          * Argument is always an object type. An SQL null will be passed a Java null.
          */
         BOXED_NULLABLE(true, 1),

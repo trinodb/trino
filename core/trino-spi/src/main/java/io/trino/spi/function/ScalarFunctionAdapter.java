@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.stream.IntStream;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
@@ -125,32 +126,28 @@ public final class ScalarFunctionAdapter
             return true;
         }
 
-        // no conversions to block and position, function, or in-out are supported
-        if (actualArgumentConvention == BLOCK_POSITION || actualArgumentConvention == FUNCTION || actualArgumentConvention == IN_OUT) {
+        // function cannot be adapted
+        if (expectedArgumentConvention == FUNCTION || actualArgumentConvention == FUNCTION) {
             return false;
         }
 
-        // caller will never pass null, so all conversions are allowed
-        if (expectedArgumentConvention == NEVER_NULL) {
-            return true;
-        }
-
-        // nulls are passed in blocks or in-out values, so adapter will handle null or throw exception at runtime
-        if (expectedArgumentConvention == BLOCK_POSITION || expectedArgumentConvention == IN_OUT) {
-            return true;
-        }
-
-        // null is passed as boxed value or a boolean null flag
-        if (expectedArgumentConvention == BOXED_NULLABLE || expectedArgumentConvention == NULL_FLAG) {
-            // null able to not nullable has special handling
-            if (actualArgumentConvention == NEVER_NULL) {
-                return returnConvention != FAIL_ON_NULL;
-            }
-
-            return true;
-        }
-
-        return false;
+        return switch (actualArgumentConvention) {
+            case NEVER_NULL -> switch (expectedArgumentConvention) {
+                case BLOCK_POSITION_NOT_NULL -> true;
+                case BOXED_NULLABLE, NULL_FLAG -> returnConvention != FAIL_ON_NULL;
+                case BLOCK_POSITION, IN_OUT -> true; // todo only support these if the return convention is nullable
+                case FUNCTION -> throw new IllegalStateException("Unexpected value: " + expectedArgumentConvention);
+                // this is not needed as the case where actual and expected are the same is covered above,
+                // but this means we will get a compile time error if a new convention is added in the future
+                //noinspection DataFlowIssue
+                case NEVER_NULL -> true;
+            };
+            case BLOCK_POSITION_NOT_NULL -> expectedArgumentConvention == BLOCK_POSITION && returnConvention.isNullable();
+            case BLOCK_POSITION -> expectedArgumentConvention == BLOCK_POSITION_NOT_NULL;
+            case BOXED_NULLABLE, NULL_FLAG -> true;
+            case IN_OUT -> false;
+            case FUNCTION -> throw new IllegalArgumentException("Unsupported argument convention: " + actualArgumentConvention);
+        };
     }
 
     /**
@@ -200,10 +197,7 @@ public final class ScalarFunctionAdapter
                     actualArgumentConvention,
                     expectedArgumentConvention,
                     expectedConvention.getReturnConvention());
-            parameterIndex++;
-            if (expectedArgumentConvention == NULL_FLAG || expectedArgumentConvention == BLOCK_POSITION) {
-                parameterIndex++;
-            }
+            parameterIndex += expectedArgumentConvention.getParameterCount();
         }
         return methodHandle;
     }
@@ -253,13 +247,10 @@ public final class ScalarFunctionAdapter
         if (actualArgumentConvention == expectedArgumentConvention) {
             return methodHandle;
         }
-        if (actualArgumentConvention == BLOCK_POSITION) {
-            throw new IllegalArgumentException("Block and position argument cannot be adapted");
-        }
         if (actualArgumentConvention == IN_OUT) {
             throw new IllegalArgumentException("In-out argument cannot be adapted");
         }
-        if (actualArgumentConvention == FUNCTION) {
+        if (actualArgumentConvention == FUNCTION || expectedArgumentConvention == FUNCTION) {
             throw new IllegalArgumentException("Function argument cannot be adapted");
         }
 
@@ -278,8 +269,6 @@ public final class ScalarFunctionAdapter
                 // actual method takes value and null flag, so change method handles to not have the flag and always pass false to the actual method
                 return insertArguments(methodHandle, parameterIndex + 1, false);
             }
-
-            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
         }
 
         // caller will pass Java null for SQL null
@@ -325,14 +314,12 @@ public final class ScalarFunctionAdapter
                 methodHandle = permuteArguments(methodHandle, newType, reorder);
                 return methodHandle;
             }
-
-            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
         }
 
         // caller will pass boolean true in the next argument for SQL null
         if (expectedArgumentConvention == NULL_FLAG) {
             if (actualArgumentConvention == NEVER_NULL) {
-                // if caller sets null flag, return null, otherwise invoke target
+                // if caller sets the null flag, return null, otherwise invoke target
                 if (returnConvention == FAIL_ON_NULL) {
                     throw new IllegalArgumentException("RETURN_NULL_ON_NULL adaptation can not be used with FAIL_ON_NULL return convention");
                 }
@@ -349,8 +336,25 @@ public final class ScalarFunctionAdapter
             if (actualArgumentConvention == BOXED_NULLABLE) {
                 return collectArguments(methodHandle, parameterIndex, boxedToNullFlagFilter(methodHandle.type().parameterType(parameterIndex)));
             }
+        }
 
-            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
+        if (expectedArgumentConvention == BLOCK_POSITION_NOT_NULL) {
+            if (actualArgumentConvention == BLOCK_POSITION) {
+                return methodHandle;
+            }
+
+            MethodHandle getBlockValue = getBlockValue(argumentType, methodHandle.type().parameterType(parameterIndex));
+            if (actualArgumentConvention == NEVER_NULL) {
+                return collectArguments(methodHandle, parameterIndex, getBlockValue);
+            }
+            if (actualArgumentConvention == BOXED_NULLABLE) {
+                MethodType targetType = getBlockValue.type().changeReturnType(wrap(getBlockValue.type().returnType()));
+                return collectArguments(methodHandle, parameterIndex, explicitCastArguments(getBlockValue, targetType));
+            }
+            if (actualArgumentConvention == NULL_FLAG) {
+                // actual method takes value and null flag, so change method handles to not have the flag and always pass false to the actual method
+                return collectArguments(insertArguments(methodHandle, parameterIndex + 1, false), parameterIndex, getBlockValue);
+            }
         }
 
         // caller passes block and position which may contain a null
@@ -359,7 +363,7 @@ public final class ScalarFunctionAdapter
 
             if (actualArgumentConvention == NEVER_NULL) {
                 if (returnConvention != FAIL_ON_NULL) {
-                    // if caller sets null flag, return null, otherwise invoke target
+                    // if caller sets the null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getBlockValue);
 
                     MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
@@ -407,7 +411,15 @@ public final class ScalarFunctionAdapter
                 return methodHandle;
             }
 
-            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
+            if (actualArgumentConvention == BLOCK_POSITION_NOT_NULL) {
+                if (returnConvention.isNullable()) {
+                    MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
+                    return guardWithTest(
+                            isBlockPositionNull(methodHandle.type(), parameterIndex),
+                            nullReturnValue,
+                            methodHandle);
+                }
+            }
         }
 
         // caller passes in-out which may contain a null
@@ -416,7 +428,7 @@ public final class ScalarFunctionAdapter
 
             if (actualArgumentConvention == NEVER_NULL) {
                 if (returnConvention != FAIL_ON_NULL) {
-                    // if caller sets null flag, return null, otherwise invoke target
+                    // if caller sets the null flag, return null, otherwise invoke target
                     methodHandle = collectArguments(methodHandle, parameterIndex, getInOutValue);
 
                     MethodHandle nullReturnValue = getNullShortCircuitResult(methodHandle, returnConvention);
@@ -464,11 +476,9 @@ public final class ScalarFunctionAdapter
                 methodHandle = permuteArguments(methodHandle, newType, reorder);
                 return methodHandle;
             }
-
-            throw new IllegalArgumentException("Unsupported actual argument convention: " + actualArgumentConvention);
         }
 
-        throw new IllegalArgumentException("Unsupported expected argument convention: " + expectedArgumentConvention);
+        throw new IllegalArgumentException("Can not convert argument %s to %s with return convention %s".formatted(expectedArgumentConvention, actualArgumentConvention, returnConvention));
     }
 
     private static MethodHandle getBlockValue(Type argumentType, Class<?> expectedType)
