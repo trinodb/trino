@@ -43,7 +43,6 @@ import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.testing.QueryRunner;
 import org.apache.iceberg.FileFormat;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -72,11 +71,10 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     private final AWSGlueAsync glueClient;
     private final TrinoFileSystemFactory fileSystemFactory;
 
-    @Parameters("s3.bucket")
-    public TestIcebergGlueCatalogConnectorSmokeTest(String bucketName)
+    public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireNonNull(bucketName, "bucketName is null");
+        this.bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
 
