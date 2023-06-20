@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -98,23 +99,23 @@ public abstract class BaseS3AndGlueMetastoreTest
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
-        validateTableLocation(tableName, location);
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
+            validateTableLocation(tableName, location);
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
+            assertUpdate("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("DELETE FROM " + tableName + " WHERE col_int = 3", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
+            assertUpdate("DELETE FROM " + tableName + " WHERE col_int = 3", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
-        assertThat(getTableFiles(location)).isNotEmpty();
-        validateDataFiles(partitioned ? "col_str" : "", tableName, location);
-        validateMetadataFiles(location);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertThat(getTableFiles(location)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_str" : "", tableName, location);
+            validateMetadataFiles(location);
+        }
         validateFilesAfterDrop(location);
     }
 
@@ -127,32 +128,33 @@ public abstract class BaseS3AndGlueMetastoreTest
         String qualifiedTableName = schemaName + "." + tableName;
         String partitionQueryPart = (partitioned ? "WITH (" + partitionByKeyword + " = ARRAY['col_str'])" : "");
 
+        String actualTableLocation;
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
+        try (UncheckedCloseable ignoredDropSchema = onClose("DROP SCHEMA " + schemaName)) {
+            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
-        assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_int int, col_str varchar)" + partitionQueryPart);
-        // in case of regular CREATE TABLE, location has generated suffix
-        String expectedTableLocationPattern = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName + "-[a-z0-9]+";
-        String actualTableLocation = getTableLocation(qualifiedTableName);
-        assertThat(actualTableLocation).matches(expectedTableLocationPattern);
+            assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_int int, col_str varchar)" + partitionQueryPart);
+            try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
+                // in case of regular CREATE TABLE, location has generated suffix
+                String expectedTableLocationPattern = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName + "-[a-z0-9]+";
+                actualTableLocation = getTableLocation(qualifiedTableName);
+                assertThat(actualTableLocation).matches(expectedTableLocationPattern);
 
-        assertUpdate("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
-        assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
+                assertUpdate("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
-        assertUpdate("UPDATE " + qualifiedTableName + " SET col_str = 'other' WHERE col_int = 2", 1);
-        assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3)");
+                assertUpdate("UPDATE " + qualifiedTableName + " SET col_str = 'other' WHERE col_int = 2", 1);
+                assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3)");
 
-        assertUpdate("DELETE FROM " + qualifiedTableName + " WHERE col_int = 3", 1);
-        assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('other', 2)");
+                assertUpdate("DELETE FROM " + qualifiedTableName + " WHERE col_int = 3", 1);
+                assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('other', 2)");
 
-        assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
-        validateDataFiles(partitioned ? "col_str" : "", qualifiedTableName, actualTableLocation);
-        validateMetadataFiles(actualTableLocation);
-
-        assertUpdate("DROP TABLE " + qualifiedTableName);
-        assertThat(getTableFiles(actualTableLocation)).isEmpty();
-
-        assertUpdate("DROP SCHEMA " + schemaName);
+                assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+                validateDataFiles(partitioned ? "col_str" : "", qualifiedTableName, actualTableLocation);
+                validateMetadataFiles(actualTableLocation);
+            }
+            assertThat(getTableFiles(actualTableLocation)).isEmpty();
+        }
         assertThat(getTableFiles(actualTableLocation)).isEmpty();
     }
 
@@ -166,25 +168,25 @@ public abstract class BaseS3AndGlueMetastoreTest
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
-        assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
-                " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+            assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
+                    " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
-                " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
+            assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
+                    " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("MERGE INTO " + tableName + " USING (VALUES 3) t(x) ON col_int = x" +
-                " WHEN MATCHED THEN DELETE", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
+            assertUpdate("MERGE INTO " + tableName + " USING (VALUES 3) t(x) ON col_int = x" +
+                    " WHEN MATCHED THEN DELETE", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
-        assertThat(getTableFiles(location)).isNotEmpty();
-        validateDataFiles(partitioned ? "col_str" : "", tableName, location);
-        validateMetadataFiles(location);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertThat(getTableFiles(location)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_str" : "", tableName, location);
+            validateMetadataFiles(location);
+        }
         validateFilesAfterDrop(location);
     }
 
@@ -198,7 +200,7 @@ public abstract class BaseS3AndGlueMetastoreTest
 
         assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) " +
                 "WITH (" + locationQueryPart + partitionQueryPart + ")");
-        try {
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             // create multiple data files, INSERT with multiple values would create only one file (if not partitioned)
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'a//double_slash')", 1);
@@ -217,9 +219,6 @@ public abstract class BaseS3AndGlueMetastoreTest
 
             Set<String> updatedFiles = getActiveFiles(tableName);
             validateFilesAfterOptimize(getTableLocation(tableName), initialFiles, updatedFiles);
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
         }
     }
 
@@ -292,6 +291,12 @@ public abstract class BaseS3AndGlueMetastoreTest
                 .toList();
     }
 
+    protected UncheckedCloseable onClose(@Language("SQL") String sql)
+    {
+        requireNonNull(sql, "sql is null");
+        return () -> assertUpdate(sql);
+    }
+
     protected String schemaPath()
     {
         return "s3://%s/%s".formatted(bucketName, schemaName);
@@ -328,5 +333,12 @@ public abstract class BaseS3AndGlueMetastoreTest
         {
             return locationPattern.formatted(bucketName, schemaName, tableName);
         }
+    }
+
+    protected interface UncheckedCloseable
+            extends AutoCloseable
+    {
+        @Override
+        void close();
     }
 }
