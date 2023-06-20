@@ -112,7 +112,7 @@ public class EnvSinglenodeDeltaLakeOss
         FileAttribute<Set<PosixFilePermission>> posixFilePermissions = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-r--r--"));
         Path minioBucketDirectory;
         try {
-            minioBucketDirectory = Files.createTempDirectory("trino-ci-test", posixFilePermissions);
+            minioBucketDirectory = Files.createTempDirectory("test-bucket-contents", posixFilePermissions);
             minioBucketDirectory.toFile().deleteOnExit();
         }
         catch (IOException e) {
