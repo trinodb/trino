@@ -127,18 +127,18 @@ public class TestHiveS3AndGlueMetastoreTest
             return;
         }
         assertUpdate(create, 3);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
-        String actualTableLocation = getTableLocation(tableName);
-        assertThat(actualTableLocation).isEqualTo(location);
+            String actualTableLocation = getTableLocation(tableName);
+            assertThat(actualTableLocation).isEqualTo(location);
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
-        validateDataFiles(partitioned ? "col_int" : "", tableName, actualTableLocation);
-
-        assertUpdate("DROP TABLE " + tableName);
+            assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_int" : "", tableName, actualTableLocation);
+        }
     }
 
     @Override // Row-level modifications are not supported for Hive tables
@@ -151,27 +151,28 @@ public class TestHiveS3AndGlueMetastoreTest
         String qualifiedTableName = schemaName + "." + tableName;
         String partitionQueryPart = (partitioned ? " WITH (partitioned_by = ARRAY['col_int'])" : "");
 
+        String actualTableLocation;
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
+        try (UncheckedCloseable ignoredDropSchema = onClose("DROP SCHEMA " + schemaName)) {
+            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
-        assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
-        String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
-                // Hive normalizes double slash
-                .replaceAll("(?<!(s3:))//", "/");
+            assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
+            try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
+                String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
+                        // Hive normalizes double slash
+                        .replaceAll("(?<!(s3:))//", "/");
 
-        String actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
-        assertThat(actualTableLocation).matches(expectedTableLocation);
+                actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
+                assertThat(actualTableLocation).matches(expectedTableLocation);
 
-        assertUpdate("INSERT INTO " + qualifiedTableName + "  VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
-        assertQuery("SELECT * FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
+                assertUpdate("INSERT INTO " + qualifiedTableName + "  VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+                assertQuery("SELECT * FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
-        assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
-        validateDataFiles(partitioned ? "col_int" : "", qualifiedTableName, actualTableLocation);
-
-        assertUpdate("DROP TABLE " + qualifiedTableName);
-        assertThat(getTableFiles(actualTableLocation)).isEmpty();
-
-        assertUpdate("DROP SCHEMA " + schemaName);
+                assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+                validateDataFiles(partitioned ? "col_int" : "", qualifiedTableName, actualTableLocation);
+            }
+            assertThat(getTableFiles(actualTableLocation)).isEmpty();
+        }
         validateFilesAfterDrop(actualTableLocation);
     }
 
@@ -209,45 +210,44 @@ public class TestHiveS3AndGlueMetastoreTest
             return;
         }
         assertUpdate(create, 3);
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+            // Check statistics collection on write
+            if (partitioned) {
+                assertQuery("SHOW STATS FOR " + tableName, """
+                        VALUES
+                        ('col_str', 0.0, 1.0, 0.0, null, null, null),
+                        ('col_int', null, 4.0, 0.0, null, 1, 4),
+                        (null, null, null, null, 4.0, null, null)""");
+            }
+            else {
+                assertQuery("SHOW STATS FOR " + tableName, """
+                        VALUES
+                        ('col_str', 16.0, 3.0, 0.0, null, null, null),
+                        ('col_int', null, 3.0, 0.0, null, 1, 4),
+                        (null, null, null, null, 4.0, null, null)""");
+            }
 
-        // Check statistics collection on write
-        if (partitioned) {
-            assertQuery("SHOW STATS FOR " + tableName, """
-                    VALUES
-                    ('col_str', 0.0, 1.0, 0.0, null, null, null),
-                    ('col_int', null, 4.0, 0.0, null, 1, 4),
-                    (null, null, null, null, 4.0, null, null)""");
+            // Check statistics collection explicitly
+            assertUpdate("ANALYZE " + tableName, 4);
+
+            if (partitioned) {
+                assertQuery("SHOW STATS FOR " + tableName, """
+                        VALUES
+                        ('col_str', 16.0, 1.0, 0.0, null, null, null),
+                        ('col_int', null, 4.0, 0.0, null, 1, 4),
+                        (null, null, null, null, 4.0, null, null)""");
+            }
+            else {
+                assertQuery("SHOW STATS FOR " + tableName, """
+                        VALUES
+                        ('col_str', 16.0, 4.0, 0.0, null, null, null),
+                        ('col_int', null, 4.0, 0.0, null, 1, 4),
+                        (null, null, null, null, 4.0, null, null)""");
+            }
         }
-        else {
-            assertQuery("SHOW STATS FOR " + tableName, """
-                    VALUES
-                    ('col_str', 16.0, 3.0, 0.0, null, null, null),
-                    ('col_int', null, 3.0, 0.0, null, 1, 4),
-                    (null, null, null, null, 4.0, null, null)""");
-        }
-
-        // Check statistics collection explicitly
-        assertUpdate("ANALYZE " + tableName, 4);
-
-        if (partitioned) {
-            assertQuery("SHOW STATS FOR " + tableName, """
-                    VALUES
-                    ('col_str', 16.0, 1.0, 0.0, null, null, null),
-                    ('col_int', null, 4.0, 0.0, null, 1, 4),
-                    (null, null, null, null, 4.0, null, null)""");
-        }
-        else {
-            assertQuery("SHOW STATS FOR " + tableName, """
-                    VALUES
-                    ('col_str', 16.0, 4.0, 0.0, null, null, null),
-                    ('col_int', null, 4.0, 0.0, null, 1, 4),
-                    (null, null, null, null, 4.0, null, null)""");
-        }
-
-        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -283,15 +283,15 @@ public class TestHiveS3AndGlueMetastoreTest
         String qualifiedTableName = schemaName + "." + tableName;
 
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
+        try (UncheckedCloseable ignored = onClose("DROP SCHEMA " + schemaName)) {
+            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str, col_int) AS VALUES ('str1', 1)"))
-                .hasMessageContaining("Fragment is not allowed in a file system location");
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str, col_int) AS VALUES ('str1', 1)"))
+                    .hasMessageContaining("Fragment is not allowed in a file system location");
 
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int integer)"))
-                .hasMessageContaining("Fragment is not allowed in a file system location");
-
-        assertUpdate("DROP SCHEMA " + schemaName);
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int integer)"))
+                    .hasMessageContaining("Fragment is not allowed in a file system location");
+        }
     }
 
     @Test
@@ -302,8 +302,8 @@ public class TestHiveS3AndGlueMetastoreTest
         String tableName = "test_table_schema_escaped_" + randomNameSuffix();
 
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
-        assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
-
-        assertUpdate("DROP SCHEMA \"" + schemaName + "\"");
+        try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
+            assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
+        }
     }
 }
