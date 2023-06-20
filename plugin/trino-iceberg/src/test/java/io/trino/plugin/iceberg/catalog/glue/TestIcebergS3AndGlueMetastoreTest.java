@@ -77,13 +77,15 @@ public class TestIcebergS3AndGlueMetastoreTest
     }
 
     @Override
-    protected void validateTableLocation(String tableName, String expectedLocation)
+    protected String validateTableLocation(String tableName, String expectedLocation)
     {
-        // Iceberg removes trailing slash from location, and it's expected.
+        // Iceberg removes trailing slashes from location, and it's expected.
         if (expectedLocation.endsWith("/")) {
-            expectedLocation = expectedLocation.replaceFirst("/$", "");
+            expectedLocation = expectedLocation.replaceFirst("/+$", "");
         }
-        assertThat(getTableLocation(tableName)).isEqualTo(expectedLocation);
+        String actualTableLocation = getTableLocation(tableName);
+        assertThat(actualTableLocation).isEqualTo(expectedLocation);
+        return actualTableLocation;
     }
 
     private Set<String> getAllMetadataDataFilesFromTableDirectory(String tableLocation)
