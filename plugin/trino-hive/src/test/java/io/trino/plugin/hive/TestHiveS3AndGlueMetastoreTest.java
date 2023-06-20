@@ -27,6 +27,8 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
+import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
+import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -122,7 +124,7 @@ public class TestHiveS3AndGlueMetastoreTest
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
-        if (locationPattern == DOUBLE_SLASH) {
+        if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
         }
@@ -159,8 +161,8 @@ public class TestHiveS3AndGlueMetastoreTest
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
                 String expectedTableLocation = ((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
-                        // Hive normalizes double slash
-                        .replaceAll("(?<!(s3:))//", "/");
+                        // Hive normalizes repeated slashes
+                        .replaceAll("(?<!(s3:))/+", "/");
 
                 actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
                 assertThat(actualTableLocation).matches(expectedTableLocation);
@@ -186,7 +188,7 @@ public class TestHiveS3AndGlueMetastoreTest
     @Override
     public void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
-        if (locationPattern == DOUBLE_SLASH) {
+        if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertThatThrownBy(() -> super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern))
                     .hasMessageStartingWith("Unsupported location that cannot be internally represented: ")
                     .hasStackTraceContaining("SQL: CREATE TABLE test_optimize_");
@@ -205,7 +207,7 @@ public class TestHiveS3AndGlueMetastoreTest
         String create = "CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (external_location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)";
-        if (locationPattern == DOUBLE_SLASH) {
+        if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertQueryFails(create, "\\QUnsupported location that cannot be internally represented: " + location);
             return;
         }

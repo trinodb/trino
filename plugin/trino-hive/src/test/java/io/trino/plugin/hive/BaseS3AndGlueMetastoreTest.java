@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.union;
+import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
 import static io.trino.plugin.hive.S3Assert.s3Path;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -44,6 +45,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseS3AndGlueMetastoreTest
         extends AbstractTestQueryFramework
@@ -96,13 +98,20 @@ public abstract class BaseS3AndGlueMetastoreTest
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? "," + partitionByKeyword + " = ARRAY['col_str']" : "");
 
+        String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
-            validateTableLocation(tableName, location);
+            actualTableLocation = validateTableLocation(tableName, location);
 
+            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
+                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
+                assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES ('str4', 4)"))
+                        .hasMessageStartingWith("Location does not have parent: ");
+                return;
+            }
             assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
@@ -112,11 +121,11 @@ public abstract class BaseS3AndGlueMetastoreTest
             assertUpdate("DELETE FROM " + tableName + " WHERE col_int = 3", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
-            assertThat(getTableFiles(location)).isNotEmpty();
-            validateDataFiles(partitioned ? "col_str" : "", tableName, location);
-            validateMetadataFiles(location);
+            assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_str" : "", tableName, actualTableLocation);
+            validateMetadataFiles(actualTableLocation);
         }
-        validateFilesAfterDrop(location);
+        validateFilesAfterDrop(actualTableLocation);
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
@@ -140,6 +149,12 @@ public abstract class BaseS3AndGlueMetastoreTest
                 actualTableLocation = getTableLocation(qualifiedTableName);
                 assertThat(actualTableLocation).matches(expectedTableLocationPattern);
 
+                if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
+                    // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared within schema with location ending with two slashes
+                    assertThatThrownBy(() -> query("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)"))
+                            .hasMessageStartingWith("Location does not have parent: ");
+                    return;
+                }
                 assertUpdate("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
@@ -165,12 +180,21 @@ public abstract class BaseS3AndGlueMetastoreTest
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? "," + partitionByKeyword + " = ARRAY['col_str']" : "");
 
+        String actualTableLocation;
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            actualTableLocation = validateTableLocation(tableName, location);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
+            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
+                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
+                assertThatThrownBy(() -> query("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
+                        " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)"))
+                        .hasMessageStartingWith("Location does not have parent: ");
+                return;
+            }
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
                     " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
@@ -183,11 +207,11 @@ public abstract class BaseS3AndGlueMetastoreTest
                     " WHEN MATCHED THEN DELETE", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str4', 4)");
 
-            assertThat(getTableFiles(location)).isNotEmpty();
-            validateDataFiles(partitioned ? "col_str" : "", tableName, location);
-            validateMetadataFiles(location);
+            assertThat(getTableFiles(actualTableLocation)).isNotEmpty();
+            validateDataFiles(partitioned ? "col_str" : "", tableName, actualTableLocation);
+            validateMetadataFiles(actualTableLocation);
         }
-        validateFilesAfterDrop(location);
+        validateFilesAfterDrop(actualTableLocation);
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
@@ -202,20 +226,29 @@ public abstract class BaseS3AndGlueMetastoreTest
                 "WITH (" + locationQueryPart + partitionQueryPart + ")");
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             // create multiple data files, INSERT with multiple values would create only one file (if not partitioned)
+            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
+                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
+                assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES (1, 'one')"))
+                        .hasMessageStartingWith("Location does not have parent: ");
+                return;
+            }
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'a//double_slash')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'a%percent')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (4, 'a//double_slash')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (5, 'a///triple_slash')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (6, 'trailing_slash/')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (7, 'two_trailing_slashes//')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'one')", 1);
 
             Set<String> initialFiles = getActiveFiles(tableName);
-            assertThat(initialFiles).hasSize(5);
+            assertThat(initialFiles).hasSize(8);
 
             Session session = sessionForOptimize();
             computeActual(session, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
             assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY value) FROM " + tableName))
-                    .matches("VALUES (BIGINT '21', VARCHAR 'a%percent a//double_slash a//double_slash one one')");
+                    .matches("VALUES (BIGINT '39', VARCHAR 'a%percent a///triple_slash a//double_slash a//double_slash one one trailing_slash/ two_trailing_slashes//')");
 
             Set<String> updatedFiles = getActiveFiles(tableName);
             validateFilesAfterOptimize(getTableLocation(tableName), initialFiles, updatedFiles);
@@ -237,9 +270,11 @@ public abstract class BaseS3AndGlueMetastoreTest
 
     protected abstract void validateMetadataFiles(String location);
 
-    protected void validateTableLocation(String tableName, String expectedLocation)
+    protected String validateTableLocation(String tableName, String expectedLocation)
     {
-        assertThat(getTableLocation(tableName)).isEqualTo(expectedLocation);
+        String actualTableLocation = getTableLocation(tableName);
+        assertThat(actualTableLocation).isEqualTo(expectedLocation);
+        return actualTableLocation;
     }
 
     protected void validateFilesAfterDrop(String location)
@@ -311,7 +346,9 @@ public abstract class BaseS3AndGlueMetastoreTest
     {
         REGULAR("s3://%s/%s/regular/%s"),
         TRAILING_SLASH("s3://%s/%s/trailing_slash/%s/"),
+        TWO_TRAILING_SLASHES("s3://%s/%s/two_trailing_slashes/%s//"),
         DOUBLE_SLASH("s3://%s/%s//double_slash/%s"),
+        TRIPLE_SLASH("s3://%s/%s///triple_slash/%s"),
         PERCENT("s3://%s/%s/a%%percent/%s"),
         WHITESPACE("s3://%s/%s/a whitespace/%s"),
         TRAILING_WHITESPACE("s3://%s/%s/trailing_whitespace/%s "),
