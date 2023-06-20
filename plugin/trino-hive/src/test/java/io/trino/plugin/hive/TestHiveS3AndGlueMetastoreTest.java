@@ -212,7 +212,7 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        //Check statistics collection on write
+        // Check statistics collection on write
         if (partitioned) {
             assertQuery("SHOW STATS FOR " + tableName, """
                     VALUES
@@ -228,7 +228,7 @@ public class TestHiveS3AndGlueMetastoreTest
                     (null, null, null, null, 4.0, null, null)""");
         }
 
-        //Check statistics collection explicitly
+        // Check statistics collection explicitly
         assertUpdate("ANALYZE " + tableName, 4);
 
         if (partitioned) {
