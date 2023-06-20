@@ -17,7 +17,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -32,6 +31,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.union;
@@ -85,26 +85,14 @@ public abstract class BaseS3AndGlueMetastoreTest
     @DataProvider
     public Object[][] locationPatternsDataProvider()
     {
-        return cartesianProduct(trueFalse(), locationPatterns().stream().collect(toDataProvider()));
-    }
-
-    protected List<String> locationPatterns()
-    {
-        return ImmutableList.<String>builder()
-                .add("s3://%s/%s/regular/%s")
-                .add("s3://%s/%s/trailing_slash/%s/")
-                .add("s3://%s/%s//double_slash/%s")
-                .add("s3://%s/%s/a%%percent/%s")
-                .add("s3://%s/%s/a whitespace/%s")
-                .add("s3://%s/%s/trailing_whitespace/%s ")
-                .build();
+        return cartesianProduct(trueFalse(), Stream.of(LocationPattern.values()).collect(toDataProvider()));
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    public void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_basic_operations_" + randomNameSuffix();
-        String location = locationPattern.formatted(bucketName, schemaName, tableName);
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? "," + partitionByKeyword + " = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
@@ -131,10 +119,10 @@ public abstract class BaseS3AndGlueMetastoreTest
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, String locationPattern)
+    public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String schemaName = "test_basic_operations_schema_" + randomNameSuffix();
-        String schemaLocation = locationPattern.formatted(bucketName, schemaName, schemaName);
+        String schemaLocation = locationPattern.locationForSchema(bucketName, schemaName);
         String tableName = "test_basic_operations_table_" + randomNameSuffix();
         String qualifiedTableName = schemaName + "." + tableName;
         String partitionQueryPart = (partitioned ? "WITH (" + partitionByKeyword + " = ARRAY['col_str'])" : "");
@@ -169,10 +157,10 @@ public abstract class BaseS3AndGlueMetastoreTest
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testMergeWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    public void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_merge_" + randomNameSuffix();
-        String location = locationPattern.formatted(bucketName, schemaName, tableName);
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? "," + partitionByKeyword + " = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
@@ -201,10 +189,10 @@ public abstract class BaseS3AndGlueMetastoreTest
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testOptimizeWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    public void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_optimize_" + randomNameSuffix();
-        String location = locationPattern.formatted(bucketName, schemaName, tableName);
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? "," + partitionByKeyword + " = ARRAY['value']" : "");
         String locationQueryPart = locationKeyword + "= '" + location + "'";
 
@@ -312,5 +300,33 @@ public abstract class BaseS3AndGlueMetastoreTest
     protected void verifyPathExist(String path)
     {
         assertThat(s3Path(s3, path)).exists();
+    }
+
+    protected enum LocationPattern
+    {
+        REGULAR("s3://%s/%s/regular/%s"),
+        TRAILING_SLASH("s3://%s/%s/trailing_slash/%s/"),
+        DOUBLE_SLASH("s3://%s/%s//double_slash/%s"),
+        PERCENT("s3://%s/%s/a%%percent/%s"),
+        WHITESPACE("s3://%s/%s/a whitespace/%s"),
+        TRAILING_WHITESPACE("s3://%s/%s/trailing_whitespace/%s "),
+        /**/;
+
+        private final String locationPattern;
+
+        LocationPattern(String locationPattern)
+        {
+            this.locationPattern = requireNonNull(locationPattern, "locationPattern is null");
+        }
+
+        public String locationForSchema(String bucketName, String schemaName)
+        {
+            return locationPattern.formatted(bucketName, "warehouse", schemaName);
+        }
+
+        public String locationForTable(String bucketName, String schemaName, String tableName)
+        {
+            return locationPattern.formatted(bucketName, schemaName, tableName);
+        }
     }
 }

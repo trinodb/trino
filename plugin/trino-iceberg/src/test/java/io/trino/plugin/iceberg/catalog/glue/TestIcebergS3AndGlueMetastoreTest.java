@@ -102,10 +102,10 @@ public class TestIcebergS3AndGlueMetastoreTest
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_analyze_" + randomNameSuffix();
-        String location = locationPattern.formatted(bucketName, schemaName, tableName);
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? ",partitioning = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
