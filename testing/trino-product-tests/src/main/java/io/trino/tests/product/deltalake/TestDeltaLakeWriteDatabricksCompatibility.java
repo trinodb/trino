@@ -32,7 +32,6 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
@@ -49,6 +48,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeWriteDatabricksCompatibility
         extends BaseTestDeltaLakeS3Storage

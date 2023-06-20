@@ -29,7 +29,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
@@ -38,6 +37,7 @@ import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGrantRevoke
         extends ProductTest
