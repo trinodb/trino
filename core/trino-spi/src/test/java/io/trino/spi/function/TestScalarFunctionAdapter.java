@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -118,7 +119,7 @@ public class TestScalarFunctionAdapter
             throws Throwable
     {
         List<List<InvocationArgumentConvention>> allArgumentConventions = allCombinations(
-                ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION, IN_OUT),
+                ImmutableList.of(NEVER_NULL, BLOCK_POSITION_NOT_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION, IN_OUT),
                 argumentTypes.size());
         for (List<InvocationArgumentConvention> argumentConventions : allArgumentConventions) {
             for (InvocationReturnConvention returnConvention : InvocationReturnConvention.values()) {
@@ -212,7 +213,8 @@ public class TestScalarFunctionAdapter
     private static boolean canCallConventionWithNullArguments(InvocationConvention convention, BitSet nullArguments)
     {
         for (int i = 0; i < convention.getArgumentConventions().size(); i++) {
-            if (nullArguments.get(i) && convention.getArgumentConvention(i) == NEVER_NULL) {
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(i);
+            if (nullArguments.get(i) && (argumentConvention == NEVER_NULL || argumentConvention == BLOCK_POSITION_NOT_NULL)) {
                 return false;
             }
         }
@@ -236,7 +238,7 @@ public class TestScalarFunctionAdapter
                     expectedArguments.add(javaType);
                     expectedArguments.add(boolean.class);
                 }
-                case BLOCK_POSITION -> {
+                case BLOCK_POSITION_NOT_NULL, BLOCK_POSITION -> {
                     expectedArguments.add(Block.class);
                     expectedArguments.add(int.class);
                 }
@@ -273,6 +275,15 @@ public class TestScalarFunctionAdapter
                 case NULL_FLAG -> {
                     callArguments.add(testValue == null ? Defaults.defaultValue(argumentType.getJavaType()) : testValue);
                     callArguments.add(testValue == null);
+                }
+                case BLOCK_POSITION_NOT_NULL -> {
+                    verify(testValue != null, "null cannot be passed to a block positions not null argument");
+                    BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
+                    blockBuilder.appendNull();
+                    writeNativeValue(argumentType, blockBuilder, testValue);
+                    blockBuilder.appendNull();
+                    callArguments.add(blockBuilder.build());
+                    callArguments.add(1);
                 }
                 case BLOCK_POSITION -> {
                     BlockBuilder blockBuilder = argumentType.createBlockBuilder(null, 3);
