@@ -35,7 +35,6 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -137,12 +136,8 @@ public class TestParquetWriter
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(10);
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
-            // Sort columns by size in file
-            List<ColumnChunkMetaData> columns = blockMetaData.getColumns().stream()
-                    .sorted(Comparator.comparingLong(ColumnChunkMetaData::getTotalUncompressedSize))
-                    .collect(toImmutableList());
-            // Verify that the columns are stored in the same order
-            List<Long> offsets = columns.stream()
+            // Verify that the columns are stored in the same order as the metadata
+            List<Long> offsets = blockMetaData.getColumns().stream()
                     .map(ColumnChunkMetaData::getFirstDataPageOffset)
                     .collect(toImmutableList());
             assertThat(offsets).isSorted();
