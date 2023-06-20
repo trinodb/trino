@@ -19,7 +19,6 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -29,6 +28,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDatabricksPartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage

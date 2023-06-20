@@ -55,7 +55,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -75,6 +74,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

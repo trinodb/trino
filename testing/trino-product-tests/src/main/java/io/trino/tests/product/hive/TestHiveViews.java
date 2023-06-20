@@ -28,12 +28,12 @@ import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({

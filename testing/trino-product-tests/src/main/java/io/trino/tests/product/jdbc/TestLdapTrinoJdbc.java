@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.product.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
@@ -35,6 +34,7 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.TRINO_JDBC;
 import static io.trino.tests.product.TpchTableResults.PRESTO_NATION_RESULT;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 public class TestLdapTrinoJdbc

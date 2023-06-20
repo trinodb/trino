@@ -26,7 +26,6 @@ import java.util.List;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
@@ -38,6 +37,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveSparkCompatibility
         extends ProductTest

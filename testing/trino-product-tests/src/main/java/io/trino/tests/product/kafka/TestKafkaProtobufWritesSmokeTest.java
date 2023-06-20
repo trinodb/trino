@@ -26,13 +26,13 @@ import java.sql.Timestamp;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tests.product.TestGroups.KAFKA;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKafkaProtobufWritesSmokeTest
         extends ProductTest
