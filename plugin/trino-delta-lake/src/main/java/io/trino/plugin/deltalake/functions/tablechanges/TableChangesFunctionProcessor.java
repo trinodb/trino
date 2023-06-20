@@ -67,20 +67,10 @@ public class TableChangesFunctionProcessor
 
     private static final Page EMPTY_PAGE = new Page(0);
 
-    private final ConnectorSession session;
-    private final TrinoFileSystemFactory fileSystemFactory;
-    private final DateTimeZone parquetDateTimeZone;
-    private final int domainCompactionThreshold;
-    private final FileFormatDataSourceStats fileFormatDataSourceStats;
-    private final ParquetReaderOptions parquetReaderOptions;
-    private final List<DeltaLakeColumnHandle> dataFilesColumns;
-    private final List<DeltaLakeColumnHandle> cdfFilesColumns;
-
-    private TableChangesFileType fileType;
-    private DeltaLakePageSource deltaLakePageSource;
-    private List<DeltaLakeColumnHandle> splitColumns;
-    private Block currentVersionAsBlock;
-    private Block currentVersionCommitTimestampAsBlock;
+    private final TableChangesFileType fileType;
+    private final DeltaLakePageSource deltaLakePageSource;
+    private final Block currentVersionAsBlock;
+    private final Block currentVersionCommitTimestampAsBlock;
 
     public TableChangesFunctionProcessor(
             ConnectorSession session,
@@ -92,38 +82,28 @@ public class TableChangesFunctionProcessor
             TableChangesTableFunctionHandle handle,
             TableChangesSplit tableChangesSplit)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.parquetDateTimeZone = requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
-        this.domainCompactionThreshold = domainCompactionThreshold;
-        this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
-        this.dataFilesColumns = handle.columns();
-        this.cdfFilesColumns = ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())
-                .add(new DeltaLakeColumnHandle(
-                        CHANGE_TYPE_COLUMN_NAME,
-                        VARCHAR,
-                        OptionalInt.empty(),
-                        CHANGE_TYPE_COLUMN_NAME,
-                        VARCHAR,
-                        REGULAR,
-                        Optional.empty()))
-                .build();
-        this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null")
-                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
-                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
-                .withUseColumnIndex(isParquetUseColumnIndex(session))
-                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
-                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session));
-        fileType = tableChangesSplit.fileType();
-        if (fileType == CDF_FILE) {
-            splitColumns = cdfFilesColumns;
-        }
-        else {
-            splitColumns = dataFilesColumns;
-        }
-        deltaLakePageSource = createDeltaLakePageSource(tableChangesSplit);
-        currentVersionAsBlock = nativeValueToBlock(BIGINT, tableChangesSplit.currentVersion());
-        currentVersionCommitTimestampAsBlock = nativeValueToBlock(TIMESTAMP_TZ_MILLIS, packDateTimeWithZone(tableChangesSplit.currentVersionCommitTimestamp(), UTC_KEY));
+        requireNonNull(session, "session is null");
+        requireNonNull(fileSystemFactory, "fileSystemFactory is null");
+        requireNonNull(parquetDateTimeZone, "parquetDateTimeZone is null");
+        requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
+        requireNonNull(handle, "handle is null");
+        requireNonNull(tableChangesSplit, "tableChangesSplit is null");
+
+        this.fileType = tableChangesSplit.fileType();
+        this.deltaLakePageSource = createDeltaLakePageSource(
+                session,
+                fileSystemFactory,
+                parquetDateTimeZone,
+                domainCompactionThreshold,
+                fileFormatDataSourceStats,
+                parquetReaderOptions,
+                handle,
+                tableChangesSplit);
+        this.currentVersionAsBlock = nativeValueToBlock(BIGINT, tableChangesSplit.currentVersion());
+        this.currentVersionCommitTimestampAsBlock = nativeValueToBlock(
+                TIMESTAMP_TZ_MILLIS,
+                packDateTimeWithZone(tableChangesSplit.currentVersionCommitTimestamp(), UTC_KEY));
     }
 
     @Override
@@ -179,11 +159,40 @@ public class TableChangesFunctionProcessor
         return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
     }
 
-    private DeltaLakePageSource createDeltaLakePageSource(TableChangesSplit split)
+    private static DeltaLakePageSource createDeltaLakePageSource(
+            ConnectorSession session,
+            TrinoFileSystemFactory fileSystemFactory,
+            DateTimeZone parquetDateTimeZone,
+            int domainCompactionThreshold,
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            ParquetReaderOptions parquetReaderOptions,
+            TableChangesTableFunctionHandle handle,
+            TableChangesSplit split)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         TrinoInputFile inputFile = fileSystem.newInputFile(Location.of(split.path()), split.fileSize());
         Map<String, Optional<String>> partitionKeys = split.partitionKeys();
+
+        parquetReaderOptions = parquetReaderOptions
+                .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
+                .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
+                .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withBatchColumnReaders(isParquetOptimizedReaderEnabled(session))
+                .withBatchNestedColumnReaders(isParquetOptimizedNestedReaderEnabled(session));
+
+        List<DeltaLakeColumnHandle> splitColumns = switch (split.fileType()) {
+            case CDF_FILE -> ImmutableList.<DeltaLakeColumnHandle>builder().addAll(handle.columns())
+                    .add(new DeltaLakeColumnHandle(
+                            CHANGE_TYPE_COLUMN_NAME,
+                            VARCHAR,
+                            OptionalInt.empty(),
+                            CHANGE_TYPE_COLUMN_NAME,
+                            VARCHAR,
+                            REGULAR,
+                            Optional.empty()))
+                    .build();
+            case DATA_FILE -> handle.columns();
+        };
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
