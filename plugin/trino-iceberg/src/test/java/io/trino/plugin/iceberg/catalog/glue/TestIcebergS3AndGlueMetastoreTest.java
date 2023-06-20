@@ -19,7 +19,6 @@ import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -28,16 +27,16 @@ import java.util.stream.Collectors;
 
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergS3AndGlueMetastoreTest
         extends BaseS3AndGlueMetastoreTest
 {
-    @Parameters("s3.bucket")
-    public TestIcebergS3AndGlueMetastoreTest(String bucketName)
+    public TestIcebergS3AndGlueMetastoreTest()
     {
-        super("partitioning", "location", bucketName);
+        super("partitioning", "location", requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set"));
     }
 
     @Override
