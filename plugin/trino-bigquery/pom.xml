@@ -102,6 +102,17 @@
 
         <dependency>
             <groupId>com.google.api</groupId>
+            <artifactId>api-common</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.api</groupId>
             <artifactId>gax</artifactId>
             <exclusions>
                 <exclusion>
