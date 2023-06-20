@@ -250,9 +250,9 @@ public abstract class BaseS3AndGlueMetastoreTest
 
     protected abstract void validateMetadataFiles(String location);
 
-    protected void validateTableLocation(String tableName, String location)
+    protected void validateTableLocation(String tableName, String expectedLocation)
     {
-        assertThat(getTableLocation(tableName)).isEqualTo(location);
+        assertThat(getTableLocation(tableName)).isEqualTo(expectedLocation);
     }
 
     protected void validateFilesAfterDrop(String location)
