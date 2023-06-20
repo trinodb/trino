@@ -33,6 +33,8 @@ import java.util.stream.Stream;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_104;
+import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
@@ -389,7 +391,7 @@ public class TestDeltaLakeWriteDatabricksCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_EXCLUDE_113, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testVacuumUnsupportedWriterVersion()
     {
@@ -400,10 +402,10 @@ public class TestDeltaLakeWriteDatabricksCompatibility
                 "(a INT)" +
                 "USING DELTA " +
                 "LOCATION '" + ("s3://" + bucketName + "/" + directoryName) + "'" +
-                "TBLPROPERTIES ('delta.minWriterVersion'='6')");
+                "TBLPROPERTIES ('delta.minWriterVersion'='7')");
         try {
             assertThatThrownBy(() -> onTrino().executeQuery("CALL delta.system.vacuum('default', '" + tableName + "', '7d')"))
-                    .hasMessageContaining("Cannot execute vacuum procedure with 6 writer version");
+                    .hasMessageContaining("Cannot execute vacuum procedure with 7 writer version");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
