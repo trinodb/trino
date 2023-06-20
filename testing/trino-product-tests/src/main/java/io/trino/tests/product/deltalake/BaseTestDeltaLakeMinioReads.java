@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_GET;
 import static io.minio.messages.EventType.OBJECT_ACCESSED_HEAD;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_MINIO;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.MinioNotificationsAssertions.assertNotificationsCount;
@@ -32,6 +31,7 @@ import static io.trino.tests.product.utils.MinioNotificationsAssertions.recordNo
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTestDeltaLakeMinioReads
         extends ProductTest
