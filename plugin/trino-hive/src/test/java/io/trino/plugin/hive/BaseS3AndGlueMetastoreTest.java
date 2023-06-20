@@ -106,15 +106,15 @@ public abstract class BaseS3AndGlueMetastoreTest
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
             actualTableLocation = validateTableLocation(tableName, location);
 
-            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
-                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
-                assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES ('str4', 4)"))
-                        .hasMessageStartingWith("Location does not have parent: ");
-                return;
-            }
             assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
+            if (locationPattern == TWO_TRAILING_SLASHES && !partitioned && getClass().getName().contains(".deltalake.")) {
+                // TODO (https://github.com/trinodb/trino/issues/17966): updates fail when Delta table is declared with location ending with two slashes
+                assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2"))
+                        .hasMessageMatching("path \\[(s3://.*)/([-a-zA-Z0-9_]+)] must be a subdirectory of basePath \\[(\\1)//]");
+                return;
+            }
             assertUpdate("UPDATE " + tableName + " SET col_str = 'other' WHERE col_int = 2", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
 
@@ -149,12 +149,6 @@ public abstract class BaseS3AndGlueMetastoreTest
                 actualTableLocation = getTableLocation(qualifiedTableName);
                 assertThat(actualTableLocation).matches(expectedTableLocationPattern);
 
-                if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
-                    // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared within schema with location ending with two slashes
-                    assertThatThrownBy(() -> query("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)"))
-                            .hasMessageStartingWith("Location does not have parent: ");
-                    return;
-                }
                 assertUpdate("INSERT INTO " + qualifiedTableName + " (col_str, col_int) VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT col_str, col_int FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
@@ -188,17 +182,17 @@ public abstract class BaseS3AndGlueMetastoreTest
             actualTableLocation = validateTableLocation(tableName, location);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
 
-            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
-                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
-                assertThatThrownBy(() -> query("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
-                        " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)"))
-                        .hasMessageStartingWith("Location does not have parent: ");
-                return;
-            }
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 1) t(x) ON false" +
                     " WHEN NOT MATCHED THEN INSERT VALUES ('str4', 4)", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
+            if (locationPattern == TWO_TRAILING_SLASHES && !partitioned && getClass().getName().contains(".deltalake.")) {
+                // TODO (https://github.com/trinodb/trino/issues/17966): merge fails when Delta table is declared with location ending with two slashes
+                assertThatThrownBy(() -> query("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
+                        " WHEN MATCHED THEN UPDATE SET col_str = 'other'"))
+                        .hasMessageMatching("path \\[(s3://.*)/([-a-zA-Z0-9_]+)] must be a subdirectory of basePath \\[(\\1)//]");
+                return;
+            }
             assertUpdate("MERGE INTO " + tableName + " USING (VALUES 2) t(x) ON col_int = x" +
                     " WHEN MATCHED THEN UPDATE SET col_str = 'other'", 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('other', 2), ('str3', 3), ('str4', 4)");
@@ -226,12 +220,6 @@ public abstract class BaseS3AndGlueMetastoreTest
                 "WITH (" + locationQueryPart + partitionQueryPart + ")");
         try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
             // create multiple data files, INSERT with multiple values would create only one file (if not partitioned)
-            if (locationPattern == TWO_TRAILING_SLASHES && getClass().getName().contains(".deltalake.")) {
-                // TODO (https://github.com/trinodb/trino/issues/17966): writes fail when Delta table is declared with location ending with two slashes
-                assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES (1, 'one')"))
-                        .hasMessageStartingWith("Location does not have parent: ");
-                return;
-            }
             assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'a//double_slash')", 1);
             assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'a%percent')", 1);
