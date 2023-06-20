@@ -75,8 +75,8 @@ public class ChunkFileFetcher
             throws IOException
     {
         List<List<ValueVector>> batchOfVectors = new ArrayList<>();
-        try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator)) {
-            VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot();
+        try (ArrowStreamReader reader = new ArrowStreamReader(is, bufferAllocator);
+                VectorSchemaRoot vectorSchemaRoot = reader.getVectorSchemaRoot()) {
             while (reader.loadNextBatch()) {
                 ArrayList<ValueVector> valueVectors = new ArrayList<>();
                 for (FieldVector fieldVector : vectorSchemaRoot.getFieldVectors()) {
