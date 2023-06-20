@@ -2416,6 +2416,10 @@ public final class MetadataManager
             builder.orderSensitive();
         }
 
+        if (aggregationFunctionMetadata.returnsZeroOnEmptyInput()) {
+            builder.returnsZeroOnEmptyInput();
+        }
+
         if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
             FunctionBinding functionBinding = toFunctionBinding(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionSignature);
             aggregationFunctionMetadata.getIntermediateTypes().stream()

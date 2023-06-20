@@ -34,6 +34,13 @@ public @interface AggregationFunction
      */
     boolean isOrderSensitive() default false;
 
+    /**
+     * Indicates whether the function returns value BIGINT 0 when no input is provided.
+     * The SQL specification demands it for COUNT function.
+     * In trino, COUNT_IF and APPROX_DISTINCT also have this characteristic.
+     */
+    boolean returnsZeroOnEmptyInput() default false;
+
     boolean hidden() default false;
 
     String[] alias() default {};

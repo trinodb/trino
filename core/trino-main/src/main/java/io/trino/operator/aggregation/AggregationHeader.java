@@ -24,15 +24,17 @@ public class AggregationHeader
     private final Optional<String> description;
     private final boolean decomposable;
     private final boolean orderSensitive;
+    private final boolean returnsZeroOnEmptyInput;
     private final boolean hidden;
     private final boolean deprecated;
 
-    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean hidden, boolean deprecated)
+    public AggregationHeader(String name, Optional<String> description, boolean decomposable, boolean orderSensitive, boolean returnsZeroOnEmptyInput, boolean hidden, boolean deprecated)
     {
         this.name = requireNonNull(name, "name cannot be null");
         this.description = requireNonNull(description, "description cannot be null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
+        this.returnsZeroOnEmptyInput = returnsZeroOnEmptyInput;
         this.hidden = hidden;
         this.deprecated = deprecated;
     }
@@ -57,6 +59,11 @@ public class AggregationHeader
         return orderSensitive;
     }
 
+    public boolean returnsZeroOnEmptyInput()
+    {
+        return returnsZeroOnEmptyInput;
+    }
+
     public boolean isHidden()
     {
         return hidden;
@@ -75,6 +82,7 @@ public class AggregationHeader
                 .add("description", description)
                 .add("decomposable", decomposable)
                 .add("orderSensitive", orderSensitive)
+                .add("returnsZeroOnEmptyInput", returnsZeroOnEmptyInput)
                 .add("hidden", hidden)
                 .toString();
     }

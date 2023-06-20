@@ -187,6 +187,7 @@ public final class AggregationFromAnnotationsParser
                 parseDescription(aggregationDefinition, outputFunction),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
+                aggregationAnnotation.returnsZeroOnEmptyInput(),
                 aggregationAnnotation.hidden(),
                 aggregationDefinition.getAnnotationsByType(Deprecated.class).length > 0);
     }

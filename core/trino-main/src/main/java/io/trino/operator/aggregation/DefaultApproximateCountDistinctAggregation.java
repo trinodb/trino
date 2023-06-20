@@ -35,7 +35,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.XX_HASH_64;
 
-@AggregationFunction("approx_distinct")
+@AggregationFunction(value = "approx_distinct", returnsZeroOnEmptyInput = true)
 public final class DefaultApproximateCountDistinctAggregation
 {
     private static final double DEFAULT_STANDARD_ERROR = 0.023;

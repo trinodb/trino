@@ -22,6 +22,7 @@ import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -189,8 +190,9 @@ public class OptimizeMixedDistinctAggregations
                             Optional.empty(),
                             Optional.empty(),
                             Optional.empty());
-                    String signatureName = aggregation.getResolvedFunction().getSignature().getName();
-                    if (signatureName.equals("count") || signatureName.equals("count_if") || signatureName.equals("approx_distinct")) {
+
+                    AggregationFunctionMetadata aggregationFunctionMetadata = metadata.getAggregationFunctionMetadata(session, aggregation.getResolvedFunction());
+                    if (aggregationFunctionMetadata.returnsZeroOnEmptyInput()) {
                         Symbol newSymbol = symbolAllocator.newSymbol("expr", symbolAllocator.getTypes().get(entry.getKey()));
                         aggregations.put(newSymbol, newAggregation);
                         coalesceSymbolsBuilder.put(newSymbol, entry.getKey());

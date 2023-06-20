@@ -41,7 +41,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
 
-@AggregationFunction("approx_distinct")
+@AggregationFunction(value = "approx_distinct", returnsZeroOnEmptyInput = true)
 public final class ApproximateCountDistinctAggregation
 {
     private static final double LOWEST_MAX_STANDARD_ERROR = 0.0040625;

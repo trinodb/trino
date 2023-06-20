@@ -103,6 +103,9 @@ public class ParametricAggregation
         if (details.isOrderSensitive()) {
             builder.orderSensitive();
         }
+        if (details.returnsZeroOnEmptyInput()) {
+            builder.returnsZeroOnEmptyInput();
+        }
         if (details.isDecomposable()) {
             for (AccumulatorStateDetails<?> stateDetail : stateDetails) {
                 builder.intermediateType(stateDetail.getSerializedType());

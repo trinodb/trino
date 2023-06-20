@@ -27,17 +27,25 @@ import static java.util.Objects.requireNonNull;
 public class AggregationFunctionMetadata
 {
     private final boolean orderSensitive;
+
+    private final boolean returnsZeroOnEmptyInput;
     private final List<TypeSignature> intermediateTypes;
 
-    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
+    private AggregationFunctionMetadata(boolean orderSensitive, boolean returnsZeroOnEmptyInput, List<TypeSignature> intermediateTypes)
     {
         this.orderSensitive = orderSensitive;
+        this.returnsZeroOnEmptyInput = returnsZeroOnEmptyInput;
         this.intermediateTypes = List.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null"));
     }
 
     public boolean isOrderSensitive()
     {
         return orderSensitive;
+    }
+
+    public boolean returnsZeroOnEmptyInput()
+    {
+        return returnsZeroOnEmptyInput;
     }
 
     public boolean isDecomposable()
@@ -55,6 +63,7 @@ public class AggregationFunctionMetadata
     {
         return new StringJoiner(", ", AggregationFunctionMetadata.class.getSimpleName() + "[", "]")
                 .add("orderSensitive=" + orderSensitive)
+                .add("returnsZeroOnEmptyInput=" + returnsZeroOnEmptyInput)
                 .add("intermediateTypes=" + intermediateTypes)
                 .toString();
     }
@@ -68,12 +77,19 @@ public class AggregationFunctionMetadata
     {
         private boolean orderSensitive;
         private final List<TypeSignature> intermediateTypes = new ArrayList<>();
+        private boolean returnsZeroOnEmptyInput;
 
         private AggregationFunctionMetadataBuilder() {}
 
         public AggregationFunctionMetadataBuilder orderSensitive()
         {
             this.orderSensitive = true;
+            return this;
+        }
+
+        public AggregationFunctionMetadataBuilder returnsZeroOnEmptyInput()
+        {
+            this.returnsZeroOnEmptyInput = true;
             return this;
         }
 
@@ -91,7 +107,7 @@ public class AggregationFunctionMetadata
 
         public AggregationFunctionMetadata build()
         {
-            return new AggregationFunctionMetadata(orderSensitive, intermediateTypes);
+            return new AggregationFunctionMetadata(orderSensitive, returnsZeroOnEmptyInput, intermediateTypes);
         }
     }
 }

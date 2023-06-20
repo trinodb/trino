@@ -22,7 +22,7 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-@AggregationFunction("approx_distinct")
+@AggregationFunction(value = "approx_distinct", returnsZeroOnEmptyInput = true)
 public final class BooleanDefaultApproximateCountDistinctAggregation
 {
     // this value is ignored for boolean, but this is left here for completeness

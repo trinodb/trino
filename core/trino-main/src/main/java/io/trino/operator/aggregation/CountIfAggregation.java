@@ -26,7 +26,7 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@AggregationFunction("count_if")
+@AggregationFunction(value = "count_if", returnsZeroOnEmptyInput = true)
 public final class CountIfAggregation
 {
     private CountIfAggregation() {}

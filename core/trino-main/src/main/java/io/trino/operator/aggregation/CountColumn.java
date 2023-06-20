@@ -30,7 +30,7 @@ import io.trino.spi.function.TypeParameter;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@AggregationFunction("count")
+@AggregationFunction(value = "count", returnsZeroOnEmptyInput = true)
 @Description("Counts the non-null values")
 public final class CountColumn
 {

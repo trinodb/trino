@@ -24,7 +24,7 @@ import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
-@AggregationFunction("approx_distinct")
+@AggregationFunction(value = "approx_distinct", returnsZeroOnEmptyInput = true)
 public final class BooleanApproximateCountDistinctAggregation
 {
     private BooleanApproximateCountDistinctAggregation() {}
