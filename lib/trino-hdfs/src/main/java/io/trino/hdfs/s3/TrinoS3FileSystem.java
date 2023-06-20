@@ -1084,6 +1084,9 @@ public class TrinoS3FileSystem
 
         String endpoint = hadoopConfig.get(S3_ENDPOINT);
         String region = hadoopConfig.get(S3_REGION);
+        if (region == null) {
+            region = System.getenv("AWS_REGION");
+        }
         if (endpoint != null) {
             clientBuilder.setEndpointConfiguration(new EndpointConfiguration(endpoint, region));
             regionOrEndpointSet = true;
