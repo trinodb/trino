@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>141</version>
+        <version>143</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -75,7 +75,6 @@
         <dep.netty.version>4.1.92.Final</dep.netty.version>
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
-        <dep.jackson.version>2.15.1</dep.jackson.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
 
@@ -950,6 +949,12 @@
             <dependency>
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-transport-netty</artifactId>
+                <version>${dep.drift.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.airlift.drift</groupId>
+                <artifactId>drift-transport-spi</artifactId>
                 <version>${dep.drift.version}</version>
             </dependency>
 
