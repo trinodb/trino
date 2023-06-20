@@ -25,13 +25,13 @@ import java.util.Random;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_CACHING;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.hive.util.CachingTestUtils.getCacheStats;
 import static io.trino.tests.product.utils.QueryAssertions.assertEventually;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveCaching

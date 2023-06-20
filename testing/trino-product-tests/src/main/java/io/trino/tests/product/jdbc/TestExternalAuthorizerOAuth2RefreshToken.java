@@ -44,12 +44,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryResult.forResultSet;
 import static io.trino.tests.product.TestGroups.OAUTH2_REFRESH;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExternalAuthorizerOAuth2RefreshToken
         extends ProductTest

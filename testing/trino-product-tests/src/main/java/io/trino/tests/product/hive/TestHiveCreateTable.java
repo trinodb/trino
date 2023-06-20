@@ -24,7 +24,6 @@ import java.sql.Statement;
 import java.util.Optional;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HDP3_ONLY;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
@@ -33,6 +32,7 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MA
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCreateTable
         extends ProductTest

@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
 import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
@@ -60,6 +59,7 @@ import static io.trino.tests.product.utils.SchemaRegistryClientUtils.getSchemaRe
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestKafkaAvroReadsSmokeTest

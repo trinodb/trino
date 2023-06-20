@@ -33,7 +33,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.TableHandle.tableHandle;
@@ -65,6 +64,7 @@ import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.TINYINT;
 import static java.sql.JDBCType.VARBINARY;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAllDatatypesFromHiveConnector
         extends HiveProductTest

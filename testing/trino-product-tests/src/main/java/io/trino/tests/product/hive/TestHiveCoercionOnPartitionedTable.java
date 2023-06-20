@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -35,6 +34,7 @@ import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveCoercionOnPartitionedTable
         extends BaseTestHiveCoercion
