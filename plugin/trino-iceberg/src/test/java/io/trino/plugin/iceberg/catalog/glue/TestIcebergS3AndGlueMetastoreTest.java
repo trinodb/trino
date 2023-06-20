@@ -77,15 +77,13 @@ public class TestIcebergS3AndGlueMetastoreTest
     }
 
     @Override
-    protected void validateTableLocation(String tableName, String location)
+    protected void validateTableLocation(String tableName, String expectedLocation)
     {
-        if (location.endsWith("/")) {
-            //Iceberg removes trailing slash from location, and it's expected.
-            assertThat(getTableLocation(tableName) + "/").isEqualTo(location);
+        // Iceberg removes trailing slash from location, and it's expected.
+        if (expectedLocation.endsWith("/")) {
+            expectedLocation = expectedLocation.replaceFirst("/$", "");
         }
-        else {
-            assertThat(getTableLocation(tableName)).isEqualTo(location);
-        }
+        assertThat(getTableLocation(tableName)).isEqualTo(expectedLocation);
     }
 
     private Set<String> getAllMetadataDataFilesFromTableDirectory(String tableLocation)
@@ -123,12 +121,12 @@ public class TestIcebergS3AndGlueMetastoreTest
                 ('col_int', null, 4.0, 0.0, null, 1, 4),
                 (null, null, null, null, 4.0, null, null)""";
 
-        //Check extended statistics collection on write
+        // Check extended statistics collection on write
         assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
 
         // drop stats
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
-        //Check extended statistics collection explicitly
+        // Check extended statistics collection explicitly
         assertUpdate("ANALYZE " + tableName);
         assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
 
