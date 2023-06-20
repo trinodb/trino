@@ -29,7 +29,6 @@ import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.writer.ColumnWriter.BufferData;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import it.unimi.dsi.fastutil.ints.IntArrays;
 import org.apache.parquet.column.ParquetProperties;
 import org.apache.parquet.format.ColumnMetaData;
 import org.apache.parquet.format.CompressionCodec;
@@ -46,7 +45,6 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -312,27 +310,16 @@ public class ParquetWriter
                 .map(BufferData::getMetaData)
                 .collect(toImmutableList());
 
-        // Since the reader coalesces nearby small reads, it is beneficial to
-        // reorder data streams to group columns with small size together
-        int[] indexes = new int[columns.size()];
-        Arrays.setAll(indexes, index -> index);
-        IntArrays.quickSort(indexes, (index, otherIndex) ->
-                Long.compare(columns.get(index).getTotal_compressed_size(), columns.get(otherIndex).getTotal_compressed_size()));
-
-        // Ordering of columns in the metadata should remain unchanged.
-        // Only the offsets in file at which the columns start may change as a result
-        // of reordering column data streams by their compressed size
         long currentOffset = stripeStartOffset;
-        for (int index : indexes) {
-            ColumnMetaData columnMetaData = columns.get(index);
+        for (ColumnMetaData columnMetaData : columns) {
             columnMetaData.setData_page_offset(currentOffset);
             currentOffset += columnMetaData.getTotal_compressed_size();
         }
         updateRowGroups(columns);
 
         // flush pages
-        for (int index : indexes) {
-            bufferDataList.get(index).getData()
+        for (BufferData bufferData : bufferDataList) {
+            bufferData.getData()
                     .forEach(data -> data.writeData(outputStream));
         }
     }
