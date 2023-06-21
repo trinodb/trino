@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix5;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
@@ -23,7 +24,6 @@ import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
-import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -171,7 +171,7 @@ public class PhoenixMetadata
     private String toRemoteSchemaName(ConnectorSession session, String schemaName)
     {
         try (Connection connection = phoenixClient.getConnection(session)) {
-            return identifierMapping.toRemoteSchemaName(session.getIdentity(), connection, schemaName);
+            return identifierMapping.toRemoteSchemaName(phoenixClient.getRemoteIdentifiers(connection), session.getIdentity(), schemaName);
         }
         catch (SQLException e) {
             throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);

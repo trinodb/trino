@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
-import java.sql.Connection;
+import java.util.Set;
 
-@FunctionalInterface
-public interface RemoteIdentifierSupplier
+public interface RemoteIdentifiers
 {
-    String toRemoteIdentifier(Connection connection, String identifier);
+    Set<String> getRemoteSchemas();
+
+    Set<String> getRemoteTables(String remoteSchema);
+
+    boolean storesUpperCaseIdentifiers();
 }

@@ -12,11 +12,10 @@
  * limitations under the License.
  */
 
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.sql.Connection;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
@@ -58,20 +57,20 @@ public abstract class ForwardingIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName)
     {
-        return delegate().toRemoteSchemaName(identity, connection, schemaName);
+        return delegate().toRemoteSchemaName(remoteIdentifiers, identity, schemaName);
     }
 
     @Override
-    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName)
     {
-        return delegate().toRemoteTableName(identity, connection, remoteSchema, tableName);
+        return delegate().toRemoteTableName(remoteIdentifiers, identity, remoteSchema, tableName);
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
     {
-        return delegate().toRemoteColumnName(connection, columnName);
+        return delegate().toRemoteColumnName(remoteIdentifiers, columnName);
     }
 }
