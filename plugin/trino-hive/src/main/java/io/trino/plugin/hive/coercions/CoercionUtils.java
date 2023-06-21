@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.type.Category;
 import io.trino.plugin.hive.type.ListTypeInfo;
 import io.trino.plugin.hive.type.MapTypeInfo;
+import io.trino.plugin.hive.type.StructTypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
@@ -33,6 +34,7 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -53,7 +55,6 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToReal
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
-import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
@@ -134,16 +135,28 @@ public final class CoercionUtils
             return Optional.of(new TimestampCoercer.LongTimestampToVarcharCoercer(timestampType, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
-            return Optional.of(new ListCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
+            return createCoercerForList(
+                    typeManager,
+                    (ListTypeInfo) fromHiveType.getTypeInfo(),
+                    (ListTypeInfo) toHiveType.getTypeInfo(),
+                    timestampPrecision);
         }
         if ((fromType instanceof MapType) && (toType instanceof MapType)) {
-            return Optional.of(new MapCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision));
+            return createCoercerForMap(
+                    typeManager,
+                    (MapTypeInfo) fromHiveType.getTypeInfo(),
+                    (MapTypeInfo) toHiveType.getTypeInfo(),
+                    timestampPrecision);
         }
         if ((fromType instanceof RowType) && (toType instanceof RowType)) {
             HiveType fromHiveTypeStruct = (fromHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(fromType) : fromHiveType;
             HiveType toHiveTypeStruct = (toHiveType.getCategory() == Category.UNION) ? HiveType.toHiveType(toType) : toHiveType;
 
-            return Optional.of(new StructCoercer(typeManager, fromHiveTypeStruct, toHiveTypeStruct, timestampPrecision));
+            return createCoercerForStruct(
+                    typeManager,
+                    (StructTypeInfo) fromHiveTypeStruct.getTypeInfo(),
+                    (StructTypeInfo) toHiveTypeStruct.getTypeInfo(),
+                    timestampPrecision);
         }
 
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
@@ -166,31 +179,100 @@ public final class CoercionUtils
         return first.getLength() < second.getLength();
     }
 
+    private static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercerForList(
+            TypeManager typeManager,
+            ListTypeInfo fromListTypeInfo,
+            ListTypeInfo toListTypeInfo,
+            HiveTimestampPrecision timestampPrecision)
+    {
+        HiveType fromElementHiveType = HiveType.valueOf(fromListTypeInfo.getListElementTypeInfo().getTypeName());
+        HiveType toElementHiveType = HiveType.valueOf(toListTypeInfo.getListElementTypeInfo().getTypeName());
+
+        return createCoercer(typeManager, fromElementHiveType, toElementHiveType, timestampPrecision)
+                .map(elementCoercer -> new ListCoercer(new ArrayType(elementCoercer.getFromType()), new ArrayType(elementCoercer.getToType()), elementCoercer));
+    }
+
+    private static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercerForMap(
+            TypeManager typeManager,
+            MapTypeInfo fromMapTypeInfo,
+            MapTypeInfo toMapTypeInfo,
+            HiveTimestampPrecision timestampPrecision)
+    {
+        HiveType fromKeyHiveType = HiveType.valueOf(fromMapTypeInfo.getMapKeyTypeInfo().getTypeName());
+        HiveType fromValueHiveType = HiveType.valueOf(fromMapTypeInfo.getMapValueTypeInfo().getTypeName());
+        HiveType toKeyHiveType = HiveType.valueOf(toMapTypeInfo.getMapKeyTypeInfo().getTypeName());
+        HiveType toValueHiveType = HiveType.valueOf(toMapTypeInfo.getMapValueTypeInfo().getTypeName());
+        Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType, timestampPrecision);
+        Optional<TypeCoercer<? extends Type, ? extends Type>> valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType, timestampPrecision);
+        MapType fromType = new MapType(
+                keyCoercer.map(TypeCoercer::getFromType).orElseGet(() -> fromKeyHiveType.getType(typeManager, timestampPrecision)),
+                valueCoercer.map(TypeCoercer::getFromType).orElseGet(() -> fromValueHiveType.getType(typeManager, timestampPrecision)),
+                typeManager.getTypeOperators());
+
+        MapType toType = new MapType(
+                keyCoercer.map(TypeCoercer::getToType).orElseGet(() -> toKeyHiveType.getType(typeManager, timestampPrecision)),
+                valueCoercer.map(TypeCoercer::getToType).orElseGet(() -> toValueHiveType.getType(typeManager, timestampPrecision)),
+                typeManager.getTypeOperators());
+
+        return Optional.of(new MapCoercer(fromType, toType, keyCoercer, valueCoercer));
+    }
+
+    private static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercerForStruct(
+            TypeManager typeManager,
+            StructTypeInfo fromStructTypeInfo,
+            StructTypeInfo toStructTypeInfo,
+            HiveTimestampPrecision timestampPrecision)
+    {
+        ImmutableList.Builder<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers = ImmutableList.builder();
+        ImmutableList.Builder<Field> fromField = ImmutableList.builder();
+        ImmutableList.Builder<Field> toField = ImmutableList.builder();
+
+        List<String> fromStructFieldName = fromStructTypeInfo.getAllStructFieldNames();
+        List<String> toStructFieldNames = toStructTypeInfo.getAllStructFieldNames();
+
+        for (int i = 0; i < toStructFieldNames.size(); i++) {
+            HiveType toStructFieldType = HiveType.valueOf(toStructTypeInfo.getAllStructFieldTypeInfos().get(i).getTypeName());
+            if (i >= fromStructFieldName.size()) {
+                toField.add(new Field(
+                        Optional.of(toStructFieldNames.get(i)),
+                        toStructFieldType.getType(typeManager, timestampPrecision)));
+                coercers.add(Optional.empty());
+            }
+            else {
+                HiveType fromStructFieldType = HiveType.valueOf(fromStructTypeInfo.getAllStructFieldTypeInfos().get(i).getTypeName());
+
+                Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = createCoercer(typeManager, fromStructFieldType, toStructFieldType, timestampPrecision);
+
+                fromField.add(new Field(
+                        Optional.of(fromStructFieldName.get(i)),
+                        coercer.map(TypeCoercer::getFromType).orElseGet(() -> fromStructFieldType.getType(typeManager, timestampPrecision))));
+                toField.add(new Field(
+                        Optional.of(toStructFieldNames.get(i)),
+                        coercer.map(TypeCoercer::getToType).orElseGet(() -> toStructFieldType.getType(typeManager, timestampPrecision))));
+
+                coercers.add(coercer);
+            }
+        }
+
+        return Optional.of(new StructCoercer(RowType.from(fromField.build()), RowType.from(toField.build()), coercers.build()));
+    }
+
     private static class ListCoercer
             extends TypeCoercer<ArrayType, ArrayType>
     {
-        private final Optional<TypeCoercer<? extends Type, ? extends Type>> elementCoercer;
+        private final TypeCoercer<? extends Type, ? extends Type> elementCoercer;
 
-        public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public ListCoercer(ArrayType fromType, ArrayType toType, TypeCoercer<? extends Type, ? extends Type> elementCoercer)
         {
-            super((ArrayType) fromHiveType.getType(typeManager, timestampPrecision), (ArrayType) toHiveType.getType(typeManager, timestampPrecision));
-            requireNonNull(typeManager, "typeManager is null");
-            requireNonNull(fromHiveType, "fromHiveType is null");
-            requireNonNull(toHiveType, "toHiveType is null");
-            requireNonNull(timestampPrecision, "timestampPrecision is null");
-            HiveType fromElementHiveType = HiveType.valueOf(((ListTypeInfo) fromHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-            HiveType toElementHiveType = HiveType.valueOf(((ListTypeInfo) toHiveType.getTypeInfo()).getListElementTypeInfo().getTypeName());
-            this.elementCoercer = createCoercer(typeManager, fromElementHiveType, toElementHiveType, timestampPrecision);
+            super(fromType, toType);
+            this.elementCoercer = requireNonNull(elementCoercer, "elementCoercer is null");
         }
 
         @Override
         public Block apply(Block block)
         {
-            if (elementCoercer.isEmpty()) {
-                return block;
-            }
             ColumnarArray arrayBlock = toColumnarArray(block);
-            Block elementsBlock = elementCoercer.get().apply(arrayBlock.getElementsBlock());
+            Block elementsBlock = elementCoercer.apply(arrayBlock.getElementsBlock());
             boolean[] valueIsNull = new boolean[arrayBlock.getPositionCount()];
             int[] offsets = new int[arrayBlock.getPositionCount() + 1];
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -213,18 +295,15 @@ public final class CoercionUtils
         private final Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer;
         private final Optional<TypeCoercer<? extends Type, ? extends Type>> valueCoercer;
 
-        public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public MapCoercer(
+                MapType fromType,
+                MapType toType,
+                Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer,
+                Optional<TypeCoercer<? extends Type, ? extends Type>> valueCoercer)
         {
-            super((MapType) fromHiveType.getType(typeManager, timestampPrecision), (MapType) toHiveType.getType(typeManager, timestampPrecision));
-            requireNonNull(typeManager, "typeManager is null");
-            requireNonNull(fromHiveType, "fromHiveType is null");
-            requireNonNull(timestampPrecision, "timestampPrecision is null");
-            HiveType fromKeyHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
-            HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-            HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
-            HiveType toValueHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
-            this.keyCoercer = createCoercer(typeManager, fromKeyHiveType, toKeyHiveType, timestampPrecision);
-            this.valueCoercer = createCoercer(typeManager, fromValueHiveType, toValueHiveType, timestampPrecision);
+            super(fromType, toType);
+            this.keyCoercer = requireNonNull(keyCoercer, "keyCoercer is null");
+            this.valueCoercer = requireNonNull(valueCoercer, "valueCoercer is null");
         }
 
         @Override
@@ -255,27 +334,17 @@ public final class CoercionUtils
         private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
         private final Block[] nullBlocks;
 
-        public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+        public StructCoercer(RowType fromType, RowType toType, List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers)
         {
-            super((RowType) fromHiveType.getType(typeManager, timestampPrecision), (RowType) toHiveType.getType(typeManager, timestampPrecision));
-            requireNonNull(typeManager, "typeManager is null");
-            requireNonNull(fromHiveType, "fromHiveType is null");
-            requireNonNull(toHiveType, "toHiveType is null");
-            requireNonNull(timestampPrecision, "timestampPrecision is null");
-            List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
-            List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
-            ImmutableList.Builder<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers = ImmutableList.builder();
-            this.nullBlocks = new Block[toFieldTypes.size()];
-            for (int i = 0; i < toFieldTypes.size(); i++) {
-                if (i >= fromFieldTypes.size()) {
-                    nullBlocks[i] = toFieldTypes.get(i).getType(typeManager).createBlockBuilder(null, 1).appendNull().build();
-                    coercers.add(Optional.empty());
-                }
-                else {
-                    coercers.add(createCoercer(typeManager, fromFieldTypes.get(i), toFieldTypes.get(i), timestampPrecision));
+            super(fromType, toType);
+            this.coercers = ImmutableList.copyOf(requireNonNull(coercers, "coercers is null"));
+            List<Field> toTypeFields = toType.getFields();
+            this.nullBlocks = new Block[toTypeFields.size()];
+            for (int i = 0; i < toTypeFields.size(); i++) {
+                if (i >= fromType.getFields().size()) {
+                    nullBlocks[i] = toTypeFields.get(i).getType().createBlockBuilder(null, 1).appendNull().build();
                 }
             }
-            this.coercers = coercers.build();
         }
 
         @Override
