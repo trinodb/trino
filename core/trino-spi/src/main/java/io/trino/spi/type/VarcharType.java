@@ -283,4 +283,18 @@ public final class VarcharType
         int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
     }
+
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, Slice right)
+    {
+        int leftLength = leftBlock.getSliceLength(leftPosition);
+        return leftBlock.bytesCompare(leftPosition, 0, leftLength, right, 0, right.length());
+    }
+
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
+    private static long comparisonOperator(Slice left, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        int rightLength = rightBlock.getSliceLength(rightPosition);
+        return -rightBlock.bytesCompare(rightPosition, 0, rightLength, left, 0, left.length());
+    }
 }
