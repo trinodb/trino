@@ -961,6 +961,148 @@ public class TestMongoConnectorTest
         assertQueryReturnsEmptyResult("SHOW SCHEMAS IN mongodb LIKE 'local'");
     }
 
+    @Test
+    public void testReadTopLevelDottedField()
+    {
+        String tableName = "test_read_top_level_dotted_field_" + randomNameSuffix();
+
+        Document document = new Document()
+                .append("_id", new ObjectId("5126bbf64aed4daf9e2ab771"))
+                .append("dotted.field", "foo");
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT \"dotted.field\" FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("SELECT NULL");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadMiddleLevelDottedField()
+    {
+        String tableName = "test_read_middle_level_dotted_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"dotted.field\" ROW(leaf VARCHAR)))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW(ROW('foo'))", 1);
+
+        assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName))
+                .skippingTypesCheck()
+                .matches("SELECT ROW(varchar 'foo')");
+
+        assertThat(query("SELECT root.\"dotted.field\".leaf FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadLeafLevelDottedField()
+    {
+        String tableName = "test_read_leaf_level_dotted_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"dotted.field\" VARCHAR, field VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
+
+        assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertThat(query("SELECT root.\"dotted.field\", root.field FROM test." + tableName))
+                .matches("SELECT varchar 'foo', varchar 'bar'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadWithDollarPrefixedFieldName()
+    {
+        String tableName = "test_read_with_dollar_prefixed_field_name_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"$field1\" VARCHAR, field2 VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
+
+        assertThat(query("SELECT root.\"$field1\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertThat(query("SELECT root.\"$field1\", root.field2 FROM test." + tableName))
+                .matches("SELECT varchar 'foo', varchar 'bar'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadWithDollarInsideFieldName()
+    {
+        String tableName = "test_read_with_dollar_inside_field_name_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"fi$ld1\" VARCHAR, field2 VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo', 'bar')", 1);
+
+        assertThat(query("SELECT root.\"fi$ld1\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertThat(query("SELECT root.\"fi$ld1\", root.field2 FROM test." + tableName))
+                .matches("SELECT varchar 'foo', varchar 'bar'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadDottedFieldInsideDollarPrefixedField()
+    {
+        String tableName = "test_read_dotted_field_inside_dollar_prefixed_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"$field\" ROW(\"dotted.field\" VARCHAR)))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW(ROW('foo'))", 1);
+
+        assertThat(query("SELECT root.\"$field\".\"dotted.field\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testReadDollarPrefixedFieldInsideDottedField()
+    {
+        String tableName = "test_read_dollar_prefixed_field_inside_dotted_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"dotted.field\" ROW(\"$field\" VARCHAR)))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW(ROW('foo'))", 1);
+
+        assertThat(query("SELECT root.\"dotted.field\".\"$field\" FROM test." + tableName))
+                .matches("SELECT varchar 'foo'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testPredicateOnDottedField()
+    {
+        String tableName = "test_predicate_on_dotted_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"dotted.field\" VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo')", 1);
+
+        assertThat(query("SELECT root.\"dotted.field\" FROM test." + tableName + " WHERE root.\"dotted.field\" = 'foo'"))
+                .matches("SELECT varchar 'foo'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testPredicateOnDollarPrefixedField()
+    {
+        String tableName = "test_predicate_on_dollar_prefixed_field_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE test." + tableName + " (root ROW(\"$field\" VARCHAR))");
+        assertUpdate("INSERT INTO test." + tableName + " SELECT ROW('foo')", 1);
+
+        assertThat(query("SELECT root.\"$field\" FROM test." + tableName + " WHERE root.\"$field\" = 'foo'"))
+                .matches("SELECT varchar 'foo'");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {
