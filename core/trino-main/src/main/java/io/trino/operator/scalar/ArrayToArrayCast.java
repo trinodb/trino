@@ -26,7 +26,7 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.CAST;
 
@@ -41,7 +41,7 @@ public final class ArrayToArrayCast
     @SqlType("array(T)")
     public static Block filterLong(
             @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
+            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
             ConnectorSession session,
             @SqlType("array(F)") Block array)
             throws Throwable
@@ -67,7 +67,7 @@ public final class ArrayToArrayCast
     @SqlType("array(T)")
     public static Block filterDouble(
             @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
+            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
             ConnectorSession session,
             @SqlType("array(F)") Block array)
             throws Throwable
@@ -93,7 +93,7 @@ public final class ArrayToArrayCast
     @SqlType("array(T)")
     public static Block filterBoolean(
             @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
+            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
             ConnectorSession session,
             @SqlType("array(F)") Block array)
             throws Throwable
@@ -119,7 +119,7 @@ public final class ArrayToArrayCast
     @SqlType("array(T)")
     public static Block filterObject(
             @TypeParameter("T") Type resultType,
-            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
+            @CastDependency(fromType = "F", toType = "T", convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = NULLABLE_RETURN, session = true)) MethodHandle cast,
             ConnectorSession session,
             @SqlType("array(F)") Block array)
             throws Throwable
