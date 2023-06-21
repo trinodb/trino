@@ -14,7 +14,6 @@
 package io.trino.tests.product.hive;
 
 import io.trino.tempto.assertions.QueryAssert;
-import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
 import org.testng.SkipException;
@@ -738,11 +737,6 @@ public class TestHiveMerge
                 {true, Engine.HIVE, Engine.TRINO},
                 {true, Engine.TRINO, Engine.TRINO},
         };
-    }
-
-    private static QueryResult execute(Engine engine, String sql, QueryExecutor.QueryParam... params)
-    {
-        return engine.queryExecutor().executeQuery(sql, params);
     }
 
     @DataProvider
