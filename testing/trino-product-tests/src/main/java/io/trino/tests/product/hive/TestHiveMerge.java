@@ -27,6 +27,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
+import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.hive.BucketingType.BUCKETED_V2;
@@ -373,9 +374,9 @@ public class TestHiveMerge
 
                 onTrino().executeQuery(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable));
 
-                assertThat(() -> onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                assertQueryFailure(() -> onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED THEN UPDATE SET address = s.address"))
-                        .failsWithMessage("One MERGE target table row matched more than one source row");
+                        .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): One MERGE target table row matched more than one source row");
 
                 onTrino().executeQuery(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
                         "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address");
@@ -661,11 +662,11 @@ public class TestHiveMerge
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional=true) AS TABLE tpch.tiny.region", targetTable));
 
             // This merge is illegal, because many nations have the same region
-            assertThat(() -> onTrino().executeQuery(format("MERGE INTO %s r USING tpch.tiny.nation n", targetTable) +
+            assertQueryFailure(() -> onTrino().executeQuery(format("MERGE INTO %s r USING tpch.tiny.nation n", targetTable) +
                     "    ON r.regionkey = n.regionkey" +
                     "    WHEN MATCHED" +
                     "        THEN UPDATE SET comment = n.comment"))
-                    .failsWithMessage("One MERGE target table row matched more than one source row");
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): One MERGE target table row matched more than one source row");
 
             onTrino().executeQuery(format("MERGE INTO %s r USING tpch.tiny.nation n", targetTable) +
                     "    ON r.regionkey = n.regionkey AND n.name = 'FRANCE'" +
