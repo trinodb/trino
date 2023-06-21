@@ -48,9 +48,20 @@ public final class SapHanaQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createSapHanaQueryRunner(server, "saphana", connectorProperties, extraProperties, tables);
+    }
+
+    public static DistributedQueryRunner createSapHanaQueryRunner(
+            TestingSapHanaServer server,
+            String catalogName,
+            Map<String, String> connectorProperties,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession(catalogName));
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
@@ -88,9 +99,9 @@ public final class SapHanaQueryRunner
                 queries.forEach(server::executeWithRetry);
             }
             queryRunner.installPlugin(new TestingSapHanaPlugin());
-            queryRunner.createCatalog("saphana", "sap_hana", connectorProperties);
+            queryRunner.createCatalog(catalogName, "sap_hana", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession()), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(createSession(catalogName)), tables);
 
             return queryRunner;
         }
@@ -100,15 +111,15 @@ public final class SapHanaQueryRunner
         }
     }
 
-    public static Session createSession()
+    public static Session createSession(String catalogName)
     {
-        return createSession(GRANTED_USER);
+        return createSession(GRANTED_USER, catalogName);
     }
 
-    public static Session createSession(String user)
+    public static Session createSession(String user, String catalogName)
     {
         return testSessionBuilder()
-                .setCatalog("saphana")
+                .setCatalog(catalogName)
                 .setSchema("tpch")
                 .setIdentity(Identity.ofUser(user))
                 .build();

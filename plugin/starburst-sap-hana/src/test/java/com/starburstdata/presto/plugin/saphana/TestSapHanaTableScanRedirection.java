@@ -15,6 +15,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestSapHanaTableScanRedirection
         extends AbstractTableScanRedirectionTest
@@ -25,10 +26,12 @@ public class TestSapHanaTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        String catalogName = "saphana_" + randomNameSuffix();
         server = closeAfterClass(TestingSapHanaServer.create());
         return createSapHanaQueryRunner(
                 server,
-                getRedirectionProperties("saphana", "tpch"),
+                catalogName,
+                getRedirectionProperties(catalogName, "tpch"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
     }
