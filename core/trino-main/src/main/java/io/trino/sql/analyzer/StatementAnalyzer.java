@@ -1521,6 +1521,7 @@ class StatementAnalyzer
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
+                verifyNoAggregateWindowOrGroupingFunctions(session, metadata, expression, "UNNEST");
                 List<Field> expressionOutputs = new ArrayList<>();
 
                 ExpressionAnalysis expressionAnalysis = analyzeExpression(expression, createScope(scope));
