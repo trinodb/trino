@@ -12,9 +12,12 @@ package com.starburstdata.trino.plugins.jdbc;
 import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMapping;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
+import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
@@ -136,7 +139,8 @@ public class TestPoolingConnectionFactory
                     {
                         return Optional.of("password");
                     }
-                }));
+                }),
+                new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig().setUserCredentialName("user").setPasswordCredentialName("password")));
     }
 
     private static class TestConnection
@@ -507,9 +511,9 @@ public class TestPoolingConnectionFactory
     {
         private final AtomicInteger connectionCounter = new AtomicInteger(1);
 
-        public TestingPoolingConnectionFactory(String catalogName, Class<? extends Driver> driverClass, Properties connectionProperties, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialPropertiesProvider<String, String> credentialPropertiesProvider)
+        public TestingPoolingConnectionFactory(String catalogName, Class<? extends Driver> driverClass, Properties connectionProperties, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialPropertiesProvider<String, String> credentialPropertiesProvider, IdentityCacheMapping identityCacheMapping)
         {
-            super(catalogName, driverClass, connectionProperties, config, poolConfig, credentialPropertiesProvider, new AuthenticationBasedIdentityCacheMapping());
+            super(catalogName, driverClass, connectionProperties, config, poolConfig, credentialPropertiesProvider, identityCacheMapping);
         }
 
         @Override
