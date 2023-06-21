@@ -61,7 +61,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newArray;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -267,7 +267,7 @@ public class RowToRowCast
         MethodHandle castMethod = functionDependencies.getCastImplementation(
                 fromElementType,
                 toElementType,
-                new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false))
+                new InvocationConvention(ImmutableList.of(BLOCK_POSITION_NOT_NULL), NULLABLE_RETURN, true, false))
                 .getMethodHandle();
 
         // normalize so cast always has a session

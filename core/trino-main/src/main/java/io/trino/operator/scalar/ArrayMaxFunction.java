@@ -25,7 +25,7 @@ import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -45,7 +45,7 @@ public final class ArrayMaxFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -63,7 +63,7 @@ public final class ArrayMaxFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -81,7 +81,7 @@ public final class ArrayMaxFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
@@ -99,7 +99,7 @@ public final class ArrayMaxFunction
             @OperatorDependency(
                     operator = COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {

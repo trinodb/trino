@@ -33,7 +33,7 @@ import io.trino.spi.function.TypeParameter;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.IN_OUT;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
@@ -50,7 +50,7 @@ public final class MaxByAggregationFunction
             @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_FIRST,
                     argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, IN_OUT}, result = FAIL_ON_NULL))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, IN_OUT}, result = FAIL_ON_NULL))
                     MethodHandle compare,
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,

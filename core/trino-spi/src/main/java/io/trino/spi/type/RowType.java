@@ -34,6 +34,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -336,7 +337,7 @@ public class RowType
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> equalOperators = fields.stream()
-                    .map(field -> typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)))
+                    .map(field -> typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)))
                     .collect(toUnmodifiableList());
             return singletonList(new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(equalOperators)));
         }
@@ -352,7 +353,7 @@ public class RowType
                     equal);
 
             // field equal
-            MethodHandle fieldEqualOperator = typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+            MethodHandle fieldEqualOperator = typeOperators.getEqualOperator(field.getType(), simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
 
             // (Block, Block, Block, Block):Boolean
             equal = insertArguments(equal, 2, fieldId, fieldEqualOperator);
@@ -410,12 +411,12 @@ public class RowType
 
     private static List<OperatorMethodHandle> getHashCodeOperatorMethodHandles(TypeOperators typeOperators, List<Field> fields)
     {
-        return getHashCodeOperatorMethodHandles(fields, type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+        return getHashCodeOperatorMethodHandles(fields, type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
     }
 
     private static List<OperatorMethodHandle> getXxHash64OperatorMethodHandles(TypeOperators typeOperators, List<Field> fields)
     {
-        return getHashCodeOperatorMethodHandles(fields, type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+        return getHashCodeOperatorMethodHandles(fields, type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
     }
 
     private static List<OperatorMethodHandle> getHashCodeOperatorMethodHandles(List<Field> fields, Function<Type, MethodHandle> getHashOperator)
@@ -569,7 +570,7 @@ public class RowType
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> indeterminateOperators = fields.stream()
-                    .map(field -> typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                    .map(field -> typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
                     .collect(toUnmodifiableList());
             return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(indeterminateOperators)));
         }
@@ -585,7 +586,7 @@ public class RowType
                     indeterminate);
 
             // field indeterminate
-            MethodHandle fieldIndeterminateOperator = typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+            MethodHandle fieldIndeterminateOperator = typeOperators.getIndeterminateOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
 
             // (Block, Block):boolean
             indeterminate = insertArguments(indeterminate, 1, fieldId, fieldIndeterminateOperator);
@@ -616,7 +617,7 @@ public class RowType
     private static boolean chainIndeterminate(boolean previousFieldIndeterminate, int currentFieldIndex, MethodHandle currentFieldIndeterminateOperator, Block row)
             throws Throwable
     {
-        if (row == null || previousFieldIndeterminate) {
+        if (row == null || previousFieldIndeterminate || row.isNull(currentFieldIndex)) {
             return true;
         }
         return (boolean) currentFieldIndeterminateOperator.invokeExact(row, currentFieldIndex);
@@ -632,7 +633,7 @@ public class RowType
         // for large rows, use a generic loop with a megamorphic call site
         if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
             List<MethodHandle> comparisonOperators = fields.stream()
-                    .map(field -> comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
+                    .map(field -> comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)))
                     .collect(toUnmodifiableList());
             return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(comparisonOperators)));
         }
@@ -648,7 +649,7 @@ public class RowType
                     comparison);
 
             // field comparison
-            MethodHandle fieldComparisonOperator = comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+            MethodHandle fieldComparisonOperator = comparisonOperatorFactory.apply(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
 
             // (Block, Block, Block, Block):Boolean
             comparison = insertArguments(comparison, 2, fieldId, fieldComparisonOperator);
