@@ -26,10 +26,10 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
-import static io.trino.plugin.hive.HivePageSource.createCoercer;
 import static io.trino.plugin.hive.HiveTimestampPrecision.MICROSECONDS;
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.spi.predicate.Utils.blockToNativeValue;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
