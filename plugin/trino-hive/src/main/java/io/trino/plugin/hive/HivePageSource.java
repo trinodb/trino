@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HivePageSourceProvider.BucketAdaptation;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
@@ -67,7 +68,7 @@ public class HivePageSource
     private final Optional<BucketValidator> bucketValidator;
     private final Object[] prefilledValues;
     private final Type[] types;
-    private final List<Optional<Function<Block, Block>>> coercers;
+    private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
     private final Optional<ReaderProjectionsAdapter> projectionsAdapter;
 
     private final ConnectorPageSource delegate;
@@ -96,7 +97,7 @@ public class HivePageSource
 
         prefilledValues = new Object[size];
         types = new Type[size];
-        ImmutableList.Builder<Optional<Function<Block, Block>>> coercers = ImmutableList.builder();
+        ImmutableList.Builder<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers = ImmutableList.builder();
 
         for (int columnIndex = 0; columnIndex < size; columnIndex++) {
             ColumnMapping columnMapping = columnMappings.get(columnIndex);
@@ -188,7 +189,7 @@ public class HivePageSource
                     case REGULAR:
                     case SYNTHESIZED:
                         Block block = dataPage.getBlock(columnMapping.getIndex());
-                        Optional<Function<Block, Block>> coercer = coercers.get(fieldId);
+                        Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = coercers.get(fieldId);
                         if (coercer.isPresent()) {
                             block = new LazyBlock(batchSize, new CoercionLazyBlockLoader(block, coercer.get()));
                         }

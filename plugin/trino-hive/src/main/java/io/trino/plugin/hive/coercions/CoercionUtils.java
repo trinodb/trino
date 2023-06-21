@@ -22,6 +22,7 @@ import io.trino.plugin.hive.type.MapTypeInfo;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.ColumnarRow;
@@ -39,7 +40,6 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
 import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
@@ -67,7 +67,7 @@ public final class CoercionUtils
 {
     private CoercionUtils() {}
 
-    public static Optional<Function<Block, Block>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+    public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
     {
         if (fromHiveType.equals(toHiveType)) {
             return Optional.empty();
@@ -167,12 +167,13 @@ public final class CoercionUtils
     }
 
     private static class ListCoercer
-            implements Function<Block, Block>
+            extends TypeCoercer<ArrayType, ArrayType>
     {
-        private final Optional<Function<Block, Block>> elementCoercer;
+        private final Optional<TypeCoercer<? extends Type, ? extends Type>> elementCoercer;
 
         public ListCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
         {
+            super((ArrayType) fromHiveType.getType(typeManager, timestampPrecision), (ArrayType) toHiveType.getType(typeManager, timestampPrecision));
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
@@ -198,21 +199,26 @@ public final class CoercionUtils
             }
             return ArrayBlock.fromElementBlock(arrayBlock.getPositionCount(), Optional.of(valueIsNull), offsets, elementsBlock);
         }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            throw new UnsupportedOperationException("Not supported");
+        }
     }
 
     private static class MapCoercer
-            implements Function<Block, Block>
+            extends TypeCoercer<MapType, MapType>
     {
-        private final Type toType;
-        private final Optional<Function<Block, Block>> keyCoercer;
-        private final Optional<Function<Block, Block>> valueCoercer;
+        private final Optional<TypeCoercer<? extends Type, ? extends Type>> keyCoercer;
+        private final Optional<TypeCoercer<? extends Type, ? extends Type>> valueCoercer;
 
         public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
         {
+            super((MapType) fromHiveType.getType(typeManager, timestampPrecision), (MapType) toHiveType.getType(typeManager, timestampPrecision));
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(timestampPrecision, "timestampPrecision is null");
-            this.toType = toHiveType.getType(typeManager);
             HiveType fromKeyHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
             HiveType fromValueHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapValueTypeInfo().getTypeName());
             HiveType toKeyHiveType = HiveType.valueOf(((MapTypeInfo) toHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
@@ -233,25 +239,32 @@ public final class CoercionUtils
                 valueIsNull[i] = mapBlock.isNull(i);
                 offsets[i + 1] = offsets[i] + mapBlock.getEntryCount(i);
             }
-            return ((MapType) toType).createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+            return toType.createBlockFromKeyValue(Optional.of(valueIsNull), offsets, keysBlock, valuesBlock);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            throw new UnsupportedOperationException("Not supported");
         }
     }
 
     private static class StructCoercer
-            implements Function<Block, Block>
+            extends TypeCoercer<RowType, RowType>
     {
-        private final List<Optional<Function<Block, Block>>> coercers;
+        private final List<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers;
         private final Block[] nullBlocks;
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
         {
+            super((RowType) fromHiveType.getType(typeManager, timestampPrecision), (RowType) toHiveType.getType(typeManager, timestampPrecision));
             requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             requireNonNull(timestampPrecision, "timestampPrecision is null");
             List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);
             List<HiveType> toFieldTypes = extractStructFieldTypes(toHiveType);
-            ImmutableList.Builder<Optional<Function<Block, Block>>> coercers = ImmutableList.builder();
+            ImmutableList.Builder<Optional<TypeCoercer<? extends Type, ? extends Type>>> coercers = ImmutableList.builder();
             this.nullBlocks = new Block[toFieldTypes.size()];
             for (int i = 0; i < toFieldTypes.size(); i++) {
                 if (i >= fromFieldTypes.size()) {
@@ -272,7 +285,7 @@ public final class CoercionUtils
             Block[] fields = new Block[coercers.size()];
             int[] ids = new int[rowBlock.getField(0).getPositionCount()];
             for (int i = 0; i < coercers.size(); i++) {
-                Optional<Function<Block, Block>> coercer = coercers.get(i);
+                Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = coercers.get(i);
                 if (coercer.isPresent()) {
                     fields[i] = coercer.get().apply(rowBlock.getField(i));
                 }
@@ -291,6 +304,12 @@ public final class CoercionUtils
                 }
             }
             return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            throw new UnsupportedOperationException("Not supported");
         }
     }
 }
