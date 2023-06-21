@@ -178,6 +178,8 @@ public class FunctionResolver
             allCandidates.addAll(candidates);
         }
 
+        // TODO: find the best match function in connectors
+
         List<CatalogFunctionMetadata> candidates = allCandidates.build();
         if (candidates.isEmpty()) {
             throw new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));

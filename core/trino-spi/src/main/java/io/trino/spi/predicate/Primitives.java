@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 // Note: this code was forked from com.google.common.primitives.Primitives
 // Copyright (C) 2007 The Guava Authors
-final class Primitives
+public final class Primitives
 {
     private Primitives() {}
 
