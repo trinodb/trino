@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Math.signum;
@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 public class TestLongDecimalType
 {
     private static final LongDecimalType TYPE = (LongDecimalType) LongDecimalType.createDecimalType(20, 10);
-    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+    private static final MethodHandle TYPE_COMPARISON = new TypeOperators().getComparisonUnorderedLastOperator(TYPE, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
 
     @Test
     public void testCompareTo()

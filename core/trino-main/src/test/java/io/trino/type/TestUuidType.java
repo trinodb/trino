@@ -24,7 +24,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -103,7 +103,7 @@ public class TestUuidType
                 .as("value comparison operator result")
                 .isLessThan(0);
 
-        MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        MethodHandle compareFromBlock = new TypeOperators().getComparisonUnorderedFirstOperator(UUID, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         long comparisonFromBlock = (long) compareFromBlock.invoke(nativeValueToBlock(UUID, lowerSlice), 0, nativeValueToBlock(UUID, higherSlice), 0);
         assertThat(comparisonFromBlock)
                 .as("block-position comparison operator result")
