@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.validation.FileExists;

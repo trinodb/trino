@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import io.trino.spi.security.ConnectorIdentity;
-
-import java.sql.Connection;
 
 public interface IdentifierMapping
 {
@@ -25,9 +23,9 @@ public interface IdentifierMapping
 
     String fromRemoteColumnName(String remoteColumnName);
 
-    String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName);
+    String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName);
 
-    String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName);
+    String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName);
 
-    String toRemoteColumnName(Connection connection, String columnName);
+    String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName);
 }

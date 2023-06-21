@@ -11,31 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import com.google.inject.Provider;
 import io.trino.cache.NonKeyEvictableCache;
-import io.trino.plugin.jdbc.BaseJdbcClient;
-import io.trino.plugin.jdbc.mapping.IdentifierMappingModule.ForCachingIdentifierMapping;
+import io.trino.plugin.base.mapping.IdentifierMappingModule.ForCachingIdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.Nullable;
 
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -43,7 +35,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
-import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -53,13 +45,11 @@ public final class CachingIdentifierMapping
     private final NonKeyEvictableCache<ConnectorIdentity, Mapping> remoteSchemaNames;
     private final NonKeyEvictableCache<RemoteTableNameCacheKey, Mapping> remoteTableNames;
     private final IdentifierMapping identifierMapping;
-    private final Provider<BaseJdbcClient> baseJdbcClient;
 
     @Inject
     public CachingIdentifierMapping(
             MappingConfig mappingConfig,
-            @ForCachingIdentifierMapping IdentifierMapping identifierMapping,
-            Provider<BaseJdbcClient> baseJdbcClient)
+            @ForCachingIdentifierMapping IdentifierMapping identifierMapping)
     {
         CacheBuilder<Object, Object> remoteNamesCacheBuilder = CacheBuilder.newBuilder()
                 .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
@@ -67,7 +57,6 @@ public final class CachingIdentifierMapping
         this.remoteTableNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
 
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
-        this.baseJdbcClient = requireNonNull(baseJdbcClient, "baseJdbcClient is null");
     }
 
     public void flushCache()
@@ -97,11 +86,10 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName)
     {
         requireNonNull(schemaName, "schemaName is null");
         verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
-
         try {
             Mapping mapping = remoteSchemaNames.getIfPresent(identity);
             if (mapping != null && !mapping.hasRemoteObject(schemaName)) {
@@ -109,7 +97,7 @@ public final class CachingIdentifierMapping
                 mapping = null;
             }
             if (mapping == null) {
-                mapping = createSchemaMapping(connection);
+                mapping = createSchemaMapping(remoteIdentifiers.getRemoteSchemas());
                 remoteSchemaNames.put(identity, mapping);
             }
             String remoteSchema = mapping.get(schemaName);
@@ -118,19 +106,18 @@ public final class CachingIdentifierMapping
             }
         }
         catch (RuntimeException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
         }
 
-        return identifierMapping.toRemoteSchemaName(identity, connection, schemaName);
+        return identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaName);
     }
 
     @Override
-    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName)
     {
         requireNonNull(remoteSchema, "remoteSchema is null");
         requireNonNull(tableName, "tableName is null");
         verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
-
         try {
             RemoteTableNameCacheKey cacheKey = new RemoteTableNameCacheKey(identity, remoteSchema);
             Mapping mapping = remoteTableNames.getIfPresent(cacheKey);
@@ -139,7 +126,7 @@ public final class CachingIdentifierMapping
                 mapping = null;
             }
             if (mapping == null) {
-                mapping = createTableMapping(connection, remoteSchema);
+                mapping = createTableMapping(remoteSchema, remoteIdentifiers.getRemoteTables(remoteSchema));
                 remoteTableNames.put(cacheKey, mapping);
             }
             String remoteTable = mapping.get(tableName);
@@ -148,27 +135,27 @@ public final class CachingIdentifierMapping
             }
         }
         catch (RuntimeException e) {
-            throw new TrinoException(JDBC_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
         }
 
-        return identifierMapping.toRemoteTableName(identity, connection, remoteSchema, tableName);
+        return identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, tableName);
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
     {
-        return identifierMapping.toRemoteColumnName(connection, columnName);
+        return identifierMapping.toRemoteColumnName(remoteIdentifiers, columnName);
     }
 
-    private Mapping createSchemaMapping(Connection connection)
+    private Mapping createSchemaMapping(Collection<String> remoteSchemas)
     {
-        return createMapping(baseJdbcClient.get().listSchemas(connection), identifierMapping::fromRemoteSchemaName);
+        return createMapping(remoteSchemas, identifierMapping::fromRemoteSchemaName);
     }
 
-    private Mapping createTableMapping(Connection connection, String remoteSchema)
+    private Mapping createTableMapping(String remoteSchema, Set<String> remoteTables)
     {
         return createMapping(
-                getTables(connection, remoteSchema),
+                remoteTables,
                 remoteTableName -> identifierMapping.fromRemoteTableName(remoteSchema, remoteTableName));
     }
 
@@ -187,20 +174,6 @@ public final class CachingIdentifierMapping
             }
         }
         return new Mapping(map, duplicates);
-    }
-
-    private List<String> getTables(Connection connection, String remoteSchema)
-    {
-        try (ResultSet resultSet = baseJdbcClient.get().getTables(connection, Optional.of(remoteSchema), Optional.empty())) {
-            ImmutableList.Builder<String> tableNames = ImmutableList.builder();
-            while (resultSet.next()) {
-                tableNames.add(resultSet.getString("TABLE_NAME"));
-            }
-            return tableNames.build();
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
     }
 
     private static final class Mapping

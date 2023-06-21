@@ -11,42 +11,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class SchemaMappingRule
+public class IdentifierMappingRules
 {
-    private final String remoteSchema;
-    private final String mapping;
+    private final List<SchemaMappingRule> schemas;
+    private final List<TableMappingRule> tables;
 
     @JsonCreator
-    public SchemaMappingRule(
-            @JsonProperty String remoteSchema,
-            @JsonProperty String mapping)
+    public IdentifierMappingRules(
+            @JsonProperty("schemas") List<SchemaMappingRule> schemas,
+            @JsonProperty("tables") List<TableMappingRule> tables)
     {
-        this.remoteSchema = requireNonNull(remoteSchema, "remoteSchema is null");
-        this.mapping = requireNonNull(mapping, "mapping is null");
-        checkArgument(mapping.toLowerCase(ENGLISH).equals(mapping), "Mapping is not lower cased: %s", mapping);
+        this.schemas = requireNonNull(schemas, "schemaMappingRules is null");
+        this.tables = requireNonNull(tables, "tableMappingRules is null");
     }
 
-    @JsonProperty
-    public String getRemoteSchema()
+    @JsonProperty("schemas")
+    public List<SchemaMappingRule> getSchemaMapping()
     {
-        return remoteSchema;
+        return schemas;
     }
 
-    @JsonProperty
-    public String getMapping()
+    @JsonProperty("tables")
+    public List<TableMappingRule> getTableMapping()
     {
-        return mapping;
+        return tables;
     }
 
     @Override
@@ -58,13 +56,13 @@ public class SchemaMappingRule
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SchemaMappingRule that = (SchemaMappingRule) o;
-        return remoteSchema.equals(that.remoteSchema) && mapping.equals(that.mapping);
+        IdentifierMappingRules that = (IdentifierMappingRules) o;
+        return schemas.equals(that.schemas) && tables.equals(that.tables);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(remoteSchema, mapping);
+        return Objects.hash(schemas, tables);
     }
 }
