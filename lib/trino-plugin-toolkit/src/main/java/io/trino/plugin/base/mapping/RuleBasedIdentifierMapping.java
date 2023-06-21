@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
 import com.google.common.collect.Table;
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.sql.Connection;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -83,28 +82,28 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName)
     {
         String remoteSchemaName = toRemoteSchema.get(schemaName);
         if (remoteSchemaName == null) {
-            remoteSchemaName = delegate.toRemoteSchemaName(identity, connection, schemaName);
+            remoteSchemaName = delegate.toRemoteSchemaName(remoteIdentifiers, identity, schemaName);
         }
         return remoteSchemaName;
     }
 
     @Override
-    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName)
     {
         String remoteTableName = toRemoteTable.get(remoteSchema, tableName);
         if (remoteTableName == null) {
-            remoteTableName = delegate.toRemoteTableName(identity, connection, remoteSchema, tableName);
+            remoteTableName = delegate.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, tableName);
         }
         return remoteTableName;
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
     {
-        return delegate.toRemoteColumnName(connection, columnName);
+        return delegate.toRemoteColumnName(remoteIdentifiers, columnName);
     }
 }

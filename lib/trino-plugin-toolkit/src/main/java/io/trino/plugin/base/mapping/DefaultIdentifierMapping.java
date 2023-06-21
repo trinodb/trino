@@ -11,27 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc.mapping;
+package io.trino.plugin.base.mapping;
 
-import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
 
-import java.sql.Connection;
-
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 
 public class DefaultIdentifierMapping
         implements IdentifierMapping
 {
-    private final RemoteIdentifierSupplier remoteIdentifierSupplier;
-
-    @Inject
-    public DefaultIdentifierMapping(RemoteIdentifierSupplier remoteIdentifierSupplier)
-    {
-        this.remoteIdentifierSupplier = requireNonNull(remoteIdentifierSupplier, "remoteIdentifierSupplier is null");
-    }
-
     @Override
     public String fromRemoteSchemaName(String remoteSchemaName)
     {
@@ -51,25 +39,28 @@ public class DefaultIdentifierMapping
     }
 
     @Override
-    public String toRemoteSchemaName(ConnectorIdentity identity, Connection connection, String schemaName)
+    public String toRemoteSchemaName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String schemaName)
     {
-        return toRemoteIdentifier(connection, schemaName);
+        return toRemoteIdentifier(schemaName, remoteIdentifiers);
     }
 
     @Override
-    public String toRemoteTableName(ConnectorIdentity identity, Connection connection, String remoteSchema, String tableName)
+    public String toRemoteTableName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String tableName)
     {
-        return toRemoteIdentifier(connection, tableName);
+        return toRemoteIdentifier(tableName, remoteIdentifiers);
     }
 
     @Override
-    public String toRemoteColumnName(Connection connection, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
     {
-        return toRemoteIdentifier(connection, columnName);
+        return toRemoteIdentifier(columnName, remoteIdentifiers);
     }
 
-    private String toRemoteIdentifier(Connection connection, String identifier)
+    private String toRemoteIdentifier(String identifier, RemoteIdentifiers remoteIdentifiers)
     {
-        return remoteIdentifierSupplier.toRemoteIdentifier(connection, identifier);
+        if (remoteIdentifiers.storesUpperCaseIdentifiers()) {
+            return identifier.toUpperCase(ENGLISH);
+        }
+        return identifier;
     }
 }
