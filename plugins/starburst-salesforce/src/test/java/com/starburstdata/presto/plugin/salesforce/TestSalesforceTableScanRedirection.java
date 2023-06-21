@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceTableScanRedirection
@@ -31,9 +32,11 @@ public class TestSalesforceTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        String catalogName = "salesforce_" + randomNameSuffix();
         return SalesforceQueryRunner.builder()
                 .setTables(REQUIRED_TPCH_TABLES)
-                .addConnectorProperties(getRedirectionProperties("salesforce", "salesforce"))
+                .setCatalogName(catalogName)
+                .addConnectorProperties(getRedirectionProperties(catalogName, "salesforce"))
                 .build();
     }
 

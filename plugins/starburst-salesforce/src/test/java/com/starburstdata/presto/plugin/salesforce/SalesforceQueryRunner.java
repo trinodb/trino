@@ -58,15 +58,20 @@ public final class SalesforceQueryRunner
         return new Builder();
     }
 
-    public static Session createSession()
+    public static Session createSession(String catalogName)
     {
         return testSessionBuilder()
-                .setCatalog("salesforce")
+                .setCatalog(catalogName)
                 .setSchema("salesforce")
                 .build();
     }
 
-    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables, boolean enableWrites)
+    private static DistributedQueryRunner createQueryRunner(
+            Map<String, String> extraProperties,
+            String catalogName,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            boolean enableWrites)
             throws Exception
     {
         // Copy tables first before creating the query runner
@@ -76,18 +81,18 @@ public final class SalesforceQueryRunner
         // As the CI builds times, the sandbox would quickly fill up and then the builds will fail
         // We also don't want to hit our API limit, so instead we just create the tables once but will assert
         // all the data is in the tables each CI run
-        copyTpchTablesIfNotExists(extraProperties, connectorProperties, tables);
+        copyTpchTablesIfNotExists(extraProperties, catalogName, connectorProperties, tables);
 
         DistributedQueryRunner queryRunner = null;
         try {
-            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
+            DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession(catalogName));
             extraProperties.forEach(builder::addExtraProperty);
             queryRunner = builder.build();
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
 
             queryRunner.installPlugin(new TestingSalesforcePlugin(enableWrites));
-            queryRunner.createCatalog("salesforce", "salesforce", connectorProperties);
+            queryRunner.createCatalog(catalogName, "salesforce", connectorProperties);
 
             queryRunner.installPlugin(new JmxPlugin());
             queryRunner.createCatalog("jmx", "jmx");
@@ -149,10 +154,10 @@ public final class SalesforceQueryRunner
         }
     }
 
-    private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
+    private static void copyTpchTablesIfNotExists(Map<String, String> extraProperties, String catalogName, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession());
+        DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(createSession(catalogName));
         extraProperties.forEach(builder::addExtraProperty);
         try (DistributedQueryRunner queryRunner = builder.build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
@@ -165,12 +170,12 @@ public final class SalesforceQueryRunner
             }
 
             queryRunner.installPlugin(new TestingSalesforcePlugin(true));
-            queryRunner.createCatalog("salesforce", "salesforce", connectorProperties);
+            queryRunner.createCatalog(catalogName, "salesforce", connectorProperties);
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
+            copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(catalogName), tables);
         }
     }
 
@@ -238,6 +243,7 @@ public final class SalesforceQueryRunner
     public static class Builder
     {
         private Iterable<TpchTable<?>> tables = TpchTable.getTables();
+        private String catalogName = "salesforce";
         private Map<String, String> connectorProperties;
         private Map<String, String> extraProperties;
         private boolean enableWrites;
@@ -253,6 +259,12 @@ public final class SalesforceQueryRunner
                     .put("salesforce.enable-sandbox", "true")
                     .buildOrThrow();
             extraProperties = ImmutableMap.of();
+        }
+
+        public Builder setCatalogName(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
         }
 
         public Builder addConnectorProperties(Map<String, String> properties)
@@ -290,6 +302,7 @@ public final class SalesforceQueryRunner
         {
             return createQueryRunner(
                     extraProperties,
+                    catalogName,
                     connectorProperties,
                     tables,
                     enableWrites);
