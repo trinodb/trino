@@ -138,8 +138,9 @@ public class InternalFunctionBundle
 
     private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlScalarFunction function = (SqlScalarFunction) getSqlFunction(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        SqlFunction function = getSqlFunction(functionId);
+        checkArgument(function instanceof SqlScalarFunction, "%s is not a scalar function", function.getFunctionMetadata().getSignature());
+        return ((SqlScalarFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     @Override
@@ -156,8 +157,9 @@ public class InternalFunctionBundle
 
     private AggregationImplementation specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
-        return aggregationFunction.specialize(boundSignature, functionDependencies);
+        SqlFunction function = getSqlFunction(functionId);
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
+        return ((SqlAggregationFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     @Override
@@ -174,8 +176,9 @@ public class InternalFunctionBundle
 
     private WindowFunctionSupplier specializeWindow(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        SqlFunction function = functions.get(functionId);
+        checkArgument(function instanceof SqlWindowFunction, "%s is not a window function", function.getFunctionMetadata().getSignature());
+        return ((SqlWindowFunction) function).specialize(boundSignature, functionDependencies);
     }
 
     private SqlFunction getSqlFunction(FunctionId functionId)
