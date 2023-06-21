@@ -24,8 +24,6 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.VarcharType;
 
-import java.util.function.Function;
-
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.type.DecimalConversions.doubleToLongDecimal;
 import static io.trino.spi.type.DecimalConversions.doubleToShortDecimal;
@@ -49,7 +47,7 @@ public final class DecimalCoercers
 {
     private DecimalCoercers() {}
 
-    public static Function<Block, Block> createDecimalToDecimalCoercer(DecimalType fromType, DecimalType toType)
+    public static TypeCoercer<DecimalType, DecimalType> createDecimalToDecimalCoercer(DecimalType fromType, DecimalType toType)
     {
         if (fromType.isShort()) {
             if (toType.isShort()) {
@@ -148,7 +146,7 @@ public final class DecimalCoercers
         }
     }
 
-    public static Function<Block, Block> createDecimalToDoubleCoercer(DecimalType fromType)
+    public static TypeCoercer<DecimalType, DoubleType> createDecimalToDoubleCoercer(DecimalType fromType)
     {
         if (fromType.isShort()) {
             return new ShortDecimalToDoubleCoercer(fromType);
@@ -191,7 +189,7 @@ public final class DecimalCoercers
         }
     }
 
-    public static Function<Block, Block> createDecimalToRealCoercer(DecimalType fromType)
+    public static TypeCoercer<DecimalType, RealType> createDecimalToRealCoercer(DecimalType fromType)
     {
         if (fromType.isShort()) {
             return new ShortDecimalToRealCoercer(fromType);
@@ -234,7 +232,7 @@ public final class DecimalCoercers
         }
     }
 
-    public static Function<Block, Block> createDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+    public static TypeCoercer<DecimalType, VarcharType> createDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
     {
         if (fromType.isShort()) {
             return new ShortDecimalToVarcharCoercer(fromType, toType);
@@ -288,7 +286,7 @@ public final class DecimalCoercers
         }
     }
 
-    public static Function<Block, Block> createDoubleToDecimalCoercer(DecimalType toType)
+    public static TypeCoercer<DoubleType, DecimalType> createDoubleToDecimalCoercer(DecimalType toType)
     {
         if (toType.isShort()) {
             return new DoubleToShortDecimalCoercer(toType);
@@ -328,7 +326,7 @@ public final class DecimalCoercers
         }
     }
 
-    public static Function<Block, Block> createRealToDecimalCoercer(DecimalType toType)
+    public static TypeCoercer<RealType, DecimalType> createRealToDecimalCoercer(DecimalType toType)
     {
         if (toType.isShort()) {
             return new RealToShortDecimalCoercer(toType);
