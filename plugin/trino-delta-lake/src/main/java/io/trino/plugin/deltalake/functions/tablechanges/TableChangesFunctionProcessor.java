@@ -65,6 +65,8 @@ public class TableChangesFunctionProcessor
     private static final int NUMBER_OF_ADDITIONAL_COLUMNS_FOR_CDF_FILE = 2;
     private static final int NUMBER_OF_ADDITIONAL_COLUMNS_FOR_DATA_FILE = 3;
 
+    private static final Page EMPTY_PAGE = new Page(0);
+
     private final ConnectorSession session;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final DateTimeZone parquetDateTimeZone;
@@ -148,7 +150,10 @@ public class TableChangesFunctionProcessor
                     currentVersionCommitTimestampAsBlock, page.getPositionCount());
             return TableFunctionProcessorState.Processed.produced(new Page(page.getPositionCount(), resultBlock));
         }
-        return FINISHED;
+        if (deltaLakePageSource.isFinished()) {
+            return FINISHED;
+        }
+        return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
     }
 
     private TableFunctionProcessorState processDataFile()
@@ -168,7 +173,10 @@ public class TableChangesFunctionProcessor
                     currentVersionCommitTimestampAsBlock, page.getPositionCount());
             return TableFunctionProcessorState.Processed.produced(new Page(page.getPositionCount(), blocks));
         }
-        return FINISHED;
+        if (deltaLakePageSource.isFinished()) {
+            return FINISHED;
+        }
+        return TableFunctionProcessorState.Processed.produced(EMPTY_PAGE);
     }
 
     private DeltaLakePageSource createDeltaLakePageSource(TableChangesSplit split)
