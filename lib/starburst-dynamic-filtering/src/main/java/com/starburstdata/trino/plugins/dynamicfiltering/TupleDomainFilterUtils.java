@@ -61,7 +61,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TupleDomainFilterUtils
 {
-    private static final long FILTER_MAX_SIZE_BYTES = 4 * 1024 * 1024;
+    private static final long FILTER_MAX_SIZE_BYTES = 15 * 1024 * 1024;
 
     private TupleDomainFilterUtils() {}
 
@@ -152,7 +152,7 @@ public class TupleDomainFilterUtils
                 || range.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) > 0
                 || (range.intValueExact() / 64) + 1 > fastUtilsSetEntries) {
             if (fastUtilsSetEntries * 8 > FILTER_MAX_SIZE_BYTES) {
-                // Bail out on filter size above 4MB
+                // Bail out on filter size above 15MB
                 return Optional.empty();
             }
             if (isIntegerArithmeticValid) {
@@ -163,7 +163,7 @@ public class TupleDomainFilterUtils
             return Optional.of(new LongCustomHashSetFilter(nullAllowed, type, hashCodeHandle, equalsHandle, values));
         }
         if ((range.intValueExact() / 64 + 1) * 8 > FILTER_MAX_SIZE_BYTES) {
-            // Bail out on filter size above 4MB
+            // Bail out on filter size above 15MB
             return Optional.empty();
         }
         return Optional.of(new LongBitSetFilter(nullAllowed, type, values, min, max));
