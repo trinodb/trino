@@ -315,6 +315,12 @@ public class TypeOperators
             if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
                 comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
             }
+            else if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(NEVER_NULL, BLOCK_POSITION))) {
+                comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, BLOCK_POSITION);
+            }
+            else if (operatorConvention.callingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, NEVER_NULL))) {
+                comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, NEVER_NULL);
+            }
             else {
                 comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
             }
