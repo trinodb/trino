@@ -71,7 +71,12 @@ public final class KafkaQueryRunner
 
         protected Builder(TestingKafka testingKafka)
         {
-            super(testingKafka, TPCH_SCHEMA);
+            super(testingKafka, "kafka", TPCH_SCHEMA);
+        }
+
+        protected Builder(TestingKafka testingKafka, String catalogName)
+        {
+            super(testingKafka, catalogName, TPCH_SCHEMA);
         }
 
         public Builder setTables(Iterable<TpchTable<?>> tables)
