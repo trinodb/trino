@@ -291,7 +291,6 @@ public class DeltaLakeSplitManager
                     fileSize,
                     addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords),
                     addFileEntry.getModificationTime(),
-                    ImmutableList.of(),
                     SplitWeight.standard(),
                     statisticsPredicate,
                     partitionKeys));
@@ -316,7 +315,6 @@ public class DeltaLakeSplitManager
                     fileSize,
                     Optional.empty(),
                     addFileEntry.getModificationTime(),
-                    ImmutableList.of(),
                     SplitWeight.fromProportion(Math.min(Math.max((double) splitSize / maxSplitSize, minimumAssignedSplitWeight), 1.0)),
                     statisticsPredicate,
                     partitionKeys));
