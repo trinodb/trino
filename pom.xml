@@ -53,7 +53,7 @@
         <dep.arrow.version>11.0.0</dep.arrow.version>
         <dep.avro.version>1.11.1</dep.avro.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.12.464</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.493</dep.aws-sdk.version>
         <dep.aws-sdk-v2.version>2.20.89</dep.aws-sdk-v2.version>
         <dep.jsonwebtoken.version>0.11.5</dep.jsonwebtoken.version>
         <dep.oracle.version>21.9.0.0</dep.oracle.version>
