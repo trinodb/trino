@@ -202,7 +202,7 @@ public final class SynapseQueryRunner
                 Map.of("http-server.http.port", "8080"),
                 new SynapseServer(), // dummy
                 DEFAULT_CATALOG_NAME,
-                Map.of(),
+                Map.of("connection-pool.enabled", "true"),
                 TpchTable.getTables());
 
         Logger log = Logger.get(SynapseQueryRunner.class);
