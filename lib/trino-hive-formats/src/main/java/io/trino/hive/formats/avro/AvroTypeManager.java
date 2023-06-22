@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.avro;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.apache.avro.Schema;
@@ -20,6 +21,7 @@ import org.apache.avro.Schema;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 public interface AvroTypeManager
 {
@@ -40,5 +42,12 @@ public interface AvroTypeManager
      * Possible to override for each primitive type as well.
      */
     Optional<BiConsumer<BlockBuilder, Object>> overrideBuildingFunctionForSchema(Schema schema)
+            throws AvroTypeException;
+
+    /**
+     * Extract and convert the object from the given block at the given position and return the Avro Generic Data forum.
+     * Type is either provided explicitly to the writer or derived from the schema using this interface.
+     */
+    Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
             throws AvroTypeException;
 }
