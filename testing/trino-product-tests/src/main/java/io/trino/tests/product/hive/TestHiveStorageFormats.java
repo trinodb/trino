@@ -621,7 +621,7 @@ public class TestHiveStorageFormats
                 if ("AVRO".equals(format)) {
                     // TODO (https://github.com/trinodb/trino/issues/9285) Some versions of Hive cannot read Avro nested structs written by Trino
                     Assertions.assertThat(e.getCause())
-                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found default.record_1, expecting union");
+                            .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found record_1, expecting union");
                 }
                 else {
                     throw e;

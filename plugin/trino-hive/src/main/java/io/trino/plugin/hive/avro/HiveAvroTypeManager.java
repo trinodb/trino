@@ -13,14 +13,17 @@
  */
 package io.trino.plugin.hive.avro;
 
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.avro.AvroTypeException;
 import io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Chars;
 import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
 import io.trino.spi.type.Type;
@@ -35,6 +38,7 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 import static io.trino.plugin.hive.avro.AvroHiveConstants.CHAR_TYPE_LOGICAL_NAME;
 import static io.trino.plugin.hive.avro.AvroHiveConstants.VARCHAR_AND_CHAR_LOGICAL_TYPE_LENGTH_PROP;
@@ -42,6 +46,7 @@ import static io.trino.plugin.hive.avro.AvroHiveConstants.VARCHAR_TYPE_LOGICAL_N
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.lang.Math.floorDiv;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
@@ -165,6 +170,66 @@ public class HiveAvroTypeManager
                     }
                 }
                 case DATE, DECIMAL -> super.overrideBuildingFunctionForSchema(schema);
+                default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
+            };
+        }
+        throw new IllegalStateException("Unhandled validate logical type result");
+    }
+
+    @Override
+    public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
+            throws AvroTypeException
+    {
+        ValidateLogicalTypeResult result = validateLogicalType(schema);
+        // TODO replace with sealed class case match syntax when stable
+        if (result instanceof NativeLogicalTypesAvroTypeManager.NoLogicalType ignored) {
+            return Optional.empty();
+        }
+        if (result instanceof NonNativeAvroLogicalType nonNativeAvroLogicalType) {
+            return switch (nonNativeAvroLogicalType.getLogicalTypeName()) {
+                case VARCHAR_TYPE_LOGICAL_NAME, CHAR_TYPE_LOGICAL_NAME -> {
+                    Type expectedType = getHiveLogicalVarCharOrCharType(schema, nonNativeAvroLogicalType);
+                    if (!expectedType.equals(type)) {
+                        throw new AvroTypeException("Type provided for column [%s] is incompatible with type for schema: %s".formatted(type, expectedType));
+                    }
+                    yield Optional.of((block, pos) -> ((Slice) expectedType.getObject(block, pos)).toStringUtf8());
+                }
+                default -> Optional.empty();
+            };
+        }
+        if (result instanceof NativeLogicalTypesAvroTypeManager.InvalidNativeAvroLogicalType invalidNativeAvroLogicalType) {
+            return switch (invalidNativeAvroLogicalType.getLogicalTypeName()) {
+                case TIMESTAMP_MILLIS, DATE, DECIMAL -> throw invalidNativeAvroLogicalType.getCause();
+                default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
+            };
+        }
+        if (result instanceof NativeLogicalTypesAvroTypeManager.ValidNativeAvroLogicalType validNativeAvroLogicalType) {
+            return switch (validNativeAvroLogicalType.getLogicalType().getName()) {
+                case TIMESTAMP_MILLIS -> {
+                    if (!(type instanceof TimestampType timestampType)) {
+                        throw new AvroTypeException("Can't represent avro logical type %s with Trino Type %s".formatted(validNativeAvroLogicalType.getLogicalType().getName(), type));
+                    }
+                    if (timestampType.getPrecision() > 3) {
+                        throw new AvroTypeException("Can't write out Avro logical millisecond timestamp from Trino timestamp type with precision %s".formatted(timestampType.getPrecision()));
+                    }
+                    if (timestampType.isShort()) {
+                        yield Optional.of((block, pos) -> {
+                            long millis = floorDiv(timestampType.getLong(block, pos), Timestamps.MICROSECONDS_PER_MILLISECOND);
+                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(millis, false);
+                        });
+                    }
+                    else {
+                        //todo this is dead or I remove precision check above
+                        yield Optional.of((block, pos) ->
+                        {
+                            SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, pos);
+                            long millis = timestamp.roundTo(3).getMillis();
+                            // see org.apache.hadoop.hive.serde2.avro.AvroSerializer.serializePrimitive
+                            return DateTimeZone.forTimeZone(TimeZone.getDefault()).convertLocalToUTC(millis, false);
+                        });
+                    }
+                }
+                case DATE, DECIMAL -> super.overrideBlockToAvroObject(schema, type);
                 default -> Optional.empty(); // Other logical types ignored by hive/don't map to hive types
             };
         }
