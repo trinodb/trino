@@ -31,7 +31,7 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;

@@ -36,7 +36,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

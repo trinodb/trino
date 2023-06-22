@@ -25,7 +25,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.TestingMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
