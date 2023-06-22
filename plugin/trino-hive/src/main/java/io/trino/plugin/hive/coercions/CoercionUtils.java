@@ -68,6 +68,13 @@ public final class CoercionUtils
 {
     private CoercionUtils() {}
 
+    public static Type createTypeFromCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
+    {
+        return createCoercer(typeManager, fromHiveType, toHiveType, timestampPrecision)
+                .map(TypeCoercer::getFromType)
+                .orElseGet(() -> fromHiveType.getType(typeManager, timestampPrecision));
+    }
+
     public static Optional<TypeCoercer<? extends Type, ? extends Type>> createCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType, HiveTimestampPrecision timestampPrecision)
     {
         if (fromHiveType.equals(toHiveType)) {
