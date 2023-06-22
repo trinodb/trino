@@ -61,6 +61,7 @@ import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -135,11 +136,8 @@ public final class CoercionUtils
         if (fromType == REAL && toType instanceof DecimalType toDecimalType) {
             return Optional.of(createRealToDecimalCoercer(toDecimalType));
         }
-        if (fromType instanceof TimestampType timestampType && toType instanceof VarcharType varcharType) {
-            if (timestampType.isShort()) {
-                return Optional.of(new TimestampCoercer.ShortTimestampToVarcharCoercer(timestampType, varcharType));
-            }
-            return Optional.of(new TimestampCoercer.LongTimestampToVarcharCoercer(timestampType, varcharType));
+        if (fromType instanceof TimestampType && toType instanceof VarcharType varcharType) {
+            return Optional.of(new TimestampCoercer.LongTimestampToVarcharCoercer(TIMESTAMP_NANOS, varcharType));
         }
         if ((fromType instanceof ArrayType) && (toType instanceof ArrayType)) {
             return createCoercerForList(

@@ -89,7 +89,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcStreamBufferSize;
 import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThreshold;
-import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
@@ -364,7 +363,7 @@ public class OrcPageSourceFactory
                 Type readType = column.getType();
                 if (orcColumn != null) {
                     int sourceIndex = fileReadColumns.size();
-                    Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcColumn.getColumnType(), readType, getTimestampPrecision(session));
+                    Optional<TypeCoercer<?, ?>> coercer = createCoercer(orcColumn.getColumnType(), readType);
                     if (coercer.isPresent()) {
                         fileReadTypes.add(coercer.get().getFromType());
                         columnAdaptations.add(ColumnAdaptation.coercedColumn(sourceIndex, coercer.get()));

@@ -48,29 +48,6 @@ public final class TimestampCoercer
 
     private TimestampCoercer() {}
 
-    public static class ShortTimestampToVarcharCoercer
-            extends TypeCoercer<TimestampType, VarcharType>
-    {
-        public ShortTimestampToVarcharCoercer(TimestampType fromType, VarcharType toType)
-        {
-            super(fromType, toType);
-        }
-
-        @Override
-        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
-        {
-            long epochMicros = fromType.getLong(block, position);
-            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            toType.writeSlice(
-                    blockBuilder,
-                    truncateToLength(
-                            Slices.utf8Slice(
-                                    LOCAL_DATE_TIME.format(LocalDateTime.ofEpochSecond(epochSecond, nanoFraction, UTC))),
-                            toType));
-        }
-    }
-
     public static class LongTimestampToVarcharCoercer
             extends TypeCoercer<TimestampType, VarcharType>
     {
