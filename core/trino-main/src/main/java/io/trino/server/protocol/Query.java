@@ -28,7 +28,6 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
 import io.trino.client.FailureInfo;
-import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
@@ -273,67 +272,12 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
-    public ProtocolHeaders getProtocolHeaders()
-    {
-        return session.getProtocolHeaders();
-    }
-
-    public synchronized Optional<String> getSetCatalog()
-    {
-        return setCatalog;
-    }
-
-    public synchronized Optional<String> getSetSchema()
-    {
-        return setSchema;
-    }
-
-    public synchronized Optional<String> getSetPath()
-    {
-        return setPath;
-    }
-
-    public synchronized Map<String, String> getSetSessionProperties()
-    {
-        return setSessionProperties;
-    }
-
-    public synchronized Set<String> getResetSessionProperties()
-    {
-        return resetSessionProperties;
-    }
-
-    public synchronized Map<String, SelectedRole> getSetRoles()
-    {
-        return setRoles;
-    }
-
-    public synchronized Map<String, String> getAddedPreparedStatements()
-    {
-        return addedPreparedStatements;
-    }
-
-    public synchronized Set<String> getDeallocatedPreparedStatements()
-    {
-        return deallocatedPreparedStatements;
-    }
-
-    public synchronized Optional<TransactionId> getStartedTransactionId()
-    {
-        return startedTransactionId;
-    }
-
-    public synchronized boolean isClearTransactionId()
-    {
-        return clearTransactionId;
-    }
-
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
+    public synchronized ListenableFuture<QueryResultsResponse> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
     {
         // before waiting, check if this request has already been processed and cached
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
-            return immediateFuture(cachedResult.get());
+            return immediateFuture(toResultsResponse(cachedResult.get()));
         }
 
         // wait for a results data or query to finish, up to the wait timeout
@@ -447,12 +391,12 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
+    private synchronized QueryResultsResponse getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
-            return cachedResult.get();
+            return toResultsResponse(cachedResult.get());
         }
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
@@ -551,7 +495,24 @@ class Query
         lastToken = token;
         lastResult = queryResults;
 
-        return queryResults;
+        return toResultsResponse(queryResults);
+    }
+
+    private synchronized QueryResultsResponse toResultsResponse(QueryResults queryResults)
+    {
+        return new QueryResultsResponse(
+                setCatalog,
+                setSchema,
+                setPath,
+                setSessionProperties,
+                resetSessionProperties,
+                setRoles,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
+                startedTransactionId,
+                clearTransactionId,
+                session.getProtocolHeaders(),
+                queryResults);
     }
 
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
