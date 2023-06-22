@@ -21,7 +21,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

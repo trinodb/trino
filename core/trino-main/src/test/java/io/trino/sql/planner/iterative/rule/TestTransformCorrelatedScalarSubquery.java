@@ -27,7 +27,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
