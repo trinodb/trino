@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Streams;
 import io.trino.jdbc.TrinoArray;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.assertions.QueryAssert.Row;
@@ -382,9 +383,10 @@ public abstract class BaseTestHiveCoercion
                 """
                         INSERT INTO %s
                             SELECT
-                                (CAST(ROW (timestamp_value, -1) AS ROW(keep TIMESTAMP(9), si2i SMALLINT))),
-                                ARRAY [CAST(ROW (timestamp_value, -1) AS ROW (keep TIMESTAMP(9), si2i SMALLINT))],
-                                MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1) AS ROW (keep TIMESTAMP(9), si2i SMALLINT))]),
+                                (CAST(ROW (timestamp_value, -1, timestamp_value) AS ROW(keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9)))),
+                                ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9)))],
+                                MAP (ARRAY [2], ARRAY [CAST(ROW (timestamp_value, -1, timestamp_value) AS ROW (keep TIMESTAMP(9), si2i SMALLINT, timestamp2string TIMESTAMP(9)))]),
+                                timestamp_value,
                                 1
                             FROM (VALUES
                                 (TIMESTAMP '2121-07-15 15:30:12.123499'),
@@ -395,22 +397,25 @@ public abstract class BaseTestHiveCoercion
                                 (TIMESTAMP '2121-07-15 15:30:12.123500001')) AS t (timestamp_value)
                         """.formatted(tableName));
 
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int>>", tableName));
-        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int>>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_row_to_row timestamp_row_to_row struct<keep:timestamp, si2i:int, timestamp2string:string>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_list_to_list timestamp_list_to_list array<struct<keep:timestamp, si2i:int, timestamp2string:string>>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_map_to_map timestamp_map_to_map map<int,struct<keep:timestamp, si2i:int, timestamp2string:string>>", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN timestamp_to_string timestamp_to_string string", tableName));
 
         for (HiveTimestampPrecision hiveTimestampPrecision : HiveTimestampPrecision.values()) {
             setHiveTimestampPrecision(hiveTimestampPrecision);
             assertThat(onTrino().executeQuery("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactlyInOrder(
-                    row("timestamp_row_to_row", "row(keep timestamp(%d), si2i integer)".formatted(hiveTimestampPrecision.getPrecision())),
-                    row("timestamp_list_to_list", "array(row(keep timestamp(%d), si2i integer))".formatted(hiveTimestampPrecision.getPrecision())),
-                    row("timestamp_map_to_map", "map(integer, row(keep timestamp(%d), si2i integer))".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("timestamp_row_to_row", "row(keep timestamp(%d), si2i integer, timestamp2string varchar)".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("timestamp_list_to_list", "array(row(keep timestamp(%d), si2i integer, timestamp2string varchar))".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("timestamp_map_to_map", "map(integer, row(keep timestamp(%d), si2i integer, timestamp2string varchar))".formatted(hiveTimestampPrecision.getPrecision())),
+                    row("timestamp_to_string", "varchar"),
                     row("id", "bigint"));
 
             List<String> allColumns = ImmutableList.of(
                     "timestamp_row_to_row",
                     "timestamp_list_to_list",
                     "timestamp_map_to_map",
+                    "timestamp_to_string",
                     "id");
 
             // For Trino, remove unsupported columns
@@ -434,14 +439,21 @@ public abstract class BaseTestHiveCoercion
 
     protected Map<String, List<Object>> expectedRowsForEngineProvider(Engine engine, HiveTimestampPrecision timestampPrecision)
     {
+        List<Object> timestampAsString = ImmutableList.of(
+                "2121-07-15 15:30:12.123499",
+                "2121-07-15 15:30:12.1235",
+                "2121-07-15 15:30:12.123501",
+                "2121-07-15 15:30:12.123499999",
+                "2121-07-15 15:30:12.1235",
+                "2121-07-15 15:30:12.123500001");
         if (engine == Engine.HIVE) {
             List<Object> baseData = ImmutableList.of(
-                    "{\"keep\":\"2121-07-15 15:30:12.123499\",\"si2i\":-1}",
-                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123501\",\"si2i\":-1}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123499999\",\"si2i\":-1}",
-                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1}",
-                    "{\"keep\":\"2121-07-15 15:30:12.123500001\",\"si2i\":-1}");
+                    "{\"keep\":\"2121-07-15 15:30:12.123499\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123501\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123501\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123499999\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123499999\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.1235\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.1235\"}",
+                    "{\"keep\":\"2121-07-15 15:30:12.123500001\",\"si2i\":-1,\"timestamp2string\":\"2121-07-15 15:30:12.123500001\"}");
             return ImmutableMap.<String, List<Object>>builder()
                     .put("timestamp_row_to_row", baseData)
                     .put("timestamp_list_to_list", baseData.stream()
@@ -451,6 +463,7 @@ public abstract class BaseTestHiveCoercion
                     .put("timestamp_map_to_map", baseData.stream()
                             .map("{2:%s}"::formatted)
                             .collect(toImmutableList()))
+                    .put("timestamp_to_string", timestampAsString)
                     .put("id", nCopies(6, 1))
                     .buildOrThrow();
         }
@@ -479,10 +492,13 @@ public abstract class BaseTestHiveCoercion
                     Timestamp.valueOf("2121-07-15 15:30:12.123500001"));
         };
 
-        List<Object> baseData = timestampValue.stream()
-                .map(timestamp -> rowBuilder()
+        List<Object> baseData = Streams.zip(
+                timestampValue.stream(),
+                timestampAsString.stream(),
+                (timestamp, timestampCoerced) -> rowBuilder()
                         .addField("keep", timestamp)
                         .addField("si2i", -1)
+                        .addField("timestamp2string", timestampCoerced)
                         .build())
                 .collect(toImmutableList());
 
@@ -494,6 +510,7 @@ public abstract class BaseTestHiveCoercion
                 .put("timestamp_map_to_map", baseData.stream()
                         .map(entry -> ImmutableMap.of(2, entry))
                         .collect(toImmutableList()))
+                .put("timestamp_to_string", timestampAsString)
                 .put("id", nCopies(6, 1))
                 .buildOrThrow();
     }
