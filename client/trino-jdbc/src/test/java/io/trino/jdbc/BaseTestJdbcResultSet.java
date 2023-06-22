@@ -247,7 +247,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -267,7 +267,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -287,7 +287,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
                         .isInstanceOf(IllegalArgumentException.class)
@@ -306,7 +306,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -326,7 +326,9 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+
+                // There are no days between 1582-10-05 and 1582-10-14
+                assertEquals(rs.getObject(column, LocalDate.class), LocalDate.of(1582, 10, 20));
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))
@@ -346,7 +348,7 @@ public abstract class BaseTestJdbcResultSet
 
                 assertEquals(rs.getObject(column), sqlDate);
                 assertEquals(rs.getObject(column, Date.class), sqlDate);
-                // TODO assertEquals(rs.getObject(column, LocalDate.class), localDate);
+                assertEquals(rs.getObject(column, LocalDate.class), localDate);
 
                 assertEquals(rs.getDate(column), sqlDate);
                 assertThatThrownBy(() -> rs.getTime(column))

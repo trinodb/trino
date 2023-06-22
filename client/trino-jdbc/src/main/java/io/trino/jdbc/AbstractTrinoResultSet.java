@@ -152,6 +152,7 @@ abstract class AbstractTrinoResultSet
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
+                    .add("date", String.class, java.time.LocalDate.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())).toLocalDate())
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
