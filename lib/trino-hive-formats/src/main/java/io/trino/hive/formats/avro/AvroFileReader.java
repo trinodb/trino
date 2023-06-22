@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.avro;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.TrinoDataInputStream;
 import io.trino.spi.Page;
@@ -132,7 +133,8 @@ public class AvroFileReader
         fileReader.close();
     }
 
-    private record TrinoDataInputStreamAsAvroSeekableInput(TrinoDataInputStream inputStream, long fileSize)
+    @VisibleForTesting
+    record TrinoDataInputStreamAsAvroSeekableInput(TrinoDataInputStream inputStream, long fileSize)
             implements SeekableInput
     {
         TrinoDataInputStreamAsAvroSeekableInput

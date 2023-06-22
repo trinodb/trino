@@ -13,11 +13,16 @@
  */
 package io.trino.hive.formats.avro;
 
+import com.google.common.base.VerifyException;
+import com.google.common.primitives.Longs;
 import io.airlift.log.Logger;
+import io.airlift.slice.Slice;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
@@ -27,18 +32,24 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericFixed;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static com.google.common.base.Verify.verify;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.util.Objects.requireNonNull;
 import static org.apache.avro.LogicalTypes.fromSchemaIgnoreInvalid;
 
@@ -90,14 +101,25 @@ public class NativeLogicalTypesAvroTypeManager
     public Optional<Type> overrideTypeForSchema(Schema schema)
             throws AvroTypeException
     {
-        return validateAndProduceFromName(schema, NativeLogicalTypesAvroTypeManager::getAvroLogicalTypeSpiType);
+        return validateAndLogIssues(schema).map(NativeLogicalTypesAvroTypeManager::getAvroLogicalTypeSpiType);
     }
 
     @Override
     public Optional<BiConsumer<BlockBuilder, Object>> overrideBuildingFunctionForSchema(Schema schema)
             throws AvroTypeException
     {
-        return validateAndProduceFromName(schema, getLogicalTypeBuildingFunction(schema));
+        return validateAndLogIssues(schema).map(logicalType -> getLogicalTypeBuildingFunction(logicalType, schema));
+    }
+
+    @Override
+    public Optional<BiFunction<Block, Integer, Object>> overrideBlockToAvroObject(Schema schema, Type type)
+            throws AvroTypeException
+    {
+        Optional<LogicalType> logicalType = validateAndLogIssues(schema);
+        if (logicalType.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(getAvroFunction(logicalType.get(), schema, type));
     }
 
     private static Type getAvroLogicalTypeSpiType(LogicalType logicalType)
@@ -117,9 +139,9 @@ public class NativeLogicalTypesAvroTypeManager
         };
     }
 
-    private static Function<LogicalType, BiConsumer<BlockBuilder, Object>> getLogicalTypeBuildingFunction(Schema schema)
+    private static BiConsumer<BlockBuilder, Object> getLogicalTypeBuildingFunction(LogicalType logicalType, Schema schema)
     {
-        return logicalType -> switch (logicalType.getName()) {
+        return switch (logicalType.getName()) {
             case TIMESTAMP_MILLIS -> {
                 if (schema.getType() == Schema.Type.LONG) {
                     yield (builder, obj) -> {
@@ -191,7 +213,90 @@ public class NativeLogicalTypesAvroTypeManager
         };
     }
 
-    private <T> Optional<T> validateAndProduceFromName(Schema schema, Function<LogicalType, T> produce)
+    private static BiFunction<Block, Integer, Object> getAvroFunction(LogicalType logicalType, Schema schema, Type type)
+            throws AvroTypeException
+    {
+        return switch (logicalType.getName()) {
+            case TIMESTAMP_MILLIS -> {
+                if (!(type instanceof TimestampType timestampType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                if (timestampType.isShort()) {
+                    yield (block, integer) -> timestampType.getLong(block, integer) / Timestamps.MICROSECONDS_PER_MILLISECOND;
+                }
+                else {
+                    yield ((block, integer) ->
+                    {
+                        SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, integer);
+                        return timestamp.roundTo(3).getMillis();
+                    });
+                }
+            }
+            case TIMESTAMP_MICROS -> {
+                if (!(type instanceof TimestampType timestampType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                if (timestampType.isShort()) {
+                    // Don't use method reference because it causes an NPE in errorprone
+                    yield (block, position) -> timestampType.getLong(block, position);
+                }
+                else {
+                    yield ((block, position) ->
+                    {
+                        SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, position);
+                        return timestamp.roundTo(6).getEpochMicros();
+                    });
+                }
+            }
+            case DECIMAL -> {
+                DecimalType decimalType = (DecimalType) getAvroLogicalTypeSpiType(logicalType);
+                Function<byte[], Object> wrapBytes = switch (schema.getType()) {
+                    case BYTES -> ByteBuffer::wrap;
+                    case FIXED -> bytes -> new GenericData.Fixed(schema, fitBigEndianValueToByteArraySize(bytes, schema.getFixedSize()));
+                    default -> throw new VerifyException("Unreachable unfiltered logical type");
+                };
+                if (decimalType.isShort()) {
+                    yield (block, pos) -> wrapBytes.apply(Longs.toByteArray(decimalType.getLong(block, pos)));
+                }
+                else {
+                    yield (block, pos) -> wrapBytes.apply(((Int128) decimalType.getObject(block, pos)).toBigEndianBytes());
+                }
+            }
+            case DATE -> {
+                if (type != DateType.DATE) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                yield DateType.DATE::getLong;
+            }
+            case TIME_MILLIS -> {
+                if (!(type instanceof TimeType timeType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                if (timeType.getPrecision() > 3) {
+                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
+                }
+                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MILLISECOND);
+            }
+            case TIME_MICROS -> {
+                if (!(type instanceof TimeType timeType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                if (timeType.getPrecision() > 6) {
+                    throw new AvroTypeException("Can't write out Avro logical time-millis from Trino Time Type with precision %s".formatted(timeType.getPrecision()));
+                }
+                yield (block, pos) -> roundDiv(timeType.getLong(block, pos), Timestamps.PICOSECONDS_PER_MICROSECOND);
+            }
+            case UUID -> {
+                if (!(type instanceof UuidType uuidType)) {
+                    throw new AvroTypeException("Can't represent Avro logical type %s with Trino Type %s".formatted(logicalType.getName(), type));
+                }
+                yield (block, pos) -> trinoUuidToJavaUuid((Slice) uuidType.getObject(block, pos)).toString();
+            }
+            default -> throw new VerifyException("Unreachable unfiltered logical type");
+        };
+    }
+
+    private Optional<LogicalType> validateAndLogIssues(Schema schema)
     {
         // TODO replace with switch sealed class syntax when stable
         ValidateLogicalTypeResult logicalTypeResult = validateLogicalType(schema);
@@ -203,11 +308,11 @@ public class NativeLogicalTypesAvroTypeManager
             return Optional.empty();
         }
         if (logicalTypeResult instanceof InvalidNativeAvroLogicalType invalidNativeAvroLogicalType) {
-            log.debug(invalidNativeAvroLogicalType.getCause(), "Invalidly configured native avro logical type");
+            log.debug(invalidNativeAvroLogicalType.getCause(), "Invalidly configured native Avro logical type");
             return Optional.empty();
         }
         if (logicalTypeResult instanceof ValidNativeAvroLogicalType validNativeAvroLogicalType) {
-            return Optional.of(produce.apply(validNativeAvroLogicalType.getLogicalType()));
+            return Optional.of(validNativeAvroLogicalType.getLogicalType());
         }
         throw new IllegalStateException("Unhandled validate logical type result");
     }
@@ -337,5 +442,109 @@ public class NativeLogicalTypesAvroTypeManager
             res = (res << 8) | (b & 0xFF);
         }
         return res;
+    }
+
+    public static byte[] fitBigEndianValueToByteArraySize(long value, int byteSize)
+    {
+        return fitBigEndianValueToByteArraySize(Longs.toByteArray(value), byteSize);
+    }
+
+    public static byte[] fitBigEndianValueToByteArraySize(Int128 value, int byteSize)
+    {
+        return fitBigEndianValueToByteArraySize(value.toBigEndianBytes(), byteSize);
+    }
+
+    /**
+     * Will resize big endian bytes to a desired array length while preserving the represented value.
+     *
+     * @throws ArithmeticException if conversion is not possible
+     */
+    public static byte[] fitBigEndianValueToByteArraySize(byte[] value, int byteSize)
+    {
+        if (value.length == byteSize) {
+            return value;
+        }
+        if (value.length < byteSize) {
+            return padBigEndianToSize(value, byteSize);
+        }
+        if (canBigEndianValueBeRepresentedBySmallerByteSize(value, byteSize)) {
+            byte[] dest = new byte[byteSize];
+            System.arraycopy(value, value.length - byteSize, dest, 0, byteSize);
+            return dest;
+        }
+        throw new ArithmeticException("Can't resize big endian bytes %s to size %s".formatted(Arrays.toString(value), byteSize));
+    }
+
+    private static boolean canBigEndianValueBeRepresentedBySmallerByteSize(byte[] bigEndianValue, int byteSize)
+    {
+        verify(byteSize < bigEndianValue.length);
+        // pre-req 1
+        // can't represent number with 0 bytes
+        if (byteSize <= 0) {
+            return false;
+        }
+        // pre-req 2
+        // these are the only padding bytes, if they aren't in the most sig bits place, then all bytes matter
+        // and a down-size isn't possible
+        if (bigEndianValue[0] != 0 && bigEndianValue[0] != -1) {
+            return false;
+        }
+        // the first significant byte is either the first byte that is consistent with the sign of the padding
+        // or the last padding byte when the next byte is inconsistent with the sign
+        int firstSigByte = 0;
+        byte padding = bigEndianValue[0];
+        for (int i = 1; i < bigEndianValue.length; i++) {
+            if (bigEndianValue[i] == padding) {
+                firstSigByte = i;
+            }
+            // case 1
+            else if (padding == 0 && bigEndianValue[i] < 0) {
+                break;
+            }
+            // case 2
+            else if (padding == 0 && bigEndianValue[i] > 0) {
+                firstSigByte = i;
+                break;
+            }
+            // case 3
+            else if (padding == -1 && bigEndianValue[i] >= 0) {
+                break;
+            }
+            // case 4
+            else if (padding == -1 && bigEndianValue[i] < 0) {
+                firstSigByte = i;
+                break;
+            }
+        }
+        return (bigEndianValue.length - firstSigByte) <= byteSize;
+    }
+
+    public static byte[] padBigEndianToSize(Int128 toPad, int byteSize)
+    {
+        return padBigEndianToSize(toPad.toBigEndianBytes(), byteSize);
+    }
+
+    public static byte[] padBigEndianToSize(long toPad, int byteSize)
+    {
+        return padBigEndianToSize(Longs.toByteArray(toPad), byteSize);
+    }
+
+    public static byte[] padBigEndianToSize(byte[] toPad, int byteSize)
+    {
+        int endianSize = toPad.length;
+        if (byteSize < endianSize) {
+            throw new ArithmeticException("Big endian bytes size must be less than or equal to the total padded size");
+        }
+        if (endianSize < 1) {
+            throw new ArithmeticException("Cannot pad empty array");
+        }
+        byte[] padded = new byte[byteSize];
+        System.arraycopy(toPad, 0, padded, byteSize - endianSize, endianSize);
+        if (toPad[0] < 0) {
+            for (int i = 0; i < byteSize - endianSize; i++) {
+                padded[i] = -1;
+            }
+        }
+        return padded;
     }
 }
