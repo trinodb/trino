@@ -78,6 +78,18 @@ public class PoolingConnectionFactory
     public PoolingConnectionFactory(
             String catalogName,
             Class<? extends Driver> driverClass,
+            Properties properties,
+            BaseJdbcConfig config,
+            JdbcConnectionPoolConfig poolConfig,
+            CredentialProvider credentialProvider,
+            IdentityCacheMapping identityCacheMapping)
+    {
+        this(catalogName, driverClass, properties, config, poolConfig, new DefaultCredentialPropertiesProvider(credentialProvider), identityCacheMapping);
+    }
+
+    public PoolingConnectionFactory(
+            String catalogName,
+            Class<? extends Driver> driverClass,
             Properties connectionProperties,
             BaseJdbcConfig config,
             JdbcConnectionPoolConfig poolConfig,
