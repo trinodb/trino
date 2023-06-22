@@ -17,7 +17,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
@@ -34,8 +33,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.SystemSessionProperties.getTaskConcurrency;
-import static io.trino.SystemSessionProperties.isOptimizeDistinctAggregationEnabled;
 import static io.trino.SystemSessionProperties.markDistinctStrategy;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy.AUTOMATIC;
@@ -69,9 +66,6 @@ import static java.util.stream.Collectors.toSet;
 public class MultipleDistinctAggregationToMarkDistinct
         implements Rule<AggregationNode>
 {
-    private static final int MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = 8;
-    private static final int OPTIMIZED_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER = MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * 8;
-
     private static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(
                     Predicates.and(
@@ -108,11 +102,11 @@ public class MultipleDistinctAggregationToMarkDistinct
         return distincts > 0 && distincts < aggregationNode.getAggregations().size();
     }
 
-    private final TaskCountEstimator taskCountEstimator;
+    private final DistinctAggregationController distinctAggregationController;
 
-    public MultipleDistinctAggregationToMarkDistinct(TaskCountEstimator taskCountEstimator)
+    public MultipleDistinctAggregationToMarkDistinct(DistinctAggregationController distinctAggregationController)
     {
-        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+        this.distinctAggregationController = requireNonNull(distinctAggregationController, "distinctAggregationController is null");
     }
 
     @Override
@@ -129,7 +123,7 @@ public class MultipleDistinctAggregationToMarkDistinct
             return Result.empty();
         }
 
-        if (markDistinctStrategy.equals(AUTOMATIC) && !shouldAddMarkDistinct(parent, context)) {
+        if (markDistinctStrategy.equals(AUTOMATIC) && !distinctAggregationController.shouldAddMarkDistinct(parent, context)) {
             return Result.empty();
         }
 
@@ -186,52 +180,5 @@ public class MultipleDistinctAggregationToMarkDistinct
                         .setAggregations(newAggregations)
                         .setPreGroupedSymbols(ImmutableList.of())
                         .build());
-    }
-
-    private boolean shouldAddMarkDistinct(AggregationNode aggregationNode, Context context)
-    {
-        if (aggregationNode.getGroupingKeys().isEmpty()) {
-            // global distinct aggregation is computed using a single thread. MarkDistinct will help parallelize the execution.
-            return true;
-        }
-        if (aggregationNode.getGroupingKeys().size() > 1) {
-            // NDV stats for multiple grouping keys are unreliable, let's keep MarkDistinct for this case to avoid significant slowdown or OOM/too big hash table issues in case of
-            // overestimation of very small NDV with big number of distinct values inside the groups.
-            return true;
-        }
-        double numberOfDistinctValues = context.getStatsProvider().getStats(aggregationNode).getOutputRowCount();
-        if (Double.isNaN(numberOfDistinctValues)) {
-            // if the estimate is unknown, use MarkDistinct to avoid query failure
-            return true;
-        }
-        int maxNumberOfConcurrentThreadsForAggregation = taskCountEstimator.estimateHashedTaskCount(context.getSession()) * getTaskConcurrency(context.getSession());
-
-        if (numberOfDistinctValues <= MARK_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation) {
-            // small numberOfDistinctValues reduces the distinct aggregation parallelism, also because the partitioning may be skewed.
-            // This makes query to underutilize the cluster CPU but also to possibly concentrate memory on few nodes.
-            // MarkDistinct should increase the parallelism at a cost of CPU.
-            return true;
-        }
-
-        if (isOptimizeDistinctAggregationEnabled(context.getSession()) &&
-                numberOfDistinctValues <= OPTIMIZED_DISTINCT_MAX_OUTPUT_ROW_COUNT_MULTIPLIER * maxNumberOfConcurrentThreadsForAggregation &&
-                hasSingleDistinctAndNonDistincts(aggregationNode)) {
-            // with medium number of numberOfDistinctValues, OptimizeMixedDistinctAggregations
-            // will be beneficial for query latency (duration) over distinct aggregation at a cost of increased CPU,
-            // but it relies on existence of MarkDistinct nodes.
-            return true;
-        }
-
-        return false;
-    }
-
-    private static boolean hasSingleDistinctAndNonDistincts(AggregationNode aggregationNode)
-    {
-        long distincts = aggregationNode.getAggregations()
-                .values().stream()
-                .filter(Aggregation::isDistinct)
-                .count();
-
-        return distincts == 1 && distincts < aggregationNode.getAggregations().size();
     }
 }

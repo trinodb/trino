@@ -46,6 +46,7 @@ import io.trino.sql.planner.iterative.rule.DesugarLambdaExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
+import io.trino.sql.planner.iterative.rule.DistinctAggregationController;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.trino.sql.planner.iterative.rule.EvaluateEmptyIntersect;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -284,6 +285,7 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator costCalculatorWithEstimatedExchanges,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
+            DistinctAggregationController distinctAggregationController,
             NodePartitioningManager nodePartitioningManager,
             RuleStatsRecorder ruleStats)
     {
@@ -299,6 +301,7 @@ public class PlanOptimizers
                 costCalculatorWithEstimatedExchanges,
                 costComparator,
                 taskCountEstimator,
+                distinctAggregationController,
                 nodePartitioningManager,
                 ruleStats);
     }
@@ -316,6 +319,7 @@ public class PlanOptimizers
             CostCalculator costCalculatorWithEstimatedExchanges,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
+            DistinctAggregationController distinctAggregationController,
             NodePartitioningManager nodePartitioningManager,
             RuleStatsRecorder ruleStats)
     {
@@ -654,7 +658,7 @@ public class PlanOptimizers
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(),
                                 new ReplaceRedundantJoinWithSource(), // Run this after PredicatePushDown optimizer as it inlines filter constants
-                                new MultipleDistinctAggregationToMarkDistinct(taskCountEstimator))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
+                                new MultipleDistinctAggregationToMarkDistinct(distinctAggregationController))), // Run this after aggregation pushdown so that multiple distinct aggregations can be pushed into a connector
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 pushProjectionIntoTableScanOptimizer,

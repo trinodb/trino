@@ -24,6 +24,7 @@ import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.iterative.rule.DistinctAggregationController;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
@@ -128,7 +129,7 @@ public class TestOptimizeMixedDistinctAggregations
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
-                                new MultipleDistinctAggregationToMarkDistinct(new TaskCountEstimator(() -> 4)))),
+                                new MultipleDistinctAggregationToMarkDistinct(new DistinctAggregationController(new TaskCountEstimator(() -> 4))))),
                 new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
