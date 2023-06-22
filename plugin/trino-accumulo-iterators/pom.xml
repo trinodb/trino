@@ -10,8 +10,8 @@
     </parent>
 
     <artifactId>trino-accumulo-iterators</artifactId>
-    <description>Accumulo Iterators for the Trino Accumulo Connector</description>
     <packaging>jar</packaging>
+    <description>Accumulo Iterators for the Trino Accumulo Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
