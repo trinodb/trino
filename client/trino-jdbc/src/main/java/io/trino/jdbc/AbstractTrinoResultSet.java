@@ -29,6 +29,7 @@ import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
+import org.joda.time.IllegalInstantException;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -150,15 +151,7 @@ abstract class AbstractTrinoResultSet
             TypeConversions.builder()
                     .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
-                    .add("date", String.class, Date.class, string -> {
-                        try {
-                            return parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId()));
-                        }
-                        // TODO (https://github.com/trinodb/trino/issues/6242) this should never fail
-                        catch (IllegalArgumentException e) {
-                            throw new SQLException("Expected value to be a date but is: " + string, e);
-                        }
-                    })
+                    .add("date", String.class, Date.class, string -> parseDate(string, DateTimeZone.forID(ZoneId.systemDefault().getId())))
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
                     .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
@@ -361,9 +354,16 @@ abstract class AbstractTrinoResultSet
 
     private static Date parseDate(String value, DateTimeZone localTimeZone)
     {
-        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
-            return new Date(millis);
+        try {
+            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+            if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
+                return new Date(millis);
+            }
+        }
+        catch (IllegalInstantException ignored) {
+            // https://joda-time.sourceforge.net/faq.html#illegalinstant
+            LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+            return new Date(localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis());
         }
 
         // The chronology used by default by Joda is not historically accurate for dates
