@@ -26,6 +26,7 @@ import io.trino.operator.HashGenerator;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.MergePartitioningHandle;
@@ -33,8 +34,6 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.type.BlockTypeOperators;
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 
 import java.io.Closeable;
 import java.util.HashSet;
@@ -52,6 +51,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -140,14 +140,12 @@ public class LocalExchange
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
             int partitionCount = bufferCount * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
-            List<Supplier<Long2LongMap>> writerPartitionRowCountsSuppliers = new CopyOnWriteArrayList<>();
-            UniformPartitionRebalancer uniformPartitionRebalancer = new UniformPartitionRebalancer(
-                    physicalWrittenBytesSuppliers,
-                    () -> computeAggregatedPartitionRowCounts(writerPartitionRowCountsSuppliers),
+            SkewedPartitionRebalancer skewedPartitionRebalancer = new SkewedPartitionRebalancer(
                     partitionCount,
                     bufferCount,
-                    writerScalingMinDataProcessed.toBytes());
-
+                    1,
+                    writerScalingMinDataProcessed.toBytes(),
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes());
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
@@ -163,16 +161,14 @@ public class LocalExchange
                         partitionChannels,
                         partitionChannelTypes,
                         partitionHashChannel);
-                ScaleWriterPartitioningExchanger exchanger = new ScaleWriterPartitioningExchanger(
+                return new ScaleWriterPartitioningExchanger(
                         asPageConsumers(sources),
                         memoryManager,
                         maxBufferedBytes.toBytes(),
                         createPartitionPagePreparer(partitioning, partitionChannels),
                         partitionFunction,
                         partitionCount,
-                        uniformPartitionRebalancer);
-                writerPartitionRowCountsSuppliers.add(exchanger::getAndResetPartitionRowCounts);
-                return exchanger;
+                        skewedPartitionRebalancer);
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getCatalogHandle().isPresent() ||
@@ -223,20 +219,6 @@ public class LocalExchange
         physicalWrittenBytesSuppliers.add(physicalWrittenBytesSupplier);
         nextSourceIndex++;
         return result;
-    }
-
-    private Long2LongMap computeAggregatedPartitionRowCounts(List<Supplier<Long2LongMap>> writerPartitionRowCountsSuppliers)
-    {
-        Long2LongMap aggregatedPartitionRowCounts = new Long2LongOpenHashMap();
-        List<Long2LongMap> writerPartitionRowCounts = writerPartitionRowCountsSuppliers.stream()
-                .map(Supplier::get)
-                .collect(toImmutableList());
-
-        writerPartitionRowCounts.forEach(partitionRowCounts ->
-                partitionRowCounts.forEach((writerPartitionId, rowCount) ->
-                        aggregatedPartitionRowCounts.merge(writerPartitionId.longValue(), rowCount.longValue(), Long::sum)));
-
-        return aggregatedPartitionRowCounts;
     }
 
     private static Function<Page, Page> createPartitionPagePreparer(PartitioningHandle partitioning, List<Integer> partitionChannels)

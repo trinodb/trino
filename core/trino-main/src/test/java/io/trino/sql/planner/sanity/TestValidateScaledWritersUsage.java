@@ -46,6 +46,7 @@ import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
@@ -146,9 +147,14 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol)));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        if (isScaledWriterHashDistribution(scaledWriterPartitionHandle)) {
+            validatePlan(root);
+        }
+        else {
+            assertThatThrownBy(() -> validatePlan(root))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("The round robin scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        }
     }
 
     @Test(dataProvider = "scaledWriterPartitioningHandles")
@@ -175,9 +181,14 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol)));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        if (isScaledWriterHashDistribution(scaledWriterPartitionHandle)) {
+            validatePlan(root);
+        }
+        else {
+            assertThatThrownBy(() -> validatePlan(root))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("The round robin scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        }
     }
 
     @Test(dataProvider = "scaledWriterPartitioningHandles")
@@ -252,9 +263,14 @@ public class TestValidateScaledWritersUsage
                                 planBuilder.createTarget(catalogNotSupportingScaledWriters, schemaTableName, false, true),
                                 tableWriterSource,
                                 symbol)));
-        assertThatThrownBy(() -> validatePlan(root))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("The scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        if (isScaledWriterHashDistribution(scaledWriterPartitionHandle)) {
+            validatePlan(root);
+        }
+        else {
+            assertThatThrownBy(() -> validatePlan(root))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("The round robin scaled writer partitioning scheme is set but writer target no_bytes_written_reported:INSTANCE doesn't support reporting physical written bytes");
+        }
     }
 
     @Test(dataProvider = "scaledWriterPartitioningHandles")
@@ -282,7 +298,7 @@ public class TestValidateScaledWritersUsage
         else {
             assertThatThrownBy(() -> validatePlan(root))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("The scaled writer partitioning scheme is set for the partitioned write but writer target no_bytes_written_reported:INSTANCE doesn't support multiple writers per partition");
+                    .hasMessage("The hash scaled writer partitioning scheme is set for the partitioned write but writer target no_bytes_written_reported:INSTANCE doesn't support multiple writers per partition");
         }
     }
 
@@ -317,7 +333,7 @@ public class TestValidateScaledWritersUsage
         else {
             assertThatThrownBy(() -> validatePlan(root))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("The scaled writer partitioning scheme is set for the partitioned write but writer target no_bytes_written_reported:INSTANCE doesn't support multiple writers per partition");
+                    .hasMessage("The hash scaled writer partitioning scheme is set for the partitioned write but writer target no_bytes_written_reported:INSTANCE doesn't support multiple writers per partition");
         }
     }
 
