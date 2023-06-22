@@ -774,7 +774,6 @@ public class AddExchanges
                 }
             }
             else if (scaleWriters
-                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
                     // do not insert an exchange if partitioning is compatible
                     && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
