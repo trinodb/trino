@@ -33,8 +33,8 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -54,7 +54,7 @@ public class TestRemoveRedundantPredicateAboveTableScan
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
 
-    @BeforeClass
+    @BeforeAll
     public void setUpBeforeClass()
     {
         removeRedundantPredicateAboveTableScan = new RemoveRedundantPredicateAboveTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer());
