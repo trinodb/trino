@@ -272,21 +272,23 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
-    public synchronized ListenableFuture<QueryResultsResponse> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
+    public ListenableFuture<QueryResultsResponse> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
     {
-        // before waiting, check if this request has already been processed and cached
-        Optional<QueryResults> cachedResult = getCachedResult(token);
-        if (cachedResult.isPresent()) {
-            return immediateFuture(toResultsResponse(cachedResult.get()));
+        ListenableFuture<Void> futureStateChange;
+        synchronized (this) {
+            // before waiting, check if this request has already been processed and cached
+            Optional<QueryResults> cachedResult = getCachedResult(token);
+            if (cachedResult.isPresent()) {
+                return immediateFuture(toResultsResponse(cachedResult.get()));
+            }
+            // release the lock eagerly after acquiring the future to avoid contending with callback threads
+            futureStateChange = getFutureStateChange();
         }
 
         // wait for a results data or query to finish, up to the wait timeout
-        ListenableFuture<Void> futureStateChange = addTimeout(
-                getFutureStateChange(),
-                () -> null,
-                wait,
-                timeoutExecutor);
-
+        if (!futureStateChange.isDone()) {
+            futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
+        }
         // when state changes, fetch the next result
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
