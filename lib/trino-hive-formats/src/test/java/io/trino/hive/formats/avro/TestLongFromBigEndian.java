@@ -14,13 +14,16 @@
 package io.trino.hive.formats.avro;
 
 import com.google.common.primitives.Longs;
+import io.trino.spi.type.Int128;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static com.google.common.base.Verify.verify;
+import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.canBigEndianValueBeRepresentedByByteSize;
+import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fitBigEndianValueToByteArraySize;
 import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.fromBigEndian;
+import static io.trino.hive.formats.avro.NativeLogicalTypesAvroTypeManager.padBigEndianToSize;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
@@ -72,22 +75,6 @@ public class TestLongFromBigEndian
         }
     }
 
-    public static byte[] padBigEndianCorrectly(long toPad, int totalSize)
-    {
-        verify(totalSize >= 8);
-        byte[] longBytes = Longs.toByteArray(toPad);
-
-        byte[] padded = new byte[totalSize];
-
-        System.arraycopy(longBytes, 0, padded, totalSize - 8, 8);
-        if (toPad < 0) {
-            for (int i = 0; i < totalSize - 8; i++) {
-                padded[i] = -1;
-            }
-        }
-        return padded;
-    }
-
     @Test
     public void testWithPadding()
     {
@@ -98,11 +85,11 @@ public class TestLongFromBigEndian
         long e = -1L;
 
         for (int i = 9; i < 24; i++) {
-            assertThat(fromBigEndian(padBigEndianCorrectly(a, i))).isEqualTo(a);
-            assertThat(fromBigEndian(padBigEndianCorrectly(b, i))).isEqualTo(b);
-            assertThat(fromBigEndian(padBigEndianCorrectly(c, i))).isEqualTo(c);
-            assertThat(fromBigEndian(padBigEndianCorrectly(d, i))).isEqualTo(d);
-            assertThat(fromBigEndian(padBigEndianCorrectly(e, i))).isEqualTo(e);
+            assertThat(fromBigEndian(NativeLogicalTypesAvroTypeManager.padBigEndianToSize(a, i))).isEqualTo(a);
+            assertThat(fromBigEndian(NativeLogicalTypesAvroTypeManager.padBigEndianToSize(b, i))).isEqualTo(b);
+            assertThat(fromBigEndian(NativeLogicalTypesAvroTypeManager.padBigEndianToSize(c, i))).isEqualTo(c);
+            assertThat(fromBigEndian(NativeLogicalTypesAvroTypeManager.padBigEndianToSize(d, i))).isEqualTo(d);
+            assertThat(fromBigEndian(NativeLogicalTypesAvroTypeManager.padBigEndianToSize(e, i))).isEqualTo(e);
         }
     }
 
@@ -136,5 +123,73 @@ public class TestLongFromBigEndian
         assertThatThrownBy(() -> fromBigEndian(padPoorly(c))).isInstanceOf(ArithmeticException.class);
         assertThatThrownBy(() -> fromBigEndian(padPoorly(d))).isInstanceOf(ArithmeticException.class);
         assertThatThrownBy(() -> fromBigEndian(padPoorly(e))).isInstanceOf(ArithmeticException.class);
+    }
+
+    @Test
+    public void testPad()
+    {
+        assertThat(padBigEndianToSize(new byte[] {0}, 10)).isEqualTo(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        assertThat(padBigEndianToSize(new byte[] {-1}, 10)).isEqualTo(new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1});
+        assertThat(padBigEndianToSize(new byte[] {(byte) 0x80, 0x00}, 10)).isEqualTo(new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, (byte) 0x80, 0});
+
+        assertThat(padBigEndianToSize(2, 10)).isEqualTo(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 2});
+        assertThat(padBigEndianToSize(0xFF, 10)).isEqualTo(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, -1});
+        assertThat(padBigEndianToSize(Long.MIN_VALUE, 10)).isEqualTo(new byte[] {-1, -1, (byte) 0x80, 0, 0, 0, 0, 0, 0, 0});
+        assertThat(padBigEndianToSize(Long.MAX_VALUE, 10)).isEqualTo(new byte[] {0, 0, (byte) 0x7F, -1, -1, -1, -1, -1, -1, -1});
+
+        assertThat(padBigEndianToSize(Int128.valueOf(2), 18)).isEqualTo(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2});
+        assertThat(padBigEndianToSize(Int128.valueOf(-1), 18)).isEqualTo(new byte[] {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1});
+        assertThat(padBigEndianToSize(Int128.MIN_VALUE, 18)).isEqualTo(new byte[] {-1, -1, (byte) 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        assertThat(padBigEndianToSize(Int128.MAX_VALUE, 18)).isEqualTo(new byte[] {0, 0, 0x7F, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1});
+    }
+
+    @Test
+    public void testCanRepresent()
+    {
+        //prereq 1
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0x7F}, 0)).isFalse();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0x00, 0x02, (byte) 200, -34}, -3)).isFalse();
+
+        //prereq 2
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0x7F}, 1)).isTrue();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0x00, 0x02, (byte) 200, -34}, 34)).isTrue();
+
+        //prereq 3
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0x01, 0x02, 0x03}, 2)).isFalse();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {-2, 0x02, 0x03}, 2)).isFalse();
+
+        // case 1
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0, 0, -1}, 2)).isTrue();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0, 0, -1}, 1)).isFalse();
+        // case 2
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0, 0, 1}, 2)).isTrue();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {0, 0, 1}, 1)).isTrue();
+        // case 3
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {-1, -1, 0}, 2)).isTrue();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {-1, -1, 2}, 1)).isFalse();
+        // case 4
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {-1, -1, -1}, 2)).isTrue();
+        assertThat(canBigEndianValueBeRepresentedByByteSize(new byte[] {-1, -1, -34}, 1)).isTrue();
+    }
+
+    @Test
+    public void testBigEndianResize()
+    {
+        //test identity
+        assertThat(fitBigEndianValueToByteArraySize(2, 8)).isEqualTo(Longs.toByteArray(2));
+        assertThat(fitBigEndianValueToByteArraySize(Int128.valueOf(Long.MAX_VALUE), 16)).isEqualTo(Int128.valueOf(Long.MAX_VALUE).toBigEndianBytes());
+
+        // test scale up
+        assertThat(fitBigEndianValueToByteArraySize(42, 16)).isEqualTo(Int128.valueOf(42).toBigEndianBytes());
+        assertThat(fitBigEndianValueToByteArraySize(-2000, 16)).isEqualTo(Int128.valueOf(-2000).toBigEndianBytes());
+
+        // test scale down
+        assertThat(fitBigEndianValueToByteArraySize(Int128.valueOf(32), 8)).isEqualTo(Longs.toByteArray(32));
+        assertThat(fitBigEndianValueToByteArraySize(Int128.valueOf(-1), 8)).isEqualTo(Longs.toByteArray(-1));
+
+        assertThat(fitBigEndianValueToByteArraySize(1, 3)).isEqualTo(new byte[] {0, 0, 1});
+        assertThat(fitBigEndianValueToByteArraySize(Int128.valueOf(-7), 4)).isEqualTo(new byte[] {-1, -1, -1, -7});
+        assertThat(fitBigEndianValueToByteArraySize(new byte[] {2, 4, 5}, 5)).isEqualTo(new byte[] {0, 0, 2, 4, 5});
+        assertThat(fitBigEndianValueToByteArraySize(new byte[] {-7, 4, 5}, 6)).isEqualTo(new byte[] {-1, -1, -1, -7, 4, 5});
     }
 }

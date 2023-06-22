@@ -92,7 +92,7 @@ public final class AvroTypeUtils
         return schema.getTypes().stream().filter(not(Schema::isNullable)).count() == 1L;
     }
 
-    private static Schema unwrapNullableUnion(Schema schema)
+    static Schema unwrapNullableUnion(Schema schema)
     {
         verify(schema.isUnion(), "Schema must be union");
         verify(schema.isNullable() && schema.getTypes().size() == 2);
@@ -110,5 +110,24 @@ public final class AvroTypeUtils
             }
         }
         return rowTypeForUnionOfTypes(unionTypes.build());
+    }
+
+    public static SimpleUnionNullIndex getSimpleNullableUnionNullIndex(Schema schema)
+    {
+        verify(schema.isUnion(), "Schema must be union");
+        verify(schema.isNullable() && schema.getTypes().size() == 2);
+        return schema.getTypes().get(0).getType() == Schema.Type.NULL ? SimpleUnionNullIndex.ZERO : SimpleUnionNullIndex.ONE;
+    }
+
+    enum SimpleUnionNullIndex
+    {
+        ZERO(0),
+        ONE(1);
+        public final int idx;
+
+        SimpleUnionNullIndex(int idx)
+        {
+            this.idx = idx;
+        }
     }
 }
