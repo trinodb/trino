@@ -713,7 +713,6 @@ public class AddLocalExchanges
                 WriterTarget writerTarget)
         {
             if (isTaskScaleWritersEnabled(session)
-                    && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
                     && partitioningScheme.isPresent()) {
                 return visitScalePartitionedWriter(node, partitioningScheme.get(), source);
