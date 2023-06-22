@@ -97,7 +97,7 @@ runs:
             }
             const { data: result } = await github.rest.issues.updateComment({
               ...context.repo,
-              comment.id,
+              comment_id: comment.id,
               body: finished
             });
 
