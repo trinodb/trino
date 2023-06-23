@@ -1878,7 +1878,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return ImmutableList.of();
             }
 
-            // TODO: split into smaller partitions here if necessary (for example if a task for a given partition failed with out of memory)
+            // TODO[https://github.com/trinodb/trino/issues/18025]: split into smaller partitions here if necessary (for example if a task for a given partition failed with out of memory)
 
             // reschedule a task
             return ImmutableList.of(PrioritizedScheduledTask.create(stage.getStageId(), partitionId, schedulingPriority));
