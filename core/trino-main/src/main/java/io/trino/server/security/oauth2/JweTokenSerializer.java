@@ -103,13 +103,13 @@ public class JweTokenSerializer
             JWEObject jwe = JWEObject.parse(token);
             jwe.decrypt(jweDecrypter);
             Claims claims = parser.parseClaimsJwt(jwe.getPayload().toString()).getBody();
-            return TokenPair.accessAndRefreshTokens(
+            return TokenPair.withAccessAndRefreshTokens(
                     claims.get(ACCESS_TOKEN_KEY, String.class),
                     claims.get(EXPIRATION_TIME_KEY, Date.class),
                     claims.get(REFRESH_TOKEN_KEY, String.class));
         }
         catch (ParseException ex) {
-            return TokenPair.accessToken(token);
+            return TokenPair.withAccessToken(token);
         }
         catch (JOSEException ex) {
             throw new IllegalArgumentException("Decryption failed", ex);
@@ -121,7 +121,7 @@ public class JweTokenSerializer
     {
         requireNonNull(tokenPair, "tokenPair is null");
 
-        Map<String, Object> claims = client.getClaims(tokenPair.getAccessToken()).orElseThrow(() -> new IllegalArgumentException("Claims are missing"));
+        Map<String, Object> claims = client.getClaims(tokenPair.accessToken()).orElseThrow(() -> new IllegalArgumentException("Claims are missing"));
         if (!claims.containsKey(principalField)) {
             throw new IllegalArgumentException(format("%s field is missing", principalField));
         }
@@ -130,12 +130,12 @@ public class JweTokenSerializer
                 .claim(principalField, claims.get(principalField).toString())
                 .setAudience(audience)
                 .setIssuer(issuer)
-                .claim(ACCESS_TOKEN_KEY, tokenPair.getAccessToken())
-                .claim(EXPIRATION_TIME_KEY, tokenPair.getExpiration())
+                .claim(ACCESS_TOKEN_KEY, tokenPair.accessToken())
+                .claim(EXPIRATION_TIME_KEY, tokenPair.expiration())
                 .compressWith(COMPRESSION_CODEC);
 
-        if (tokenPair.getRefreshToken().isPresent()) {
-            jwt.claim(REFRESH_TOKEN_KEY, tokenPair.getRefreshToken().orElseThrow());
+        if (tokenPair.refreshToken().isPresent()) {
+            jwt.claim(REFRESH_TOKEN_KEY, tokenPair.refreshToken().orElseThrow());
         }
         else {
             LOG.info("No refresh token has been issued, although coordinator expects one. Please check your IdP whether that is correct behaviour");
