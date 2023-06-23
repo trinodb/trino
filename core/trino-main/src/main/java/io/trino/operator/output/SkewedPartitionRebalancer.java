@@ -324,6 +324,7 @@ public class SkewedPartitionRebalancer
             List<IndexedPriorityQueue<Integer>> taskBucketMaxPartitions,
             long[] partitionDataSize)
     {
+        List<Integer> scaledPartitions = new ArrayList<>();
         while (true) {
             TaskBucket maxTaskBucket = maxTaskBuckets.poll();
             if (maxTaskBucket == null) {
@@ -346,9 +347,18 @@ public class SkewedPartitionRebalancer
                     break;
                 }
 
+                // Rebalance partition only once in a single cycle. Otherwise, rebalancing will happen quite
+                // aggressively in the early stage of write, while it is not required. Thus, it can have an impact on
+                // output file sizes and resource usage such that produced files can be small and memory usage
+                // might be higher.
+                if (scaledPartitions.contains(maxPartition)) {
+                    continue;
+                }
+
                 if (partitionDataSizeSinceLastRebalancePerTask[maxPartition] >= minPartitionDataProcessedRebalanceThreshold) {
                     for (TaskBucket minTaskBucket : minSkewedTaskBuckets) {
                         if (rebalancePartition(maxPartition, minTaskBucket, maxTaskBuckets, minTaskBuckets, partitionDataSize[maxPartition])) {
+                            scaledPartitions.add(maxPartition);
                             break;
                         }
                     }
