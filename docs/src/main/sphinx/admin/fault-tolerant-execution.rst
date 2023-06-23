@@ -98,8 +98,7 @@ QUERY
 A ``QUERY`` retry policy instructs Trino to automatically retry a query in the
 event of an error occuring on a worker node. A ``QUERY`` retry policy is
 recommended when the majority of the Trino cluster's workload consists of many
-small queries, or if an :ref:`exchange manager <fte-exchange-manager>` is not
-configured.
+small queries.
 
 By default Trino does not implement fault tolerance for queries whose result set
 exceeds 32MB in size, such as :doc:`/sql/select` statements that return a very
@@ -116,11 +115,12 @@ therefore allows for storage of spilled data beyond the in-memory buffer size.
 TASK
 ^^^^
 
-A ``TASK`` retry policy instructs Trino to retry individual query
-:ref:`tasks <trino-concept-task>` in the event of failure. This policy is
-recommended when executing large batch queries, as the cluster can more
-efficiently retry smaller tasks within the query rather than retry the whole
-query.
+A ``TASK`` retry policy instructs Trino to retry individual query :ref:`tasks
+<trino-concept-task>` in the event of failure. You must configure an
+:ref:`exchange manager <fte-exchange-manager>` to use the task retry policy.
+This policy is recommended when executing large batch queries, as the cluster
+can more efficiently retry smaller tasks within the query rather than retry the
+whole query.
 
 When a cluster is configured with a ``TASK`` retry policy, some relevant
 configuration properties have their default values changed to follow best
