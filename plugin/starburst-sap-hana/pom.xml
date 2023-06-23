@@ -44,6 +44,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.starburstdata.trino.plugins</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
         </dependency>
