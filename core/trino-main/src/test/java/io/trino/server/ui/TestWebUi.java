@@ -906,8 +906,8 @@ public class TestWebUi
     {
         TokenPairSerializer tokenPairSerializer = server.getInstance(Key.get(TokenPairSerializer.class));
         TokenPair deserialize = tokenPairSerializer.deserialize(authCookie.getValue());
-        assertEquals(deserialize.getAccessToken(), accessToken);
-        assertEquals(deserialize.getRefreshToken(), Optional.of(REFRESH_TOKEN));
+        assertEquals(deserialize.accessToken(), accessToken);
+        assertEquals(deserialize.refreshToken(), Optional.of(REFRESH_TOKEN));
         assertThat(authCookie.getMaxAge()).isGreaterThan(0).isLessThan(REFRESH_TOKEN_TIMEOUT.getSeconds());
     }
 

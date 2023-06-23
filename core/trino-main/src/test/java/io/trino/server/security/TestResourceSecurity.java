@@ -677,8 +677,8 @@ public class TestResourceSecurity
             if (refreshTokensEnabled) {
                 TokenPairSerializer serializer = server.getInstance(Key.get(TokenPairSerializer.class));
                 TokenPair tokenPair = serializer.deserialize(getOauthToken(client, bearer.getTokenServer()));
-                assertEquals(tokenPair.getAccessToken(), tokenServer.getAccessToken());
-                assertEquals(tokenPair.getRefreshToken(), Optional.of(tokenServer.getRefreshToken()));
+                assertEquals(tokenPair.accessToken(), tokenServer.getAccessToken());
+                assertEquals(tokenPair.refreshToken(), Optional.of(tokenServer.getRefreshToken()));
             }
             else {
                 assertEquals(getOauthToken(client, bearer.getTokenServer()), tokenServer.getAccessToken());
