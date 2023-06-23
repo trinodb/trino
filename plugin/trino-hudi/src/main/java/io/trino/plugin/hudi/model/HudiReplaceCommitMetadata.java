@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.hudi.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
@@ -21,20 +23,30 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class HudiReplaceCommitMetadata
 {
-    private Map<String, List<String>> partitionToReplaceFileIds;
-    private Boolean compacted;
+    private final Map<String, List<String>> partitionToReplaceFileIds;
+    private final Boolean compacted;
 
     // for ser/deser
     public HudiReplaceCommitMetadata()
     {
         partitionToReplaceFileIds = ImmutableMap.of();
         compacted = false;
+    }
+
+    @JsonCreator
+    public HudiReplaceCommitMetadata(
+            @JsonProperty("partitionToReplaceFileIds") Map<String, List<String>> partitionToReplaceFileIds,
+            @JsonProperty("compacted") Boolean compacted)
+    {
+        this.partitionToReplaceFileIds = ImmutableMap.copyOf(partitionToReplaceFileIds);
+        this.compacted = compacted;
     }
 
     public Map<String, List<String>> getPartitionToReplaceFileIds()
@@ -53,14 +65,14 @@ public class HudiReplaceCommitMetadata
         }
 
         HudiReplaceCommitMetadata that = (HudiReplaceCommitMetadata) o;
-
-        return compacted.equals(that.compacted);
+        return Objects.equals(partitionToReplaceFileIds, (that)) &&
+                compacted.equals(that.compacted);
     }
 
     @Override
     public int hashCode()
     {
-        return compacted.hashCode();
+        return Objects.hash(partitionToReplaceFileIds, compacted);
     }
 
     public static <T> T fromBytes(byte[] bytes, ObjectMapper objectMapper, Class<T> clazz)

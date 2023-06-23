@@ -186,6 +186,41 @@ public class TestHudiSparkCompatibility
     }
 
     @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testCopyOnWriteTableContainsReplaceCommit()
+    {
+        String tableName = "test_hudi_cow_replace_commit_" + randomNameSuffix();
+
+        createNonPartitionedTable(tableName, COW_TABLE_TYPE);
+
+        try {
+            onHudi().executeQuery(format(
+                    """
+                            ALTER TABLE default.%s
+                            SET SERDEPROPERTIES (
+                                hoodie.parquet.small.file.limit=0,
+                                hoodie.clustering.inline=true,
+                                hoodie.clustering.inline.max.commits=2)""",
+                    tableName));
+            assertThat(onHudi().executeQuery("show TBLPROPERTIES default." + tableName))
+                    .contains(ImmutableList.of(
+                            row("option.hoodie.parquet.small.file.limit", "0"),
+                            row("option.hoodie.clustering.inline", "true"),
+                            row("option.hoodie.clustering.inline.max.commits", "2")));
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 60, 3000)");
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (4, 'a4', 80, 4000)");
+            assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName))
+                    .containsOnly(ImmutableList.of(
+                            row(1, "a1", 20, 1000),
+                            row(2, "a2", 40, 2000),
+                            row(3, "a3", 60, 3000),
+                            row(4, "a4", 80, 4000)));
+        }
+        finally {
+            onHudi().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
     public void testMergeOnReadTableSelect()
     {
         String tableName = "test_hudi_mor_select_" + randomNameSuffix();
@@ -234,6 +269,57 @@ public class TestHudiSparkCompatibility
             // "_ro" suffix to the table indicates read-optimized query.
             assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName + "_ro"))
                     .containsOnly(expectedRows);
+        }
+        finally {
+            onHudi().executeQuery("DROP TABLE default." + tableName);
+        }
+    }
+
+    @Test(groups = {HUDI, PROFILE_SPECIFIC_TESTS})
+    public void testMergeOnReadTableContainsReplaceCommit()
+    {
+        String tableName = "test_hudi_mor_contains_replace_commit_" + randomNameSuffix();
+
+        createNonPartitionedTable(tableName, MOR_TABLE_TYPE);
+
+        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+                row(1, "a1", 20, 1000),
+                row(2, "a2", 40, 2000));
+
+        List<QueryAssert.Row> expectedRows2 = ImmutableList.of(
+                row(1, "a1", 20, 1000),
+                row(2, "a2", 40, 2000),
+                row(3, "a3", 60, 3000),
+                row(4, "a4", 80, 4000));
+
+        try {
+            onHudi().executeQuery(format(
+                    """
+                            ALTER TABLE default.%s
+                            SET SERDEPROPERTIES (
+                                hoodie.parquet.small.file.limit=0,
+                                hoodie.compact.inline=true,
+                                hoodie.compact.inline.max.delta.commits=2,
+                                hoodie.clustering.inline=true,
+                                hoodie.clustering.inline.max.commits=2)""",
+                    tableName));
+            assertThat(onHudi().executeQuery("show TBLPROPERTIES default." + tableName))
+                    .contains(ImmutableList.of(
+                            row("option.hoodie.parquet.small.file.limit", "0"),
+                            row("option.hoodie.compact.inline", "true"),
+                            row("option.hoodie.compact.inline.max.delta.commits", "2"),
+                            row("option.hoodie.clustering.inline", "true"),
+                            row("option.hoodie.clustering.inline.max.commits", "2")));
+            assertThat(onHudi().executeQuery("SELECT id, name, price, ts FROM default." + tableName))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName + "_ro"))
+                    .containsOnly(expectedRows);
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 60, 3000)");
+            onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (4, 'a4', 80, 4000)");
+            assertThat(onHudi().executeQuery("SELECT id, name, price, ts FROM default." + tableName))
+                    .containsOnly(expectedRows2);
+            assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName + "_ro"))
+                    .containsOnly(expectedRows2);
         }
         finally {
             onHudi().executeQuery("DROP TABLE default." + tableName);

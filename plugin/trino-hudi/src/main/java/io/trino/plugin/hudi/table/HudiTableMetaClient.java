@@ -135,7 +135,7 @@ public class HudiTableMetaClient
 
     public String getSchemaFolderName()
     {
-        return metaPath.appendPath(SCHEMA_FOLDER_NAME).path();
+        return metaPath.appendPath(SCHEMA_FOLDER_NAME).toString();
     }
 
     private static HudiTableMetaClient newMetaClient(
