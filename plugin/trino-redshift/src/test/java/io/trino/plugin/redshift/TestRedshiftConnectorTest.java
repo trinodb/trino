@@ -66,12 +66,9 @@ public class TestRedshiftConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_TABLE:
-                return false;
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return true;
 
-            case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
