@@ -64,9 +64,8 @@ public class TestJweTokenSerializer
     public void testDeserializationWithWrongSecret(String encryptionSecret, String decryptionSecret)
     {
         assertThatThrownBy(() -> assertRoundTrip(Optional.ofNullable(encryptionSecret), Optional.ofNullable(decryptionSecret)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Decryption failed")
-                .hasStackTraceContaining("Tag mismatch!");
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("decryption failed: Tag mismatch");
     }
 
     @DataProvider
