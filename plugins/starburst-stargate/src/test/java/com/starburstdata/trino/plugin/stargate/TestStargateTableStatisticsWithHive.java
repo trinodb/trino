@@ -37,6 +37,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStargateTableStatisticsWithHive
         extends BaseStargateTableStatisticsTest
@@ -516,6 +517,16 @@ public class TestStargateTableStatisticsWithHive
                             "('fl', 1e0, 0e0, null)," +
                             "(null, null, null, 5e0)");
         }
+    }
+
+    @Override
+    public void testStatsWithDistinctLimitPushdown()
+    {
+        // TODO: remove this override when statistics are pushed for partial distinct TopN queries
+        assertThatThrownBy(super::testStatsWithDistinctLimitPushdown)
+                .hasMessageContaining("Expecting actual:\n  " +
+                        "(regionkey, null, null, null), " +
+                        "(null, null, null, null)");
     }
 
     private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)

@@ -18,7 +18,6 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.jdbc.TrinoConnection;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -772,7 +771,7 @@ public class StargateClient
         Map<String, JdbcColumnHandle> columnHandles = jdbcColumnHandles.stream()
                 .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
 
-        try (Connection connection = configureConnectionForShowStats(connectionFactory.openConnection(session));
+        try (Connection connection = connectionFactory.openConnection(session);
                 PreparedStatement statement = getShowStatsStatement(session, connection, table, jdbcColumnHandles);
                 ResultSet resultSet = statement.executeQuery()) {
             TableStatistics.Builder tableStatisticsBuilder = TableStatistics.builder();
@@ -809,21 +808,6 @@ public class StargateClient
             }
 
             return tableStatisticsBuilder.build();
-        }
-    }
-
-    private static Connection configureConnectionForShowStats(Connection connection)
-            throws SQLException
-    {
-        try {
-            TrinoConnection remoteConnection = connection.unwrap(TrinoConnection.class);
-            // Disabling partial DistinctLimit allows estimates to be propagated through DistinctLimit node.
-            remoteConnection.setSessionProperty("use_partial_distinct_limit", "false");
-            return connection;
-        }
-        catch (SQLException e) {
-            connection.close();
-            throw e;
         }
     }
 
