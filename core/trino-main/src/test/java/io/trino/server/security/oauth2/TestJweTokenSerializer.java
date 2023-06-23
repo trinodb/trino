@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.units.Duration.succinctDuration;
-import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.accessAndRefreshTokens;
+import static io.trino.server.security.oauth2.TokenPairSerializer.TokenPair.withAccessAndRefreshTokens;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -48,12 +48,12 @@ public class TestJweTokenSerializer
         JweTokenSerializer serializer = tokenSerializer(Clock.systemUTC(), succinctDuration(5, SECONDS));
 
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
-        String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
+        String serializedTokenPair = serializer.serialize(withAccessAndRefreshTokens("access_token", expiration, "refresh_token"));
         TokenPair deserializedTokenPair = serializer.deserialize(serializedTokenPair);
 
-        assertThat(deserializedTokenPair.getAccessToken()).isEqualTo("access_token");
-        assertThat(deserializedTokenPair.getExpiration()).isEqualTo(expiration);
-        assertThat(deserializedTokenPair.getRefreshToken()).isEqualTo(Optional.of("refresh_token"));
+        assertThat(deserializedTokenPair.accessToken()).isEqualTo("access_token");
+        assertThat(deserializedTokenPair.expiration()).isEqualTo(expiration);
+        assertThat(deserializedTokenPair.refreshToken()).isEqualTo(Optional.of("refresh_token"));
     }
 
     @Test
@@ -65,13 +65,13 @@ public class TestJweTokenSerializer
                 clock,
                 succinctDuration(12, MINUTES));
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
-        String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
+        String serializedTokenPair = serializer.serialize(withAccessAndRefreshTokens("access_token", expiration, "refresh_token"));
         clock.advanceBy(succinctDuration(10, MINUTES));
         TokenPair deserializedTokenPair = serializer.deserialize(serializedTokenPair);
 
-        assertThat(deserializedTokenPair.getAccessToken()).isEqualTo("access_token");
-        assertThat(deserializedTokenPair.getExpiration()).isEqualTo(expiration);
-        assertThat(deserializedTokenPair.getRefreshToken()).isEqualTo(Optional.of("refresh_token"));
+        assertThat(deserializedTokenPair.accessToken()).isEqualTo("access_token");
+        assertThat(deserializedTokenPair.expiration()).isEqualTo(expiration);
+        assertThat(deserializedTokenPair.refreshToken()).isEqualTo(Optional.of("refresh_token"));
     }
 
     @Test
@@ -84,7 +84,7 @@ public class TestJweTokenSerializer
                 clock,
                 succinctDuration(12, MINUTES));
         Date expiration = new Calendar.Builder().setDate(2022, 6, 22).build().getTime();
-        String serializedTokenPair = serializer.serialize(accessAndRefreshTokens("access_token", expiration, "refresh_token"));
+        String serializedTokenPair = serializer.serialize(withAccessAndRefreshTokens("access_token", expiration, "refresh_token"));
 
         clock.advanceBy(succinctDuration(20, MINUTES));
         assertThatThrownBy(() -> serializer.deserialize(serializedTokenPair))
@@ -100,8 +100,8 @@ public class TestJweTokenSerializer
 
         TokenPair tokenPair = serializer.deserialize(nonJWEToken);
 
-        assertThat(tokenPair.getAccessToken()).isEqualTo(nonJWEToken);
-        assertThat(tokenPair.getRefreshToken()).isEmpty();
+        assertThat(tokenPair.accessToken()).isEqualTo(nonJWEToken);
+        assertThat(tokenPair.refreshToken()).isEmpty();
     }
 
     private JweTokenSerializer tokenSerializer(Clock clock, Duration tokenExpiration)
