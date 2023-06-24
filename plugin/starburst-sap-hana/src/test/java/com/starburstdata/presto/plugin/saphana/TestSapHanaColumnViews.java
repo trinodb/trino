@@ -30,7 +30,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestSapHanaColumnViews
         extends AbstractTestQueryFramework
 {
