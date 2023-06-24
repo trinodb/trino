@@ -15,7 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.aws-sdk2.version>2.20.78</dep.aws-sdk2.version>
+        <dep.aws-sdk2.version>2.20.89</dep.aws-sdk2.version>
     </properties>
 
     <dependencies>
