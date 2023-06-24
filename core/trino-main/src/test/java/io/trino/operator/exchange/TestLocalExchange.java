@@ -443,9 +443,9 @@ public class TestLocalExchange
             // Still there is a skewness across writers since writerA and writerC aren't writing any data.
             // Hence, scaling will happen for partition in writerD and writerB to writerC.
             assertSource(sourceA, 2);
-            assertSource(sourceB, 3);
+            assertSource(sourceB, 4);
             assertSource(sourceC, 1);
-            assertSource(sourceD, 6);
+            assertSource(sourceD, 5);
 
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
@@ -456,10 +456,10 @@ public class TestLocalExchange
 
             // Still there is a skewness across writers since writerA isn't writing any data.
             // Hence, scaling will happen for partition in writerD and writerB to writerA.
-            assertSource(sourceA, 3);
+            assertSource(sourceA, 4);
             assertSource(sourceB, 5);
             assertSource(sourceC, 3);
-            assertSource(sourceD, 7);
+            assertSource(sourceD, 6);
         });
     }
 
