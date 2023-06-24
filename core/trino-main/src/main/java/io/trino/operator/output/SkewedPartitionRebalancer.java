@@ -89,6 +89,9 @@ public class SkewedPartitionRebalancer
     private final AtomicLong dataProcessedAtLastRebalance;
 
     @GuardedBy("this")
+    private final long[] partitionDataSize;
+
+    @GuardedBy("this")
     private final long[] partitionDataSizeAtLastRebalance;
 
     @GuardedBy("this")
@@ -184,6 +187,7 @@ public class SkewedPartitionRebalancer
         this.dataProcessed = new AtomicLong();
         this.dataProcessedAtLastRebalance = new AtomicLong();
 
+        this.partitionDataSize = new long[partitionCount];
         this.partitionDataSizeAtLastRebalance = new long[partitionCount];
         this.partitionDataSizeSinceLastRebalancePerTask = new long[partitionCount];
         this.estimatedTaskBucketDataSizeSinceLastRebalance = new long[taskCount * taskBucketCount];
@@ -252,7 +256,7 @@ public class SkewedPartitionRebalancer
             return;
         }
 
-        long[] partitionDataSize = calculatePartitionDataSize(dataProcessed);
+        calculatePartitionDataSize(dataProcessed);
 
         // initialize partitionDataSizeSinceLastRebalancePerTask
         for (int partition = 0; partition < partitionCount; partition++) {
@@ -290,23 +294,20 @@ public class SkewedPartitionRebalancer
             }
         }
 
-        rebalanceBasedOnTaskBucketSkewness(maxTaskBuckets, minTaskBuckets, taskBucketMaxPartitions, partitionDataSize);
+        rebalanceBasedOnTaskBucketSkewness(maxTaskBuckets, minTaskBuckets, taskBucketMaxPartitions);
         dataProcessedAtLastRebalance.set(dataProcessed);
     }
 
-    private long[] calculatePartitionDataSize(long dataProcessed)
+    private void calculatePartitionDataSize(long dataProcessed)
     {
         long totalPartitionRowCount = 0;
         for (int partition = 0; partition < partitionCount; partition++) {
             totalPartitionRowCount += partitionRowCount.get(partition);
         }
 
-        long[] partitionDataSize = new long[partitionCount];
         for (int partition = 0; partition < partitionCount; partition++) {
             partitionDataSize[partition] = (partitionRowCount.get(partition) * dataProcessed) / totalPartitionRowCount;
         }
-
-        return partitionDataSize;
     }
 
     private long calculateTaskBucketDataSizeSinceLastRebalance(IndexedPriorityQueue<Integer> maxPartitions)
@@ -321,8 +322,7 @@ public class SkewedPartitionRebalancer
     private void rebalanceBasedOnTaskBucketSkewness(
             IndexedPriorityQueue<TaskBucket> maxTaskBuckets,
             IndexedPriorityQueue<TaskBucket> minTaskBuckets,
-            List<IndexedPriorityQueue<Integer>> taskBucketMaxPartitions,
-            long[] partitionDataSize)
+            List<IndexedPriorityQueue<Integer>> taskBucketMaxPartitions)
     {
         List<Integer> scaledPartitions = new ArrayList<>();
         while (true) {
@@ -355,7 +355,8 @@ public class SkewedPartitionRebalancer
                     continue;
                 }
 
-                if (partitionDataSizeSinceLastRebalancePerTask[maxPartition] >= minPartitionDataProcessedRebalanceThreshold) {
+                int totalAssignedTasks = partitionAssignments.get(maxPartition).size();
+                if (partitionDataSize[maxPartition] >= (minPartitionDataProcessedRebalanceThreshold * totalAssignedTasks)) {
                     for (TaskBucket minTaskBucket : minSkewedTaskBuckets) {
                         if (rebalancePartition(maxPartition, minTaskBucket, maxTaskBuckets, minTaskBuckets, partitionDataSize[maxPartition])) {
                             scaledPartitions.add(maxPartition);
