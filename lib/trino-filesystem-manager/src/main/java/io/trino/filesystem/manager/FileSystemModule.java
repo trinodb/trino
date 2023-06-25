@@ -22,6 +22,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemFactory;
 import io.trino.filesystem.azure.AzureFileSystemModule;
+import io.trino.filesystem.gcs.GcsFileSystemFactory;
+import io.trino.filesystem.gcs.GcsFileSystemModule;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemModule;
 import io.trino.filesystem.s3.S3FileSystemFactory;
@@ -81,6 +83,14 @@ public class FileSystemModule
         }
         else if (config.isHadoopEnabled()) {
             install(new HiveS3Module());
+        }
+
+        if (config.isNativeGcsEnabled()) {
+            install(new GcsFileSystemModule());
+            factories.addBinding("gs").to(GcsFileSystemFactory.class);
+        }
+        else {
+            install(new HiveGcsModule());
         }
     }
 
