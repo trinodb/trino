@@ -28,6 +28,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.Signature;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.TypeSignature;
@@ -486,7 +487,7 @@ public class ParametricAggregationImplementation
 
         public static boolean isParameterNullable(Annotation[] annotations)
         {
-            return containsAnnotation(annotations, annotation -> annotation instanceof NullablePosition);
+            return containsAnnotation(annotations, annotation -> annotation instanceof SqlNullable);
         }
 
         public static boolean isParameterBlock(Annotation[] annotations)
