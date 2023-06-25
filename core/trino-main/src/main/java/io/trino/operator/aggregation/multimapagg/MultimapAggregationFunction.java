@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.array.ObjectBigArray;
-import io.trino.operator.aggregation.NullablePosition;
 import io.trino.operator.scalar.BlockSet;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -30,6 +29,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.ArrayType;
@@ -56,7 +56,7 @@ public final class MultimapAggregationFunction
     public static void input(
             @AggregationState({"K", "V"}) MultimapAggregationState state,
             @BlockPosition @SqlType("K") Block key,
-            @NullablePosition @BlockPosition @SqlType("V") Block value,
+            @SqlNullable @BlockPosition @SqlType("V") Block value,
             @BlockIndex int position)
     {
         state.add(key, value, position);

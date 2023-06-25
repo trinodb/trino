@@ -27,6 +27,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
@@ -53,7 +54,7 @@ public final class MaxByAggregationFunction
                     MethodHandle compare,
             @AggregationState("K") InOut keyState,
             @AggregationState("V") InOut valueState,
-            @NullablePosition @BlockPosition @SqlType("V") Block valueBlock,
+            @SqlNullable @BlockPosition @SqlType("V") Block valueBlock,
             @BlockPosition @SqlType("K") Block keyBlock,
             @BlockIndex int position)
             throws Throwable
