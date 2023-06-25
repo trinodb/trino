@@ -43,6 +43,7 @@
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-azure</module>
+        <module>lib/trino-filesystem-gcs</module>
         <module>lib/trino-filesystem-manager</module>
         <module>lib/trino-filesystem-s3</module>
         <module>lib/trino-geospatial-toolkit</module>
@@ -989,6 +990,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-filesystem-azure</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-filesystem-gcs</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -2292,6 +2299,102 @@
                                 <packages>
                                     <package>shaded.parquet.it.unimi.dsi.fastutil</package>
                                 </packages>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.google.cloud.bigdataoss</groupId>
+                                        <artifactId>gcs-connector</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>io.opencensus</groupId>
+                                        <artifactId>opencensus-proto</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>opencensus/proto/agent/common/v1/common.proto</resource>
+                                    <resource>opencensus/proto/agent/metrics/v1/metrics_service.proto</resource>
+                                    <resource>opencensus/proto/agent/trace/v1/trace_service.proto</resource>
+                                    <resource>opencensus/proto/metrics/v1/metrics.proto</resource>
+                                    <resource>opencensus/proto/resource/v1/resource.proto</resource>
+                                    <resource>opencensus/proto/stats/v1/stats.proto</resource>
+                                    <resource>opencensus/proto/trace/v1/trace.proto</resource>
+                                    <resource>opencensus/proto/trace/v1/trace_config.proto</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>io.grpc</groupId>
+                                        <artifactId>grpc-services</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-shaded-client</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>grpc/binlog/v1/binarylog.proto</resource>
+                                    <resource>grpc/health/v1/health.proto</resource>
+                                    <resource>grpc/reflection/v1alpha/reflection.proto</resource>
+                                    <resource>grpc/channelz/v1/channelz.proto</resource>
+                                </resources>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.google.android</groupId>
+                                        <artifactId>annotations</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-shaded-client</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <classes>
+                                    <class>android.annotation.SuppressLint</class>
+                                    <class>android.annotation.TargetApi</class>
+                                </classes>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>com.google.re2j</groupId>
+                                        <artifactId>re2j</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>io.trino</groupId>
+                                        <artifactId>re2j</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <package>com.google.re2j</package>
+                                </packages>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.alluxio</groupId>
+                                        <artifactId>alluxio-shaded-client</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>com.google.protobuf</groupId>
+                                        <artifactId>protobuf-java</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <resources>
+                                    <resource>google/protobuf/any.proto</resource>
+                                    <resource>google/protobuf/api.proto</resource>
+                                    <resource>google/protobuf/descriptor.proto</resource>
+                                    <resource>google/protobuf/duration.proto</resource>
+                                    <resource>google/protobuf/empty.proto</resource>
+                                    <resource>google/protobuf/field_mask.proto</resource>
+                                    <resource>google/protobuf/source_context.proto</resource>
+                                    <resource>google/protobuf/struct.proto</resource>
+                                    <resource>google/protobuf/timestamp.proto</resource>
+                                    <resource>google/protobuf/type.proto</resource>
+                                    <resource>google/protobuf/wrappers.proto</resource>
+                                </resources>
                             </exception>
                         </exceptions>
                     </configuration>
