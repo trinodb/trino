@@ -28,6 +28,7 @@ import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 
@@ -56,7 +57,7 @@ public final class ChecksumAggregationFunction
                     convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
                     MethodHandle xxHash64Operator,
             @AggregationState NullableLongState state,
-            @NullablePosition @BlockPosition @SqlType("T") Block block,
+            @SqlNullable @BlockPosition @SqlType("T") Block block,
             @BlockIndex int position)
             throws Throwable
     {
