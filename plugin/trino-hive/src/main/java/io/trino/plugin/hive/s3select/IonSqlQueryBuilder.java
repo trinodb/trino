@@ -22,9 +22,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
@@ -149,7 +146,6 @@ public class IonSqlQueryBuilder
                 validType.equals(TINYINT) ||
                 validType.equals(SMALLINT) ||
                 validType.equals(INTEGER) ||
-                validType instanceof DecimalType ||
                 validType.equals(BOOLEAN) ||
                 validType.equals(DATE) ||
                 validType instanceof VarcharType;
@@ -259,12 +255,6 @@ public class IonSqlQueryBuilder
         }
         if (type.equals(VarcharType.VARCHAR)) {
             return "'" + ((Slice) value).toStringUtf8().replace("'", "''") + "'";
-        }
-        if (type instanceof DecimalType decimalType) {
-            if (!decimalType.isShort()) {
-                return Decimals.toString((Int128) value, decimalType.getScale());
-            }
-            return Decimals.toString((long) value, decimalType.getScale());
         }
         return "'" + ((Slice) value).toStringUtf8() + "'";
     }

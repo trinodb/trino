@@ -108,19 +108,11 @@ public class TestIonSqlQueryBuilder
 
         // CSV
         IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.CSV, Optional.empty());
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s._1, s._2, s._3 FROM S3Object s WHERE " +
-                        "(s._1 != '' AND s._1 < 50) AND " +
-                        "(s._2 != '' AND s._2 = 0.05) AND " +
-                        "((s._3 != '' AND s._3 >= 0.00 AND s._3 <= 0.02))");
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s._1, s._2, s._3 FROM S3Object s");
 
         // JSON
         queryBuilder = new IonSqlQueryBuilder(typeManager, S3SelectDataType.JSON, Optional.empty());
-        assertEquals(queryBuilder.buildSql(columns, tupleDomain),
-                "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s WHERE " +
-                        "(s.quantity IS NOT NULL AND s.quantity < 50) AND " +
-                        "(s.extendedprice IS NOT NULL AND s.extendedprice = 0.05) AND " +
-                        "((s.discount IS NOT NULL AND s.discount >= 0.00 AND s.discount <= 0.02))");
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain), "SELECT s.quantity, s.extendedprice, s.discount FROM S3Object s");
     }
 
     @Test
