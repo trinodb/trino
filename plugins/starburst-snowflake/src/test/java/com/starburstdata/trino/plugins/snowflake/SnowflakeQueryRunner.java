@@ -44,7 +44,6 @@ import static java.util.Objects.requireNonNull;
 public class SnowflakeQueryRunner
 {
     public static final String TPCH_CATALOG = "tpch";
-    public static final String SNOWFLAKE_CATALOG = "snowflake";
 
     public static final String TEST_SCHEMA = "test_schema_2";
 
@@ -79,6 +78,7 @@ public class SnowflakeQueryRunner
             String connectorName,
             Optional<String> warehouse,
             Optional<String> database,
+            String catalogName,
             Map<String, String> connectorProperties,
             Map<String, String> extraProperties,
             int nodeCount,
@@ -88,7 +88,7 @@ public class SnowflakeQueryRunner
             Consumer<QueryRunner> additionalSetup)
             throws Exception
     {
-        DistributedQueryRunner.Builder builder = DistributedQueryRunner.builder(createSession())
+        DistributedQueryRunner.Builder builder = DistributedQueryRunner.builder(createSessionForUser(USER, catalogName))
                 .setNodeCount(nodeCount);
         extraProperties.forEach(builder::addExtraProperty);
         DistributedQueryRunner queryRunner = builder
@@ -99,6 +99,7 @@ public class SnowflakeQueryRunner
                 server,
                 new TestingSnowflakePlugin(),
                 connectorName,
+                catalogName,
                 warehouse,
                 database,
                 connectorProperties,
@@ -113,6 +114,7 @@ public class SnowflakeQueryRunner
             SnowflakeServer server,
             Plugin snowflakePlugin,
             String connectorName,
+            String catalogName,
             Optional<String> warehouse,
             Optional<String> database,
             Map<String, String> connectorProperties,
@@ -144,7 +146,7 @@ public class SnowflakeQueryRunner
             database.ifPresent(databaseName -> properties.put("snowflake.database", databaseName));
 
             queryRunner.installPlugin(snowflakePlugin);
-            queryRunner.createCatalog(SNOWFLAKE_CATALOG, connectorName, properties.buildOrThrow());
+            queryRunner.createCatalog(catalogName, connectorName, properties.buildOrThrow());
 
             copyTpchTables(queryRunner, TPCH_CATALOG, TINY_SCHEMA_NAME, session, tpchTables);
 
@@ -169,8 +171,13 @@ public class SnowflakeQueryRunner
 
     public static Session createSessionForUser(String user)
     {
+        return createSessionForUser(user, "snowflake");
+    }
+
+    public static Session createSessionForUser(String user, String catalogName)
+    {
         return testSessionBuilder()
-                .setCatalog("snowflake")
+                .setCatalog(catalogName)
                 .setSchema(TEST_SCHEMA)
                 .setIdentity(Identity.forUser(user)
                         .build())
@@ -183,6 +190,7 @@ public class SnowflakeQueryRunner
         private SnowflakeServer server = new SnowflakeServer();
         private Optional<String> warehouseName = Optional.of(TEST_WAREHOUSE);
         private Optional<String> databaseName = Optional.of(TEST_DATABASE);
+        private String catalogName = "snowflake";
         private Optional<String> schemaName = Optional.empty();
         private ImmutableMap.Builder<String, String> connectorProperties = ImmutableMap.builder();
         private ImmutableMap.Builder<String, String> extraProperties = ImmutableMap.builder();
@@ -212,6 +220,12 @@ public class SnowflakeQueryRunner
         public Builder withDatabase(Optional<String> databaseName)
         {
             this.databaseName = databaseName;
+            return this;
+        }
+
+        public Builder withCatalog(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             return this;
         }
 
@@ -275,6 +289,7 @@ public class SnowflakeQueryRunner
                     connectorName,
                     warehouseName,
                     databaseName,
+                    catalogName,
                     connectorProperties.buildOrThrow(),
                     extraProperties.buildOrThrow(),
                     nodeCount,

@@ -26,6 +26,7 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
@@ -40,6 +41,7 @@ public class TestSnowflakeJmxStats
     protected final Closer closer = Closer.create();
     @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
+    protected final String catalogName = "snowflake_" + randomNameSuffix();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -48,6 +50,7 @@ public class TestSnowflakeJmxStats
         return distributedBuilder()
                 .withServer(server)
                 .withDatabase(Optional.of(testDatabase.getName()))
+                .withCatalog(catalogName)
                 .withSchema(Optional.of(TEST_SCHEMA))
                 .withConnectorProperties(impersonationDisabled())
                 // using single worker instance, because workers overwrites their JMX stats
@@ -71,9 +74,10 @@ public class TestSnowflakeJmxStats
         MaterializedResult rows = getQueryRunner().execute(
                 getSession(),
                 format(
-                        "SELECT \"authenticate.time.alltime.count\", \"obtainsamlassertion.time.alltime.count\""
-                        + " FROM jmx.current.\"%s.auth:name=snowflake,type=statscollectingoktaauthclient\"",
-                        getJmxDomainBase()));
+                        "SELECT \"authenticate.time.alltime.count\", \"obtainsamlassertion.time.alltime.count\" "
+                                + "FROM jmx.current.\"%s.auth:name=%s,type=statscollectingoktaauthclient\"",
+                        getJmxDomainBase(),
+                        catalogName));
         // we are running with 2 nodes
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow oktaStatsRow = rows.getMaterializedRows().get(0);
@@ -84,9 +88,10 @@ public class TestSnowflakeJmxStats
         rows = getQueryRunner().execute(
                 getSession(),
                 format(
-                        "SELECT \"generatesamlrequest.time.alltime.count\", \"requestoauthtoken.time.alltime.count\""
-                        + " FROM jmx.current.\"%s.auth:name=snowflake,type=statscollectingsnowflakeauthclient\"",
-                        getJmxDomainBase()));
+                        "SELECT \"generatesamlrequest.time.alltime.count\", \"requestoauthtoken.time.alltime.count\" "
+                                + "FROM jmx.current.\"%s.auth:name=%s,type=statscollectingsnowflakeauthclient\"",
+                        getJmxDomainBase(),
+                        catalogName));
         assertEquals(rows.getRowCount(), 1);
         MaterializedRow snowflakeStatsRow = rows.getMaterializedRows().get(0);
         // We should have made each call to Snowflake only once; after that, the cache should have been used
