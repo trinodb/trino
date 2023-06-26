@@ -16,8 +16,7 @@ package io.trino.plugin.iceberg.catalog.rest;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.util.Optional;
 

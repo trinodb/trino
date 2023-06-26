@@ -31,8 +31,7 @@ import io.trino.spi.function.TypeVariableConstraint.TypeVariableConstraintBuilde
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.type.Constraint;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;

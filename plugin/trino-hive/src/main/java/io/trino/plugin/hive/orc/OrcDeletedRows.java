@@ -31,8 +31,7 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;

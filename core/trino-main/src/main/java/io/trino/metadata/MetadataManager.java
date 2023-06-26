@@ -22,6 +22,7 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
@@ -112,8 +113,6 @@ import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Collection;

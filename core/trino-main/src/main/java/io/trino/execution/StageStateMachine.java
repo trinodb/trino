@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -37,8 +38,6 @@ import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashSet;

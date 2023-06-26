@@ -21,8 +21,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

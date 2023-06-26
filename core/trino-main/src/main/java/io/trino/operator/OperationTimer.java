@@ -13,9 +13,8 @@
  */
 package io.trino.operator;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.annotation.NotThreadSafe;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;

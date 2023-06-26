@@ -14,8 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-
-import javax.annotation.concurrent.GuardedBy;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.List;
 

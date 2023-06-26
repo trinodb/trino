@@ -15,6 +15,7 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -22,8 +23,6 @@ import it.unimi.dsi.fastutil.longs.Long2IntMap;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;

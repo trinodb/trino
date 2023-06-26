@@ -28,6 +28,7 @@ import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BlobMetadata;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Schema;
@@ -39,8 +40,6 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.puffin.StandardBlobTypes;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -28,6 +28,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -35,8 +36,6 @@ import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3FileSystem;
 import io.trino.plugin.hive.HiveConfig;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Optional;

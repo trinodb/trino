@@ -31,12 +31,11 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.types.Types;
-
-import javax.annotation.Nullable;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;

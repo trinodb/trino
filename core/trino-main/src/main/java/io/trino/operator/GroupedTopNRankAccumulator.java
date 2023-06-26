@@ -18,8 +18,7 @@ import io.trino.array.LongBigArray;
 import io.trino.spi.Page;
 import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.function.LongConsumer;
 

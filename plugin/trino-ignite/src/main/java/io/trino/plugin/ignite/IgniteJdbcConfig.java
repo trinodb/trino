@@ -14,9 +14,8 @@
 package io.trino.plugin.ignite;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import jakarta.validation.constraints.AssertTrue;
 import org.apache.ignite.IgniteJdbcThinDriver;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
 

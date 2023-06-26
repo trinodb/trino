@@ -18,8 +18,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.gen.CompilerOperations;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public final class AggregationUtils
 {

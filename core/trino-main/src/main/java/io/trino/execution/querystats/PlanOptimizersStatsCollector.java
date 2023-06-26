@@ -13,11 +13,10 @@
  */
 package io.trino.execution.querystats;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Comparator;
 import java.util.List;

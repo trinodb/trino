@@ -22,6 +22,7 @@ import com.google.common.graph.Graphs;
 import com.google.common.graph.MutableGraph;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.execution.scheduler.StageExecution;
 import io.trino.execution.scheduler.StageExecution.State;
@@ -38,8 +39,6 @@ import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Collection;

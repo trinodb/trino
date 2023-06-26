@@ -72,8 +72,7 @@ import io.trino.transaction.NoOpTransactionManager;
 import io.trino.type.LikeFunctions;
 import io.trino.type.LikePatternType;
 import io.trino.type.TypeCoercion;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
 import java.time.LocalDate;

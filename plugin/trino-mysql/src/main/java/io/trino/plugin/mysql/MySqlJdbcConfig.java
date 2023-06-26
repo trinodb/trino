@@ -17,8 +17,7 @@ import com.mysql.cj.conf.ConnectionUrlParser;
 import com.mysql.cj.exceptions.CJException;
 import com.mysql.cj.jdbc.Driver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
 

@@ -16,8 +16,7 @@ package io.trino.plugin.jdbc.logging;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.base.logging.SessionInterpolatedValues;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
 

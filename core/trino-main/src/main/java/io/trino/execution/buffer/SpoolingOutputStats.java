@@ -15,10 +15,9 @@ package io.trino.execution.buffer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLongArray;

@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.GcMonitor;
 import io.airlift.units.DataSize;
@@ -38,9 +40,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.LocalDynamicFiltersCollector;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Map;

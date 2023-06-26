@@ -37,8 +37,7 @@ import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;

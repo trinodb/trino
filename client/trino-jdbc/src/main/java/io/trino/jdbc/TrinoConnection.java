@@ -22,9 +22,8 @@ import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
+import jakarta.annotation.Nullable;
 import okhttp3.OkHttpClient;
-
-import javax.annotation.Nullable;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;

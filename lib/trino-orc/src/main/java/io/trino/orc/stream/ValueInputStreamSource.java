@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;

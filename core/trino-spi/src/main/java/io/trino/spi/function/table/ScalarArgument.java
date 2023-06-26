@@ -19,8 +19,7 @@ import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 

@@ -16,9 +16,8 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.util.Map;
 
@@ -80,9 +79,9 @@ public class TestBaseJdbcConfig
     public void testConnectionUrlIsValid()
     {
         assertThatThrownBy(() -> buildConfig(ImmutableMap.of("connection-url", "jdbc:")))
-                .hasMessageContaining("must match the following regular expression: ^jdbc:[a-z0-9]+:(?s:.*)$");
+                .hasMessageContaining("must match \"^jdbc:[a-z0-9]+:(?s:.*)$\"");
         assertThatThrownBy(() -> buildConfig(ImmutableMap.of("connection-url", "jdbc:protocol")))
-                .hasMessageContaining("must match the following regular expression: ^jdbc:[a-z0-9]+:(?s:.*)$");
+                .hasMessageContaining("must match \"^jdbc:[a-z0-9]+:(?s:.*)$\"");
         buildConfig(ImmutableMap.of("connection-url", "jdbc:protocol:uri"));
         buildConfig(ImmutableMap.of("connection-url", "jdbc:protocol:"));
     }

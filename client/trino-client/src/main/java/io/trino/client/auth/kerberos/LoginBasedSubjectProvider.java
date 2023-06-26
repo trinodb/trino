@@ -14,10 +14,10 @@
 package io.trino.client.auth.kerberos;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.sun.security.auth.module.Krb5LoginModule;
 import org.ietf.jgss.GSSException;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;

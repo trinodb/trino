@@ -16,6 +16,8 @@ package io.trino.plugin.exchange.filesystem.local;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.MoreFiles;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.InputStreamSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
@@ -25,9 +27,6 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;

@@ -15,9 +15,8 @@ package io.trino.hdfs.authentication;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
+import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;

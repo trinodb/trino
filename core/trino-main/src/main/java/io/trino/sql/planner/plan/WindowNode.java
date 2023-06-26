@@ -19,14 +19,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.WindowFrame;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;

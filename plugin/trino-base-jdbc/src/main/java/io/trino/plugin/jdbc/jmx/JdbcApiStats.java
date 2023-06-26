@@ -13,12 +13,11 @@
  */
 package io.trino.plugin.jdbc.jmx;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

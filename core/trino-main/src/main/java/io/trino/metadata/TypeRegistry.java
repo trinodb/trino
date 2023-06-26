@@ -19,6 +19,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
 import io.trino.cache.NonEvictableCache;
@@ -37,8 +38,6 @@ import io.trino.type.CharParametricType;
 import io.trino.type.DecimalParametricType;
 import io.trino.type.Re2JRegexpType;
 import io.trino.type.VarcharParametricType;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.Collection;

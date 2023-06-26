@@ -16,8 +16,7 @@ package io.trino.plugin.hive.metastore.file;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.NOT_SUPPORTED;
 

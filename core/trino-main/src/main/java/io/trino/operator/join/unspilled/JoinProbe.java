@@ -18,8 +18,7 @@ import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;

@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.opentelemetry.api.OpenTelemetry;
@@ -38,9 +40,6 @@ import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
 import io.trino.transaction.TransactionManager;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Map;
 import java.util.Optional;

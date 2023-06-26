@@ -14,10 +14,9 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.io.IOException;
 import java.io.OutputStream;

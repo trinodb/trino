@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.tracing.TracingConnectorMetadata;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

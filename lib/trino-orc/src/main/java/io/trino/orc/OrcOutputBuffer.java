@@ -24,8 +24,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.orc.checkpoint.InputStreamCheckpoint;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.io.ChunkedSliceOutput;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;

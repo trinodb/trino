@@ -108,8 +108,7 @@ import io.trino.tracing.ScopedSpan;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.type.TypeCoercion;
 import io.trino.type.UnknownType;
-
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.ArrayList;

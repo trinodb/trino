@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.Distribution;
 import io.airlift.units.Duration;
@@ -28,8 +29,6 @@ import io.trino.memory.QueryContextVisitor;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import org.joda.time.DateTime;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Iterator;
 import java.util.List;

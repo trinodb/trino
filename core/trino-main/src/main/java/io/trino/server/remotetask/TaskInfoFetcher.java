@@ -15,6 +15,7 @@ package io.trino.server.remotetask;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpClient;
@@ -32,8 +33,6 @@ import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
 import io.trino.execution.TaskStatus;
 import io.trino.execution.buffer.SpoolingOutputStats;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
 import java.util.Optional;

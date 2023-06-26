@@ -16,9 +16,8 @@ package io.trino.execution;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Chars;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.QueryId;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;

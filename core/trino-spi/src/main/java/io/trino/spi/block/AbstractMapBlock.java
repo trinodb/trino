@@ -15,8 +15,7 @@
 package io.trino.spi.block;
 
 import io.trino.spi.type.MapType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;

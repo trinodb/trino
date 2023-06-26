@@ -20,8 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.ResourceGroupState;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

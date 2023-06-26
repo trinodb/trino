@@ -20,10 +20,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import org.apache.parquet.hadoop.ParquetWriter;
-
-import javax.validation.constraints.DecimalMax;
-import javax.validation.constraints.DecimalMin;
 
 public class ParquetWriterConfig
 {

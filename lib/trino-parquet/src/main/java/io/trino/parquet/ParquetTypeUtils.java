@@ -20,6 +20,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
@@ -31,8 +32,6 @@ import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-
-import javax.annotation.Nullable;
 
 import java.math.BigInteger;
 import java.util.Arrays;

@@ -13,7 +13,7 @@
  */
 package io.trino.json.ir;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class IrJsonPathVisitor<R, C>
 {

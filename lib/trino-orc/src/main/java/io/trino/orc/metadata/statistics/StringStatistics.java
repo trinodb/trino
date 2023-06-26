@@ -15,8 +15,7 @@ package io.trino.orc.metadata.statistics;
 
 import io.airlift.slice.Slice;
 import io.trino.orc.metadata.statistics.StatisticsHasher.Hashable;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Objects;
 

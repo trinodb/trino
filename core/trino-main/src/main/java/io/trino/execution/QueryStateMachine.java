@@ -22,6 +22,8 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.common.Attributes;
@@ -57,11 +59,8 @@ import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
+import jakarta.annotation.Nullable;
 import org.joda.time.DateTime;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.ArrayDeque;

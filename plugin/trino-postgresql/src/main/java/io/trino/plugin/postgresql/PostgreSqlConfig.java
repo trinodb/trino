@@ -16,8 +16,7 @@ package io.trino.plugin.postgresql;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
-
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotNull;
 
 @DefunctConfig("postgresql.disable-automatic-fetch-size")
 public class PostgreSqlConfig

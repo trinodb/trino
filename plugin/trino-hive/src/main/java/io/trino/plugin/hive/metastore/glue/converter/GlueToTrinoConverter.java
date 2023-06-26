@@ -33,9 +33,8 @@ import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
+import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-
-import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.Locale;

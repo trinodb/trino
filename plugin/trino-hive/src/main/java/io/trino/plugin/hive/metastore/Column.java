@@ -15,9 +15,8 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.plugin.hive.HiveType;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;

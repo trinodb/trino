@@ -31,8 +31,7 @@ import io.trino.hive.formats.rcfile.RcFileWriteValidation.RcFileWriteValidationB
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;

@@ -15,9 +15,8 @@ package io.trino.plugin.jdbc;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 public class JdbcWriteConfig
 {
