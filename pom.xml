@@ -2040,16 +2040,6 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
-                            <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
-                                <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER,DEPENDENCY_ELEMENT</enforcers>
-                                <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
-                                <dependenciesGroupIdPriorities>io.trino,io.airlift</dependenciesGroupIdPriorities>
-                                <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
-                                <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
-                                <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
-                                <dependencyManagementGroupIdPriorities>io.trino,io.airlift</dependencyManagementGroupIdPriorities>
-                                <dependencyElementOrdering>groupId,artifactId,type,version</dependencyElementOrdering>
-                            </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
@@ -2078,13 +2068,6 @@
                             <requireProfileIdsExist />
                         </rules>
                     </configuration>
-                    <dependencies>
-                        <dependency>
-                            <groupId>com.github.ferstl</groupId>
-                            <artifactId>pedantic-pom-enforcers</artifactId>
-                            <version>2.1.0</version>
-                        </dependency>
-                    </dependencies>
                 </plugin>
 
                 <plugin>
