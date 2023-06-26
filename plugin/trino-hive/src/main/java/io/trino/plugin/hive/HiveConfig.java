@@ -134,6 +134,7 @@ public class HiveConfig
     private boolean collectColumnStatisticsOnWrite = true;
 
     private boolean s3SelectPushdownEnabled;
+    private boolean s3SelectExperimentalPushdownEnabled;
     private int s3SelectPushdownMaxConnections = 500;
 
     private boolean isTemporaryStagingDirectoryEnabled = true;
@@ -1006,10 +1007,23 @@ public class HiveConfig
     }
 
     @Config("hive.s3select-pushdown.enabled")
-    @ConfigDescription("Enable query pushdown to AWS S3 Select service")
+    @ConfigDescription("Enable query pushdown to JSON files using the AWS S3 Select service")
     public HiveConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
     {
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
+        return this;
+    }
+
+    public boolean isS3SelectExperimentalPushdownEnabled()
+    {
+        return s3SelectExperimentalPushdownEnabled;
+    }
+
+    @Config("hive.s3select-pushdown.experimental-textfile-pushdown-enabled")
+    @ConfigDescription("Enable query pushdown to TEXTFILE tables using the AWS S3 Select service")
+    public HiveConfig setS3SelectExperimentalPushdownEnabled(boolean s3SelectExperimentalPushdownEnabled)
+    {
+        this.s3SelectExperimentalPushdownEnabled = s3SelectExperimentalPushdownEnabled;
         return this;
     }
 
