@@ -110,6 +110,7 @@ public abstract class BaseTestHiveOnDataLake
                                 .put("hive.s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
                                 // This is required to enable AWS Athena partition projection
                                 .put("hive.partition-projection-enabled", "true")
+                                .put("hive.s3select-pushdown.experimental-textfile-pushdown-enabled", "true")
                                 .buildOrThrow())
                 .build();
     }
@@ -1913,6 +1914,70 @@ public abstract class BaseTestHiveOnDataLake
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a|pipe'", "VALUES 2");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='an''escaped quote'", "VALUES 3");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a\"double quote'", "VALUES 4");
+        }
+    }
+
+    @Test
+    public void testS3SelectExperimentalPushdown()
+    {
+        // Demonstrate correctness issues which have resulted in pushdown for TEXTFILE
+        // using CSV support in S3 Select being put behind a separate "experimental" flag.
+        // TODO: https://github.com/trinodb/trino/issues/17775
+        Session usingAppendInserts = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+        List<String> values = ImmutableList.of(
+                "1, true, 11",
+                "2, true, 22",
+                "3, NULL, NULL",
+                "4, false, 44");
+        Session withS3SelectPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
+                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
+                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
+                .build();
+
+        Session withoutS3SelectPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
+                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
+                .build();
+
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(usingAppendInserts, sql),
+                "hive.%s.test_s3_select_pushdown_experimental_features".formatted(HIVE_TEST_SCHEMA),
+                "(id INT, bool_t BOOLEAN, int_t INT) WITH (format = 'TEXTFILE')",
+                values)) {
+            assertQuery(withoutS3SelectPushdown, "SELECT id FROM " + table.getName() + " WHERE int_t IS NULL", "VALUES 3");
+            assertThat(query(withS3SelectPushdown, "SELECT id FROM " + table.getName() + " WHERE int_t IS NULL")).returnsEmptyResult();
+
+            assertQueryFails(
+                    withS3SelectPushdown,
+                    "SELECT id FROM " + table.getName() + " WHERE bool_t = true",
+                    "S3 returned an error: Error casting:.*");
+        }
+
+        List<String> specialCharacterValues = ImmutableList.of(
+                "1, 'a,comma'",
+                "2, 'a|pipe'",
+                "3, 'an''escaped quote'",
+                "4, 'a~null encoding'");
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(usingAppendInserts, sql),
+                "hive.%s.test_s3_select_pushdown_special_characters".formatted(HIVE_TEST_SCHEMA),
+                "(id INT, string_t VARCHAR) WITH (format = 'TEXTFILE', textfile_field_separator=',', textfile_field_separator_escape='|', null_format='~')",
+                specialCharacterValues)) {
+            // These two should return a result, but incorrectly return nothing
+            String selectWithComma = "SELECT id FROM " + table.getName() + " WHERE string_t ='a,comma'";
+            assertQuery(withoutS3SelectPushdown, selectWithComma, "VALUES 1");
+            assertThat(query(withS3SelectPushdown, selectWithComma)).returnsEmptyResult();
+
+            String selectWithPipe = "SELECT id FROM " + table.getName() + " WHERE string_t ='a|pipe'";
+            assertQuery(withoutS3SelectPushdown, selectWithPipe, "VALUES 2");
+            assertThat(query(withS3SelectPushdown, selectWithPipe)).returnsEmptyResult();
+
+            // These two are actually correct
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='an''escaped quote'", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a~null encoding'", "VALUES 4");
         }
     }
 
