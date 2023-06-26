@@ -164,10 +164,24 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> lessThanOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> lessThanOrEqualOperators = new ArrayList<>();
 
-        public Builder(Class<?> typeJavaType)
+        private Builder(Class<?> typeJavaType)
         {
             this.typeJavaType = requireNonNull(typeJavaType, "typeJavaType is null");
             checkArgument(!typeJavaType.equals(void.class), "void type is not supported");
+        }
+
+        public Builder addOperators(TypeOperatorDeclaration operatorDeclaration)
+        {
+            operatorDeclaration.getEqualOperators().forEach(this::addEqualOperator);
+            operatorDeclaration.getHashCodeOperators().forEach(this::addHashCodeOperator);
+            operatorDeclaration.getXxHash64Operators().forEach(this::addXxHash64Operator);
+            operatorDeclaration.getDistinctFromOperators().forEach(this::addDistinctFromOperator);
+            operatorDeclaration.getIndeterminateOperators().forEach(this::addIndeterminateOperator);
+            operatorDeclaration.getComparisonUnorderedLastOperators().forEach(this::addComparisonUnorderedLastOperator);
+            operatorDeclaration.getComparisonUnorderedFirstOperators().forEach(this::addComparisonUnorderedFirstOperator);
+            operatorDeclaration.getLessThanOperators().forEach(this::addLessThanOperator);
+            operatorDeclaration.getLessThanOrEqualOperators().forEach(this::addLessThanOrEqualOperator);
+            return this;
         }
 
         public Builder addEqualOperator(OperatorMethodHandle equalOperator)
