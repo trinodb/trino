@@ -59,13 +59,14 @@ public final class StarburstSqlServerQueryRunner
             Map<String, String> extraProperties,
             Function<Session, Session> sessionModifier,
             boolean unlockEnterpriseFeatures,
+            String catalogName,
             Map<String, String> connectorProperties,
             Map<String, String> coordinatorProperties,
             Iterable<TpchTable<?>> tables,
             boolean shouldPartitionTables)
             throws Exception
     {
-        Session session = createSession(sqlServer.getUsername());
+        Session session = createSession(sqlServer.getUsername(), catalogName);
         DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         builder.setCoordinatorProperties(coordinatorProperties);
@@ -101,7 +102,7 @@ public final class StarburstSqlServerQueryRunner
             queryRunner.installPlugin(unlockEnterpriseFeatures
                     ? getPluginWithLicense()
                     : new StarburstSqlServerPlugin());
-            queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
+            queryRunner.createCatalog(catalogName, "sqlserver", connectorProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(modifiedSession), tables);
 
@@ -148,8 +149,13 @@ public final class StarburstSqlServerQueryRunner
 
     public static Session createSession(String user)
     {
+        return createSession(user, "sqlserver");
+    }
+
+    public static Session createSession(String user, String catalogName)
+    {
         return testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(catalogName)
                 .setSchema(TEST_SCHEMA)
                 .setIdentity(Identity.ofUser(user))
                 .build();
@@ -165,6 +171,7 @@ public final class StarburstSqlServerQueryRunner
         private final TestingSqlServer server;
         private boolean unlockEnterpriseFeatures;
         private boolean shouldPartitionTables;
+        private String catalogName = "sqlserver";
         private Map<String, String> connectorProperties = emptyMap();
         private Map<String, String> coordinatorProperties = emptyMap();
         private Map<String, String> extraProperties = emptyMap();
@@ -197,6 +204,12 @@ public final class StarburstSqlServerQueryRunner
         {
             return withImpersonation()
                     .withConnectorProperties(ImmutableMap.of("auth-to-local.config-file", getResource(authToLocal).getPath()));
+        }
+
+        public Builder withCatalog(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
+            return this;
         }
 
         public Builder withConnectorProperties(Map<String, String> connectorProperties)
@@ -253,6 +266,7 @@ public final class StarburstSqlServerQueryRunner
                     extraProperties,
                     sessionModifier,
                     unlockEnterpriseFeatures,
+                    catalogName,
                     connectorProperties,
                     coordinatorProperties,
                     tables,

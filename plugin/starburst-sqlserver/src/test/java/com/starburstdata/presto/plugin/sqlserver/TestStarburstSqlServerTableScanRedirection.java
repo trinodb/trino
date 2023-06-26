@@ -14,6 +14,8 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
+
 public class TestStarburstSqlServerTableScanRedirection
         extends AbstractTableScanRedirectionTest
 {
@@ -23,10 +25,12 @@ public class TestStarburstSqlServerTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        String catalogName = "sqlserver_" + randomNameSuffix();
         sqlServer = closeAfterClass(new TestingSqlServer());
         return StarburstSqlServerQueryRunner.builder(sqlServer)
                 .withEnterpriseFeatures()
-                .withConnectorProperties(getRedirectionProperties("sqlserver", "dbo"))
+                .withCatalog(catalogName)
+                .withConnectorProperties(getRedirectionProperties(catalogName, "dbo"))
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
