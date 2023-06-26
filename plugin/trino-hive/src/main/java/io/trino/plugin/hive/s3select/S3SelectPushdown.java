@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.type.DecimalTypeInfo;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.io.compress.BZip2Codec;
 import org.apache.hadoop.io.compress.GzipCodec;
@@ -50,7 +49,8 @@ public final class S3SelectPushdown
     private static final Set<String> SUPPORTED_S3_PREFIXES = ImmutableSet.of("s3://", "s3a://", "s3n://");
 
     /*
-     * Double and Real Types lose precision. Thus, they are not pushed down to S3. Please use Decimal Type if push down is desired.
+     * Double and Real Types lose precision. Thus, they are not pushed down to S3.
+     * Correctness problems have also been observed with Decimal columns.
      *
      * When S3 select support was added, Trino did not properly implement TIMESTAMP semantic. This was fixed in 2020, and TIMESTAMPS may be supportable now
      * (https://github.com/trinodb/trino/issues/10962). Pushing down timestamps to s3select maybe still be problematic due to ION SQL comparing timestamps
@@ -63,7 +63,6 @@ public final class S3SelectPushdown
             "smallint",
             "bigint",
             "string",
-            "decimal",
             "date");
 
     private S3SelectPushdown() {}
@@ -138,12 +137,7 @@ public final class S3SelectPushdown
         }
 
         for (Column column : columns) {
-            String type = column.getType().getHiveTypeName().toString();
-            if (column.getType().getTypeInfo() instanceof DecimalTypeInfo) {
-                // skip precision and scale when check decimal type
-                type = "decimal";
-            }
-            if (!SUPPORTED_COLUMN_TYPES.contains(type)) {
+            if (!SUPPORTED_COLUMN_TYPES.contains(column.getType().getHiveTypeName().toString())) {
                 return false;
             }
         }
