@@ -232,7 +232,10 @@ Hive connector documentation.
         `Table Statistics <#table-statistics>`__ for details.
       - ``true``
     * - ``hive.s3select-pushdown.enabled``
-      - Enable query pushdown to AWS S3 Select service.
+      - Enable query pushdown to JSON files using the AWS S3 Select service.
+      - ``false``
+    * - ``hive.s3select-pushdown.experimental-textfile-pushdown-enabled``
+      - Enable query pushdown to TEXTFILE tables using the AWS S3 Select service.
       - ``false``
     * - ``hive.s3select-pushdown.max-connections``
       - Maximum number of simultaneously open connections to S3 for
