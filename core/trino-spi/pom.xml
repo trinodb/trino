@@ -451,6 +451,14 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeLong(long)</old>
                                 </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.type.TypeOperatorDeclaration.Builder::&lt;init&gt;(java.lang.Class&lt;?&gt;)</old>
+                                    <new>method void io.trino.spi.type.TypeOperatorDeclaration.Builder::&lt;init&gt;(java.lang.Class&lt;?&gt;)</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                    <justification>Constructor should have never been public as there is a static factory method</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
