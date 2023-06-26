@@ -18,8 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.operator.WorkProcessor.ProcessState;
 import io.trino.operator.WorkProcessor.Transformation;
 import io.trino.operator.WorkProcessor.TransformationState;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Comparator;
 import java.util.Iterator;

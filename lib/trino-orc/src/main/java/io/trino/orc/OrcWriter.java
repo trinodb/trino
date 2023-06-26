@@ -44,8 +44,7 @@ import io.trino.orc.writer.ColumnWriter;
 import io.trino.orc.writer.SliceDictionaryColumnWriter;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;

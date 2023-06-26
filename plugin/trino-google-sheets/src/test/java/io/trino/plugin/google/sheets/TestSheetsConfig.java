@@ -16,9 +16,8 @@ package io.trino.plugin.google.sheets;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;

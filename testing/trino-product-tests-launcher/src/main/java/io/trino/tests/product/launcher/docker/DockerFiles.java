@@ -14,12 +14,11 @@
 package io.trino.tests.product.launcher.docker;
 
 import com.google.common.reflect.ClassPath;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import jakarta.annotation.PreDestroy;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.InputStream;

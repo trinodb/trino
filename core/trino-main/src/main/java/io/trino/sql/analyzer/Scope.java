@@ -14,13 +14,12 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.type.RowType;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.WithQuery;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.HashMap;
 import java.util.List;

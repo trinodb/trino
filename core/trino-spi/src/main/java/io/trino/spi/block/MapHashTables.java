@@ -13,12 +13,11 @@
  */
 package io.trino.spi.block;
 
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.MapType;
-
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;

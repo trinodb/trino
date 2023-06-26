@@ -25,8 +25,7 @@ import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.mapping.IdentifierMappingModule.ForCachingIdentifierMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.ResultSet;

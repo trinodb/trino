@@ -32,6 +32,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractVariableWidthType;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.values.ValuesWriter;
@@ -42,8 +43,6 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
 import org.apache.parquet.schema.Types.PrimitiveBuilder;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;

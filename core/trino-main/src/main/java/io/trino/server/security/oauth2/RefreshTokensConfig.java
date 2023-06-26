@@ -17,10 +17,10 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.NotEmpty;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.validation.constraints.NotEmpty;
 
 import java.util.Base64;
 

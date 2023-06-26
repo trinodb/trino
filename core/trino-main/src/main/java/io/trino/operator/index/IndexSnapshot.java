@@ -13,11 +13,10 @@
  */
 package io.trino.operator.index;
 
+import com.google.errorprone.annotations.Immutable;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-
-import javax.annotation.concurrent.Immutable;
 
 import static java.util.Objects.requireNonNull;
 

@@ -14,6 +14,7 @@
 package io.trino.testng.services;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.jvm.Threads;
@@ -23,8 +24,6 @@ import org.testng.IInvokedMethod;
 import org.testng.IInvokedMethodListener;
 import org.testng.ITestClass;
 import org.testng.ITestResult;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Arrays;
 import java.util.Map;

@@ -15,8 +15,7 @@ package io.trino.benchmark;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Map;
 

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.phoenix5;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import io.trino.testing.ResourcePresence;
 import io.trino.testing.SharedResource;
@@ -21,8 +22,6 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.zookeeper.MiniZooKeeperCluster;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

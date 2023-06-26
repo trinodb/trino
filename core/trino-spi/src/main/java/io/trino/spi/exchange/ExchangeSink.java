@@ -13,10 +13,9 @@
  */
 package io.trino.spi.exchange;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
 import io.trino.spi.Experimental;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.CompletableFuture;
 

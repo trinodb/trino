@@ -15,12 +15,11 @@ package io.trino.testng.services;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.log.Logger;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestNGMethod;
 import org.testng.ITestResult;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;

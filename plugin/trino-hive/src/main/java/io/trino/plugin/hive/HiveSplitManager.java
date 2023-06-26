@@ -45,10 +45,9 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.TypeManager;
+import jakarta.annotation.Nullable;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Iterator;

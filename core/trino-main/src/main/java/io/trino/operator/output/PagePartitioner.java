@@ -33,8 +33,7 @@ import io.trino.spi.type.Type;
 import io.trino.util.Ciphers;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.util.Arrays;

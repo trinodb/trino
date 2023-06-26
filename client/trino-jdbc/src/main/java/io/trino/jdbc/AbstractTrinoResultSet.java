@@ -658,8 +658,8 @@ abstract class AbstractTrinoResultSet
         return column(columnIndex);
     }
 
-    @javax.annotation.Nullable
-    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @javax.annotation.Nullable Object value)
+    @jakarta.annotation.Nullable
+    private static Object convertFromClientRepresentation(ClientTypeSignature columnType, @jakarta.annotation.Nullable Object value)
             throws SQLException
     {
         requireNonNull(columnType, "columnType is null");

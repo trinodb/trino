@@ -14,10 +14,9 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.errorprone.annotations.ThreadSafe;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.time.Clock;
 

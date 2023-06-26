@@ -25,9 +25,8 @@ import io.trino.parquet.reader.flat.RowRangesIterator;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.type.AbstractVariableWidthType;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.io.ParquetDecodingException;
-
-import javax.annotation.Nullable;
 
 import java.util.Optional;
 import java.util.OptionalLong;

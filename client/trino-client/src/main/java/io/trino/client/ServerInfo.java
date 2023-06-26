@@ -15,9 +15,8 @@ package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.units.Duration;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.Objects;
 import java.util.Optional;

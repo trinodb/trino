@@ -14,10 +14,9 @@
 package io.trino.verifier;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.event.client.EventField;
 import io.airlift.event.client.EventType;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 

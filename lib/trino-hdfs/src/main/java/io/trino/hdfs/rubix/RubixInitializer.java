@@ -38,10 +38,9 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
+import jakarta.annotation.Nullable;
 import jakarta.annotation.PreDestroy;
 import org.apache.hadoop.conf.Configuration;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.time.Duration;

@@ -43,10 +43,9 @@ import io.trino.spi.type.VarcharType;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.UnknownType;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import jakarta.annotation.Nullable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;

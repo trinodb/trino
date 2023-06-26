@@ -19,8 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.client.Column;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;

@@ -15,6 +15,7 @@ package io.trino.type;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.trino.cache.NonKeyEvictableCache;
 import io.trino.spi.block.Block;
@@ -23,8 +24,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;

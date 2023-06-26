@@ -16,9 +16,8 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.NotNull;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Map;
@@ -128,6 +127,6 @@ public class TestStorageManagerConfig
     @Test
     public void testValidations()
     {
-        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "may not be null", NotNull.class);
+        assertFailsValidation(new StorageManagerConfig().setDataDirectory(null), "dataDirectory", "must not be null", NotNull.class);
     }
 }

@@ -35,8 +35,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.trino.geospatial.GeometryType;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

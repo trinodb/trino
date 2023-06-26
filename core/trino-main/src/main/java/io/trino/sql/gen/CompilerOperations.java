@@ -14,8 +14,7 @@
 package io.trino.sql.gen;
 
 import io.trino.spi.block.Block;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;

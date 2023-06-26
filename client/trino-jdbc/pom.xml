@@ -20,8 +20,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -29,6 +29,10 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.google.errorprone</groupId>
                     <artifactId>error_prone_annotations</artifactId>
@@ -63,6 +67,11 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -350,10 +359,6 @@
                                     <shadedPattern>${shadeBase}.airlift</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>javax.annotation</pattern>
-                                    <shadedPattern>${shadeBase}.javax.annotation</shadedPattern>
-                                </relocation>
-                                <relocation>
                                     <pattern>jakarta.annotation</pattern>
                                     <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
@@ -390,6 +395,7 @@
                                     <excludes>
                                         <exclude>org/jetbrains/**</exclude>
                                         <exclude>org/intellij/**</exclude>
+                                        <exclude>com/google/errorprone/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/services/com.fasterxml.**</exclude>
                                         <exclude>META-INF/proguard/**</exclude>

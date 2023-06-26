@@ -16,14 +16,13 @@ package io.trino.operator.join.unspilled;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.operator.join.JoinBridge;
 import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.TrackingLookupSourceSupplier;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
 import java.util.Arrays;

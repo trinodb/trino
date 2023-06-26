@@ -14,8 +14,7 @@
 package io.trino.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.ArrayList;
 import java.util.Arrays;

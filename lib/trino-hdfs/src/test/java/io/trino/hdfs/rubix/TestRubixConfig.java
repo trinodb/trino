@@ -16,11 +16,10 @@ package io.trino.hdfs.rubix;
 import com.google.common.collect.ImmutableMap;
 import com.qubole.rubix.spi.CacheConfig;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import java.util.Map;
 
@@ -100,7 +99,7 @@ public class TestRubixConfig
                 new RubixConfig()
                         .setCacheTtl(null),
                 "cacheTtl",
-                "may not be null",
+                "must not be null",
                 NotNull.class);
     }
 }

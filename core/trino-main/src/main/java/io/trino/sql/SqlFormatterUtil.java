@@ -18,8 +18,7 @@ import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Statement;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
