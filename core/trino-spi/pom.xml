@@ -765,6 +765,13 @@
                                     <annotation>@javax.annotation.Nullable</annotation>
                                     <justification>Migration to jakarta namespace</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method void io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</old>
+                                    <new>method io.trino.spi.block.VariableWidthBlockBuilder io.trino.spi.block.VariableWidthBlockBuilder::writeEntry(io.airlift.slice.Slice)</new>
+                                    <justification>Safe to change void return to match other method of same name with different signature</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
