@@ -250,6 +250,7 @@ public class BigQueryQueryPageSource
                     appendTo(type.getTypeParameters().get(index), record.get(index), fieldBuilders.get(index));
                 }
             });
+            return;
         }
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
     }
