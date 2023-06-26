@@ -1799,14 +1799,14 @@ public abstract class BaseTestHiveOnDataLake
                 .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
                 .build();
         List<String> values = ImmutableList.of(
-                "1, true, 11, 111, 1111, 11111, 'one', 1.1, DATE '2020-01-01'",
-                "2, true, 22, 222, 2222, 22222, 'two', 2.2, DATE '2020-02-02'",
-                "3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL",
-                "4, false, 44, 444, 4444, 44444, 'four', 4.4, DATE '2020-04-04'");
+                "1, true, 11, 111, 1111, 11111, 'one', DATE '2020-01-01'",
+                "2, true, 22, 222, 2222, 22222, 'two', DATE '2020-02-02'",
+                "3, NULL, NULL, NULL, NULL, NULL, NULL, NULL",
+                "4, false, 44, 444, 4444, 44444, 'four', DATE '2020-04-04'");
         try (TestTable table = new TestTable(
                 sql -> getQueryRunner().execute(usingAppendInserts, sql),
                 "hive.%s.test_s3_select_pushdown".formatted(HIVE_TEST_SCHEMA),
-                "(id INT, bool_t BOOLEAN, tiny_t TINYINT, small_t SMALLINT, int_t INT, big_t BIGINT, string_t VARCHAR, decimal_t DECIMAL(10, 5), date_t DATE) " +
+                "(id INT, bool_t BOOLEAN, tiny_t TINYINT, small_t SMALLINT, int_t INT, big_t BIGINT, string_t VARCHAR, date_t DATE) " +
                         "WITH (" + tableProperties + ")", values)) {
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = true", "VALUES 1, 2");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE bool_t = false", "VALUES 4");
@@ -1858,15 +1858,6 @@ public abstract class BaseTestHiveOnDataLake
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NULL", "VALUES 3");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t IS NOT NULL", "VALUES 1, 2, 4");
 
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2", "VALUES 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t != 2.2", "VALUES 1, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t < 2.2", "VALUES 1");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t <= 2.2", "VALUES 1, 2");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2 OR decimal_t = 4.4", "VALUES 2, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL OR decimal_t >= 2.2", "VALUES 2, 3, 4");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL", "VALUES 3");
-            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NOT NULL", "VALUES 1, 2, 4");
-
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t = DATE '2020-02-02'", "VALUES 2");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t != DATE '2020-02-02'", "VALUES 1, 4");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t > DATE '2020-02-02'", "VALUES 4");
@@ -1875,6 +1866,29 @@ public abstract class BaseTestHiveOnDataLake
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL OR date_t >= DATE '2020-02-02'", "VALUES 2, 3, 4");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NULL", "VALUES 3");
             assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE date_t IS NOT NULL", "VALUES 1, 2, 4");
+        }
+    }
+
+    @Test(dataProvider = "s3SelectFileFormats")
+    public void testS3SelectOnDecimalColumnIsDisabled(String tableProperties)
+    {
+        Session usingAppendInserts = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+        List<String> values = ImmutableList.of("1, 1.1", "2, 2.2", "3, NULL", "4, 4.4");
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(usingAppendInserts, sql),
+                "hive.%s.test_s3_select_pushdown".formatted(HIVE_TEST_SCHEMA),
+                "(id INT, decimal_t DECIMAL(10, 5)) WITH (" + tableProperties + ")",
+                values)) {
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2", "VALUES 2");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t != 2.2", "VALUES 1, 4");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t < 2.2", "VALUES 1");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t <= 2.2", "VALUES 1, 2");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t = 2.2 OR decimal_t = 4.4", "VALUES 2, 4");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL OR decimal_t >= 2.2", "VALUES 2, 3, 4");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NULL", "VALUES 3");
+            assertNoS3SelectPushdown("SELECT id FROM " + table.getName() + " WHERE decimal_t IS NOT NULL", "VALUES 1, 2, 4");
         }
     }
 
@@ -1920,6 +1934,29 @@ public abstract class BaseTestHiveOnDataLake
                             getSession(),
                             query,
                             statsWithoutPushdown -> assertThat(statsWithoutPushdown.getPhysicalInputPositions()).isGreaterThan(inputPositionsWithPushdown),
+                            results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+                },
+                results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
+    }
+
+    private void assertNoS3SelectPushdown(@Language("SQL") String query, @Language("SQL") String expectedValues)
+    {
+        Session withS3SelectPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "s3_select_pushdown_enabled", "true")
+                .setCatalogSessionProperty("hive", "json_native_reader_enabled", "false")
+                .setCatalogSessionProperty("hive", "text_file_native_reader_enabled", "false")
+                .build();
+
+        MaterializedResult expectedResult = computeActual(expectedValues);
+        assertQueryStats(
+                withS3SelectPushdown,
+                query,
+                statsWithPushdown -> {
+                    long inputPositionsWithPushdown = statsWithPushdown.getPhysicalInputPositions();
+                    assertQueryStats(
+                            getSession(),
+                            query,
+                            statsWithoutPushdown -> assertThat(statsWithoutPushdown.getPhysicalInputPositions()).isEqualTo(inputPositionsWithPushdown),
                             results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));
                 },
                 results -> assertEquals(results.getOnlyColumnAsSet(), expectedResult.getOnlyColumnAsSet()));

@@ -380,9 +380,9 @@ workload:
 * Your query filters out more than half of the original data set.
 * Your query filter predicates use columns that have a data type supported by
   Trino and S3 Select.
-  The ``TIMESTAMP``, ``REAL``, and ``DOUBLE`` data types are not supported by S3
-  Select Pushdown. We recommend using the DECIMAL data type for numerical data.
-  For more information about supported data types for S3 Select, see the
+  The ``TIMESTAMP``, ``DECIMAL``, ``REAL``, and ``DOUBLE`` data types are not
+  supported by S3 Select Pushdown. For more information about supported data
+  types for S3 Select, see the
   `Data Types documentation <https://docs.aws.amazon.com/AmazonS3/latest/dev/s3-glacier-select-sql-reference-data-types.html>`_.
 * Your network connection between Amazon S3 and the Amazon EMR cluster has good
   transfer speed and available bandwidth. Amazon S3 Select does not compress
