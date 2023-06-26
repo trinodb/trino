@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import io.trino.operator.aggregation.minmaxn.MinMaxNStateFactory.SingleMinMaxNState;
-import io.trino.spi.block.Block;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.Convention;
@@ -24,12 +23,14 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.function.Function;
 import java.util.function.LongFunction;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.BLOCK_BUILDER;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FLAT_RETURN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -38,14 +39,28 @@ public class MinNStateFactory
 {
     private static final long MAX_NUMBER_OF_VALUES = 10_000;
     private final LongFunction<TypedHeap> heapFactory;
-    private final Function<Block, TypedHeap> deserializer;
 
     public MinNStateFactory(
             @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = FLAT, result = BLOCK_BUILDER))
+                    MethodHandle readFlat,
+            @OperatorDependency(
+                    operator = OperatorType.READ_VALUE,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = BLOCK_POSITION_NOT_NULL, result = FLAT_RETURN))
+                    MethodHandle writeFlat,
+            @OperatorDependency(
                     operator = OperatorType.COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
+                    convention = @Convention(arguments = {FLAT, FLAT}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatFlat,
+            @OperatorDependency(
+                    operator = OperatorType.COMPARISON_UNORDERED_LAST,
+                    argumentTypes = {"T", "T"},
+                    convention = @Convention(arguments = {FLAT, BLOCK_POSITION_NOT_NULL}, result = FAIL_ON_NULL))
+                    MethodHandle compareFlatBlock,
             @TypeParameter("T") Type elementType)
     {
         heapFactory = n -> {
@@ -57,30 +72,29 @@ public class MinNStateFactory
                     MAX_NUMBER_OF_VALUES,
                     n);
 
-            return new TypedHeap(true, compare, elementType, toIntExact(n));
+            return new TypedHeap(true, readFlat, writeFlat, compareFlatFlat, compareFlatBlock, elementType, toIntExact(n));
         };
-        deserializer = rowBlock -> TypedHeap.deserialize(true, compare, elementType, rowBlock);
     }
 
     @Override
     public MinNState createSingleState()
     {
-        return new SingleMinNState(heapFactory, deserializer);
+        return new SingleMinNState(heapFactory);
     }
 
     @Override
     public MinNState createGroupedState()
     {
-        return new GroupedMinNState(heapFactory, deserializer);
+        return new GroupedMinNState(heapFactory);
     }
 
     private static class GroupedMinNState
             extends MinMaxNStateFactory.GroupedMinMaxNState
             implements MinNState
     {
-        public GroupedMinNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public GroupedMinNState(LongFunction<TypedHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
     }
 
@@ -88,9 +102,9 @@ public class MinNStateFactory
             extends SingleMinMaxNState
             implements MinNState
     {
-        public SingleMinNState(LongFunction<TypedHeap> heapFactory, Function<Block, TypedHeap> deserializer)
+        public SingleMinNState(LongFunction<TypedHeap> heapFactory)
         {
-            super(heapFactory, deserializer);
+            super(heapFactory);
         }
 
         public SingleMinNState(SingleMinNState state)
