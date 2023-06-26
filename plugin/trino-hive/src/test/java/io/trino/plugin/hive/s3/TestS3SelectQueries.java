@@ -60,6 +60,7 @@ public class TestS3SelectQueries
         ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         hiveProperties.put("hive.s3.endpoint", bucketEndpoint);
         hiveProperties.put("hive.non-managed-table-writes-enabled", "true");
+        hiveProperties.put("hive.s3select-pushdown.experimental-textfile-pushdown-enabled", "true");
         return HiveQueryRunner.builder()
                 .setHiveProperties(hiveProperties.buildOrThrow())
                 .setInitialTables(ImmutableList.of())

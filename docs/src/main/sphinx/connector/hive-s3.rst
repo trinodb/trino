@@ -391,7 +391,7 @@ workload:
 Considerations and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* Only objects stored in CSV and JSON format are supported. Objects can be uncompressed,
+* Only objects stored in JSON format are supported. Objects can be uncompressed,
   or optionally compressed with gzip or bzip2.
 * The "AllowQuotedRecordDelimiters" property is not supported. If this property
   is specified, the query fails.
@@ -416,6 +416,10 @@ pushed down to S3 Select. Changes in the Hive connector :ref:`performance tuning
 configuration properties <hive-performance-tuning-configuration>` are likely to impact
 S3 Select pushdown performance.
 
+S3 Select can be enabled for TEXTFILE data using the
+``hive.s3select-pushdown.experimental-textfile-pushdown-enabled`` configuration property,
+however this has been shown to produce incorrect results. For more information see
+`the GitHub Issue. <https://github.com/trinodb/trino/issues/17775>`_
 
 Understanding and tuning the maximum connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
