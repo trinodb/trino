@@ -1303,10 +1303,33 @@ public class TestIcebergSparkCompatibility
                         row(2, null, null, null));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testTrinoWritingToSparkCreatedTable()
+    {
+        String sourceTableNameBase = "test_insert_into_spark_table_" + randomNameSuffix();
+        String trinoTableName = trinoTableName(sourceTableNameBase);
+        String sparkTableName = sparkTableName(sourceTableNameBase);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (a INT, b INT, c INT) USING ICEBERG");
+
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (3, 2, 1), (1, 2, 3), (NULL, NULL, NULL)");
+
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (4, 5, 6), (7, 8, 9), (NULL, NULL, NULL)");
+
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .contains(
+                        row(null, null, null),
+                        row(null, null, null),
+                        row(1, 2, 3),
+                        row(3, 2, 1),
+                        row(4, 5, 6),
+                        row(7, 8, 9));
+    }
+
     /**
      * @see TestIcebergInsert#testIcebergConcurrentInsert()
      */
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC}, timeOut = 60_000)
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, timeOut = 60_000)
     public void testTrinoSparkConcurrentInsert()
             throws Exception
     {
