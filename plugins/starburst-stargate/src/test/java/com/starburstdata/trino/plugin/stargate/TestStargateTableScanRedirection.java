@@ -16,6 +16,7 @@ import io.trino.testing.QueryRunner;
 import java.util.Optional;
 
 import static com.starburstdata.trino.plugin.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 
 public class TestStargateTableScanRedirection
         extends AbstractTableScanRedirectionTest
@@ -24,12 +25,14 @@ public class TestStargateTableScanRedirection
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        String catalogName = "p2p_remote_" + randomNameSuffix();
         DistributedQueryRunner remoteStarburst = closeAfterClass(createRemoteStarburstQueryRunnerWithMemory(
                 REQUIRED_TPCH_TABLES,
                 Optional.empty()));
 
         return StargateQueryRunner.builder(remoteStarburst, "memory")
-                .withConnectorProperties(getRedirectionProperties("p2p_remote", "tiny"))
+                .withCatalog(catalogName)
+                .withConnectorProperties(getRedirectionProperties(catalogName, "tiny"))
                 .build();
     }
 }

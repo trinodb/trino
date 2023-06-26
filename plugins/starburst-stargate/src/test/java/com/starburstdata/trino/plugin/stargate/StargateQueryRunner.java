@@ -183,12 +183,13 @@ public final class StargateQueryRunner
     private static DistributedQueryRunner createStargateQueryRunner(
             boolean enableWrites,
             Map<String, String> extraProperties,
+            String catalogName,
             Map<String, String> connectorProperties,
             Map<String, String> coordinatorProperties)
             throws Exception
     {
         Session session = testSessionBuilder()
-                .setCatalog("p2p_remote")
+                .setCatalog(catalogName)
                 .setSchema("tiny")
                 .build();
 
@@ -210,7 +211,7 @@ public final class StargateQueryRunner
             connectorProperties.putIfAbsent("connection-user", "p2p");
 
             queryRunner.installPlugin(new TestingStargatePlugin(enableWrites));
-            queryRunner.createCatalog("p2p_remote", "stargate", connectorProperties);
+            queryRunner.createCatalog(catalogName, "stargate", connectorProperties);
 
             return queryRunner;
         }
@@ -299,6 +300,7 @@ public final class StargateQueryRunner
     public static class Builder
     {
         private boolean enableWrites;
+        private String catalogName = "p2p_remote";
         private Map<String, String> connectorProperties = emptyMap();
         private Map<String, String> coordinatorProperties = emptyMap();
         private Map<String, String> extraProperties = emptyMap();
@@ -311,6 +313,12 @@ public final class StargateQueryRunner
         public Builder enableWrites()
         {
             enableWrites = true;
+            return this;
+        }
+
+        public Builder withCatalog(String catalogName)
+        {
+            this.catalogName = requireNonNull(catalogName, "catalogName is null");
             return this;
         }
 
@@ -352,7 +360,7 @@ public final class StargateQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            return createStargateQueryRunner(enableWrites, extraProperties, connectorProperties, coordinatorProperties);
+            return createStargateQueryRunner(enableWrites, extraProperties, catalogName, connectorProperties, coordinatorProperties);
         }
 
         private static Map<String, String> updateProperties(Map<String, String> properties, Map<String, String> update)
