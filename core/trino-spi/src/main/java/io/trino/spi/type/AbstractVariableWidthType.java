@@ -87,6 +87,23 @@ public abstract class AbstractVariableWidthType
             return leftBlock.equals(leftPosition, 0, rightBlock, rightPosition, 0, leftLength);
         }
 
+        @ScalarOperator(EQUAL)
+        private static boolean equalOperator(Slice left, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+        {
+            return equalOperator(rightBlock, rightPosition, left);
+        }
+
+        @ScalarOperator(EQUAL)
+        private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, Slice right)
+        {
+            int leftLength = leftBlock.getSliceLength(leftPosition);
+            int rightLength = right.length();
+            if (leftLength != rightLength) {
+                return false;
+            }
+            return leftBlock.bytesEqual(leftPosition, 0, right, 0, leftLength);
+        }
+
         @ScalarOperator(XX_HASH_64)
         private static long xxHash64Operator(Slice value)
         {
