@@ -19,9 +19,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.Immutable;
 import io.trino.spi.connector.SchemaTableName;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

@@ -13,7 +13,7 @@
  */
 package io.trino.execution.resourcegroups;
 
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 

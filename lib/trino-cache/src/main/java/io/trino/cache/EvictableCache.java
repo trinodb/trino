@@ -24,10 +24,8 @@ import com.google.common.cache.RemovalCause;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
+import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -92,7 +90,6 @@ class EvictableCache<K, V>
         return cacheBuilder.build(cacheLoader);
     }
 
-    @CheckForNull
     @Override
     public V getIfPresent(Object key)
     {

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy.backup;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
@@ -29,8 +30,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Arrays;
 import java.util.HashMap;

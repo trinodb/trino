@@ -18,6 +18,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
@@ -82,8 +83,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
 import org.apache.thrift.TException;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.net.InetAddress;

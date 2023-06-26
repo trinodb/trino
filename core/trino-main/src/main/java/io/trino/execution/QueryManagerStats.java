@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.airlift.stats.TimeStat;
@@ -21,8 +22,6 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.server.BasicQueryInfo;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
 import java.util.function.Supplier;

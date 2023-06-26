@@ -13,7 +13,7 @@
  */
 package io.trino.sql.jsonpath.tree;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class JsonPathTreeVisitor<R, C>
 {

@@ -22,8 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.List;

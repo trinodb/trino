@@ -13,7 +13,7 @@
  */
 package io.trino.client;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
 import java.time.ZoneId;

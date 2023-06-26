@@ -13,14 +13,13 @@
  */
 package io.trino.execution.resourcegroups;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.List;
 import java.util.Optional;

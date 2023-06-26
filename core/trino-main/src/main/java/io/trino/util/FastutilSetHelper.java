@@ -15,6 +15,7 @@ package io.trino.util;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.cache.NonEvictableCache;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
@@ -24,8 +25,6 @@ import it.unimi.dsi.fastutil.doubles.DoubleOpenCustomHashSet;
 import it.unimi.dsi.fastutil.longs.LongHash;
 import it.unimi.dsi.fastutil.longs.LongOpenCustomHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectOpenCustomHashSet;
-
-import javax.annotation.concurrent.GuardedBy;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;

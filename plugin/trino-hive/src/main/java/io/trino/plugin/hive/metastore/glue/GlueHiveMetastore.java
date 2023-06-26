@@ -109,11 +109,10 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
+import jakarta.annotation.Nullable;
 import org.apache.hadoop.fs.Path;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;

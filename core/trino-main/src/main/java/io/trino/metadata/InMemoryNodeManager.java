@@ -14,10 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.client.NodeVersion;
 import io.trino.spi.connector.CatalogHandle;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.net.URI;
 import java.util.Optional;

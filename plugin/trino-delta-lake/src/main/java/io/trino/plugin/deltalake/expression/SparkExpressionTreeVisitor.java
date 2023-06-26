@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.deltalake.expression;
 
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 public abstract class SparkExpressionTreeVisitor<R, C>
 {

@@ -13,7 +13,7 @@
  */
 package io.trino.execution.executor;
 
-import javax.annotation.concurrent.Immutable;
+import com.google.errorprone.annotations.Immutable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

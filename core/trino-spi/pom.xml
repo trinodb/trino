@@ -26,8 +26,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>com.google.errorprone</groupId>
+            <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
         </dependency>
 
@@ -39,6 +39,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -462,6 +468,302 @@
                                     <new>class io.trino.spi.block.LazyBlock</new>
                                     <annotation>@javax.annotation.concurrent.NotThreadSafe</annotation>
                                     <justification>Removal of javax.annotation.concurrent usage</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.AbstractArrayBlock::getValueIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.AbstractArrayBlock::getValueIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.AbstractMapBlock::getMapIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.AbstractMapBlock::getMapIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method int[] io.trino.spi.block.AbstractRowBlock::getFieldBlockOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.AbstractRowBlock::getFieldBlockOffsets()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.AbstractRowBlock::getRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.AbstractRowBlock::getRowIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.ArrayBlock::getValueIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.ArrayBlock::getValueIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.ArrayBlockBuilder::getValueIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.ArrayBlockBuilder::getValueIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.ByteArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.ByteArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.Fixed12BlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.Fixed12BlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.Int128ArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.Int128ArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.IntArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.IntArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.block.LazyBlock</old>
+                                    <new>class io.trino.spi.block.LazyBlock</new>
+                                    <annotation>@javax.annotation.concurrent.NotThreadSafe</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.LongArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.LongArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.MapBlock::getMapIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.MapBlock::getMapIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.MapBlockBuilder::getMapIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.MapBlockBuilder::getMapIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.block.MapHashTables</old>
+                                    <new>class io.trino.spi.block.MapHashTables</new>
+                                    <annotation>@javax.annotation.concurrent.ThreadSafe</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method int[] io.trino.spi.block.RowBlock::getFieldBlockOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.RowBlock::getFieldBlockOffsets()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.RowBlock::getRowIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method int[] io.trino.spi.block.RowBlockBuilder::getFieldBlockOffsets()</old>
+                                    <new>method int[] io.trino.spi.block.RowBlockBuilder::getFieldBlockOffsets()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlockBuilder::getRowIsNull()</old>
+                                    <new>method boolean[] io.trino.spi.block.RowBlockBuilder::getRowIsNull()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter long io.trino.spi.block.RunLengthEncodedBlock::getPositionsSizeInBytes(===boolean[]===, int)</old>
+                                    <new>parameter long io.trino.spi.block.RunLengthEncodedBlock::getPositionsSizeInBytes(===boolean[]===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.ShortArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</old>
+                                    <new>parameter void io.trino.spi.block.ShortArrayBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.block.VariableWidthBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int, int)</old>
+                                    <new>parameter void io.trino.spi.block.VariableWidthBlockBuilder::&lt;init&gt;(===io.trino.spi.block.BlockBuilderStatus===, int, int)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</old>
+                                    <new>method java.lang.String io.trino.spi.connector.ColumnMetadata::getComment()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</old>
+                                    <new>method java.lang.String io.trino.spi.connector.ColumnMetadata::getExtraInfo()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::getTableHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</old>
+                                    <new>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::getTableHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::getTableHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableVersion&gt;, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableVersion&gt;)</old>
+                                    <new>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::getTableHandle(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableVersion&gt;, java.util.Optional&lt;io.trino.spi.connector.ConnectorTableVersion&gt;)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.expression.Constant::&lt;init&gt;(===java.lang.Object===, io.trino.spi.type.Type)</old>
+                                    <new>parameter void io.trino.spi.expression.Constant::&lt;init&gt;(===java.lang.Object===, io.trino.spi.type.Type)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.Object io.trino.spi.expression.Constant::getValue()</old>
+                                    <new>method java.lang.Object io.trino.spi.expression.Constant::getValue()</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, ===java.lang.Object===)</old>
+                                    <new>parameter io.trino.spi.block.Block io.trino.spi.predicate.Utils::nativeValueToBlock(io.trino.spi.type.Type, ===java.lang.Object===)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.procedure.Procedure.Argument::&lt;init&gt;(java.lang.String, boolean, io.trino.spi.type.Type, boolean, ===java.lang.Object===)</old>
+                                    <new>parameter void io.trino.spi.procedure.Procedure.Argument::&lt;init&gt;(java.lang.String, boolean, io.trino.spi.type.Type, boolean, ===java.lang.Object===)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.procedure.Procedure.Argument::&lt;init&gt;(java.lang.String, io.trino.spi.type.Type, boolean, ===java.lang.Object===)</old>
+                                    <new>parameter void io.trino.spi.procedure.Procedure.Argument::&lt;init&gt;(java.lang.String, io.trino.spi.type.Type, boolean, ===java.lang.Object===)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.type.NamedTypeSignature</old>
+                                    <new>class io.trino.spi.type.NamedTypeSignature</new>
+                                    <annotation>@javax.annotation.concurrent.Immutable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.type.RowFieldName</old>
+                                    <new>class io.trino.spi.type.RowFieldName</new>
+                                    <annotation>@javax.annotation.concurrent.Immutable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignature</old>
+                                    <new>class io.trino.spi.type.TypeSignature</new>
+                                    <annotation>@javax.annotation.concurrent.Immutable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.Location</old>
+                                    <new>class io.trino.spi.Location</new>
+                                    <annotation>@javax.annotation.concurrent.Immutable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.type.TypeSignatureParameter</old>
+                                    <new>class io.trino.spi.type.TypeSignatureParameter</new>
+                                    <annotation>@javax.annotation.concurrent.Immutable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>parameter void io.trino.spi.type.TypeUtils::writeNativeValue(io.trino.spi.type.Type, io.trino.spi.block.BlockBuilder, ===java.lang.Object===)</old>
+                                    <new>parameter void io.trino.spi.type.TypeUtils::writeNativeValue(io.trino.spi.type.Type, io.trino.spi.block.BlockBuilder, ===java.lang.Object===)</new>
+                                    <annotation>@javax.annotation.Nullable</annotation>
+                                    <justification>Migration to jakarta namespace</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

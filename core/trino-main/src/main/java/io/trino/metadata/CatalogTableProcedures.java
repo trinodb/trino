@@ -14,10 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableProcedureMetadata;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Collection;
 import java.util.Map;

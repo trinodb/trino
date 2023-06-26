@@ -14,10 +14,9 @@
 package io.trino.plugin.mariadb;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import jakarta.validation.constraints.AssertTrue;
 import org.mariadb.jdbc.Configuration;
 import org.mariadb.jdbc.Driver;
-
-import javax.validation.constraints.AssertTrue;
 
 import java.sql.SQLException;
 

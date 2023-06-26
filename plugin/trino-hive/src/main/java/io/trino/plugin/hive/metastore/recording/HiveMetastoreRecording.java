@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.errorprone.annotations.Immutable;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -38,8 +39,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
-
-import javax.annotation.concurrent.Immutable;
 
 import java.io.IOException;
 import java.nio.file.Files;

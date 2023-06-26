@@ -13,9 +13,8 @@
  */
 package io.trino.execution.querystats;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.spi.eventlistener.QueryPlanOptimizerStatistics;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.concurrent.atomic.AtomicLong;
 

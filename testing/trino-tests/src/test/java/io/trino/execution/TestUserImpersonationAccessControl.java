@@ -24,10 +24,9 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import jakarta.annotation.Nullable;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
-
-import javax.annotation.Nullable;
 
 import java.time.ZoneId;
 import java.util.Locale;

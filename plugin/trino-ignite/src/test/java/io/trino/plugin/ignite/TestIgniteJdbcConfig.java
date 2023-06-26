@@ -13,9 +13,8 @@
  */
 package io.trino.plugin.ignite;
 
+import jakarta.validation.constraints.AssertTrue;
 import org.testng.annotations.Test;
-
-import javax.validation.constraints.AssertTrue;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;

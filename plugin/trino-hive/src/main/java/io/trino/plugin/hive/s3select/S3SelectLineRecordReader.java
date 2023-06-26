@@ -22,6 +22,7 @@ import com.amazonaws.services.s3.model.ScanRange;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3FileSystem;
@@ -36,8 +37,6 @@ import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.util.LineReader;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -25,8 +25,7 @@ import io.trino.operator.SplitOperatorInfo;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.eventlistener.SplitFailureInfo;
 import io.trino.spi.eventlistener.SplitStatistics;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.Optional;

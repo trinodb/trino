@@ -20,9 +20,7 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-
-import javax.annotation.CheckForNull;
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
@@ -46,7 +44,6 @@ class EmptyCache<K, V>
         this.statsCounter = recordStats ? new SimpleStatsCounter() : new NoopStatsCounter();
     }
 
-    @CheckForNull
     @Override
     public V getIfPresent(Object key)
     {

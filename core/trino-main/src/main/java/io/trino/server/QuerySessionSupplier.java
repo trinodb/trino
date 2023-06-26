@@ -13,6 +13,7 @@
  */
 package io.trino.server;
 
+import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
 import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
@@ -24,8 +25,6 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.Locale;
 import java.util.Map;

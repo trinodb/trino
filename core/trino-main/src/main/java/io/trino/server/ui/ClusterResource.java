@@ -14,6 +14,7 @@
 package io.trino.server.ui;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 import com.google.inject.Inject;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
@@ -22,8 +23,6 @@ import io.trino.server.security.ResourceSecurity;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
-
-import javax.annotation.concurrent.Immutable;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;

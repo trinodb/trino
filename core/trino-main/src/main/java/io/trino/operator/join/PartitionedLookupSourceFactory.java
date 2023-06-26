@@ -17,15 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.errorprone.annotations.Immutable;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.join.LookupSourceProvider.LookupSourceLease;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-
-import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.Immutable;
 
 import java.util.ArrayList;
 import java.util.Arrays;

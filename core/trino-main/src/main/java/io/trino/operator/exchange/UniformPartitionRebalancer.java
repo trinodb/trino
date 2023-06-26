@@ -16,12 +16,11 @@ package io.trino.operator.exchange;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.execution.resourcegroups.IndexedPriorityQueue;
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
-
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashSet;

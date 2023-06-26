@@ -15,8 +15,7 @@ package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-
-import javax.annotation.Nullable;
+import jakarta.annotation.Nullable;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.unnest.UnnestBlockBuilder.NullElementFinder.NULL_NOT_FOUND;

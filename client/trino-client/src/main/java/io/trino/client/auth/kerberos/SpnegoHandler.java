@@ -14,6 +14,7 @@
 package io.trino.client.auth.kerberos;
 
 import com.google.common.base.Splitter;
+import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.units.Duration;
 import io.trino.client.ClientException;
 import okhttp3.Authenticator;
@@ -27,7 +28,6 @@ import org.ietf.jgss.GSSException;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.Oid;
 
-import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.login.LoginException;
 

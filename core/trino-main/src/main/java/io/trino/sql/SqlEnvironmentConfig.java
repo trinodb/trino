@@ -16,9 +16,8 @@ package io.trino.sql;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.trino.spi.type.TimeZoneKey;
-
-import javax.annotation.Nullable;
-import javax.validation.constraints.NotNull;
+import jakarta.annotation.Nullable;
+import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
