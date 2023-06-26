@@ -258,7 +258,7 @@ public class IonSqlQueryBuilder
             return "'" + FORMATTER.print(DAYS.toMillis((long) value)) + "'";
         }
         if (type.equals(VarcharType.VARCHAR)) {
-            return "'" + ((Slice) value).toStringUtf8() + "'";
+            return "'" + ((Slice) value).toStringUtf8().replace("'", "''") + "'";
         }
         if (type instanceof DecimalType decimalType) {
             if (!decimalType.isShort()) {
