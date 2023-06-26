@@ -1878,6 +1878,30 @@ public abstract class BaseTestHiveOnDataLake
         }
     }
 
+    @Test
+    public void testJsonS3SelectPushdownWithSpecialCharacters()
+    {
+        Session usingAppendInserts = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "insert_existing_partitions_behavior", "APPEND")
+                .build();
+
+        List<String> specialCharacterValues = ImmutableList.of(
+                "1, 'a,comma'",
+                "2, 'a|pipe'",
+                "3, 'an''escaped quote'",
+                "4, 'a\"double quote'");
+        try (TestTable table = new TestTable(
+                sql -> getQueryRunner().execute(usingAppendInserts, sql),
+                "hive.%s.test_s3_select_pushdown_special_characters".formatted(HIVE_TEST_SCHEMA),
+                "(id INT, string_t VARCHAR) WITH (format = 'JSON')",
+                specialCharacterValues)) {
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a,comma'", "VALUES 1");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a|pipe'", "VALUES 2");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='an''escaped quote'", "VALUES 3");
+            assertS3SelectQuery("SELECT id FROM " + table.getName() + " WHERE string_t ='a\"double quote'", "VALUES 4");
+        }
+    }
+
     private void assertS3SelectQuery(@Language("SQL") String query, @Language("SQL") String expectedValues)
     {
         Session withS3SelectPushdown = Session.builder(getSession())
