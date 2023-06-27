@@ -76,6 +76,7 @@
         <dep.jna.version>5.13.0</dep.jna.version>
         <dep.okio.version>3.3.0</dep.okio.version>
         <dep.jackson.version>2.15.1</dep.jackson.version>
+        <dep.bouncycastle.version>1.75</dep.bouncycastle.version>
 
         <dep.docker.images.version>80</dep.docker.images.version>
 
@@ -1771,6 +1772,18 @@
                         <artifactId>commons-cli</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk18on</artifactId>
+                <version>${dep.bouncycastle.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${dep.bouncycastle.version}</version>
             </dependency>
 
             <dependency>

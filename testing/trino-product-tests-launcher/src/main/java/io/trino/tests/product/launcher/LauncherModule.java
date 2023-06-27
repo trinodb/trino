@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.MutualTls;
 
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -41,6 +42,7 @@ public final class LauncherModule
     {
         binder.bind(DockerFiles.class).in(Scopes.SINGLETON);
         binder.bind(OutputStream.class).toInstance(outputStream);
+        binder.bind(MutualTls.class).in(Scopes.SINGLETON);
     }
 
     @Provides

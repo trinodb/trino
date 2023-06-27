@@ -21,7 +21,7 @@ databases:
     inject_stats_for_mutable_tables: false
 
   presto:
-    host: presto-master.docker.cluster
+    host: trino-coordinator.docker.cluster
     port: 7778
     http_port: 8080
     https_port: ${databases.presto.port}

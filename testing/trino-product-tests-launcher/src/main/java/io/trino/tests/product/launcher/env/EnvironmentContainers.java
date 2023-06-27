@@ -23,13 +23,15 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public final class EnvironmentContainers
 {
-    public static final String TRINO = "presto";
-    public static final String COORDINATOR = TRINO + "-master";
+    public static final String TRINO = "trino";
+    public static final String COORDINATOR = TRINO + "-coordinator";
     public static final String WORKER = TRINO + "-worker";
     public static final String WORKER_NTH = WORKER + "-";
     public static final String HADOOP = "hadoop-master";
     public static final String TESTS = "tests";
     public static final String LDAP = "ldapserver";
+
+    public static final String CLUSTER_DOMAIN = "docker.cluster";
 
     private EnvironmentContainers() {}
 
@@ -41,6 +43,11 @@ public final class EnvironmentContainers
     public static boolean isTrinoContainer(String name)
     {
         return name.startsWith(TRINO);
+    }
+
+    public static String domainName(String containerName)
+    {
+        return containerName + "." + CLUSTER_DOMAIN;
     }
 
     /**

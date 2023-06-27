@@ -2,5 +2,5 @@ databases:
   hive:
     host: hadoop-master
   presto:
-    host: presto-master
+    host: trino-coordinator
     configured_hdfs_user: hive

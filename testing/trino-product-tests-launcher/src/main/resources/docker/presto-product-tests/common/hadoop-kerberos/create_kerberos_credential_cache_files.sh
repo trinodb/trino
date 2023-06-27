@@ -9,7 +9,7 @@ kinit -l "$TICKET_LIFETIME" -f -c /etc/trino/conf/presto-server-krbcc \
       -kt /etc/trino/conf/presto-server.keytab presto-server/$(hostname -f)@LABS.TERADATA.COM
 
 kinit -l "$TICKET_LIFETIME" -f -c /etc/trino/conf/hive-presto-master-krbcc \
-      -kt /etc/trino/conf/hive-presto-master.keytab hive/$(hostname -f)@LABS.TERADATA.COM
+      -kt /etc/trino/conf/hive-trino-coordinator.keytab hive/$(hostname -f)@LABS.TERADATA.COM
 
 
 kinit -l "$TICKET_LIFETIME" -f -c /etc/trino/conf/hdfs-krbcc \

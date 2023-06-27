@@ -16,6 +16,7 @@ package io.trino.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.MutualTls;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -29,9 +30,15 @@ import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.List;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.CLUSTER_DOMAIN;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.domainName;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.worker;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_TRINO_ICEBERG_PROPERTIES;
@@ -45,6 +52,8 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class EnvMultinodeTls
         extends EnvironmentProvider
 {
+    private static final String CONTAINER_JKS_PATH = "/tmp/keystore.jks";
+
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
@@ -52,6 +61,7 @@ public final class EnvMultinodeTls
     private final File serverPackage;
     private final boolean debug;
     private final JdkProvider jdkProvider;
+    private final MutualTls tls;
 
     @Inject
     public EnvMultinodeTls(
@@ -62,6 +72,7 @@ public final class EnvMultinodeTls
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
             JdkProvider jdkProvider,
+            MutualTls tls,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoop));
@@ -70,6 +81,7 @@ public final class EnvMultinodeTls
         this.imagesVersion = environmentConfig.getImagesVersion();
         this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.tls = requireNonNull(tls, "tls is null");
         this.debug = debug;
     }
 
@@ -79,7 +91,7 @@ public final class EnvMultinodeTls
     {
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
+                    .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName(CLUSTER_DOMAIN))
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls/config-master.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES);
 
             portBinder.exposePort(container, 7778);
@@ -89,6 +101,31 @@ public final class EnvMultinodeTls
         builder.configureContainer(TESTS, container -> {
             container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-tls.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
+
+        // Create keystore and add it to containers
+        MutualTls.JKS keyStore = createKeyStore(COORDINATOR, worker(1), worker(2));
+        builder.configureContainers(container -> {
+            if (isTrinoContainer(container.getLogicalName())) {
+                container
+                        .withCopyFileToContainer(forHostPath(keyStore.path().getPath()), CONTAINER_JKS_PATH)
+                        .withEnv("TLS_KEYSTORE_PATH", CONTAINER_JKS_PATH)
+                        .withEnv("TLS_KEYSTORE_PASSWORD", keyStore.password());
+            }
+        });
+    }
+
+    private MutualTls.JKS createKeyStore(String... nodes)
+    {
+        for (String node : nodes) {
+            tls.addServerCert(node, List.of(domainName(node)));
+        }
+
+        try {
+            return tls.writeJKS();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private DockerContainer createTrinoWorker(String workerName)

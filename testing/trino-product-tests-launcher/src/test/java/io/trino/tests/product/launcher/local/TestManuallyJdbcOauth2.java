@@ -36,20 +36,20 @@ public class TestManuallyJdbcOauth2
     public void verifyEtcHostsEntries()
             throws UnknownHostException
     {
-        assertThat(InetAddress.getByName("presto-master").isLoopbackAddress()).isTrue();
+        assertThat(InetAddress.getByName("trino-coordinator").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra").isLoopbackAddress()).isTrue();
         assertThat(InetAddress.getByName("hydra-consent").isLoopbackAddress()).isTrue();
 
         assertThatNoException()
                 .describedAs("Trino server is not available under 7778 port")
-                .isThrownBy(() -> new Socket("presto-master", 7778).close());
+                .isThrownBy(() -> new Socket("trino-coordinator", 7778).close());
     }
 
     /**
      * This test is here to allow manually tests OAuth2 implementation through jdbc.
      * It's configured in a way that allows it to connect to SinglenodeOauth2 environment. In order for it to work,
      * one must add to /etc/hosts following entries. They need to be removed before running automated tests against SinglenodeOAuth2* environments.
-     * 127.0.0.1 presto-master
+     * 127.0.0.1 trino-coordinator
      * 127.0.0.1 hydra
      * 127.0.0.1 hydra-consent
      */
@@ -58,11 +58,11 @@ public class TestManuallyJdbcOauth2
             throws SQLException
     {
         Properties properties = new Properties();
-        String jdbcUrl = format("jdbc:trino://presto-master:7778?"
+        String jdbcUrl = format("jdbc:trino://trino-coordinator:7778?"
                 + "SSL=true&"
                 + "SSLTrustStorePath=%s&"
                 + "SSLTrustStorePassword=123456&"
-                + "externalAuthentication=true", TestManuallyJdbcOauth2.class.getResource("/docker/presto-product-tests/conf/presto/etc/presto-master.jks").getFile());
+                + "externalAuthentication=true", TestManuallyJdbcOauth2.class.getResource("/docker/presto-product-tests/conf/presto/etc/trino-coordinator.jks").getFile());
         try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
                 PreparedStatement statement = connection.prepareStatement("select * from tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
