@@ -27,7 +27,7 @@ import io.trino.testing.LocalQueryRunner;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
@@ -68,7 +68,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
-        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(GlueAsyncClient.class, (proxy, method, methodArgs) -> {
+        AWSGlueAdapterProvider awsGlueAdapterProvider = delegate -> newProxy(GlueClient.class, (proxy, method, methodArgs) -> {
             Object result;
             try {
                 result = method.invoke(delegate, methodArgs);
@@ -88,7 +88,7 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAdapterProvider)), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         Path dataDirectory = Files.createTempDirectory("iceberg_data");

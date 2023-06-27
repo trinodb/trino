@@ -32,6 +32,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
 import software.amazon.awssdk.services.glue.model.DeleteDatabaseRequest;
@@ -61,7 +62,7 @@ public class TestTrinoGlueCatalog
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        GlueAsyncClient glueClient = GlueAsyncClient.create();
+        GlueClient glueClient = GlueClient.create();
         return new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,
@@ -136,7 +137,7 @@ public class TestTrinoGlueCatalog
         tmpDirectory.toFile().deleteOnExit();
 
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        GlueAsyncClient glueClient = GlueAsyncClient.create();
+        GlueClient glueClient = GlueClient.create();
         TrinoCatalog catalogWithDefaultLocation = new TrinoGlueCatalog(
                 new CatalogName("catalog_name"),
                 fileSystemFactory,

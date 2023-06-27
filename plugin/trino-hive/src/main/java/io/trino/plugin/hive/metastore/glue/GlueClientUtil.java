@@ -18,11 +18,14 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.core.retry.RetryPolicy;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.metrics.MetricPublisher;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.glue.GlueAsyncClient;
 import software.amazon.awssdk.services.glue.GlueAsyncClientBuilder;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.GlueClientBuilder;
 
 import java.net.URI;
 import java.util.Optional;
@@ -41,18 +44,11 @@ public final class GlueClientUtil
     {
         NettyNioAsyncHttpClient.Builder nettyBuilder = NettyNioAsyncHttpClient.builder()
                 .maxConcurrency(config.getMaxGlueConnections());
-        RetryPolicy.Builder retryPolicy = RetryPolicy.builder().numRetries(config.getMaxGlueErrorRetries());
-        ClientOverrideConfiguration.Builder clientOverrideConfiguration = ClientOverrideConfiguration.builder()
-                .addMetricPublisher(metricPublisher)
-                .retryPolicy(retryPolicy.build());
-
-        ImmutableList.Builder<ExecutionInterceptor> requestHandlers = ImmutableList.builder();
-        requestHandler.ifPresent(requestHandlers::add);
-        config.getCatalogId().ifPresent(catalogId -> requestHandlers.add(new GlueCatalogIdRequestHandler(catalogId)));
-        clientOverrideConfiguration.executionInterceptors(requestHandlers.build());
+        ClientOverrideConfiguration clientOverrideConfiguration =
+                createClientOverrideConfiguration(config, requestHandler, metricPublisher);
         GlueAsyncClientBuilder glueAsyncClientBuilder = GlueAsyncClient.builder()
                 .httpClient(nettyBuilder.build())
-                .overrideConfiguration(clientOverrideConfiguration.build());
+                .overrideConfiguration(clientOverrideConfiguration);
 
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
@@ -66,5 +62,50 @@ public final class GlueClientUtil
         glueAsyncClientBuilder.credentialsProvider(credentialsProvider);
 
         return glueAsyncClientBuilder.build();
+    }
+
+    public static GlueClient createSyncGlueClient(
+            GlueHiveMetastoreConfig config,
+            AwsCredentialsProvider credentialsProvider,
+            Optional<ExecutionInterceptor> requestHandler,
+            MetricPublisher metricPublisher)
+    {
+        ApacheHttpClient.Builder apacheHttpClientbuilder = ApacheHttpClient.builder()
+                .maxConnections(config.getMaxGlueConnections());
+
+        ClientOverrideConfiguration clientOverrideConfiguration =
+                createClientOverrideConfiguration(config, requestHandler, metricPublisher);
+
+        GlueClientBuilder glueClientBuilder = GlueClient.builder()
+                .httpClient(apacheHttpClientbuilder.build())
+                .overrideConfiguration(clientOverrideConfiguration);
+
+        if (config.getGlueEndpointUrl().isPresent()) {
+            checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
+            glueClientBuilder
+                    .endpointOverride(URI.create(config.getGlueEndpointUrl().get()))
+                    .region(Region.of(config.getGlueRegion().get()));
+        }
+        else if (config.getGlueRegion().isPresent()) {
+            glueClientBuilder.region(Region.of(config.getGlueRegion().get()));
+        }
+        glueClientBuilder.credentialsProvider(credentialsProvider);
+        return glueClientBuilder.build();
+    }
+
+    private static ClientOverrideConfiguration createClientOverrideConfiguration(
+            GlueHiveMetastoreConfig config, Optional<ExecutionInterceptor> requestHandler,
+            MetricPublisher metricPublisher)
+    {
+        RetryPolicy.Builder retryPolicy = RetryPolicy.builder().numRetries(config.getMaxGlueErrorRetries());
+        ClientOverrideConfiguration.Builder clientOverrideConfiguration = ClientOverrideConfiguration.builder()
+                .addMetricPublisher(metricPublisher)
+                .retryPolicy(retryPolicy.build());
+
+        ImmutableList.Builder<ExecutionInterceptor> requestHandlers = ImmutableList.builder();
+        requestHandler.ifPresent(requestHandlers::add);
+        config.getCatalogId().ifPresent(catalogId -> requestHandlers.add(new GlueCatalogIdRequestHandler(catalogId)));
+        clientOverrideConfiguration.executionInterceptors(requestHandlers.build());
+        return clientOverrideConfiguration.build();
     }
 }

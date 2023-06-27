@@ -42,11 +42,11 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class TestingIcebergGlueCatalogModule
         extends AbstractConfigurationAwareModule
 {
-    private final AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider;
+    private final AWSGlueAdapterProvider awsGlueAdapterProvider;
 
-    public TestingIcebergGlueCatalogModule(AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider)
+    public TestingIcebergGlueCatalogModule(AWSGlueAdapterProvider awsGlueAdapterProvider)
     {
-        this.awsGlueAsyncAdapterProvider = requireNonNull(awsGlueAsyncAdapterProvider, "awsGlueAsyncAdapterProvider is null");
+        this.awsGlueAdapterProvider = requireNonNull(awsGlueAdapterProvider, "awsGlueAsyncAdapterProvider is null");
     }
 
     @Override
@@ -60,7 +60,7 @@ public class TestingIcebergGlueCatalogModule
         binder.bind(IcebergTableOperationsProvider.class).to(TestingGlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
-        binder.bind(AWSGlueAsyncAdapterProvider.class).toInstance(awsGlueAsyncAdapterProvider);
+        binder.bind(AWSGlueAdapterProvider.class).toInstance(awsGlueAdapterProvider);
 
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);

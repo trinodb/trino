@@ -30,7 +30,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.InvalidInputException;
 import software.amazon.awssdk.services.glue.model.OperationTimeoutException;
 
@@ -82,7 +82,7 @@ public class TestIcebergGlueCreateTableFailure
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
 
-        AWSGlueAsyncAdapterProvider awsGlueAsyncAdapterProvider = delegate -> newProxy(GlueAsyncClient.class, (proxy, method, methodArgs) -> {
+        AWSGlueAdapterProvider awsGlueAdapterProvider = delegate -> newProxy(GlueClient.class, (proxy, method, methodArgs) -> {
             Object result;
             if (method.getName().equals("createTable")) {
                 throw testException.get();
@@ -102,7 +102,7 @@ public class TestIcebergGlueCreateTableFailure
 
         queryRunner.createCatalog(
                 ICEBERG_CATALOG,
-                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAsyncAdapterProvider)), Optional.empty(), EMPTY_MODULE),
+                new TestingIcebergConnectorFactory(Optional.of(new TestingIcebergGlueCatalogModule(awsGlueAdapterProvider)), Optional.empty(), EMPTY_MODULE),
                 ImmutableMap.of());
 
         dataDirectory = Files.createTempDirectory("test_iceberg_create_table_failure");
