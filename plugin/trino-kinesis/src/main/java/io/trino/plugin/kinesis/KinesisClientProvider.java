@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
-import com.amazonaws.services.s3.AmazonS3Client;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * Interface to a client manager that provides the AWS clients needed.
@@ -23,9 +23,9 @@ import com.amazonaws.services.s3.AmazonS3Client;
 //TODO: This interface needs to be removed and abstraction in unneccesary
 public interface KinesisClientProvider
 {
-    AmazonKinesisClient getClient();
+    KinesisClient getClient();
 
-    AmazonDynamoDBClient getDynamoDbClient();
+    DynamoDbAsyncClient getDynamoDbClient();
 
-    AmazonS3Client getS3Client();
+    S3Client getS3Client();
 }

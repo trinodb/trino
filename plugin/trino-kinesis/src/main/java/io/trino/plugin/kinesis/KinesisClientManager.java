@@ -13,12 +13,17 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.google.inject.Inject;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.s3.S3Client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 
@@ -31,44 +36,55 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 public class KinesisClientManager
         implements KinesisClientProvider
 {
-    private final AmazonKinesisClient client;
-    private final AmazonS3Client amazonS3Client;
-    private final AmazonDynamoDBClient dynamoDbClient;              // for Checkpointing
+    private final KinesisClient client;
+    private final S3Client amazonS3Client;
+    private final DynamoDbAsyncClient dynamoDbClient;              // for Checkpointing
 
     @Inject
     public KinesisClientManager(KinesisConfig config)
     {
+        AwsCredentialsProvider credentialsProvider;
         if (!isNullOrEmpty(config.getAccessKey()) && !isNullOrEmpty(config.getSecretKey())) {
-            BasicAWSCredentials awsCredentials = new BasicAWSCredentials(config.getAccessKey(), config.getSecretKey());
-            this.client = new AmazonKinesisClient(awsCredentials);
-            this.amazonS3Client = new AmazonS3Client(awsCredentials);
-            this.dynamoDbClient = new AmazonDynamoDBClient(awsCredentials);
+            AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(config.getAccessKey(), config.getSecretKey());
+            credentialsProvider = StaticCredentialsProvider.create(awsCredentials);
         }
         else {
-            DefaultAWSCredentialsProviderChain defaultChain = new DefaultAWSCredentialsProviderChain();
-            this.client = new AmazonKinesisClient(defaultChain);
-            this.amazonS3Client = new AmazonS3Client(defaultChain);
-            this.dynamoDbClient = new AmazonDynamoDBClient(defaultChain);
+            credentialsProvider = DefaultCredentialsProvider.create();
         }
 
-        this.client.setEndpoint("kinesis." + config.getAwsRegion() + ".amazonaws.com");
-        this.dynamoDbClient.setEndpoint("dynamodb." + config.getAwsRegion() + ".amazonaws.com");
+        this.client = KinesisClient.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(Region.of(config.getAwsRegion()))
+                .httpClient(ApacheHttpClient.create())
+                .build();
+        this.amazonS3Client = S3Client.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(Region.of(config.getAwsRegion()))
+                .crossRegionAccessEnabled(true)
+                .httpClient(ApacheHttpClient.create())
+                .build();
+
+        this.dynamoDbClient = DynamoDbAsyncClient.builder()
+                .credentialsProvider(credentialsProvider)
+                .region(Region.of(config.getAwsRegion()))
+                .httpClient(NettyNioAsyncHttpClient.create())
+                .build();
     }
 
     @Override
-    public AmazonKinesisClient getClient()
+    public KinesisClient getClient()
     {
         return client;
     }
 
     @Override
-    public AmazonDynamoDBClient getDynamoDbClient()
+    public DynamoDbAsyncClient getDynamoDbClient()
     {
         return dynamoDbClient;
     }
 
     @Override
-    public AmazonS3Client getS3Client()
+    public S3Client getS3Client()
     {
         return amazonS3Client;
     }
