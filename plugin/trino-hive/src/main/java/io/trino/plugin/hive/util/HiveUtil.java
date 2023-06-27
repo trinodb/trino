@@ -35,6 +35,7 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.TrinoAvroSerDe;
+import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
@@ -1188,6 +1189,7 @@ public final class HiveUtil
                 .setComment(handle.isHidden() ? Optional.empty() : columnComment.get(handle.getName()))
                 .setExtraInfo(Optional.ofNullable(columnExtraInfo(handle.isPartitionKey())))
                 .setHidden(handle.isHidden())
+                .setProperties(PartitionProjectionService.getPartitionProjectionTrinoColumnProperties(table, handle.getName()))
                 .build();
     }
 
