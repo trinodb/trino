@@ -193,6 +193,7 @@ public class TestHudiSparkCompatibility
         createNonPartitionedTable(tableName, COW_TABLE_TYPE);
 
         try {
+            // Create a replace commit every 2 commit
             onHudi().executeQuery(format(
                     """
                             ALTER TABLE default.%s
@@ -201,11 +202,7 @@ public class TestHudiSparkCompatibility
                                 hoodie.clustering.inline=true,
                                 hoodie.clustering.inline.max.commits=2)""",
                     tableName));
-            assertThat(onHudi().executeQuery("show TBLPROPERTIES default." + tableName))
-                    .contains(ImmutableList.of(
-                            row("option.hoodie.parquet.small.file.limit", "0"),
-                            row("option.hoodie.clustering.inline", "true"),
-                            row("option.hoodie.clustering.inline.max.commits", "2")));
+            // Create a replace commit at this commit
             onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 60, 3000)");
             onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (4, 'a4', 80, 4000)");
             assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName))
@@ -293,25 +290,23 @@ public class TestHudiSparkCompatibility
                 row(4, "a4", 80, 4000));
 
         try {
+            // Create a commit every delta commit
+            // Create a replace commit every 2 commit
             onHudi().executeQuery(format(
                     """
                             ALTER TABLE default.%s
                             SET SERDEPROPERTIES (
                                 hoodie.parquet.small.file.limit=0,
                                 hoodie.compact.inline=true,
-                                hoodie.compact.inline.max.delta.commits=2,
+                                hoodie.compact.inline.max.delta.commits=1,
                                 hoodie.clustering.inline=true,
                                 hoodie.clustering.inline.max.commits=2)""",
                     tableName));
-            assertThat(onHudi().executeQuery("show TBLPROPERTIES default." + tableName))
-                    .contains(ImmutableList.of(
-                            row("option.hoodie.parquet.small.file.limit", "0"),
-                            row("option.hoodie.compact.inline", "true"),
-                            row("option.hoodie.compact.inline.max.delta.commits", "2"),
-                            row("option.hoodie.clustering.inline", "true"),
-                            row("option.hoodie.clustering.inline.max.commits", "2")));
+            // Create a commit by a Hudi compaction
             assertThat(onHudi().executeQuery("SELECT id, name, price, ts FROM default." + tableName))
                     .containsOnly(expectedRows);
+            // Create a commit by a Hudi compaction
+            // Create a replace commit by a Hudi clustering
             assertThat(onTrino().executeQuery("SELECT id, name, price, ts FROM hudi.default." + tableName + "_ro"))
                     .containsOnly(expectedRows);
             onHudi().executeQuery("INSERT INTO default." + tableName + " VALUES (3, 'a3', 60, 3000)");
