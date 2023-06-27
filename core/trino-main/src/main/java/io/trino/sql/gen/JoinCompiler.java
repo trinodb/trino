@@ -36,6 +36,7 @@ import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.slice.SizeOf;
 import io.trino.Session;
 import io.trino.cache.NonEvictableLoadingCache;
+import io.trino.operator.FlatHashStrategy;
 import io.trino.operator.HashArraySizeSupplier;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.join.BigintPagesHash;
@@ -120,6 +121,8 @@ public class JoinCompiler
             CacheLoader.from(key ->
                     internalCompileHashStrategy(key.getTypes(), key.getOutputChannels(), key.getJoinChannels(), key.getSortChannel())));
 
+    private final NonEvictableLoadingCache<List<Type>, FlatHashStrategy> flatHashStrategies;
+
     @Inject
     public JoinCompiler(TypeOperators typeOperators)
     {
@@ -131,6 +134,11 @@ public class JoinCompiler
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.enableSingleChannelBigintLookupSource = enableSingleChannelBigintLookupSource;
+        this.flatHashStrategies = buildNonEvictableCache(
+                    CacheBuilder.newBuilder()
+                            .recordStats()
+                            .maximumSize(1000),
+                    CacheLoader.from(key -> new FlatHashStrategy(key, typeOperators)));
     }
 
     @Managed
@@ -145,6 +153,12 @@ public class JoinCompiler
     public CacheStatsMBean getHashStrategiesStats()
     {
         return new CacheStatsMBean(hashStrategies);
+    }
+
+    // This should be in a separate cache, but it is convenient during the transition to keep this in the join compiler
+    public FlatHashStrategy getFlatHashStrategy(List<Type> types)
+    {
+        return flatHashStrategies.getUnchecked(types);
     }
 
     public LookupSourceSupplierFactory compileLookupSourceFactory(List<? extends Type> types, List<Integer> joinChannels, Optional<Integer> sortChannel, Optional<List<Integer>> outputChannels)

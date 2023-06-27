@@ -163,7 +163,7 @@ public class TestRowNumberOperator
                 ImmutableList.of(0),
                 ImmutableList.of(type),
                 Optional.empty(),
-                Optional.empty(),
+                Optional.of(1),
                 1,
                 joinCompiler,
                 typeOperators);
