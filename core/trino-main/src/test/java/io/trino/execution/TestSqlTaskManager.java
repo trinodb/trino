@@ -605,6 +605,12 @@ public class TestSqlTaskManager
         }
 
         @Override
+        public void syncCatalogs(List<CatalogProperties> catalogsInCoordinator)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public ConnectorServices getConnectorServices(CatalogHandle catalogHandle)
         {
             throw new UnsupportedOperationException();

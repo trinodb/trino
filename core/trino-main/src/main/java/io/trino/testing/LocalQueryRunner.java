@@ -30,12 +30,14 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
+import io.trino.connector.CatalogSyncTask;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.DefaultCatalogFactory;
 import io.trino.connector.InMemoryCatalogStore;
 import io.trino.connector.LazyCatalogFactory;
+import io.trino.connector.LazyCatalogSyncTask;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -307,6 +309,7 @@ public class LocalQueryRunner
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final JoinCompiler joinCompiler;
     private final CatalogFactory catalogFactory;
+    private final CatalogSyncTask catalogSyncTask;
     private final CoordinatorDynamicCatalogManager catalogManager;
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
@@ -371,7 +374,9 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, directExecutor());
+        LazyCatalogSyncTask catalogSyncTask = new LazyCatalogSyncTask();
+        this.catalogSyncTask = catalogSyncTask;
+        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, catalogSyncTask, directExecutor());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,

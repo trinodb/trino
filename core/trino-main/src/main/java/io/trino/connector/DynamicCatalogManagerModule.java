@@ -60,10 +60,13 @@ public class DynamicCatalogManagerModule
         public CoordinatorLazyRegister(
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
+                DefaultCatalogSyncTask defaultCatalogSyncTask,
+                LazyCatalogSyncTask lazyCatalogSyncTask,
                 CoordinatorDynamicCatalogManager catalogManager,
                 GlobalSystemConnector globalSystemConnector)
         {
             lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
+            lazyCatalogSyncTask.setCatalogSyncTask(defaultCatalogSyncTask);
             catalogManager.registerGlobalSystemConnector(globalSystemConnector);
         }
     }
