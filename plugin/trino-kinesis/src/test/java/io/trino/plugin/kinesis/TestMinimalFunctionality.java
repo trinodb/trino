@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.kinesis.model.PutRecordsRequest;
-import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -34,9 +32,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequestEntry;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -121,18 +121,19 @@ public class TestMinimalFunctionality
 
     private void createMessages(String streamName, long count)
     {
-        PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
-        putRecordsRequest.setStreamName(streamName);
+        PutRecordsRequest.Builder putRecordsRequest = PutRecordsRequest.builder()
+                .streamName(streamName);
         List<PutRecordsRequestEntry> putRecordsRequestEntryList = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes(UTF_8)));
-            putRecordsRequestEntry.setPartitionKey(Long.toString(i));
+            PutRecordsRequestEntry putRecordsRequestEntry = PutRecordsRequestEntry.builder()
+                    .data(SdkBytes.fromByteArray(UUID.randomUUID().toString().getBytes(UTF_8)))
+                    .partitionKey(Long.toString(i))
+                    .build();
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
 
-        putRecordsRequest.setRecords(putRecordsRequestEntryList);
-        embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest);
+        putRecordsRequest.records(putRecordsRequestEntryList);
+        embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest.build());
     }
 
     @Test
@@ -153,13 +154,13 @@ public class TestMinimalFunctionality
     public void testStreamHasData()
     {
         assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
-                .matches("VALUES 0");
+                .matches("VALUES cast(0 as bigint)");
 
         long count = 500L;
         createMessages(streamName, count);
 
-        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
-                .matches("VALUES %s".formatted(count));
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName)).skippingTypesCheck()
+                .matches("VALUES cast(%s as bigint)".formatted(count));
     }
 
     @AfterEach
@@ -168,5 +169,6 @@ public class TestMinimalFunctionality
         embeddedKinesisStream.deleteStream(streamName);
         queryRunner.close();
         queryRunner = null;
+        assertions.close();
     }
 }

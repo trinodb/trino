@@ -13,26 +13,31 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.kinesis.clientlibrary.types.ExtendedSequenceNumber;
-import com.amazonaws.services.kinesis.leases.exceptions.DependencyException;
-import com.amazonaws.services.kinesis.leases.exceptions.InvalidStateException;
-import com.amazonaws.services.kinesis.leases.exceptions.ProvisionedThroughputException;
-import com.amazonaws.services.kinesis.leases.impl.KinesisClientLease;
-import com.amazonaws.services.kinesis.leases.impl.KinesisClientLeaseManager;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.dynamodb.model.BillingMode;
+import software.amazon.kinesis.leases.Lease;
+import software.amazon.kinesis.leases.LeaseManagementConfig;
+import software.amazon.kinesis.leases.dynamodb.DynamoDBLeaseRefresher;
+import software.amazon.kinesis.leases.dynamodb.DynamoDBLeaseSerializer;
+import software.amazon.kinesis.leases.dynamodb.TableCreatorCallback;
+import software.amazon.kinesis.leases.exceptions.DependencyException;
+import software.amazon.kinesis.leases.exceptions.InvalidStateException;
+import software.amazon.kinesis.leases.exceptions.ProvisionedThroughputException;
+import software.amazon.kinesis.retrieval.kpl.ExtendedSequenceNumber;
 
 public class KinesisShardCheckpointer
 {
     private static final Logger log = Logger.get(KinesisShardCheckpointer.class);
-    private final KinesisClientLeaseManager leaseManager;
+    private final DynamoDBLeaseRefresher dynamoDBLeaseRefresher;
     private final KinesisSplit kinesisSplit;
     private final String logicalProcessName;
     private final int currentIterationNumber;
-    private final KinesisClientLease kinesisClientLease;
+    private final Lease kinesisClientLease;
 
     public KinesisShardCheckpointer(
-            AmazonDynamoDB dynamoDBClient,
+            DynamoDbAsyncClient dynamoDBClient,
             String dynamoDBTable,
             KinesisSplit kinesisSplit,
             String logicalProcessName,
@@ -40,7 +45,15 @@ public class KinesisShardCheckpointer
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
-        this(new KinesisClientLeaseManager(dynamoDBTable, dynamoDBClient),
+        this(new DynamoDBLeaseRefresher(dynamoDBTable,
+                        dynamoDBClient,
+                        new DynamoDBLeaseSerializer(),
+                        false,
+                        TableCreatorCallback.NOOP_TABLE_CREATOR_CALLBACK,
+                        LeaseManagementConfig.DEFAULT_REQUEST_TIMEOUT,
+                        BillingMode.PAY_PER_REQUEST,
+                        false,
+                        ImmutableSet.of()),
                 kinesisSplit,
                 logicalProcessName,
                 currentIterationNumber,
@@ -49,28 +62,28 @@ public class KinesisShardCheckpointer
     }
 
     public KinesisShardCheckpointer(
-            KinesisClientLeaseManager leaseManager,
+            DynamoDBLeaseRefresher dynamoDBLeaseRefresher,
             KinesisSplit kinesisSplit,
             String logicalProcessName,
             int currentIterationNumber,
             long dynamoReadCapacity,
             long dynamoWriteCapacity)
     {
-        this.leaseManager = leaseManager;
+        this.dynamoDBLeaseRefresher = dynamoDBLeaseRefresher;
         this.kinesisSplit = kinesisSplit;
         this.logicalProcessName = logicalProcessName;
         this.currentIterationNumber = currentIterationNumber;
 
         try {
-            this.leaseManager.createLeaseTableIfNotExists(dynamoReadCapacity, dynamoWriteCapacity);
+            this.dynamoDBLeaseRefresher.createLeaseTableIfNotExists(dynamoReadCapacity, dynamoWriteCapacity);
 
-            KinesisClientLease oldLease = this.leaseManager.getLease(createCheckpointKey(currentIterationNumber));
+            Lease oldLease = this.dynamoDBLeaseRefresher.getLease(createCheckpointKey(currentIterationNumber));
             if (oldLease != null) {
                 this.kinesisClientLease = oldLease;
             }
             else {
-                this.kinesisClientLease = new KinesisClientLease();
-                this.kinesisClientLease.setLeaseKey(createCheckpointKey(currentIterationNumber));
+                this.kinesisClientLease = new Lease();
+                this.kinesisClientLease.leaseKey(createCheckpointKey(currentIterationNumber));
             }
         }
         catch (ProvisionedThroughputException | InvalidStateException | DependencyException e) {
@@ -93,9 +106,9 @@ public class KinesisShardCheckpointer
         log.info("Trying to checkpoint at %s", lastReadSequenceNumber);
         try {
             ExtendedSequenceNumber esn = new ExtendedSequenceNumber(lastReadSequenceNumber);
-            kinesisClientLease.setCheckpoint(esn);
-            leaseManager.createLeaseIfNotExists(kinesisClientLease);
-            if (!leaseManager.updateLease(kinesisClientLease)) {
+            kinesisClientLease.checkpoint(esn);
+            dynamoDBLeaseRefresher.createLeaseIfNotExists(kinesisClientLease);
+            if (!dynamoDBLeaseRefresher.updateLease(kinesisClientLease)) {
                 log.warn("Checkpointing unsuccessful");
             }
         }
@@ -109,16 +122,16 @@ public class KinesisShardCheckpointer
     {
         String lastReadSeqNumber = null;
         if (currentIterationNumber > 0) {
-            KinesisClientLease oldLease;
+            Lease oldLease;
             try {
-                oldLease = leaseManager.getLease(createCheckpointKey(currentIterationNumber - 1));
+                oldLease = dynamoDBLeaseRefresher.getLease(createCheckpointKey(currentIterationNumber - 1));
             }
             catch (DependencyException | InvalidStateException | ProvisionedThroughputException e) {
                 throw new RuntimeException(e);
             }
             if (oldLease != null) {
                 // ExtendedSequenceNumber type in latest API:
-                lastReadSeqNumber = oldLease.getCheckpoint().toString();
+                lastReadSeqNumber = oldLease.checkpoint().toString();
             }
         }
         if (lastReadSeqNumber == null) {

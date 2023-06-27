@@ -13,13 +13,6 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
-import com.amazonaws.services.kinesis.model.GetRecordsRequest;
-import com.amazonaws.services.kinesis.model.GetRecordsResult;
-import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
-import com.amazonaws.services.kinesis.model.GetShardIteratorResult;
-import com.amazonaws.services.kinesis.model.Record;
-import com.amazonaws.services.kinesis.model.ResourceNotFoundException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -33,11 +26,18 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
+import software.amazon.awssdk.services.dynamodb.DynamoDbAsyncClient;
+import software.amazon.awssdk.services.kinesis.model.GetRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.GetRecordsResponse;
+import software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest;
+import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
+import software.amazon.awssdk.services.kinesis.model.Record;
+import software.amazon.awssdk.services.kinesis.model.ResourceNotFoundException;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -142,7 +142,7 @@ public class KinesisRecordSet
 
         // Initialize checkpoint related code
         if (checkpointEnabled) {
-            AmazonDynamoDBClient dynamoDBClient = clientManager.getDynamoDbClient();
+            DynamoDbAsyncClient dynamoDBClient = clientManager.getDynamoDbClient();
             String dynamoDBTable = split.getStreamName();
             int curIterationNumber = getIterationNumber(session);
             String sessionLogicalName = getCheckpointLogicalName(session);
@@ -196,7 +196,7 @@ public class KinesisRecordSet
         private List<Record> kinesisRecords;
         private Iterator<Record> listIterator;
         private GetRecordsRequest getRecordsRequest;
-        private GetRecordsResult getRecordsResult;
+        private GetRecordsResponse getRecordsResult;
 
         @Override
         public long getCompletedBytes()
@@ -282,21 +282,21 @@ public class KinesisRecordSet
                         throw new RuntimeException("thread interrupted");
                     }
                 }
-                getRecordsRequest = new GetRecordsRequest();
-                getRecordsRequest.setShardIterator(shardIterator);
-                getRecordsRequest.setLimit(batchSize);
+                getRecordsRequest = GetRecordsRequest.builder()
+                        .shardIterator(shardIterator)
+                        .limit(batchSize).build();
 
                 getRecordsResult = clientManager.getClient().getRecords(getRecordsRequest);
                 lastReadTime = System.nanoTime();
 
-                shardIterator = getRecordsResult.getNextShardIterator();
-                kinesisRecords = getRecordsResult.getRecords();
+                shardIterator = getRecordsResult.nextShardIterator();
+                kinesisRecords = getRecordsResult.records();
                 if (isLogBatches) {
                     log.info("(%s:%s) Fetched %d records from Kinesis.  MillisBehindLatest=%d Attempt=%d",
                             split.getStreamName(),
                             split.getShardId(),
                             kinesisRecords.size(),
-                            getRecordsResult.getMillisBehindLatest(),
+                            getRecordsResult.millisBehindLatest(),
                             attempts);
                 }
 
@@ -312,14 +312,14 @@ public class KinesisRecordSet
         private boolean nextRow()
         {
             Record currentRecord = listIterator.next();
-            String partitionKey = currentRecord.getPartitionKey();
+            String partitionKey = currentRecord.partitionKey();
             log.debug("(%s:%s) Reading record with partition key %s",
                     split.getStreamName(),
                     split.getShardId(),
                     partitionKey);
 
             byte[] messageData = EMPTY_BYTE_ARRAY;
-            ByteBuffer message = currentRecord.getData();
+            ByteBuffer message = currentRecord.data().asByteBuffer();
             if (message != null) {
                 messageData = new byte[message.remaining()];
                 message.get(messageData);
@@ -350,7 +350,7 @@ public class KinesisRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(totalMessages));
                             break;
                         case SHARD_SEQUENCE_ID_FIELD:
-                            currentRowValuesMap.put(columnHandle, bytesValueProvider(currentRecord.getSequenceNumber().getBytes(UTF_8)));
+                            currentRowValuesMap.put(columnHandle, bytesValueProvider(currentRecord.sequenceNumber().getBytes(UTF_8)));
                             break;
                         case MESSAGE_FIELD:
                             currentRowValuesMap.put(columnHandle, bytesValueProvider(messageData));
@@ -406,8 +406,8 @@ public class KinesisRecordSet
          */
         private long getMillisBehindLatest()
         {
-            if (getRecordsResult != null && getRecordsResult.getMillisBehindLatest() != null) {
-                return getRecordsResult.getMillisBehindLatest();
+            if (getRecordsResult != null && getRecordsResult.millisBehindLatest() != null) {
+                return getRecordsResult.millisBehindLatest();
             }
             return MILLIS_BEHIND_LIMIT + 1;
         }
@@ -480,9 +480,9 @@ public class KinesisRecordSet
         private void getIterator()
                 throws ResourceNotFoundException
         {
-            GetShardIteratorRequest getShardIteratorRequest = new GetShardIteratorRequest();
-            getShardIteratorRequest.setStreamName(split.getStreamName());
-            getShardIteratorRequest.setShardId(split.getShardId());
+            GetShardIteratorRequest.Builder getShardIteratorRequest = GetShardIteratorRequest.builder()
+                    .streamName(split.getStreamName())
+                    .shardId(split.getShardId());
 
             // Explanation: when we have a sequence number from a prior read or checkpoint, always use it.
             // Otherwise, decide if starting at a timestamp or the trim horizon based on configuration.
@@ -490,27 +490,27 @@ public class KinesisRecordSet
             // fallback on starting at STARTING_OFFSET_SECONDS from timestamp.
             if (lastReadSequenceNumber == null) {
                 if (isIteratorFromTimestamp(session)) {
-                    getShardIteratorRequest.setShardIteratorType("AT_TIMESTAMP");
+                    getShardIteratorRequest.shardIteratorType("AT_TIMESTAMP");
                     long iteratorStartTimestamp = getIteratorStartTimestamp(session);
                     if (iteratorStartTimestamp == 0) {
                         long startTimestamp = System.currentTimeMillis() - (getIteratorOffsetSeconds(session) * 1000);
-                        getShardIteratorRequest.setTimestamp(new Date(startTimestamp));
+                        getShardIteratorRequest.timestamp(Instant.ofEpochMilli(startTimestamp));
                     }
                     else {
-                        getShardIteratorRequest.setTimestamp(new Date(iteratorStartTimestamp));
+                        getShardIteratorRequest.timestamp(Instant.ofEpochMilli(iteratorStartTimestamp));
                     }
                 }
                 else {
-                    getShardIteratorRequest.setShardIteratorType("TRIM_HORIZON");
+                    getShardIteratorRequest.shardIteratorType("TRIM_HORIZON");
                 }
             }
             else {
-                getShardIteratorRequest.setShardIteratorType("AFTER_SEQUENCE_NUMBER");
-                getShardIteratorRequest.setStartingSequenceNumber(lastReadSequenceNumber);
+                getShardIteratorRequest.shardIteratorType("AFTER_SEQUENCE_NUMBER");
+                getShardIteratorRequest.startingSequenceNumber(lastReadSequenceNumber);
             }
 
-            GetShardIteratorResult getShardIteratorResult = clientManager.getClient().getShardIterator(getShardIteratorRequest);
-            shardIterator = getShardIteratorResult.getShardIterator();
+            GetShardIteratorResponse getShardIteratorResult = clientManager.getClient().getShardIterator(getShardIteratorRequest.build());
+            shardIterator = getShardIteratorResult.shardIterator();
         }
     }
 

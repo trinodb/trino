@@ -13,37 +13,36 @@
  */
 package io.trino.plugin.kinesis.util;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.ResponseMetadata;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
-import com.amazonaws.services.kinesis.model.CreateStreamRequest;
-import com.amazonaws.services.kinesis.model.CreateStreamResult;
-import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
-import com.amazonaws.services.kinesis.model.DescribeStreamResult;
-import com.amazonaws.services.kinesis.model.GetRecordsRequest;
-import com.amazonaws.services.kinesis.model.GetRecordsResult;
-import com.amazonaws.services.kinesis.model.GetShardIteratorRequest;
-import com.amazonaws.services.kinesis.model.GetShardIteratorResult;
-import com.amazonaws.services.kinesis.model.ListStreamsRequest;
-import com.amazonaws.services.kinesis.model.ListStreamsResult;
-import com.amazonaws.services.kinesis.model.ListTagsForStreamRequest;
-import com.amazonaws.services.kinesis.model.ListTagsForStreamResult;
-import com.amazonaws.services.kinesis.model.PutRecordRequest;
-import com.amazonaws.services.kinesis.model.PutRecordResult;
-import com.amazonaws.services.kinesis.model.PutRecordsRequest;
-import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
-import com.amazonaws.services.kinesis.model.PutRecordsResult;
-import com.amazonaws.services.kinesis.model.PutRecordsResultEntry;
-import com.amazonaws.services.kinesis.model.Record;
-import com.amazonaws.services.kinesis.model.SequenceNumberRange;
-import com.amazonaws.services.kinesis.model.Shard;
-import com.amazonaws.services.kinesis.model.StreamDescription;
+import io.trino.testing.ResourcePresence;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.kinesis.model.CreateStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.CreateStreamResponse;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamResponse;
+import software.amazon.awssdk.services.kinesis.model.GetRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.GetRecordsResponse;
+import software.amazon.awssdk.services.kinesis.model.GetShardIteratorRequest;
+import software.amazon.awssdk.services.kinesis.model.GetShardIteratorResponse;
+import software.amazon.awssdk.services.kinesis.model.HashKeyRange;
+import software.amazon.awssdk.services.kinesis.model.ListStreamsRequest;
+import software.amazon.awssdk.services.kinesis.model.ListStreamsResponse;
+import software.amazon.awssdk.services.kinesis.model.ListTagsForStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.ListTagsForStreamResponse;
+import software.amazon.awssdk.services.kinesis.model.PutRecordRequest;
+import software.amazon.awssdk.services.kinesis.model.PutRecordResponse;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequestEntry;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsResponse;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsResultEntry;
+import software.amazon.awssdk.services.kinesis.model.Record;
+import software.amazon.awssdk.services.kinesis.model.SequenceNumberRange;
+import software.amazon.awssdk.services.kinesis.model.Shard;
+import software.amazon.awssdk.services.kinesis.model.StreamDescription;
 
-import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import static java.lang.Integer.parseInt;
@@ -58,21 +57,119 @@ import static java.lang.Integer.parseInt;
  * <p>
  */
 public class MockKinesisClient
-        extends AmazonKinesisClient
+        implements KinesisClient
 {
     private final List<InternalStream> streams = new ArrayList<>();
 
+    /*
+    Shard can not be extended in the new AWS SDK v2 as it is declared final.
+    Create our own class and convert to Shard whenever needed.
+     */
     public static class InternalShard
-            extends Shard
     {
-        private final List<Record> recs = new ArrayList<>();
-        private final int index;
+        private String shardId;
+        private String parentShardId;
+        private String adjacentParentShardId;
+        private HashKeyRange hashKeyRange;
+        private SequenceNumberRange sequenceNumberRange;
+        private List<Record> recs = new ArrayList<>();
+        private int index;
 
         public InternalShard(String streamName, int index)
         {
-            super();
             this.index = index;
             this.setShardId(streamName + "_" + this.index);
+        }
+
+        public static Shard convertInternalShardToShard(InternalShard internalShard)
+        {
+            return Shard.builder()
+                    .shardId(internalShard.getShardId())
+                    .parentShardId(internalShard.getParentShardId())
+                    .adjacentParentShardId(internalShard.getAdjacentParentShardId())
+                    .hashKeyRange(internalShard.getHashKeyRange())
+                    .sequenceNumberRange(internalShard.getSequenceNumberRange())
+                    .build();
+        }
+
+        public void setShardId(String shardId)
+        {
+            this.shardId = shardId;
+        }
+
+        public String getShardId()
+        {
+            return this.shardId;
+        }
+
+        public InternalShard withShardId(String shardId)
+        {
+            this.setShardId(shardId);
+            return this;
+        }
+
+        public void setParentShardId(String parentShardId)
+        {
+            this.parentShardId = parentShardId;
+        }
+
+        public String getParentShardId()
+        {
+            return this.parentShardId;
+        }
+
+        public InternalShard withParentShardId(String parentShardId)
+        {
+            this.setParentShardId(parentShardId);
+            return this;
+        }
+
+        public void setAdjacentParentShardId(String adjacentParentShardId)
+        {
+            this.adjacentParentShardId = adjacentParentShardId;
+        }
+
+        public String getAdjacentParentShardId()
+        {
+            return this.adjacentParentShardId;
+        }
+
+        public InternalShard withAdjacentParentShardId(String adjacentParentShardId)
+        {
+            this.setAdjacentParentShardId(adjacentParentShardId);
+            return this;
+        }
+
+        public void setHashKeyRange(HashKeyRange hashKeyRange)
+        {
+            this.hashKeyRange = hashKeyRange;
+        }
+
+        public HashKeyRange getHashKeyRange()
+        {
+            return this.hashKeyRange;
+        }
+
+        public InternalShard withHashKeyRange(HashKeyRange hashKeyRange)
+        {
+            this.setHashKeyRange(hashKeyRange);
+            return this;
+        }
+
+        public void setSequenceNumberRange(SequenceNumberRange sequenceNumberRange)
+        {
+            this.sequenceNumberRange = sequenceNumberRange;
+        }
+
+        public SequenceNumberRange getSequenceNumberRange()
+        {
+            return this.sequenceNumberRange;
+        }
+
+        public InternalShard withSequenceNumberRange(SequenceNumberRange sequenceNumberRange)
+        {
+            this.setSequenceNumberRange(sequenceNumberRange);
+            return this;
         }
 
         public List<Record> getRecords()
@@ -85,7 +182,7 @@ public class MockKinesisClient
             List<Record> returnRecords = new ArrayList<>();
 
             for (Record record : this.recs) {
-                if (parseInt(record.getSequenceNumber()) >= iterator.recordIndex) {
+                if (parseInt(record.sequenceNumber()) >= iterator.recordIndex) {
                     returnRecords.add(record);
                 }
             }
@@ -109,6 +206,12 @@ public class MockKinesisClient
         }
     }
 
+    @Override
+    public String serviceName()
+    {
+        return "MockKinesisClient";
+    }
+
     public static class InternalStream
     {
         private final String streamName;
@@ -128,7 +231,7 @@ public class MockKinesisClient
 
             for (int i = 0; i < shardCount; i++) {
                 InternalShard newShard = new InternalShard(this.streamName, i);
-                newShard.setSequenceNumberRange(new SequenceNumberRange().withStartingSequenceNumber("100").withEndingSequenceNumber("999"));
+                newShard.setSequenceNumberRange(SequenceNumberRange.builder().startingSequenceNumber("100").endingSequenceNumber("999").build());
                 this.shards.add(newShard);
             }
         }
@@ -172,14 +275,17 @@ public class MockKinesisClient
             return new ArrayList<>();
         }
 
-        public PutRecordResult putRecord(ByteBuffer data, String partitionKey)
+        public PutRecordResponse putRecord(SdkBytes data, String partitionKey)
         {
             // Create record and insert into the shards.  Initially just do it
             // on a round robin basis.
             long timestamp = System.currentTimeMillis() - 50000;
-            Record record = new Record();
-            record = record.withData(data).withPartitionKey(partitionKey).withSequenceNumber(String.valueOf(sequenceNo));
-            record.setApproximateArrivalTimestamp(new Date(timestamp));
+            Record record = Record.builder()
+                    .data(data)
+                    .partitionKey(partitionKey)
+                    .sequenceNumber(String.valueOf(sequenceNo))
+                    .approximateArrivalTimestamp(Instant.ofEpochMilli(timestamp))
+                    .build();
 
             if (nextShard == shards.size()) {
                 nextShard = 0;
@@ -187,9 +293,9 @@ public class MockKinesisClient
             InternalShard shard = shards.get(nextShard);
             shard.addRecord(record);
 
-            PutRecordResult result = new PutRecordResult();
-            result.setSequenceNumber(String.valueOf(sequenceNo));
-            result.setShardId(shard.getShardId());
+            PutRecordResponse result = PutRecordResponse.builder()
+                    .sequenceNumber(String.valueOf(sequenceNo))
+                    .shardId(shard.getShardId()).build();
 
             nextShard++;
             sequenceNo++;
@@ -241,11 +347,6 @@ public class MockKinesisClient
         }
     }
 
-    public MockKinesisClient()
-    {
-        super();
-    }
-
     protected InternalStream getStream(String name)
     {
         InternalStream foundStream = null;
@@ -262,7 +363,7 @@ public class MockKinesisClient
     {
         List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShards()) {
-            externalList.add(intshard);
+            externalList.add(InternalShard.convertInternalShardToShard(intshard));
         }
 
         return externalList;
@@ -272,105 +373,102 @@ public class MockKinesisClient
     {
         List<Shard> externalList = new ArrayList<>();
         for (InternalShard intshard : theStream.getShardsFrom(fromShardId)) {
-            externalList.add(intshard);
+            externalList.add(InternalShard.convertInternalShardToShard(intshard));
         }
 
         return externalList;
     }
 
     @Override
-    public PutRecordResult putRecord(PutRecordRequest putRecordRequest)
-            throws AmazonClientException
+    public PutRecordResponse putRecord(PutRecordRequest putRecordRequest)
+            throws SdkException
     {
         // Setup method to add a new record:
-        InternalStream theStream = this.getStream(putRecordRequest.getStreamName());
+        InternalStream theStream = this.getStream(putRecordRequest.streamName());
         if (theStream != null) {
-            return theStream.putRecord(putRecordRequest.getData(), putRecordRequest.getPartitionKey());
+            return theStream.putRecord(putRecordRequest.data(), putRecordRequest.partitionKey());
         }
-        throw new AmazonClientException("This stream does not exist!");
+        throw SdkException.create("This stream does not exist!", null);
     }
 
     @Override
-    public CreateStreamResult createStream(CreateStreamRequest createStreamRequest)
-            throws AmazonClientException
+    public CreateStreamResponse createStream(CreateStreamRequest createStreamRequest)
+            throws SdkException
     {
         // Setup method to create a new stream:
-        InternalStream stream = new InternalStream(createStreamRequest.getStreamName(), createStreamRequest.getShardCount(), true);
+        InternalStream stream = new InternalStream(createStreamRequest.streamName(), createStreamRequest.shardCount(), true);
         this.streams.add(stream);
-        return new CreateStreamResult();
+        return CreateStreamResponse.builder().build();
     }
 
-    @Override
-    public CreateStreamResult createStream(String streamName, Integer integer)
-            throws AmazonClientException
+    public CreateStreamResponse createStream(String streamName, Integer integer)
+            throws SdkException
     {
-        return this.createStream(new CreateStreamRequest().withStreamName(streamName).withShardCount(integer));
+        return this.createStream(CreateStreamRequest.builder().streamName(streamName).shardCount(integer).build());
     }
 
     @Override
-    public PutRecordsResult putRecords(PutRecordsRequest putRecordsRequest)
-            throws AmazonClientException
+    public PutRecordsResponse putRecords(PutRecordsRequest putRecordsRequest)
+            throws SdkException
     {
         // Setup method to add a batch of new records:
-        InternalStream theStream = this.getStream(putRecordsRequest.getStreamName());
+        InternalStream theStream = this.getStream(putRecordsRequest.streamName());
         if (theStream != null) {
-            PutRecordsResult result = new PutRecordsResult();
+            PutRecordsResponse.Builder result = PutRecordsResponse.builder();
             List<PutRecordsResultEntry> resultList = new ArrayList<>();
-            for (PutRecordsRequestEntry entry : putRecordsRequest.getRecords()) {
-                PutRecordResult putResult = theStream.putRecord(entry.getData(), entry.getPartitionKey());
-                resultList.add(new PutRecordsResultEntry().withShardId(putResult.getShardId()).withSequenceNumber(putResult.getSequenceNumber()));
+            for (PutRecordsRequestEntry entry : putRecordsRequest.records()) {
+                PutRecordResponse putResult = theStream.putRecord(entry.data(), entry.partitionKey());
+                resultList.add(PutRecordsResultEntry.builder().shardId(putResult.shardId()).sequenceNumber(putResult.sequenceNumber()).build());
             }
 
-            result.setRecords(resultList);
-            return result;
+            result.records(resultList);
+            return result.build();
         }
-        throw new AmazonClientException("This stream does not exist!");
+        throw SdkException.create("This stream does not exist!", null);
     }
 
     @Override
-    public DescribeStreamResult describeStream(DescribeStreamRequest describeStreamRequest)
-            throws AmazonClientException
+    public DescribeStreamResponse describeStream(DescribeStreamRequest describeStreamRequest)
+            throws SdkException
     {
-        InternalStream theStream = this.getStream(describeStreamRequest.getStreamName());
+        InternalStream theStream = this.getStream(describeStreamRequest.streamName());
         if (theStream == null) {
-            throw new AmazonClientException("This stream does not exist!");
+            throw SdkException.create("This stream does not exist!", null);
         }
 
-        StreamDescription desc = new StreamDescription();
-        desc = desc.withStreamName(theStream.getStreamName()).withStreamStatus(theStream.getStreamStatus()).withStreamARN(theStream.getStreamAmazonResourceName());
+        StreamDescription.Builder desc = StreamDescription.builder();
+        desc = desc.streamName(theStream.getStreamName()).streamStatus(theStream.getStreamStatus()).streamARN(theStream.getStreamAmazonResourceName());
 
-        if (describeStreamRequest.getExclusiveStartShardId() == null || describeStreamRequest.getExclusiveStartShardId().isEmpty()) {
-            desc.setShards(this.getShards(theStream));
-            desc.setHasMoreShards(false);
+        if (describeStreamRequest.exclusiveStartShardId() == null || describeStreamRequest.exclusiveStartShardId().isEmpty()) {
+            desc.shards(this.getShards(theStream));
+            desc.hasMoreShards(false);
         }
         else {
             // Filter from given shard Id, or may not have any more
-            String startId = describeStreamRequest.getExclusiveStartShardId();
-            desc.setShards(this.getShards(theStream, startId));
-            desc.setHasMoreShards(false);
+            String startId = describeStreamRequest.exclusiveStartShardId();
+            desc.shards(this.getShards(theStream, startId));
+            desc.hasMoreShards(false);
         }
 
-        DescribeStreamResult result = new DescribeStreamResult();
-        result = result.withStreamDescription(desc);
-        return result;
+        return DescribeStreamResponse.builder().streamDescription(desc.build()).build();
     }
 
     @Override
-    public GetShardIteratorResult getShardIterator(GetShardIteratorRequest getShardIteratorRequest)
-            throws AmazonClientException
+    public GetShardIteratorResponse getShardIterator(GetShardIteratorRequest getShardIteratorRequest)
+            throws SdkException
     {
-        ShardIterator iter = ShardIterator.fromStreamAndShard(getShardIteratorRequest.getStreamName(), getShardIteratorRequest.getShardId());
+        ShardIterator iter = ShardIterator.fromStreamAndShard(getShardIteratorRequest.streamName(), getShardIteratorRequest.shardId());
         if (iter == null) {
-            throw new AmazonClientException("Bad stream or shard iterator!");
+            throw SdkException.create("Bad stream or shard iterator!", null);
         }
 
         InternalStream theStream = this.getStream(iter.streamId);
         if (theStream == null) {
-            throw new AmazonClientException("Unknown stream or bad shard iterator!");
+            throw SdkException.create("Unknown stream or bad shard iterator!", null);
         }
 
-        String seqAsString = getShardIteratorRequest.getStartingSequenceNumber();
-        if (seqAsString != null && !seqAsString.isEmpty() && getShardIteratorRequest.getShardIteratorType().equals("AFTER_SEQUENCE_NUMBER")) {
+        String seqAsString = getShardIteratorRequest.startingSequenceNumber();
+        if (seqAsString != null && !seqAsString.isEmpty() && getShardIteratorRequest.shardIteratorType().toString().equals("AFTER_SEQUENCE_NUMBER")) {
             int sequence = parseInt(seqAsString);
             iter.recordIndex = sequence + 1;
         }
@@ -378,44 +476,41 @@ public class MockKinesisClient
             iter.recordIndex = 100;
         }
 
-        GetShardIteratorResult result = new GetShardIteratorResult();
-        return result.withShardIterator(iter.makeString());
+        return GetShardIteratorResponse.builder().shardIterator(iter.makeString()).build();
     }
 
     @Override
-    public GetRecordsResult getRecords(GetRecordsRequest getRecordsRequest)
-            throws AmazonClientException
+    public GetRecordsResponse getRecords(GetRecordsRequest getRecordsRequest)
+            throws SdkException
     {
-        ShardIterator iterator = ShardIterator.fromString(getRecordsRequest.getShardIterator());
+        ShardIterator iterator = ShardIterator.fromString(getRecordsRequest.shardIterator());
         if (iterator == null) {
-            throw new AmazonClientException("Bad shard iterator.");
+            throw SdkException.create("Bad shard iterator.", null);
         }
 
         // TODO: incorporate maximum batch size (getRecordsRequest.getLimit)
         InternalStream stream = this.getStream(iterator.streamId);
         if (stream == null) {
-            throw new AmazonClientException("Unknown stream or bad shard iterator.");
+            throw SdkException.create("Unknown stream or bad shard iterator.", null);
         }
 
         InternalShard shard = stream.getShards().get(iterator.shardIndex);
 
-        GetRecordsResult result;
+        GetRecordsResponse.Builder result = GetRecordsResponse.builder();
         if (iterator.recordIndex == 100) {
-            result = new GetRecordsResult();
             List<Record> recs = shard.getRecords();
-            result.setRecords(recs); // NOTE: getting all for now
-            result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
-            result.setMillisBehindLatest(100L);
+            result.records(recs); // NOTE: getting all for now
+            result.nextShardIterator(getNextShardIterator(iterator, recs).makeString());
+            result.millisBehindLatest(100L);
         }
         else {
-            result = new GetRecordsResult();
             List<Record> recs = shard.getRecordsFrom(iterator);
-            result.setRecords(recs); // may be empty
-            result.setNextShardIterator(getNextShardIterator(iterator, recs).makeString());
-            result.setMillisBehindLatest(100L);
+            result.records(recs); // may be empty
+            result.nextShardIterator(getNextShardIterator(iterator, recs).makeString());
+            result.millisBehindLatest(100L);
         }
 
-        return result;
+        return result.build();
     }
 
     protected ShardIterator getNextShardIterator(ShardIterator previousIter, List<Record> records)
@@ -425,105 +520,42 @@ public class MockKinesisClient
         }
 
         Record rec = records.getLast();
-        int lastSeq = Integer.valueOf(rec.getSequenceNumber());
+        int lastSeq = Integer.parseInt(rec.sequenceNumber());
         return new ShardIterator(previousIter.streamId, previousIter.shardIndex, lastSeq + 1);
     }
 
     //// Unsupported methods
 
     @Override
-    public ListTagsForStreamResult listTagsForStream(ListTagsForStreamRequest listTagsForStreamRequest)
-            throws AmazonClientException
+    public ListTagsForStreamResponse listTagsForStream(ListTagsForStreamRequest listTagsForStreamRequest)
+            throws SdkException
     {
         return null;
     }
 
     @Override
-    public ListStreamsResult listStreams(ListStreamsRequest listStreamsRequest)
-            throws AmazonClientException
+    public ListStreamsResponse listStreams(ListStreamsRequest listStreamsRequest)
+            throws SdkException
     {
         return null;
     }
 
     @Override
-    public ListStreamsResult listStreams()
-            throws AmazonServiceException, AmazonClientException
+    public ListStreamsResponse listStreams()
+            throws SdkException
     {
         return null;
     }
 
     @Override
-    public PutRecordResult putRecord(String s, ByteBuffer byteBuffer, String s1)
-            throws AmazonServiceException, AmazonClientException
+    public void close()
     {
-        throw new UnsupportedOperationException("MockKinesisClient doesn't support this.");
+        streams.clear();
     }
 
-    @Override
-    public PutRecordResult putRecord(String s, ByteBuffer byteBuffer, String s1, String s2)
-            throws AmazonServiceException, AmazonClientException
+    @ResourcePresence
+    public boolean isRunning()
     {
-        throw new UnsupportedOperationException("MockKinesisClient doesn't support this.");
-    }
-
-    @Override
-    public DescribeStreamResult describeStream(String streamName)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public DescribeStreamResult describeStream(String streamName, String exclusiveStartShardId)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public DescribeStreamResult describeStream(String streamName, Integer integer, String exclusiveStartShardId)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public GetShardIteratorResult getShardIterator(String streamName, String shardId, String shardIteratorType)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public GetShardIteratorResult getShardIterator(String streamName, String shardId, String shardIteratorType, String startingSequenceNumber)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public ListStreamsResult listStreams(String exclusiveStartStreamName)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public ListStreamsResult listStreams(Integer limit, String exclusiveStartStreamName)
-            throws AmazonServiceException, AmazonClientException
-    {
-        return null;
-    }
-
-    @Override
-    public void shutdown()
-    {
-        return; // Nothing to shutdown here
-    }
-
-    @Override
-    public ResponseMetadata getCachedResponseMetadata(AmazonWebServiceRequest amazonWebServiceRequest)
-    {
-        return null;
+        return !streams.isEmpty();
     }
 }

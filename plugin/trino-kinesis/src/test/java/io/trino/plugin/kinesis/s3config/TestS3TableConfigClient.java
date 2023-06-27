@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.kinesis.s3config;
 
-import com.amazonaws.services.s3.AmazonS3URI;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.kinesis.KinesisConnector;
@@ -27,7 +26,9 @@ import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.services.s3.S3Uri;
 
+import java.net.URI;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -56,37 +57,40 @@ public class TestS3TableConfigClient
     public void testS3URIValues()
     {
         // Verify that S3URI values will work:
-        AmazonS3URI uri1 = new AmazonS3URI("s3://our.data.warehouse/prod/client_actions");
-        assertThat(uri1.getKey()).isNotNull();
-        assertThat(uri1.getBucket()).isNotNull();
+        URI uri1 = URI.create("s3://our.data.warehouse/prod/client_actions");
+        S3Uri s3Uri1 = S3Uri.builder().uri(uri1).build();
+        assertThat(s3Uri1.key()).isNotNull();
+        assertThat(s3Uri1.bucket()).isNotNull();
 
-        assertThat(uri1.toString()).isEqualTo("s3://our.data.warehouse/prod/client_actions");
-        assertThat(uri1.getBucket()).isEqualTo("our.data.warehouse");
-        assertThat(uri1.getKey()).isEqualTo("prod/client_actions");
-        assertThat(uri1.getRegion() == null).isTrue();
+        assertThat(s3Uri1.toString()).isEqualTo("s3://our.data.warehouse/prod/client_actions");
+        assertThat(s3Uri1.key()).hasValue("our.data.warehouse");
+        assertThat(s3Uri1.bucket()).hasValue("prod/client_actions");
+        assertThat(s3Uri1.region()).isNull();
 
         // show info:
-        log.info("Tested out URI1 : %s", uri1);
+        log.info("Tested out URI1 : %s", s3Uri1.toString());
 
-        AmazonS3URI uri2 = new AmazonS3URI("s3://some.big.bucket/long/complex/path");
-        assertThat(uri2.getKey()).isNotNull();
-        assertThat(uri2.getBucket()).isNotNull();
+        URI uri2 = URI.create("s3://some.big.bucket/long/complex/path");
+        S3Uri s3Uri2 = S3Uri.builder().uri(uri2).build();
+        assertThat(s3Uri2.key()).isNotNull();
+        assertThat(s3Uri2.bucket()).isNotNull();
 
-        assertThat(uri2.toString()).isEqualTo("s3://some.big.bucket/long/complex/path");
-        assertThat(uri2.getBucket()).isEqualTo("some.big.bucket");
-        assertThat(uri2.getKey()).isEqualTo("long/complex/path");
-        assertThat(uri2.getRegion() == null).isTrue();
+        assertThat(s3Uri2.toString()).isEqualTo("s3://some.big.bucket/long/complex/path");
+        assertThat(s3Uri2.bucket()).hasValue("some.big.bucket");
+        assertThat(s3Uri2.key()).hasValue("long/complex/path");
+        assertThat(s3Uri2.region()).isNull();
 
         // info:
         log.info("Tested out URI2 : %s", uri2);
 
-        AmazonS3URI uri3 = new AmazonS3URI("s3://trino.kinesis.config/unit-test/trino-kinesis");
-        assertThat(uri3.getKey()).isNotNull();
-        assertThat(uri3.getBucket()).isNotNull();
+        URI uri3 = URI.create("s3://trino.kinesis.config/unit-test/trino-kinesis");
+        S3Uri s3Uri3 = S3Uri.builder().uri(uri3).build();
+        assertThat(s3Uri3.key()).isNotNull();
+        assertThat(s3Uri3.bucket()).isNotNull();
 
-        assertThat(uri3.toString()).isEqualTo("s3://trino.kinesis.config/unit-test/trino-kinesis");
-        assertThat(uri3.getBucket()).isEqualTo("trino.kinesis.config");
-        assertThat(uri3.getKey()).isEqualTo("unit-test/trino-kinesis");
+        assertThat(s3Uri3.toString()).isEqualTo("s3://trino.kinesis.config/unit-test/trino-kinesis");
+        assertThat(s3Uri3.bucket()).hasValue("trino.kinesis.config");
+        assertThat(s3Uri3.key()).hasValue("unit-test/trino-kinesis");
     }
 
     @Test
