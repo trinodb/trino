@@ -1038,7 +1038,7 @@ public class LocalExecutionPlanner
                     hashChannel,
                     10_000,
                     joinCompiler,
-                    blockTypeOperators);
+                    typeOperators);
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), context, source);
         }
 
@@ -1874,7 +1874,7 @@ public class LocalExecutionPlanner
                     node.getLimit(),
                     hashChannel,
                     joinCompiler,
-                    blockTypeOperators);
+                    typeOperators);
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
 
@@ -1950,7 +1950,7 @@ public class LocalExecutionPlanner
 
             List<Integer> channels = getChannelsForSymbols(node.getDistinctSymbols(), source.getLayout());
             Optional<Integer> hashChannel = node.getHashSymbol().map(channelGetter(source));
-            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, joinCompiler, blockTypeOperators);
+            MarkDistinctOperatorFactory operator = new MarkDistinctOperatorFactory(context.getNextOperatorId(), node.getId(), source.getTypes(), channels, hashChannel, joinCompiler, typeOperators);
             return new PhysicalOperation(operator, makeLayout(node), context, source);
         }
 
@@ -2436,6 +2436,7 @@ public class LocalExecutionPlanner
                     SystemSessionProperties.isShareIndexLoading(session),
                     pagesIndexFactory,
                     joinCompiler,
+                    typeOperators,
                     blockTypeOperators);
 
             indexLookupSourceFactory.setTaskContext(context.taskContext);
@@ -2471,7 +2472,7 @@ public class LocalExecutionPlanner
                         Optional.empty(),
                         totalOperatorsCount,
                         unsupportedPartitioningSpillerFactory(),
-                        blockTypeOperators);
+                        typeOperators);
                 case SOURCE_OUTER -> spillingJoin(
                         JoinOperatorType.probeOuterJoin(false),
                         context.getNextOperatorId(),
@@ -2484,7 +2485,7 @@ public class LocalExecutionPlanner
                         Optional.empty(),
                         totalOperatorsCount,
                         unsupportedPartitioningSpillerFactory(),
-                        blockTypeOperators);
+                        typeOperators);
             };
             return new PhysicalOperation(lookupJoinOperatorFactory, outputMappings.buildOrThrow(), context, probeSource);
         }
@@ -2921,7 +2922,7 @@ public class LocalExecutionPlanner
                                         .collect(toImmutableList()),
                                 partitionCount,
                                 buildOuter,
-                                blockTypeOperators),
+                                typeOperators),
                         buildOutputTypes);
 
                 OperatorFactory hashBuilderOperatorFactory = new HashBuilderOperatorFactory(
@@ -2962,7 +2963,7 @@ public class LocalExecutionPlanner
                         Optional.of(probeOutputChannels),
                         totalOperatorsCount,
                         partitioningSpillerFactory,
-                        blockTypeOperators);
+                        typeOperators);
             }
             else {
                 JoinBridgeManager<io.trino.operator.join.unspilled.PartitionedLookupSourceFactory> lookupSourceFactory = new JoinBridgeManager<>(
@@ -2975,7 +2976,7 @@ public class LocalExecutionPlanner
                                         .collect(toImmutableList()),
                                 partitionCount,
                                 buildOuter,
-                                blockTypeOperators),
+                                typeOperators),
                         buildOutputTypes);
 
                 OperatorFactory hashBuilderOperatorFactory = new HashBuilderOperator.HashBuilderOperatorFactory(
@@ -3012,7 +3013,7 @@ public class LocalExecutionPlanner
                         probeJoinChannels,
                         probeHashChannel,
                         Optional.of(probeOutputChannels),
-                        blockTypeOperators);
+                        typeOperators);
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
@@ -3239,7 +3240,7 @@ public class LocalExecutionPlanner
                     buildHashChannel,
                     10_000,
                     joinCompiler,
-                    blockTypeOperators);
+                    typeOperators);
             SetSupplier setProvider = setBuilderOperatorFactory.getSetProvider();
             context.addDriverFactory(
                     false,
@@ -3649,7 +3650,7 @@ public class LocalExecutionPlanner
                     ImmutableList.of(),
                     Optional.empty(),
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators,
+                    typeOperators,
                     getWriterScalingMinDataProcessed(session));
 
             List<Symbol> expectedLayout = node.getInputs().get(0);
@@ -3725,7 +3726,7 @@ public class LocalExecutionPlanner
                     partitionChannelTypes,
                     hashChannel,
                     maxLocalExchangeBufferSize,
-                    blockTypeOperators,
+                    typeOperators,
                     getWriterScalingMinDataProcessed(session));
             for (int i = 0; i < node.getSources().size(); i++) {
                 DriverFactoryParameters driverFactoryParameters = driverFactoryParametersList.get(i);
@@ -3805,7 +3806,7 @@ public class LocalExecutionPlanner
                                 .map(channel -> source.getTypes().get(channel))
                                 .collect(toImmutableList()),
                         joinCompiler,
-                        blockTypeOperators,
+                        typeOperators,
                         session);
             }
 
@@ -4075,7 +4076,7 @@ public class LocalExecutionPlanner
                     unspillMemoryLimit,
                     spillerFactory,
                     joinCompiler,
-                    blockTypeOperators,
+                    typeOperators,
                     createPartialAggregationController(maxPartialAggregationMemorySize, step, session));
         }
     }

@@ -22,7 +22,7 @@ import io.trino.operator.join.LookupSource;
 import io.trino.operator.join.OuterPositionIterator;
 import io.trino.operator.join.TrackingLookupSourceSupplier;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators;
+import io.trino.spi.type.TypeOperators;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,7 +47,7 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> outputTypes;
     private final List<Type> hashChannelTypes;
     private final boolean outer;
-    private final BlockTypeOperators blockTypeOperators;
+    private final TypeOperators typeOperators;
 
     @GuardedBy("this")
     private final Supplier<LookupSource>[] partitions;
@@ -66,7 +66,7 @@ public final class PartitionedLookupSourceFactory
     @GuardedBy("this")
     private final List<SettableFuture<LookupSource>> lookupSourceFutures = new ArrayList<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, BlockTypeOperators blockTypeOperators)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, TypeOperators typeOperators)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
@@ -77,7 +77,7 @@ public final class PartitionedLookupSourceFactory
         //noinspection unchecked
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
-        this.blockTypeOperators = blockTypeOperators;
+        this.typeOperators = typeOperators;
     }
 
     public List<Type> getTypes()
@@ -162,7 +162,7 @@ public final class PartitionedLookupSourceFactory
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, blockTypeOperators);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, typeOperators);
             }
             else if (outer) {
                 lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);

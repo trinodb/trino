@@ -140,7 +140,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
-import io.trino.type.BlockTypeOperators;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -518,7 +517,6 @@ public abstract class AbstractTestHive
             ImmutableSet.of(AVRO, CSV, REGEX));
 
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(TYPE_OPERATORS);
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     protected static final List<ColumnMetadata> STATISTICS_TABLE_COLUMNS = ImmutableList.<ColumnMetadata>builder()
@@ -931,7 +929,7 @@ public abstract class AbstractTestHive
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(JOIN_COMPILER, BLOCK_TYPE_OPERATORS),
+                new GroupByHashPageIndexerFactory(JOIN_COMPILER, TYPE_OPERATORS),
                 TESTING_TYPE_MANAGER,
                 getHiveConfig(),
                 getSortingFileWriterConfig(),

@@ -389,7 +389,7 @@ public class LocalQueryRunner
                 typeManager);
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
-        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
+        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, typeOperators);
         this.groupProvider = new TestingGroupProviderManager();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
@@ -417,7 +417,7 @@ public class LocalQueryRunner
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(catalogManager));
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog);
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
