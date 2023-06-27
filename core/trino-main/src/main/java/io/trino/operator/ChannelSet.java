@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -85,7 +85,7 @@ public class ChannelSet
         private final OperatorContext operatorContext;
         private final LocalMemoryContext localMemoryContext;
 
-        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
+        public ChannelSetBuilder(Type type, Optional<Integer> hashChannel, int expectedPositions, OperatorContext operatorContext, JoinCompiler joinCompiler, TypeOperators typeOperators)
         {
             List<Type> types = ImmutableList.of(type);
             this.hash = createGroupByHash(
@@ -95,7 +95,7 @@ public class ChannelSet
                     hashChannel,
                     expectedPositions,
                     joinCompiler,
-                    blockTypeOperators,
+                    typeOperators,
                     this::updateMemoryReservation);
             this.nullBlockPage = new Page(type.createBlockBuilder(null, 1, UNKNOWN.getFixedSize()).appendNull().build());
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");

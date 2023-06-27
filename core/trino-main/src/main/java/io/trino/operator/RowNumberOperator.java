@@ -23,9 +23,9 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +55,7 @@ public class RowNumberOperator
         private final int expectedPositions;
         private boolean closed;
         private final JoinCompiler joinCompiler;
-        private final BlockTypeOperators blockTypeOperators;
+        private final TypeOperators typeOperators;
 
         public RowNumberOperatorFactory(
                 int operatorId,
@@ -68,7 +68,7 @@ public class RowNumberOperator
                 Optional<Integer> hashChannel,
                 int expectedPositions,
                 JoinCompiler joinCompiler,
-                BlockTypeOperators blockTypeOperators)
+                TypeOperators typeOperators)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -82,7 +82,7 @@ public class RowNumberOperator
             checkArgument(expectedPositions > 0, "expectedPositions < 0");
             this.expectedPositions = expectedPositions;
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         }
 
         @Override
@@ -101,7 +101,7 @@ public class RowNumberOperator
                     hashChannel,
                     expectedPositions,
                     joinCompiler,
-                    blockTypeOperators);
+                    typeOperators);
         }
 
         @Override
@@ -113,7 +113,7 @@ public class RowNumberOperator
         @Override
         public OperatorFactory duplicate()
         {
-            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler, blockTypeOperators);
+            return new RowNumberOperatorFactory(operatorId, planNodeId, sourceTypes, outputChannels, partitionChannels, partitionTypes, maxRowsPerPartition, hashChannel, expectedPositions, joinCompiler, typeOperators);
         }
     }
 
@@ -147,7 +147,7 @@ public class RowNumberOperator
             Optional<Integer> hashChannel,
             int expectedPositions,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators)
+            TypeOperators typeOperators)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.localUserMemoryContext = operatorContext.localUserMemoryContext();
@@ -168,7 +168,7 @@ public class RowNumberOperator
         }
         else {
             int[] channels = Ints.toArray(partitionChannels);
-            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler, blockTypeOperators, this::updateMemoryReservation));
+            this.groupByHash = Optional.of(createGroupByHash(operatorContext.getSession(), partitionTypes, channels, hashChannel, expectedPositions, joinCompiler, typeOperators, this::updateMemoryReservation));
         }
     }
 

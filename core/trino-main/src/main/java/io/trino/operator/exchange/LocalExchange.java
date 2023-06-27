@@ -23,17 +23,16 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.PrecomputedHashGenerator;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.type.BlockTypeOperators;
 
 import java.io.Closeable;
 import java.util.HashSet;
@@ -51,6 +50,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
+import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -95,7 +95,7 @@ public class LocalExchange
             List<Type> partitionChannelTypes,
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             DataSize writerScalingMinDataProcessed)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
@@ -151,7 +151,7 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         partitionCount,
                         partitionChannels,
@@ -177,7 +177,7 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         nodePartitioningManager,
                         session,
-                        blockTypeOperators,
+                        typeOperators,
                         partitioning,
                         bufferCount,
                         partitionChannels,
@@ -232,7 +232,7 @@ public class LocalExchange
     private static PartitionFunction createPartitionFunction(
             NodePartitioningManager nodePartitioningManager,
             Session session,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             PartitioningHandle partitioning,
             int partitionCount,
             List<Integer> partitionChannels,
@@ -247,7 +247,7 @@ public class LocalExchange
                 hashGenerator = new PrecomputedHashGenerator(partitionHashChannel.get());
             }
             else {
-                hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
+                hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
             }
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }

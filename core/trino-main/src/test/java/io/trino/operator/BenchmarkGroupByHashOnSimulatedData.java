@@ -29,7 +29,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -82,7 +81,6 @@ public class BenchmarkGroupByHashOnSimulatedData
     private static final int EXPECTED_GROUP_COUNT = 10_000;
     private static final int DEFAULT_PAGE_SIZE = 8192;
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
 
     private final JoinCompiler joinCompiler = new JoinCompiler(TYPE_OPERATORS);
 
@@ -97,7 +95,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 EXPECTED_GROUP_COUNT,
                 false,
                 joinCompiler,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
 
