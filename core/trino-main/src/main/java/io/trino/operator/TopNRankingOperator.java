@@ -229,7 +229,7 @@ public class TopNRankingOperator
                         hashChannel,
                         operatorContext.getSession(),
                         joinCompiler,
-                        blockTypeOperators,
+                        typeOperators,
                         this::updateMemoryReservation));
     }
 
@@ -240,7 +240,7 @@ public class TopNRankingOperator
             Optional<Integer> hashChannel,
             Session session,
             JoinCompiler joinCompiler,
-            BlockTypeOperators blockTypeOperators,
+            TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
         if (partitionChannels.isEmpty()) {
@@ -255,7 +255,7 @@ public class TopNRankingOperator
                 hashChannel,
                 expectedPositions,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 updateMemory);
     }
 

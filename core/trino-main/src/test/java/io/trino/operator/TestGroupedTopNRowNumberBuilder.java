@@ -19,7 +19,6 @@ import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -247,7 +246,7 @@ public class TestGroupedTopNRowNumberBuilder
                 1,
                 false,
                 new JoinCompiler(typeOperators),
-                new BlockTypeOperators(typeOperators),
+                typeOperators,
                 updateMemory);
     }
 }

@@ -41,7 +41,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -115,7 +114,6 @@ public class TestHashAggregationOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private final TypeOperators typeOperators = new TypeOperators();
-    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
     private DummySpillerFactory spillerFactory;
 
@@ -201,7 +199,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -255,7 +253,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -302,7 +300,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -345,7 +343,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -386,7 +384,7 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
@@ -409,7 +407,7 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -462,7 +460,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -497,7 +495,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         assertEquals(toPages(operatorFactory, createDriverContext(), input).size(), 2);
@@ -529,7 +527,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -615,7 +613,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
@@ -671,7 +669,7 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
@@ -701,7 +699,7 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -739,7 +737,7 @@ public class TestHashAggregationOperator
                 100,
                 Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -821,7 +819,7 @@ public class TestHashAggregationOperator
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
                 joinCompiler,
-                blockTypeOperators,
+                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 

@@ -142,7 +142,7 @@ public class TestGroupedTopNRankBuilder
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         List<Type> types = ImmutableList.of(BIGINT, DOUBLE);
 
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP, typeOperators, blockTypeOperators);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
@@ -223,7 +223,7 @@ public class TestGroupedTopNRankBuilder
         input.compact();
 
         AtomicBoolean unblock = new AtomicBoolean();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get, typeOperators, blockTypeOperators);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
                 new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
@@ -250,7 +250,7 @@ public class TestGroupedTopNRankBuilder
         assertPageEquals(types, output.get(0), expected);
     }
 
-    private GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory, TypeOperators typeOperators, BlockTypeOperators blockTypeOperators)
+    private GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory, TypeOperators typeOperators)
     {
         return GroupByHash.createGroupByHash(
                 partitionTypes,
@@ -259,7 +259,7 @@ public class TestGroupedTopNRankBuilder
                 1,
                 false,
                 new JoinCompiler(typeOperators),
-                blockTypeOperators,
+                typeOperators,
                 updateMemory);
     }
 

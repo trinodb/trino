@@ -20,9 +20,9 @@ import io.trino.operator.join.LookupSourceFactory;
 import io.trino.operator.join.unspilled.JoinProbe;
 import io.trino.operator.join.unspilled.PartitionedLookupSourceFactory;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +45,7 @@ public class OperatorFactories
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannelsOptional,
-            BlockTypeOperators blockTypeOperators)
+            TypeOperators typeOperators)
     {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
@@ -61,7 +61,7 @@ public class OperatorFactories
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
                 new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
-                blockTypeOperators,
+                typeOperators,
                 probeJoinChannel,
                 probeHashChannel);
     }
@@ -78,7 +78,7 @@ public class OperatorFactories
             Optional<List<Integer>> probeOutputChannelsOptional,
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
-            BlockTypeOperators blockTypeOperators)
+            TypeOperators typeOperators)
     {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
@@ -94,7 +94,7 @@ public class OperatorFactories
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
                 new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
-                blockTypeOperators,
+                typeOperators,
                 totalOperatorsCount,
                 probeJoinChannel,
                 probeHashChannel,

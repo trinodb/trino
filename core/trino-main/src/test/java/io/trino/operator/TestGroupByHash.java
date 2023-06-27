@@ -31,7 +31,6 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingSession;
-import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -63,7 +62,6 @@ public class TestGroupByHash
     private static final int[] CONTAINS_CHANNELS = new int[] {0};
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
 
     @DataProvider
@@ -98,7 +96,7 @@ public class TestGroupByHash
                         expectedSize,
                         true,
                         JOIN_COMPILER,
-                        TYPE_OPERATOR_FACTORY,
+                        TYPE_OPERATORS,
                         updateMemory);
             };
         }
@@ -236,7 +234,7 @@ public class TestGroupByHash
     @Test
     public void testTypes()
     {
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(VARCHAR), new int[] {0}, Optional.of(1), 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         // Additional bigint channel for hash
         assertEquals(groupByHash.getTypes(), ImmutableList.of(VARCHAR, BIGINT));
     }
@@ -319,7 +317,7 @@ public class TestGroupByHash
         Block stringValuesBlock = createStringSequenceBlock(0, 10);
         Block hashBlock = getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
         int[] hashChannels = {0, 1};
-        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock)).process();
 
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
@@ -371,7 +369,7 @@ public class TestGroupByHash
                 1,
                 false,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 () -> {
                     rehashCount.incrementAndGet();
                     return true;
@@ -411,7 +409,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, updateMemory);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -438,7 +436,7 @@ public class TestGroupByHash
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, updateMemory);
+        groupByHash = createGroupByHash(ImmutableList.of(type), new int[] {0}, Optional.of(1), 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -549,7 +547,7 @@ public class TestGroupByHash
                 Optional.empty(),
                 100,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
         Block firstBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
         Block secondBlock = BlockAssertions.createLongDictionaryBlock(0, 1000, 10);
@@ -579,7 +577,7 @@ public class TestGroupByHash
                 Optional.empty(),
                 100,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
 
         GroupByHash lowCardinalityGroupByHash = createGroupByHash(
@@ -589,7 +587,7 @@ public class TestGroupByHash
                 Optional.empty(),
                 100,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
         Block sameValueBlock = BlockAssertions.createLongRepeatBlock(0, 100);
         Block block1 = BlockAssertions.createLongDictionaryBlock(0, 100, 1);
@@ -624,7 +622,7 @@ public class TestGroupByHash
                 Optional.empty(),
                 100,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
 
         Block dictionary = new LongArrayBlock(2, Optional.empty(), new long[] {0, 1});
@@ -696,7 +694,7 @@ public class TestGroupByHash
                 100,
                 true,
                 JOIN_COMPILER,
-                TYPE_OPERATOR_FACTORY,
+                TYPE_OPERATORS,
                 NOOP);
         Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
