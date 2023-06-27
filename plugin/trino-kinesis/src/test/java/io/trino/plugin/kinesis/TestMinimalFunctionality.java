@@ -13,18 +13,13 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.kinesis.model.PutRecordsRequest;
-import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.kinesis.util.EmbeddedKinesisStream;
 import io.trino.plugin.kinesis.util.TestUtils;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.QueryId;
-import io.trino.spi.security.Identity;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
@@ -34,9 +29,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequestEntry;
 
 import java.io.File;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -46,10 +43,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -65,14 +61,8 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestMinimalFunctionality
 {
-    public static final Session SESSION = Session.builder(new SessionPropertyManager())
-            .setIdentity(Identity.ofUser("user"))
-            .setSource("source")
+    public static final Session SESSION = testSessionBuilder()
             .setCatalog("kinesis")
-            .setSchema("default")
-            .setTimeZoneKey(UTC_KEY)
-            .setLocale(ENGLISH)
-            .setQueryId(new QueryId("dummy"))
             .build();
     private final String accessKey;
     private final String secretKey;
@@ -121,18 +111,19 @@ public class TestMinimalFunctionality
 
     private void createMessages(String streamName, long count)
     {
-        PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
-        putRecordsRequest.setStreamName(streamName);
+        PutRecordsRequest.Builder putRecordsRequest = PutRecordsRequest.builder()
+                .streamName(streamName);
         List<PutRecordsRequestEntry> putRecordsRequestEntryList = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes(UTF_8)));
-            putRecordsRequestEntry.setPartitionKey(Long.toString(i));
+            PutRecordsRequestEntry putRecordsRequestEntry = PutRecordsRequestEntry.builder()
+                    .data(SdkBytes.fromByteArray(UUID.randomUUID().toString().getBytes(UTF_8)))
+                    .partitionKey(Long.toString(i))
+                    .build();
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
 
-        putRecordsRequest.setRecords(putRecordsRequestEntryList);
-        embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest);
+        putRecordsRequest.records(putRecordsRequestEntryList);
+        embeddedKinesisStream.getKinesisClient().putRecords(putRecordsRequest.build());
     }
 
     @Test
@@ -153,13 +144,13 @@ public class TestMinimalFunctionality
     public void testStreamHasData()
     {
         assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
-                .matches("VALUES 0");
+                .matches("VALUES cast(0 as bigint)");
 
         long count = 500L;
         createMessages(streamName, count);
 
-        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName))
-                .matches("VALUES %s".formatted(count));
+        assertThat(assertions.query("SELECT COUNT(1) FROM " + streamName)).skippingTypesCheck()
+                .matches("VALUES cast(%s as bigint)".formatted(count));
     }
 
     @AfterEach
@@ -168,5 +159,6 @@ public class TestMinimalFunctionality
         embeddedKinesisStream.deleteStream(streamName);
         queryRunner.close();
         queryRunner = null;
+        assertions.close();
     }
 }

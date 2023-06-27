@@ -13,64 +13,78 @@
  */
 package io.trino.plugin.kinesis.util;
 
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.services.kinesis.AmazonKinesisClient;
-import com.amazonaws.services.kinesis.model.CreateStreamRequest;
-import com.amazonaws.services.kinesis.model.DeleteStreamRequest;
-import com.amazonaws.services.kinesis.model.DescribeStreamRequest;
-import com.amazonaws.services.kinesis.model.StreamDescription;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.services.kinesis.KinesisClient;
+import software.amazon.awssdk.services.kinesis.model.CreateStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.DeleteStreamRequest;
+import software.amazon.awssdk.services.kinesis.model.DescribeStreamSummaryRequest;
+import software.amazon.awssdk.services.kinesis.model.StreamStatus;
 
 import java.io.Closeable;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static software.amazon.awssdk.services.kinesis.model.StreamStatus.ACTIVE;
 
 public class EmbeddedKinesisStream
         implements Closeable
 {
-    private final AmazonKinesisClient amazonKinesisClient;
+    private final KinesisClient amazonKinesisClient;
 
     public EmbeddedKinesisStream(String accessKey, String secretKey)
     {
-        this.amazonKinesisClient = new AmazonKinesisClient(new BasicAWSCredentials(accessKey, secretKey));
+        AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKey, secretKey);
+        this.amazonKinesisClient = KinesisClient.builder()
+                .httpClient(ApacheHttpClient.create())
+                .credentialsProvider(StaticCredentialsProvider.create(awsCredentials))
+                .build();
     }
 
     @Override
-    public void close() {}
-
-    private String checkStreamStatus(String streamName)
+    public void close()
     {
-        DescribeStreamRequest describeStreamRequest = new DescribeStreamRequest();
-        describeStreamRequest.setStreamName(streamName);
+        amazonKinesisClient.close();
+    }
 
-        StreamDescription streamDescription = amazonKinesisClient.describeStream(describeStreamRequest).getStreamDescription();
-        return streamDescription.getStreamStatus();
+    private StreamStatus checkStreamStatus(String streamName)
+    {
+        DescribeStreamSummaryRequest describeStreamRequest = DescribeStreamSummaryRequest.builder()
+                .streamName(streamName)
+                .build();
+        return amazonKinesisClient.describeStreamSummary(describeStreamRequest)
+                .streamDescriptionSummary()
+                .streamStatus();
     }
 
     public void createStream(int shardCount, String streamName)
     {
-        CreateStreamRequest createStreamRequest = new CreateStreamRequest();
-        createStreamRequest.setStreamName(streamName);
-        createStreamRequest.setShardCount(shardCount);
+        CreateStreamRequest createStreamRequest = CreateStreamRequest
+                .builder()
+                .streamName(streamName)
+                .shardCount(shardCount)
+                .build();
 
         amazonKinesisClient.createStream(createStreamRequest);
         try {
-            while (!checkStreamStatus(streamName).equals("ACTIVE")) {
+            while (!checkStreamStatus(streamName).equals(ACTIVE)) {
                 MILLISECONDS.sleep(1000);
             }
         }
-        catch (Exception e) {
+        catch (Exception ignored) {
         }
     }
 
-    public AmazonKinesisClient getKinesisClient()
+    public KinesisClient getKinesisClient()
     {
         return amazonKinesisClient;
     }
 
     public void deleteStream(String streamName)
     {
-        DeleteStreamRequest deleteStreamRequest = new DeleteStreamRequest();
-        deleteStreamRequest.setStreamName(streamName);
+        DeleteStreamRequest deleteStreamRequest = DeleteStreamRequest.builder()
+                .streamName(streamName)
+                .build();
         amazonKinesisClient.deleteStream(deleteStreamRequest);
     }
 }

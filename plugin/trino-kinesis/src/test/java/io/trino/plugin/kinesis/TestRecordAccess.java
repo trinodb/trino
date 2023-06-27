@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.kinesis;
 
-import com.amazonaws.services.kinesis.model.PutRecordsRequest;
-import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
@@ -34,10 +32,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequest;
+import software.amazon.awssdk.services.kinesis.model.PutRecordsRequestEntry;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -93,49 +93,51 @@ public class TestRecordAccess
     {
         queryRunner.close();
         queryRunner = null;
+        mockClient.close();
     }
 
     private void createDummyMessages(String streamName, int count)
     {
-        PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
-        putRecordsRequest.setStreamName(streamName);
+        PutRecordsRequest.Builder putRecordsRequest = PutRecordsRequest.builder();
+        putRecordsRequest.streamName(streamName);
         List<PutRecordsRequestEntry> putRecordsRequestEntryList = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(UUID.randomUUID().toString().getBytes(UTF_8)));
-            putRecordsRequestEntry.setPartitionKey(Long.toString(i));
+            PutRecordsRequestEntry putRecordsRequestEntry = PutRecordsRequestEntry.builder()
+                    .data(SdkBytes.fromByteArray(UUID.randomUUID().toString().getBytes(UTF_8)))
+                    .partitionKey(Long.toString(i))
+                    .build();
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
 
-        putRecordsRequest.setRecords(putRecordsRequestEntryList);
-        mockClient.putRecords(putRecordsRequest);
+        putRecordsRequest.records(putRecordsRequestEntryList);
+        mockClient.putRecords(putRecordsRequest.build());
     }
 
     private void createJsonMessages(String streamName, int count, int idStart, boolean compress)
     {
         String jsonFormat = "{\"id\" : %d, \"name\" : \"%s\"}";
-        PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
-        putRecordsRequest.setStreamName(streamName);
+        PutRecordsRequest.Builder putRecordsRequest = PutRecordsRequest.builder()
+                .streamName(streamName);
         List<PutRecordsRequestEntry> putRecordsRequestEntryList = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            PutRecordsRequestEntry putRecordsRequestEntry = new PutRecordsRequestEntry();
+            PutRecordsRequestEntry.Builder putRecordsRequestEntry = PutRecordsRequestEntry.builder();
             long id = idStart + i;
             String name = UUID.randomUUID().toString();
             String jsonVal = format(jsonFormat, id, name);
 
             // ? with StandardCharsets.UTF_8
             if (compress) {
-                putRecordsRequestEntry.setData(ByteBuffer.wrap(compressMessage(jsonVal.getBytes(UTF_8))));
+                putRecordsRequestEntry.data(SdkBytes.fromByteArray(compressMessage(jsonVal.getBytes(UTF_8))));
             }
             else {
-                putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes(UTF_8)));
+                putRecordsRequestEntry.data(SdkBytes.fromByteArray(jsonVal.getBytes(UTF_8)));
             }
-            putRecordsRequestEntry.setPartitionKey(Long.toString(id));
-            putRecordsRequestEntryList.add(putRecordsRequestEntry);
+            putRecordsRequestEntry.partitionKey(Long.toString(id));
+            putRecordsRequestEntryList.add(putRecordsRequestEntry.build());
         }
 
-        putRecordsRequest.setRecords(putRecordsRequestEntryList);
-        mockClient.putRecords(putRecordsRequest);
+        putRecordsRequest.records(putRecordsRequestEntryList);
+        mockClient.putRecords(putRecordsRequest.build());
     }
 
     private static byte[] compressMessage(byte[] data)
