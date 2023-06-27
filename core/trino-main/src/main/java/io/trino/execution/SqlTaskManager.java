@@ -458,6 +458,17 @@ public class SqlTaskManager
         }
     }
 
+    public void syncCatalogs(List<CatalogProperties> catalogsInCoordinator)
+    {
+        catalogsLock.lock();
+        try {
+            connectorServicesProvider.syncCatalogs(catalogsInCoordinator);
+        }
+        finally {
+            catalogsLock.unlock();
+        }
+    }
+
     /**
      * Updates the task plan, splitAssignments and output buffers.  If the task does not
      * already exist, it is created and then updated.
