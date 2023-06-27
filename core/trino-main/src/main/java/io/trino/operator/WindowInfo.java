@@ -219,7 +219,10 @@ public class WindowInfo
             }
             double avgSize = partitions.stream().mapToLong(Integer::longValue).average().getAsDouble();
             double squaredDifferences = partitions.stream().mapToDouble(size -> Math.pow(size - avgSize, 2)).sum();
-            checkState(partitions.stream().mapToLong(Integer::longValue).sum() == rowsNumber, "Total number of rows in index does not match number of rows in partitions within that index");
+            if (partitions.stream().mapToLong(Integer::longValue).sum() != rowsNumber) {
+                // when operator is cancelled, then rows in index might not match row count from processed partitions
+                return Optional.empty();
+            }
 
             return Optional.of(new IndexInfo(rowsNumber, sizeInBytes, squaredDifferences, partitions.size()));
         }
