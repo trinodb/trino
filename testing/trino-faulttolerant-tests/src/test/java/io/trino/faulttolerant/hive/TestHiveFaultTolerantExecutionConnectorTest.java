@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.BaseHiveConnectorTest;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -41,12 +42,12 @@ public class TestHiveFaultTolerantExecutionConnectorTest
         this.minioStorage = new MinioStorage("test-exchange-spooling-" + randomNameSuffix());
         minioStorage.start();
 
-        return BaseHiveConnectorTest.createHiveQueryRunner(
-                getExtraProperties(),
-                runner -> {
+        return BaseHiveConnectorTest.createHiveQueryRunner(HiveQueryRunner.builder()
+                .setExtraProperties(getExtraProperties())
+                .setAdditionalSetup(runner -> {
                     runner.installPlugin(new FileSystemExchangePlugin());
                     runner.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
-                });
+                }));
     }
 
     @Override
