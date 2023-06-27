@@ -23,7 +23,6 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.aws.AwsApiCallStats;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
@@ -270,7 +269,7 @@ public class TestHiveGlueMetastore
                         .forEach(database -> {
                             orphanedDbBuilder.add(database.name());
                         }),
-                new AwsApiCallStats());
+                stats.getGetDatabases());
 
         List<String> orphanedDatabases = orphanedDbBuilder.build();
 

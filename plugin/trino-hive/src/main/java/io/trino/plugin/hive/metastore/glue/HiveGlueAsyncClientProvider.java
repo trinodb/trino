@@ -24,7 +24,7 @@ import java.util.Optional;
 import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static java.util.Objects.requireNonNull;
 
-public class HiveGlueClientProvider
+public class HiveGlueAsyncClientProvider
         implements Provider<GlueAsyncClient>
 {
     private final GlueMetastoreStats stats;
@@ -33,7 +33,7 @@ public class HiveGlueClientProvider
     private final Optional<ExecutionInterceptor> requestHandler;
 
     @Inject
-    public HiveGlueClientProvider(
+    public HiveGlueAsyncClientProvider(
             @ForGlueHiveMetastore GlueMetastoreStats stats,
             AwsCredentialsProvider credentialsProvider,
             @ForGlueHiveMetastore Optional<ExecutionInterceptor> requestHandler,

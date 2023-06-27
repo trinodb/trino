@@ -29,6 +29,7 @@ import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.glue.GlueAsyncClient;
+import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import java.util.concurrent.Executor;
@@ -68,7 +69,8 @@ public class GlueMetastoreModule
         // export under the old name, for backwards compatibility
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
-        binder.bind(GlueAsyncClient.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
+        binder.bind(GlueAsyncClient.class).toProvider(HiveGlueAsyncClientProvider.class).in(Scopes.SINGLETON);
+        binder.bind(GlueClient.class).toProvider(HiveGlueSyncClientProvider.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
