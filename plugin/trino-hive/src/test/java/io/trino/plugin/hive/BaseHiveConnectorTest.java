@@ -203,24 +203,28 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createHiveQueryRunner(HiveQueryRunner.builder());
+    }
+
+    protected static QueryRunner createHiveQueryRunner(HiveQueryRunner.Builder<?> builder)
             throws Exception
     {
         // Use faster compression codec in tests. TODO remove explicit config when default changes
         verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
         String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
 
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraProperties(extraProperties)
-                .setAdditionalSetup(additionalSetup)
-                .setHiveProperties(ImmutableMap.of(
-                        "hive.compression-codec", hiveCompressionCodec,
-                        "hive.allow-register-partition-procedure", "true",
-                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB",
-                        // Make weighted split scheduling more conservative to avoid OOMs in test
-                        "hive.minimum-assigned-split-weight", "0.5",
-                        "hive.partition-projection-enabled", "true"))
+        DistributedQueryRunner queryRunner = builder
+                .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
+                .addHiveProperty("hive.allow-register-partition-procedure", "true")
+                // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
+                // Make weighted split scheduling more conservative to avoid OOMs in test
+                .addHiveProperty("hive.minimum-assigned-split-weight", "0.5")
+                .addHiveProperty("hive.partition-projection-enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setTpchBucketedCatalogEnabled(true)
                 .build();
