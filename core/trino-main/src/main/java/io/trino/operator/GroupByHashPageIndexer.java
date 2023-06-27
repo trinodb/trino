@@ -32,14 +32,7 @@ public class GroupByHashPageIndexer
 
     public GroupByHashPageIndexer(List<Type> hashTypes, JoinCompiler joinCompiler, TypeOperators typeOperators)
     {
-        this(GroupByHash.createGroupByHash(
-                hashTypes,
-                false,
-                20,
-                false,
-                joinCompiler,
-                typeOperators,
-                NOOP));
+        this(GroupByHash.createGroupByHash(false, hashTypes, false, 20, false, joinCompiler, typeOperators, NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.block.BlockAssertions;
-import io.trino.operator.MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork;
-import io.trino.operator.MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
@@ -34,14 +32,12 @@ import io.trino.testing.TestingSession;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static com.google.common.math.DoubleMath.log2;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createStringSequenceBlock;
@@ -62,6 +58,10 @@ public class TestGroupByHash
     private static final Session TEST_SESSION = TestingSession.testSessionBuilder().build();
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+    private static final int BIGINT_EXPECTED_REHASH = 20;
+    // first rehash moves from the initial capacity to 1024 (batch size) and last hash moves to 1024 * 1024,
+    // which is 1 initial rehash + 10 additional rehashes
+    private static final int VARCHAR_EXPECTED_REHASH = 11;
 
     @DataProvider
     public Object[][] dataType()
@@ -72,12 +72,12 @@ public class TestGroupByHash
     @DataProvider
     public Object[][] groupByHashType()
     {
-        return new Object[][] {{GroupByHashType.BIGINT}, {GroupByHashType.MULTI_CHANNEL}};
+        return new Object[][] {{GroupByHashType.BIGINT}, {GroupByHashType.MULTI_CHANNEL}, {GroupByHashType.FLAT}};
     }
 
     private enum GroupByHashType
     {
-        BIGINT, MULTI_CHANNEL;
+        BIGINT, MULTI_CHANNEL, FLAT;
 
         public GroupByHash createGroupByHash()
         {
@@ -95,6 +95,13 @@ public class TestGroupByHash
                         true,
                         JOIN_COMPILER,
                         TYPE_OPERATORS,
+                        updateMemory);
+                case FLAT -> new FlatGroupByHash(
+                        ImmutableList.of(BigintType.BIGINT),
+                        true,
+                        expectedSize,
+                        true,
+                        JOIN_COMPILER,
                         updateMemory);
             };
         }
@@ -143,11 +150,10 @@ public class TestGroupByHash
         assertEquals(groupByHash.getGroupCount(), 1);
 
         Work<int[]> work = groupByHash.getGroupIds(page);
-        if (groupByHashType == GroupByHashType.MULTI_CHANNEL) {
-            assertThat(work).isInstanceOf(GetRunLengthEncodedGroupIdsWork.class);
-        }
-        else {
-            assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        switch (groupByHashType) {
+            case FLAT -> assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+            case MULTI_CHANNEL -> assertThat(work).isInstanceOf(MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+            default -> assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
         }
         work.process();
         int[] groupIds = work.getResult();
@@ -201,10 +207,13 @@ public class TestGroupByHash
         page = new Page(block, hashBlock);
         groupByHash.addPage(page).process();
 
+        block = createLongsBlock((Long) null);
+        hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
+        assertTrue(groupByHash.contains(0, new Page(block), BIGINT.getLong(hashBlock, 0)));
+
         block = createLongsBlock(0);
         hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
-        page = new Page(block, hashBlock);
-        assertFalse(groupByHash.contains(0, page));
+        assertFalse(groupByHash.contains(0, new Page(block), BIGINT.getLong(hashBlock, 0)));
     }
 
     @Test(dataProvider = "groupByHashType")
@@ -293,11 +302,11 @@ public class TestGroupByHash
 
         Block testBlock = createLongsBlock(3);
         Block testHashBlock = getHashBlock(ImmutableList.of(BIGINT), testBlock);
-        assertTrue(groupByHash.contains(0, new Page(testBlock, testHashBlock)));
+        assertTrue(groupByHash.contains(0, new Page(testBlock), BIGINT.getLong(testHashBlock, 0)));
 
-        testBlock = createLongsBlock(11);
+        testBlock = createLongsBlock(VARCHAR_EXPECTED_REHASH);
         testHashBlock = getHashBlock(ImmutableList.of(BIGINT), testBlock);
-        assertFalse(groupByHash.contains(0, new Page(testBlock, testHashBlock)));
+        assertFalse(groupByHash.contains(0, new Page(testBlock), BIGINT.getLong(testHashBlock, 0)));
     }
 
     @Test
@@ -312,7 +321,31 @@ public class TestGroupByHash
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testStringValuesBlock = BlockAssertions.createStringsBlock("3");
         Block testHashBlock = getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), testValuesBlock, testStringValuesBlock);
-        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlock, testHashBlock)));
+        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlock), BIGINT.getLong(testHashBlock, 0)));
+        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlock)));
+    }
+
+    @Test
+    public void testContainsMultipleVariableColumns()
+    {
+        Block valuesBlockStart = createLongSequenceBlock(0, 10);
+        Block stringValuesBlockA = createStringSequenceBlock(0, 10);
+        Block stringValuesBlockB = createStringSequenceBlock(10, 20);
+        Block stringValuesBlockC = createStringSequenceBlock(20, 30);
+        Block valuesBlockEnd = createLongSequenceBlock(90, 100);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT, VARCHAR, VARCHAR, VARCHAR, BIGINT), valuesBlockStart, stringValuesBlockA, stringValuesBlockB, stringValuesBlockC, valuesBlockEnd);
+        GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(BIGINT, VARCHAR, VARCHAR, VARCHAR, BIGINT), true, 100, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
+        Work<int[]> groupIds = groupByHash.getGroupIds(new Page(valuesBlockStart, stringValuesBlockA, stringValuesBlockB, stringValuesBlockC, valuesBlockEnd, hashBlock));
+        assertTrue(groupIds.process());
+
+        Block testValuesBlock = createLongsBlock((long) 3);
+        Block testStringValuesBlockA = BlockAssertions.createStringsBlock("3");
+        Block testStringValuesBlockB = BlockAssertions.createStringsBlock("13");
+        Block testStringValuesBlockC = BlockAssertions.createStringsBlock("23");
+        Block testBlockEnd = createLongsBlock((long) 93);
+        Block testHashBlock = getHashBlock(ImmutableList.of(BIGINT, VARCHAR, VARCHAR, VARCHAR, BIGINT), testValuesBlock, testStringValuesBlockA, testStringValuesBlockB, testStringValuesBlockC, testBlockEnd);
+        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlockA, testStringValuesBlockB, testStringValuesBlockC, testBlockEnd), BIGINT.getLong(testHashBlock, 0)));
+        assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlockA, testStringValuesBlockB, testStringValuesBlockC, testBlockEnd)));
     }
 
     @Test(dataProvider = "groupByHashType")
@@ -328,7 +361,7 @@ public class TestGroupByHash
 
         // Ensure that all groups are present in GroupByHash
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
-            assertTrue(groupByHash.contains(i, new Page(valuesBlock, hashBlock)));
+            assertTrue(groupByHash.contains(i, new Page(valuesBlock), BIGINT.getLong(hashBlock, i)));
         }
     }
 
@@ -351,21 +384,14 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(
-                ImmutableList.of(type),
-                true,
-                1,
-                false,
-                JOIN_COMPILER,
-                TYPE_OPERATORS,
-                () -> {
-                    rehashCount.incrementAndGet();
-                    return true;
-                });
+        GroupByHash groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, () -> {
+            rehashCount.incrementAndGet();
+            return true;
+        });
         groupByHash.addPage(new Page(valuesBlock, hashBlock)).process();
 
         // assert we call update memory twice every time we rehash; the rehash count = log2(length / FILL_RATIO)
-        assertEquals(rehashCount.get(), 2 * log2(length / 0.75, RoundingMode.FLOOR));
+        assertEquals(rehashCount.get(), 2 * (type == VARCHAR ? VARCHAR_EXPECTED_REHASH : BIGINT_EXPECTED_REHASH));
     }
 
     @Test(dataProvider = "dataType")
@@ -397,7 +423,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        GroupByHash groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -416,15 +442,14 @@ public class TestGroupByHash
         assertEquals(length, groupByHash.getGroupCount());
         // assert we yield for every 3 rehashes
         // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
-        // the rehash count is 20 = log(1_000_000 / 0.75)
-        assertEquals(currentQuota.get(), 20 * 2);
+        assertEquals(currentQuota.get(), 2 * (type == VARCHAR ? VARCHAR_EXPECTED_REHASH : BIGINT_EXPECTED_REHASH));
         assertEquals(currentQuota.get() / 3 / 2, yields);
 
         // test getGroupIds
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -442,10 +467,8 @@ public class TestGroupByHash
         // assert there is not anything missing
         assertEquals(length, groupByHash.getGroupCount());
         assertEquals(length, getGroupIdsWork.getResult().length);
-        // assert we yield for every 3 rehashes
-        // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
-        // the rehash count is 20 = log2(1_000_000 / 0.75)
-        assertEquals(currentQuota.get(), 20 * 2);
+        // rehash count is the same as above
+        assertEquals(currentQuota.get(), 2 * (type == VARCHAR ? VARCHAR_EXPECTED_REHASH : BIGINT_EXPECTED_REHASH));
         assertEquals(currentQuota.get() / 3 / 2, yields);
     }
 
@@ -453,7 +476,7 @@ public class TestGroupByHash
     public void testMemoryReservationYieldWithDictionary(GroupByHashType groupByHashType)
     {
         // Create a page with positionCount >> expected size of groupByHash
-        int dictionaryLength = 1_000;
+        int dictionaryLength = 10_000;
         int length = 2_000_000;
         int[] ids = IntStream.range(0, dictionaryLength).toArray();
         Block valuesBlock = DictionaryBlock.create(dictionaryLength, createLongSequenceBlock(0, length), ids);
@@ -492,7 +515,7 @@ public class TestGroupByHash
         // assert we yield for every 3 rehashes
         // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
         // the rehash count is 10 = log(1_000 / 0.75)
-        assertEquals(currentQuota.get(), 10 * 2);
+        assertEquals(currentQuota.get(), 2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
         assertEquals(currentQuota.get() / 3 / 2, yields);
 
         // test getGroupIds
@@ -521,7 +544,7 @@ public class TestGroupByHash
         // assert we yield for every 3 rehashes
         // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
         // the rehash count is 10 = log2(1_000 / 0.75)
-        assertEquals(currentQuota.get(), 10 * 2);
+        assertEquals(currentQuota.get(), 2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
         assertEquals(currentQuota.get() / 3 / 2, yields);
     }
 
@@ -541,7 +564,7 @@ public class TestGroupByHash
         Page page = new Page(firstBlock, secondBlock);
 
         Work<?> work = groupByHash.addPage(page);
-        assertThat(work).isInstanceOf(MultiChannelGroupByHash.AddLowCardinalityDictionaryPageWork.class);
+        assertThat(work).isInstanceOf(FlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
         work.process();
         assertThat(groupByHash.getGroupCount()).isEqualTo(10); // Blocks are identical so only 10 distinct groups
 
@@ -585,7 +608,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
 
         Work<int[]> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
-        assertThat(lowCardinalityWork).isInstanceOf(GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(lowCardinalityWork).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Work<int[]> work = groupByHash.getGroupIds(page);
 
         lowCardinalityWork.process();
@@ -620,7 +643,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2);
 
         Work<int[]> work = groupByHash.getGroupIds(page);
-        assertThat(work).isInstanceOf(GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(work).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
 
         work.process();
         int[] results = work.getResult();
@@ -653,32 +676,25 @@ public class TestGroupByHash
         Page singleBigintRlePage = new Page(bigintRleBlock);
         assertGroupByHashWork(singleBigintRlePage, ImmutableList.of(BIGINT), BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
         Page singleVarcharPage = new Page(varcharBlock);
-        assertGroupByHashWork(singleVarcharPage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+        assertGroupByHashWork(singleVarcharPage, ImmutableList.of(VARCHAR), FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
         Page singleVarcharDictionaryPage = new Page(varcharDictionaryBlock);
-        assertGroupByHashWork(singleVarcharDictionaryPage, ImmutableList.of(VARCHAR), MultiChannelGroupByHash.GetDictionaryGroupIdsWork.class);
+        assertGroupByHashWork(singleVarcharDictionaryPage, ImmutableList.of(VARCHAR), FlatGroupByHash.GetDictionaryGroupIdsWork.class);
         Page singleVarcharRlePage = new Page(varcharRleBlock);
-        assertGroupByHashWork(singleVarcharRlePage, ImmutableList.of(VARCHAR), GetRunLengthEncodedGroupIdsWork.class);
+        assertGroupByHashWork(singleVarcharRlePage, ImmutableList.of(VARCHAR), FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
 
         Page lowCardinalityDictionaryPage = new Page(bigintDictionaryBlock, varcharDictionaryBlock);
-        assertGroupByHashWork(lowCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), MultiChannelGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertGroupByHashWork(lowCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Page highCardinalityDictionaryPage = new Page(bigintDictionaryBlock, bigintBigDictionaryBlock);
-        assertGroupByHashWork(highCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+        assertGroupByHashWork(highCardinalityDictionaryPage, ImmutableList.of(BIGINT, VARCHAR), FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
 
         // Cardinality above Short.MAX_VALUE
         Page lowCardinalityHugeDictionaryPage = new Page(bigintSingletonDictionaryBlock, bigintHugeDictionaryBlock);
-        assertGroupByHashWork(lowCardinalityHugeDictionaryPage, ImmutableList.of(BIGINT, BIGINT), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
+        assertGroupByHashWork(lowCardinalityHugeDictionaryPage, ImmutableList.of(BIGINT, BIGINT), FlatGroupByHash.GetNonDictionaryGroupIdsWork.class);
     }
 
     private static void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
     {
-        GroupByHash groupByHash = createGroupByHash(
-                types,
-                false,
-                100,
-                true,
-                JOIN_COMPILER,
-                TYPE_OPERATORS,
-                NOOP);
+        GroupByHash groupByHash = createGroupByHash(true, types, false, 100, true, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
         assertThat(work).isInstanceOf(clazz);

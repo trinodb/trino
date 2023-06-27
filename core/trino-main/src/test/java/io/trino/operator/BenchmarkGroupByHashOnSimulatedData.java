@@ -88,6 +88,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     public Object groupBy(BenchmarkContext data)
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
+                true,
                 data.getTypes(),
                 false,
                 EXPECTED_GROUP_COUNT,
