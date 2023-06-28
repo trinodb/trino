@@ -490,23 +490,38 @@ public class MongoSession
         Set<MongoColumnHandle> projectedColumns = tableHandle.getProjectedColumns();
         checkArgument(projectedColumns.isEmpty() || projectedColumns.containsAll(columns), "projectedColumns must be empty or equal to columns");
 
-        Document output = new Document();
-        // Starting in MongoDB 4.4, it is illegal to project an embedded document with any of the embedded document's fields
-        // (https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Projection-Restrictions). So, Project only sufficient columns.
-        for (MongoColumnHandle column : projectSufficientColumns(columns)) {
-            output.append(column.getQualifiedName(), 1);
-        }
+        Document projection = buildProjection(columns);
+
         MongoCollection<Document> collection = getCollection(tableHandle.getRemoteTableName());
         Document filter = buildFilter(tableHandle);
-        FindIterable<Document> iterable = collection.find(filter).projection(output).collation(SIMPLE_COLLATION);
+        FindIterable<Document> iterable = collection.find(filter).projection(projection).collation(SIMPLE_COLLATION);
         tableHandle.getLimit().ifPresent(iterable::limit);
-        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, output);
+        log.debug("Find documents: collection: %s, filter: %s, projection: %s", tableHandle.getSchemaTableName(), filter, projection);
 
         if (cursorBatchSize != 0) {
             iterable.batchSize(cursorBatchSize);
         }
 
         return iterable.iterator();
+    }
+
+    @VisibleForTesting
+    static Document buildProjection(List<MongoColumnHandle> columns)
+    {
+        Document output = new Document();
+
+        // _id is always projected by mongodb unless its explicitly excluded.
+        // We exclude it explicitly at the start and later include it if its present within columns list.
+        // https://www.mongodb.com/docs/drivers/java/sync/current/fundamentals/builders/projections/#exclusion-of-_id
+        output.append("_id", 0);
+
+        // Starting in MongoDB 4.4, it is illegal to project an embedded document with any of the embedded document's fields
+        // (https://www.mongodb.com/docs/manual/reference/limits/#mongodb-limit-Projection-Restrictions). So, Project only sufficient columns.
+        for (MongoColumnHandle column : projectSufficientColumns(columns)) {
+            output.append(column.getQualifiedName(), 1);
+        }
+
+        return output;
     }
 
     /**
