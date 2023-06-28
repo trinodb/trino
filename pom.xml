@@ -2373,8 +2373,6 @@
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
-                                    <!-- we deliberately use it in a couple of places -->
-                                    -Xep:UnnecessaryLambda:OFF \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnusedVariable:ERROR \
