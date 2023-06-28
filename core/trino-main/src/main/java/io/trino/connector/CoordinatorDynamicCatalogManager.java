@@ -67,6 +67,7 @@ public class CoordinatorDynamicCatalogManager
 
     private final CatalogStore catalogStore;
     private final CatalogFactory catalogFactory;
+    private final CatalogSyncTask catalogSyncTask;
     private final Executor executor;
 
     private final Lock catalogsUpdateLock = new ReentrantLock();
@@ -85,10 +86,11 @@ public class CoordinatorDynamicCatalogManager
     private State state = State.CREATED;
 
     @Inject
-    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory, @ForStartup Executor executor)
+    public CoordinatorDynamicCatalogManager(CatalogStore catalogStore, CatalogFactory catalogFactory, CatalogSyncTask catalogSyncTask, @ForStartup Executor executor)
     {
         this.catalogStore = requireNonNull(catalogStore, "catalogStore is null");
         this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
+        this.catalogSyncTask = requireNonNull(catalogSyncTask, "catalogSyncTask is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -272,6 +274,7 @@ public class CoordinatorDynamicCatalogManager
                     handle -> catalogFactory.createCatalog(catalogProperties));
             activeCatalogs.put(catalogName, catalog.getCatalog());
             catalogStore.addOrReplaceCatalog(catalogProperties);
+            catalogSyncTask.syncCatalogs(ImmutableList.of(catalogProperties));
 
             log.info("Added catalog: %s", catalog.getCatalogHandle());
         }
@@ -323,5 +326,31 @@ public class CoordinatorDynamicCatalogManager
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
+    }
+
+    @Override
+    public void syncCatalogs(List<CatalogProperties> catalogsInCoordinator)
+    {
+        catalogsUpdateLock.lock();
+        try {
+            if (state == State.STOPPED) {
+                return;
+            }
+
+            List<CatalogProperties> missingCatalogs = getMissingCatalogs(catalogsInCoordinator);
+            if (!missingCatalogs.isEmpty()) {
+                log.error("Missing Catalogs: %s", missingCatalogs);
+            }
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    private List<CatalogProperties> getMissingCatalogs(List<CatalogProperties> catalogsInCoordinator)
+    {
+        return catalogsInCoordinator.stream()
+                .filter(catalog -> !activeCatalogs.containsKey(catalog.getCatalogHandle().getCatalogName()))
+                .collect(toImmutableList());
     }
 }

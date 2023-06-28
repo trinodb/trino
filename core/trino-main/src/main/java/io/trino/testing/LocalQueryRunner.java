@@ -13,10 +13,14 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.testing.TestingHttpClient;
+import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -34,8 +38,10 @@ import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.connector.DefaultCatalogFactory;
+import io.trino.connector.DefaultCatalogSyncTask;
 import io.trino.connector.InMemoryCatalogStore;
 import io.trino.connector.LazyCatalogFactory;
+import io.trino.connector.LazyCatalogSyncTask;
 import io.trino.connector.system.AnalyzePropertiesSystemTable;
 import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
@@ -129,6 +135,7 @@ import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.operator.table.ExcludeColumns.ExcludeColumnsFunction;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -231,6 +238,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
@@ -249,6 +257,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createTableProcedu
 import static io.trino.connector.CatalogServiceProviderModule.createTablePropertyManager;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
@@ -257,6 +266,7 @@ import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -320,6 +330,10 @@ public class LocalQueryRunner
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
 
+    private final TrinoNodeServiceSelector selector;
+    private final HttpClient testHttpClient;
+    private final InternalCommunicationConfig internalCommunicationConfig;
+
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public static LocalQueryRunner create(Session defaultSession)
@@ -371,7 +385,8 @@ public class LocalQueryRunner
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
-        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, directExecutor());
+        LazyCatalogSyncTask catalogSyncTask = new LazyCatalogSyncTask();
+        this.catalogManager = new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), catalogFactory, catalogSyncTask, directExecutor());
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -414,6 +429,14 @@ public class LocalQueryRunner
                 transactionManager,
                 typeManager,
                 nodeSchedulerConfig));
+        selector = new TrinoNodeServiceSelector();
+        testHttpClient = new TestingHttpClient(input -> new TestingResponse(OK, ArrayListMultimap.create(), ACTIVE.name().getBytes(UTF_8)));
+        internalCommunicationConfig = new InternalCommunicationConfig();
+        catalogSyncTask.setCatalogSyncTask(new DefaultCatalogSyncTask(
+                nodeInfo,
+                selector,
+                testHttpClient,
+                internalCommunicationConfig));
         this.splitManager = new SplitManager(createSplitManagerProvider(catalogManager), tracer, new QueryManagerConfig());
         this.pageSourceManager = new PageSourceManager(createPageSourceProvider(catalogManager));
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));

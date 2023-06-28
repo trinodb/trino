@@ -88,26 +88,18 @@ public class WorkerDynamicCatalogManager
     @Override
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> expectedCatalogs)
     {
-        if (getMissingCatalogs(expectedCatalogs).isEmpty()) {
+        syncCatalogs(expectedCatalogs);
+    }
+
+    @Override
+    public void syncCatalogs(List<CatalogProperties> catalogsInCoordinator)
+    {
+        List<CatalogProperties> missingCatalogs = getMissingCatalogs(catalogsInCoordinator);
+        if (missingCatalogs.isEmpty()) {
             return;
         }
 
-        catalogsUpdateLock.lock();
-        try {
-            if (stopped) {
-                return;
-            }
-
-            for (CatalogProperties catalog : getMissingCatalogs(expectedCatalogs)) {
-                checkArgument(!catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered");
-                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                catalogs.put(catalog.getCatalogHandle(), newCatalog);
-                log.info("Added catalog: " + catalog.getCatalogHandle());
-            }
-        }
-        finally {
-            catalogsUpdateLock.unlock();
-        }
+        registerMissingCatalogs(missingCatalogs);
     }
 
     @Override
@@ -152,6 +144,26 @@ public class WorkerDynamicCatalogManager
         return expectedCatalogs.stream()
                 .filter(catalog -> !catalogs.containsKey(catalog.getCatalogHandle()))
                 .collect(toImmutableList());
+    }
+
+    private void registerMissingCatalogs(List<CatalogProperties> missingCatalogs)
+    {
+        catalogsUpdateLock.lock();
+        try {
+            if (stopped) {
+                return;
+            }
+
+            for (CatalogProperties catalog : missingCatalogs) {
+                checkArgument(!catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered");
+                CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
+                catalogs.put(catalog.getCatalogHandle(), newCatalog);
+                log.info("Added catalog: " + catalog.getCatalogHandle());
+            }
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
     }
 
     @Override

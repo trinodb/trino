@@ -25,6 +25,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.connector.CatalogProperties;
 import io.trino.execution.FailureInjector;
 import io.trino.execution.FailureInjector.InjectedFailure;
 import io.trino.execution.SqlTaskManager;
@@ -399,6 +400,15 @@ public class TaskResource
     public void pruneCatalogs(Set<CatalogHandle> catalogHandles)
     {
         taskManager.pruneCatalogs(catalogHandles);
+    }
+
+    @ResourceSecurity(INTERNAL_ONLY)
+    @POST
+    @Path("syncCatalogs")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void syncCatalogs(List<CatalogProperties> catalogsInCoordinator)
+    {
+        taskManager.syncCatalogs(catalogsInCoordinator);
     }
 
     private boolean injectFailure(

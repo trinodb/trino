@@ -14,12 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.discovery.client.ServiceDescriptor;
-import io.airlift.discovery.client.ServiceSelector;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
@@ -30,21 +25,17 @@ import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
+import io.trino.testing.TrinoNodeServiceSelector;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.net.URI;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import static io.airlift.discovery.client.ServiceDescriptor.serviceDescriptor;
-import static io.airlift.discovery.client.ServiceSelectorConfig.DEFAULT_POOL;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.metadata.NodeState.ACTIVE;
@@ -229,52 +220,6 @@ public class TestDiscoveryNodeManager
         }
         finally {
             manager.stop();
-        }
-    }
-
-    public static class TrinoNodeServiceSelector
-            implements ServiceSelector
-    {
-        @GuardedBy("this")
-        private List<ServiceDescriptor> descriptors = ImmutableList.of();
-
-        private synchronized void announceNodes(Set<InternalNode> activeNodes, Set<InternalNode> inactiveNodes)
-        {
-            ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
-            for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
-                descriptors.add(serviceDescriptor("trino")
-                        .setNodeId(node.getNodeIdentifier())
-                        .addProperty("http", node.getInternalUri().toString())
-                        .addProperty("node_version", node.getNodeVersion().toString())
-                        .addProperty("coordinator", String.valueOf(node.isCoordinator()))
-                        .build());
-            }
-
-            this.descriptors = descriptors.build();
-        }
-
-        @Override
-        public String getType()
-        {
-            return "trino";
-        }
-
-        @Override
-        public String getPool()
-        {
-            return DEFAULT_POOL;
-        }
-
-        @Override
-        public synchronized List<ServiceDescriptor> selectAllServices()
-        {
-            return descriptors;
-        }
-
-        @Override
-        public ListenableFuture<List<ServiceDescriptor>> refresh()
-        {
-            throw new UnsupportedOperationException();
         }
     }
 }
