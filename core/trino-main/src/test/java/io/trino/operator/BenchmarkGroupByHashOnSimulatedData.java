@@ -464,11 +464,6 @@ public class BenchmarkGroupByHashOnSimulatedData
             this.channels = Arrays.stream(requireNonNull(channels, "channels is null")).collect(toImmutableList());
         }
 
-        public int getPageSize()
-        {
-            return pageSize;
-        }
-
         public List<ChannelDefinition> getChannels()
         {
             return channels;
@@ -611,7 +606,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         // Pollute JVM profile
         BenchmarkGroupByHashOnSimulatedData benchmark = new BenchmarkGroupByHashOnSimulatedData();
         for (WorkType workType : WorkType.values()) {
-            for (double nullChance : new double[] {0, .1, .5, .9}) {
+            for (double nullChance : new double[] {0, 0.1, 0.5, 0.9}) {
                 for (AggregationDefinition query : new AggregationDefinition[] {BIGINT_2_GROUPS, BIGINT_1K_GROUPS, BIGINT_1M_GROUPS}) {
                     BenchmarkContext context = new BenchmarkContext(workType, query, nullChance, 8000);
                     context.setup();

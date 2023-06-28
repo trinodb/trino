@@ -88,7 +88,7 @@ public class CyclingGroupByHash
     }
 
     @Override
-    public long getRawHash(int groupyId)
+    public long getRawHash(int groupId)
     {
         throw new UnsupportedOperationException("Not yet supported");
     }

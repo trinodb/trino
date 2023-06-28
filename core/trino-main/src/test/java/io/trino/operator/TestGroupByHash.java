@@ -32,7 +32,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.TestingSession;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.TypeTestUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -90,22 +89,18 @@ public class TestGroupByHash
 
         public GroupByHash createGroupByHash(int expectedSize, UpdateMemory updateMemory)
         {
-            switch (this) {
-                case BIGINT:
-                    return new BigintGroupByHash(0, true, expectedSize, updateMemory);
-                case MULTI_CHANNEL:
-                    return new MultiChannelGroupByHash(
-                            ImmutableList.of(BigintType.BIGINT),
-                            new int[] {0},
-                            Optional.of(1),
-                            expectedSize,
-                            true,
-                            JOIN_COMPILER,
-                            TYPE_OPERATOR_FACTORY,
-                            updateMemory);
-            }
-
-            throw new UnsupportedOperationException();
+            return switch (this) {
+                case BIGINT -> new BigintGroupByHash(0, true, expectedSize, updateMemory);
+                case MULTI_CHANNEL -> new MultiChannelGroupByHash(
+                        ImmutableList.of(BigintType.BIGINT),
+                        new int[]{0},
+                        Optional.of(1),
+                        expectedSize,
+                        true,
+                        JOIN_COMPILER,
+                        TYPE_OPERATOR_FACTORY,
+                        updateMemory);
+            };
         }
     }
 
@@ -115,8 +110,8 @@ public class TestGroupByHash
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
         for (int tries = 0; tries < 2; tries++) {
             for (int value = 0; value < MAX_GROUP_ID; value++) {
-                Block block = BlockAssertions.createLongsBlock(value);
-                Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+                Block block = createLongsBlock(value);
+                Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
                 Page page = new Page(block, hashBlock);
                 for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
                     groupByHash.addPage(page).process();
@@ -141,8 +136,8 @@ public class TestGroupByHash
     public void testRunLengthEncodedInputPage(GroupByHashType groupByHashType)
     {
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
-        Block block = BlockAssertions.createLongsBlock(0L);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+        Block block = createLongsBlock(0L);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         Page page = new Page(
                 RunLengthEncodedBlock.create(block, 2),
                 RunLengthEncodedBlock.create(hashBlock, 2));
@@ -171,8 +166,8 @@ public class TestGroupByHash
     public void testDictionaryInputPage(GroupByHashType groupByHashType)
     {
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
-        Block block = BlockAssertions.createLongsBlock(0L, 1L);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+        Block block = createLongsBlock(0L, 1L);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
         int[] ids = new int[] {0, 0, 1, 1};
         Page page = new Page(
                 DictionaryBlock.create(ids.length, block, ids),
@@ -222,8 +217,8 @@ public class TestGroupByHash
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
         for (int tries = 0; tries < 2; tries++) {
             for (int value = 0; value < MAX_GROUP_ID; value++) {
-                Block block = BlockAssertions.createLongsBlock(value);
-                Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), block);
+                Block block = createLongsBlock(value);
+                Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), block);
                 Page page = new Page(block, hashBlock);
                 for (int addValuesTries = 0; addValuesTries < 10; addValuesTries++) {
                     Work<int[]> work = groupByHash.getGroupIds(page);
@@ -249,8 +244,8 @@ public class TestGroupByHash
     @Test(dataProvider = "groupByHashType")
     public void testAppendTo(GroupByHashType groupByHashType)
     {
-        Block valuesBlock = BlockAssertions.createLongSequenceBlock(0, 100);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
+        Block valuesBlock = createLongSequenceBlock(0, 100);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
 
         Work<int[]> work = groupByHash.getGroupIds(new Page(valuesBlock, hashBlock));
@@ -283,8 +278,8 @@ public class TestGroupByHash
         for (long i = 0; i < 100; i++) {
             values.add(i % 50);
         }
-        Block valuesBlock = BlockAssertions.createLongsBlock(values);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
+        Block valuesBlock = createLongsBlock(values);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
 
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
@@ -297,23 +292,23 @@ public class TestGroupByHash
         }
         Page outputPage = pageBuilder.build();
         assertEquals(outputPage.getPositionCount(), 50);
-        BlockAssertions.assertBlockEquals(BIGINT, outputPage.getBlock(0), BlockAssertions.createLongSequenceBlock(0, 50));
+        BlockAssertions.assertBlockEquals(BIGINT, outputPage.getBlock(0), createLongSequenceBlock(0, 50));
     }
 
     @Test(dataProvider = "groupByHashType")
     public void testContains(GroupByHashType groupByHashType)
     {
-        Block valuesBlock = BlockAssertions.createLongSequenceBlock(0, 10);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
+        Block valuesBlock = createLongSequenceBlock(0, 10);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
         GroupByHash groupByHash = groupByHashType.createGroupByHash();
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
 
-        Block testBlock = BlockAssertions.createLongsBlock(3);
-        Block testHashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), testBlock);
+        Block testBlock = createLongsBlock(3);
+        Block testHashBlock = getHashBlock(ImmutableList.of(BIGINT), testBlock);
         assertTrue(groupByHash.contains(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
 
-        testBlock = BlockAssertions.createLongsBlock(11);
-        testHashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), testBlock);
+        testBlock = createLongsBlock(11);
+        testHashBlock = getHashBlock(ImmutableList.of(BIGINT), testBlock);
         assertFalse(groupByHash.contains(0, new Page(testBlock, testHashBlock), CONTAINS_CHANNELS));
     }
 
@@ -321,15 +316,15 @@ public class TestGroupByHash
     public void testContainsMultipleColumns()
     {
         Block valuesBlock = BlockAssertions.createDoubleSequenceBlock(0, 10);
-        Block stringValuesBlock = BlockAssertions.createStringSequenceBlock(0, 10);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
+        Block stringValuesBlock = createStringSequenceBlock(0, 10);
+        Block hashBlock = getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), valuesBlock, stringValuesBlock);
         int[] hashChannels = {0, 1};
         GroupByHash groupByHash = createGroupByHash(TEST_SESSION, ImmutableList.of(DOUBLE, VARCHAR), hashChannels, Optional.of(2), 100, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, NOOP);
         groupByHash.getGroupIds(new Page(valuesBlock, stringValuesBlock, hashBlock)).process();
 
         Block testValuesBlock = BlockAssertions.createDoublesBlock((double) 3);
         Block testStringValuesBlock = BlockAssertions.createStringsBlock("3");
-        Block testHashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), testValuesBlock, testStringValuesBlock);
+        Block testHashBlock = getHashBlock(ImmutableList.of(DOUBLE, VARCHAR), testValuesBlock, testStringValuesBlock);
         assertTrue(groupByHash.contains(0, new Page(testValuesBlock, testStringValuesBlock, testHashBlock), hashChannels));
     }
 
@@ -337,14 +332,14 @@ public class TestGroupByHash
     public void testForceRehash(GroupByHashType groupByHashType)
     {
         // Create a page with positionCount >> expected size of groupByHash
-        Block valuesBlock = BlockAssertions.createLongSequenceBlock(0, 100);
-        Block hashBlock = TypeTestUtils.getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
+        Block valuesBlock = createLongSequenceBlock(0, 100);
+        Block hashBlock = getHashBlock(ImmutableList.of(BIGINT), valuesBlock);
 
-        // Create group by hash with extremely small size
+        // Create GroupByHash with tiny size
         GroupByHash groupByHash = groupByHashType.createGroupByHash(4, NOOP);
         groupByHash.getGroupIds(new Page(valuesBlock, hashBlock)).process();
 
-        // Ensure that all groups are present in group by hash
+        // Ensure that all groups are present in GroupByHash
         for (int i = 0; i < valuesBlock.getPositionCount(); i++) {
             assertTrue(groupByHash.contains(i, new Page(valuesBlock, hashBlock), CONTAINS_CHANNELS));
         }
@@ -367,7 +362,7 @@ public class TestGroupByHash
         }
         Block hashBlock = getHashBlock(ImmutableList.of(type), valuesBlock);
 
-        // Create group by hash with extremely small size
+        // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
         GroupByHash groupByHash = createGroupByHash(
                 ImmutableList.of(type),
@@ -576,7 +571,7 @@ public class TestGroupByHash
     @Test
     public void testLowCardinalityDictionariesGetGroupIds()
     {
-        // Compare group id results from page with dictionaries only (processed via low cardinality work) and the same page processed normally
+        // Compare group ids results from page with dictionaries only (processed via low cardinality work) and the same page processed normally
         GroupByHash groupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
@@ -647,7 +642,7 @@ public class TestGroupByHash
 
         work.process();
         int[] results = work.getResult();
-        // Records with group id '0' should come before '1' despite being in the end of the block
+        // Records with group id '0' should come before '1' despite being at the end of the block
         for (int i = 0; i < 16; i++) {
             assertThat(results[i]).isEqualTo(0);
         }
@@ -659,7 +654,7 @@ public class TestGroupByHash
     @Test
     public void testProperWorkTypesSelected()
     {
-        Block bigintBlock = BlockAssertions.createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8);
+        Block bigintBlock = createLongsBlock(1, 2, 3, 4, 5, 6, 7, 8);
         Block bigintDictionaryBlock = BlockAssertions.createLongDictionaryBlock(0, 8);
         Block bigintRleBlock = BlockAssertions.createRepeatedValuesBlock(42, 8);
         Block varcharBlock = BlockAssertions.createStringsBlock("1", "2", "3", "4", "5", "6", "7", "8");
@@ -692,7 +687,7 @@ public class TestGroupByHash
         assertGroupByHashWork(lowCardinalityHugeDictionaryPage, ImmutableList.of(BIGINT, BIGINT), MultiChannelGroupByHash.GetNonDictionaryGroupIdsWork.class);
     }
 
-    private void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
+    private static void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
     {
         GroupByHash groupByHash = createGroupByHash(
                 types,
