@@ -80,7 +80,7 @@ public class MapBlock
                 offsets,
                 keyBlock,
                 valueBlock,
-                new MapHashTables(mapType, mapCount, Optional.empty()));
+                new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, mapCount, Optional.empty()));
     }
 
     /**
@@ -304,7 +304,7 @@ public class MapBlock
     @Override
     protected void ensureHashTableLoaded()
     {
-        hashTables.buildAllHashTablesIfNecessary(DUPLICATE_NOT_CHECKED, getRawKeyBlock(), offsets, mapIsNull);
+        hashTables.buildAllHashTablesIfNecessary(getRawKeyBlock(), offsets, mapIsNull);
     }
 
     @Override

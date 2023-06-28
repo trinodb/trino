@@ -21,6 +21,7 @@ import io.trino.spi.type.MapType;
 import java.util.Optional;
 
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
 
 public class SingleMapBlockEncoding
@@ -92,7 +93,7 @@ public class SingleMapBlockEncoding
                 new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                new MapHashTables(mapType, 1, Optional.ofNullable(hashTable)));
+                new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, 1, Optional.ofNullable(hashTable)));
 
         return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
     }
