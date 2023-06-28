@@ -2321,6 +2321,12 @@ public final class MetadataManager
         return functionResolver.isAggregationFunction(session, toQualifiedFunctionName(name), catalogSchemaFunctionName -> getFunctions(session, catalogSchemaFunctionName));
     }
 
+    @Override
+    public boolean isWindowFunction(Session session, QualifiedName name)
+    {
+        return functionResolver.isWindowFunction(session, toQualifiedFunctionName(name), catalogSchemaFunctionName -> getFunctions(session, catalogSchemaFunctionName));
+    }
+
     private Collection<CatalogFunctionMetadata> getFunctions(Session session, CatalogSchemaFunctionName name)
     {
         if (name.getCatalogName().equals(GlobalSystemConnector.NAME)) {

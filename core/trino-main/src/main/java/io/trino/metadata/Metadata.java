@@ -640,6 +640,8 @@ public interface Metadata
      */
     boolean isAggregationFunction(Session session, QualifiedName name);
 
+    boolean isWindowFunction(Session session, QualifiedName name);
+
     FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
 
     AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction);
