@@ -32,6 +32,7 @@ import static io.trino.spi.block.BlockUtil.countAndMarkSelectedPositionsFromOffs
 import static io.trino.spi.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractMapBlock
@@ -146,7 +147,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, length, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, length, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
@@ -274,7 +275,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, length, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, length, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
@@ -317,7 +318,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, 1, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, DUPLICATE_NOT_CHECKED, 1, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
