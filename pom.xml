@@ -2169,63 +2169,72 @@
                             <DynamicDependency>
                                 <groupId>org.junit.jupiter</groupId>
                                 <artifactId>junit-jupiter-engine</artifactId>
-                                <version>5.3.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>5.3.2</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.junit.jupiter</groupId>
                                 <artifactId>junit-jupiter-params</artifactId>
-                                <version>5.3.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>5.3.2</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.mockito</groupId>
                                 <artifactId>mockito-core</artifactId>
-                                <version>2.28.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>2.28.2</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.powermock</groupId>
                                 <artifactId>powermock-reflect</artifactId>
-                                <version>2.0.5</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>2.0.5</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>junit</groupId>
                                 <artifactId>junit</artifactId>
-                                <version>4.13</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>4.13</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.testng</groupId>
                                 <artifactId>testng</artifactId>
-                                <version>5.10</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>5.10</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.assertj</groupId>
                                 <artifactId>assertj-core</artifactId>
-                                <version>3.9.1</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>3.9.1</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.hamcrest</groupId>
                                 <artifactId>hamcrest-library</artifactId>
-                                <version>1.3</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>1.3</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
                                 <groupId>org.easytesting</groupId>
                                 <artifactId>fest-assert</artifactId>
-                                <version>1.4</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>1.4</version>
                                 <type>pom</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
@@ -2239,7 +2248,8 @@
                             <DynamicDependency>
                                 <groupId>org.junit.platform</groupId>
                                 <artifactId>junit-platform-launcher</artifactId>
-                                <version>1.9.3</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <!-- legacy version which Surefire seems to need for some reason -->
+                                <version>1.9.3</version>
                                 <type>jar</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
@@ -2305,29 +2315,36 @@
                                     -Xep:DefaultCharset:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
                                     -Xep:EmptyBlockTag:ERROR \
-                                    -Xep:EqualsGetClass:OFF <!-- we would rather want the opposite check --> \
+                                    <!-- we would rather want the opposite check -->
+                                    -Xep:EqualsGetClass:OFF \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
-                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection --> \
+                                    <!-- needs some careful inspection -->
+                                    -Xep:GuardedBy:OFF \
                                     -Xep:HidingField:ERROR \
-                                    -Xep:ImmutableEnumChecker:OFF <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives --> \
+                                    <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives -->
+                                    -Xep:ImmutableEnumChecker:OFF \
                                     -Xep:ImmutableSetForContains:ERROR \
-                                    -Xep:InconsistentCapitalization:ERROR <!-- fields/variables should not differ only in case --> \
+                                    <!-- fields/variables should not differ only in case -->
+                                    -Xep:InconsistentCapitalization:ERROR \
                                     -Xep:InconsistentHashCode:ERROR \
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR \
                                     -Xep:MissingCasesInEnumSwitch:ERROR \
                                     -Xep:MissingOverride:ERROR \
-                                    -Xep:MissingSummary:OFF <!-- Sometimes our javadoc contains just a @see directive --> \
+                                    <!-- Sometimes our javadoc contains just a @see directive -->
+                                    -Xep:MissingSummary:OFF \
                                     -Xep:MutablePublicArray:ERROR \
                                     -Xep:NullOptional:ERROR \
                                     -Xep:ObjectToString:ERROR \
                                     -Xep:OptionalNotPresent:ERROR \
                                     -Xep:Overrides:ERROR \
-                                    -Xep:PreferredInterfaceType:OFF <!-- flags List fields even if initialized with ImmutableList --> \
+                                    <!-- flags List fields even if initialized with ImmutableList -->
+                                    -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
-                                    -Xep:UnnecessaryLambda:OFF <!-- we deliberately use it in a couple of places --> \
+                                    <!-- we deliberately use it in a couple of places -->
+                                    -Xep:UnnecessaryLambda:OFF \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     -Xep:UnusedVariable:ERROR \
