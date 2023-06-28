@@ -49,6 +49,34 @@ public class TestMongoSession
     private static final MongoColumnHandle COL5 = createColumnHandle("col5", BIGINT);
     private static final MongoColumnHandle COL6 = createColumnHandle("grandparent", createUnboundedVarcharType(), "parent", "col6");
 
+    private static final MongoColumnHandle ID_COL = new MongoColumnHandle("_id", ImmutableList.of(), ObjectIdType.OBJECT_ID, false, false, Optional.empty());
+
+    @Test
+    public void testBuildProjectionWithoutId()
+    {
+        List<MongoColumnHandle> columns = ImmutableList.of(COL1, COL2);
+
+        Document output = MongoSession.buildProjection(columns);
+        Document expected = new Document()
+                .append(COL1.getBaseName(), 1)
+                .append(COL2.getBaseName(), 1)
+                .append(ID_COL.getBaseName(), 0);
+        assertEquals(output, expected);
+    }
+
+    @Test
+    public void testBuildProjectionWithId()
+    {
+        List<MongoColumnHandle> columns = ImmutableList.of(COL1, COL2, ID_COL);
+
+        Document output = MongoSession.buildProjection(columns);
+        Document expected = new Document()
+                .append(COL1.getBaseName(), 1)
+                .append(COL2.getBaseName(), 1)
+                .append(ID_COL.getBaseName(), 1);
+        assertEquals(output, expected);
+    }
+
     @Test
     public void testBuildQuery()
     {
