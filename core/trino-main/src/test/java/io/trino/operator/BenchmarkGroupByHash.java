@@ -346,7 +346,6 @@ public class BenchmarkGroupByHash
 
         private List<Page> pages;
         private List<Type> types;
-        private int[] channels;
 
         @Setup
         public void setup()
@@ -358,10 +357,6 @@ public class BenchmarkGroupByHash
         {
             pages = createBigintPages(POSITIONS, GROUP_COUNT, channelCount, hashEnabled, useMixedBlockTypes);
             types = Collections.nCopies(1, BIGINT);
-            channels = new int[1];
-            for (int i = 0; i < 1; i++) {
-                channels[i] = i;
-            }
         }
 
         public List<Page> getPages()
@@ -406,16 +401,15 @@ public class BenchmarkGroupByHash
         public void setup()
         {
             switch (dataType) {
-                case "VARCHAR":
+                case "VARCHAR" -> {
                     types = Collections.nCopies(channelCount, VARCHAR);
                     pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled);
-                    break;
-                case "BIGINT":
+                }
+                case "BIGINT" -> {
                     types = Collections.nCopies(channelCount, BIGINT);
                     pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, false);
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported dataType");
+                }
+                default -> throw new UnsupportedOperationException("Unsupported dataType");
             }
             hashChannel = hashEnabled ? Optional.of(channelCount) : Optional.empty();
             channels = new int[channelCount];
