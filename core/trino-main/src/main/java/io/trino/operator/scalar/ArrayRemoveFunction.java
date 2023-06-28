@@ -13,17 +13,16 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -41,12 +40,12 @@ import static io.trino.util.Failures.internalError;
 @Description("Remove specified values from the given array")
 public final class ArrayRemoveFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
 
     @TypeParameter("E")
     public ArrayRemoveFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -56,52 +55,7 @@ public final class ArrayRemoveFunction
                     operator = EQUAL,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalsFunction,
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block array,
-            @SqlType("E") long value)
-    {
-        return remove(equalsFunction, type, array, (Object) value);
-    }
-
-    @TypeParameter("E")
-    @SqlType("array(E)")
-    public Block remove(
-            @OperatorDependency(
-                    operator = EQUAL,
-                    argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalsFunction,
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block array,
-            @SqlType("E") double value)
-    {
-        return remove(equalsFunction, type, array, (Object) value);
-    }
-
-    @TypeParameter("E")
-    @SqlType("array(E)")
-    public Block remove(
-            @OperatorDependency(
-                    operator = EQUAL,
-                    argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalsFunction,
-            @TypeParameter("E") Type type,
-            @SqlType("array(E)") Block array,
-            @SqlType("E") boolean value)
-    {
-        return remove(equalsFunction, type, array, (Object) value);
-    }
-
-    @TypeParameter("E")
-    @SqlType("array(E)")
-    public Block remove(
-            @OperatorDependency(
-                    operator = EQUAL,
-                    argumentTypes = {"E", "E"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equalsFunction,
+                    MethodHandle equalFunction,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block array,
             @SqlType("E") Object value)
@@ -116,7 +70,7 @@ public final class ArrayRemoveFunction
                     positions.add(i);
                     continue;
                 }
-                Boolean result = (Boolean) equalsFunction.invoke(element, value);
+                Boolean result = (Boolean) equalFunction.invoke(element, value);
                 if (result == null) {
                     throw new TrinoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
                 }
@@ -133,16 +87,10 @@ public final class ArrayRemoveFunction
             return array;
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        for (int position : positions) {
-            type.appendTo(array, position, blockBuilder);
-        }
-
-        pageBuilder.declarePositions(positions.size());
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - positions.size(), positions.size());
+        return arrayValueBuilder.build(positions.size(), elementBuilder -> {
+            for (int position : positions) {
+                type.appendTo(array, position, elementBuilder);
+            }
+        });
     }
 }
