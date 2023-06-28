@@ -16,6 +16,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
@@ -575,19 +576,16 @@ public class TestTupleDomainFilterUtils
 
     private static boolean testContains(TupleDomainFilter filter, long value)
     {
-        Block block = BIGINT.createBlockBuilder(null, 1)
-                .writeLong(value)
-                .build();
-        return filter.testContains(block, 0);
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BIGINT.writeLong(blockBuilder, value);
+        return filter.testContains(blockBuilder.build(), 0);
     }
 
     private static boolean testContains(TupleDomainFilter filter, Slice value)
     {
-        Block block = VARCHAR.createBlockBuilder(null, 1)
-                .writeBytes(value, 0, value.length())
-                .closeEntry()
-                .build();
-        return filter.testContains(block, 0);
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        VARCHAR.writeSlice(blockBuilder, value);
+        return filter.testContains(blockBuilder.build(), 0);
     }
 
     private static void verifyFilterValues(List<Long> values, TupleDomainFilter filter, int start, int end)

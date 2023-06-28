@@ -72,11 +72,13 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -87,6 +89,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -255,6 +258,8 @@ public class DecryptingAzureNativeFileSystemStore
 
     private static final int DEFAULT_CONCURRENT_WRITES = 8;
 
+    private static final Charset METADATA_ENCODING = StandardCharsets.UTF_8;
+
     // Concurrent reads reads of data written out of band are disable by default.
     private static final boolean DEFAULT_READ_TOLERATE_CONCURRENT_APPEND = false;
 
@@ -350,6 +355,8 @@ public class DecryptingAzureNativeFileSystemStore
 
     // User-Agent
     private String userAgentId;
+
+    private boolean metadataKeyCaseSensitive;
 
     private BlobEncryptionPolicy downloadPolicy;
 
@@ -536,6 +543,10 @@ public class DecryptingAzureNativeFileSystemStore
         }
         LOG.debug("Atomic rename directories: {} ", setToString(atomicRenameDirs));
 
+        this.metadataKeyCaseSensitive = conf.getBoolean("fs.azure.blob.metadata.key.case.sensitive", true);
+        if (!this.metadataKeyCaseSensitive) {
+            LOG.info("{} configured as false. Blob metadata will be treated case insensitive.", "fs.azure.blob.metadata.key.case.sensitive");
+        }
         String base64MasterKey = getQueryStageMasterKey(conf);
         // client-side decryption
         IKey stageMasterKey = new SymmetricKey(SNOWFLAKE_KEY_ID, Base64.decode(base64MasterKey));
@@ -1406,7 +1417,7 @@ public class DecryptingAzureNativeFileSystemStore
      * Opens a new input stream for the given blob (page or block blob)
      * to read its data.
      */
-    private InputStream openInputStream(CloudBlobWrapper blob)
+    private InputStream openInputStream(CloudBlobWrapper blob, Optional<Configuration> options)
             throws StorageException, IOException
     {
         if (blob instanceof CloudBlockBlobWrapper) {
@@ -1415,7 +1426,8 @@ public class DecryptingAzureNativeFileSystemStore
                 case 1:
                     return blob.openInputStream(getDownloadOptions(), getInstrumentedContext(isConcurrentOOBAppendAllowed()));
                 case 2:
-                    return new BlockBlobInputStream((CloudBlockBlobWrapper) blob, getDownloadOptions(), getInstrumentedContext(isConcurrentOOBAppendAllowed()));
+                    boolean bufferedPreadDisabled = options.map((c) -> c.getBoolean("fs.azure.block.blob.buffered.pread.disable", false)).orElse(false);
+                    return new BlockBlobInputStream((StorageInterface.CloudBlockBlobWrapper) blob, this.getDownloadOptions(), this.getInstrumentedContext(this.isConcurrentOOBAppendAllowed()), bufferedPreadDisabled);
                 default:
                     throw new IOException("Unknown seek algorithm: " + inputStreamVersion);
             }
@@ -2016,6 +2028,13 @@ public class DecryptingAzureNativeFileSystemStore
     public InputStream retrieve(String key, long startByteOffset)
             throws IOException
     {
+        return retrieve(key, startByteOffset, Optional.empty());
+    }
+
+    @Override
+    public InputStream retrieve(String key, long startByteOffset, Optional<Configuration> options)
+            throws IOException
+    {
         try {
             // Check if a session exists, if not create a session with the Azure storage server.
             if (null == storageInteractionLayer) {
@@ -2024,8 +2043,8 @@ public class DecryptingAzureNativeFileSystemStore
             }
             checkContainer(ContainerAccessType.PureRead);
 
-            long unpaddedStreamSize = getUnpaddedStreamSize(key);
-            InputStream inputStream = new BoundedInputStream(openInputStream(getBlobReference(key)), unpaddedStreamSize);
+            long unpaddedStreamSize = getUnpaddedStreamSize(key, options);
+            InputStream inputStream = new BoundedInputStream(openInputStream(getBlobReference(key), options), unpaddedStreamSize);
             if (startByteOffset > 0) {
                 // Skip bytes and ignore return value. This is okay
                 // because if you try to skip too far you will be positioned
@@ -2043,11 +2062,11 @@ public class DecryptingAzureNativeFileSystemStore
         }
     }
 
-    private long getUnpaddedStreamSize(String key)
+    private long getUnpaddedStreamSize(String key, Optional<Configuration> options)
               throws IOException, URISyntaxException, StorageException
     {
         FileMetadata fileMetadata = retrieveMetadata(key);
-        try (InputStream inputStream = openInputStream(getBlobReference(key))) {
+        try (InputStream inputStream = openInputStream(getBlobReference(key), options)) {
             long skipped = inputStream.skip(fileMetadata.getLen() - STREAM_TAIL_SIZE);
             byte[] buffer = new byte[STREAM_TAIL_SIZE];
             int readBytes = inputStream.read(buffer, 0, STREAM_TAIL_SIZE);
@@ -2546,7 +2565,7 @@ public class DecryptingAzureNativeFileSystemStore
                 OutputStream opStream = null;
                 try {
                     if (srcBlob.getProperties().getBlobType() == BlobType.PAGE_BLOB) {
-                        ipStream = openInputStream(srcBlob);
+                        ipStream = openInputStream(srcBlob, Optional.empty());
                         opStream = openOutputStream(dstBlob);
                         byte[] buffer = new byte[PageBlobFormatHelpers.PAGE_SIZE];
                         int len;
@@ -2643,6 +2662,81 @@ public class DecryptingAzureNativeFileSystemStore
             blob.downloadAttributes(getInstrumentedContext());
             storePermissionStatus(blob, newPermission);
             blob.uploadMetadata(getInstrumentedContext());
+        }
+        catch (Exception e) {
+            throw new AzureException(e);
+        }
+    }
+
+    @Override
+    public byte[] retrieveAttribute(String key, String attribute)
+            throws IOException
+    {
+        try {
+            this.checkContainer(ContainerAccessType.PureRead);
+            StorageInterface.CloudBlobWrapper blob = this.getBlobReference(key);
+            blob.downloadAttributes(this.getInstrumentedContext());
+            String value = this.getMetadataAttribute(blob.getMetadata(), ensureValidAttributeName(attribute));
+            value = decodeMetadataAttribute(value);
+            return value == null ? null : value.getBytes(METADATA_ENCODING);
+        }
+        catch (Exception e) {
+            throw new AzureException(e);
+        }
+    }
+
+    private static String ensureValidAttributeName(String attribute)
+    {
+        return attribute.replace('.', '_');
+    }
+
+    private String getMetadataAttribute(HashMap<String, String> metadata, String... keyAlternatives)
+    {
+        if (null == metadata) {
+            return null;
+        }
+        for (String key : keyAlternatives) {
+            if (metadataKeyCaseSensitive) {
+                if (metadata.containsKey(key)) {
+                    return metadata.get(key);
+                }
+            }
+            else {
+                // See HADOOP-17643 for details on why this case-insensitive metadata
+                // checks been added
+                for (Map.Entry<String, String> entry : metadata.entrySet()) {
+                    if (key.equalsIgnoreCase(entry.getKey())) {
+                        return entry.getValue();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String decodeMetadataAttribute(String encoded)
+            throws UnsupportedEncodingException
+    {
+        return encoded == null ? null : URLDecoder.decode(encoded, METADATA_ENCODING.name());
+    }
+
+    private static String encodeMetadataAttribute(String value)
+            throws UnsupportedEncodingException
+    {
+        return value == null ? null : URLEncoder.encode(value, METADATA_ENCODING.name());
+    }
+
+    @Override
+    public void storeAttribute(String key, String attribute, byte[] value)
+            throws IOException
+    {
+        try {
+            this.checkContainer(ContainerAccessType.ReadThenWrite);
+            StorageInterface.CloudBlobWrapper blob = this.getBlobReference(key);
+            blob.downloadAttributes(this.getInstrumentedContext());
+            String encodedValue = encodeMetadataAttribute(new String(value, METADATA_ENCODING));
+            storeMetadataAttribute(blob, ensureValidAttributeName(attribute), encodedValue);
+            blob.uploadMetadata(this.getInstrumentedContext());
         }
         catch (Exception e) {
             throw new AzureException(e);
