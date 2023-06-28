@@ -13,26 +13,25 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 
 @ScalarFunction("reverse")
 @Description("Returns an array which has the reversed order of the given array.")
 public final class ArrayReverseFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
 
     @TypeParameter("E")
     public ArrayReverseFunction(@TypeParameter("E") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("E")
@@ -47,16 +46,10 @@ public final class ArrayReverseFunction
             return block;
         }
 
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        for (int i = arrayLength - 1; i >= 0; i--) {
-            type.appendTo(block, i, blockBuilder);
-        }
-        pageBuilder.declarePositions(arrayLength);
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
+        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            for (int i = arrayLength - 1; i >= 0; i--) {
+                type.appendTo(block, i, elementBuilder);
+            }
+        });
     }
 }
