@@ -107,7 +107,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>json</artifactId>

@@ -40,7 +40,6 @@
             <artifactId>antlr4-runtime</artifactId>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>

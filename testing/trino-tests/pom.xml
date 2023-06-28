@@ -27,7 +27,6 @@
     </properties>
 
     <dependencies>
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>

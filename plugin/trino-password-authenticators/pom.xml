@@ -74,7 +74,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
@@ -111,7 +110,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>

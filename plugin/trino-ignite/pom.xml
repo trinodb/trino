@@ -15,9 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <air.test.jvm.additional-arguments>
-            --add-opens=java.base/java.nio=ALL-UNNAMED
-        </air.test.jvm.additional-arguments>
+        <air.test.jvm.additional-arguments>--add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -92,7 +90,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
@@ -129,7 +126,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
@@ -209,6 +205,5 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 </project>

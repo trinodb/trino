@@ -49,7 +49,6 @@
             <artifactId>guava</artifactId>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
