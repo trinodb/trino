@@ -14,6 +14,7 @@
 
 package io.trino.spi.block;
 
+import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 import jakarta.annotation.Nullable;
 
@@ -34,11 +35,6 @@ public class MapBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(MapBlockBuilder.class);
-
-    private enum HashBuildMode
-    {
-        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
-    }
 
     @Nullable
     private final BlockBuilderStatus blockBuilderStatus;
