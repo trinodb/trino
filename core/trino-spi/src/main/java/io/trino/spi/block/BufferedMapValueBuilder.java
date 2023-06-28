@@ -13,24 +13,18 @@
  */
 package io.trino.spi.block;
 
+import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 
-import java.util.Arrays;
 import java.util.Optional;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class BufferedMapValueBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(BufferedMapValueBuilder.class);
-
-    enum HashBuildMode
-    {
-        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
-    }
 
     private final MapType mapType;
     private final HashBuildMode hashBuildMode;
@@ -105,16 +99,7 @@ public class BufferedMapValueBuilder
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
 
-        // build the hash table
-        int[] table = new int[keyBlock.getPositionCount() * HASH_MULTIPLIER];
-        Arrays.fill(table, -1);
-        MapHashTables hashTables = new MapHashTables(mapType, Optional.of(table));
-        switch (hashBuildMode) {
-            case DUPLICATE_NOT_CHECKED -> hashTables.buildHashTable(keyBlock, 0, keyBlock.getPositionCount());
-            case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlock, 0, keyBlock.getPositionCount());
-            case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlock, 0, keyBlock.getPositionCount());
-        }
-
+        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
         MapBlock mapBlock = MapBlock.createMapBlockInternal(
                 mapType,
                 0,

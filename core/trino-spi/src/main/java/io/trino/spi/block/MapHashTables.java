@@ -25,6 +25,7 @@ import java.util.Optional;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
 
 @ThreadSafe
@@ -32,8 +33,13 @@ public final class MapHashTables
 {
     public static final int INSTANCE_SIZE = instanceSize(MapHashTables.class);
 
-    // inverse of hash fill ratio, must be integer
+    // inverse of the hash fill ratio, must be integer
     static final int HASH_MULTIPLIER = 2;
+
+    enum HashBuildMode
+    {
+        DUPLICATE_NOT_CHECKED, STRICT_EQUALS, STRICT_NOT_DISTINCT_FROM
+    }
 
     private final MapType mapType;
 
@@ -41,6 +47,13 @@ public final class MapHashTables
     @GuardedBy("this")
     @Nullable
     private volatile int[] hashTables;
+
+    static MapHashTables create(HashBuildMode mode, MapType mapType, Block keyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    {
+        MapHashTables hashTables = new MapHashTables(mapType, Optional.empty());
+        hashTables.buildAllHashTables(mode, keyBlock, offsets, mapIsNull);
+        return hashTables;
+    }
 
     MapHashTables(MapType mapType, Optional<int[]> hashTables)
     {
@@ -92,11 +105,11 @@ public final class MapHashTables
     {
         // this is double checked locking
         if (hashTables == null) {
-            buildAllHashTables(rawKeyBlock, offsets, mapIsNull);
+            buildAllHashTables(DUPLICATE_NOT_CHECKED, rawKeyBlock, offsets, mapIsNull);
         }
     }
 
-    private synchronized void buildAllHashTables(Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
+    private synchronized void buildAllHashTables(HashBuildMode mode, Block rawKeyBlock, int[] offsets, @Nullable boolean[] mapIsNull)
     {
         if (hashTables != null) {
             return;
@@ -115,7 +128,11 @@ public final class MapHashTables
             if (mapIsNull != null && mapIsNull[i] && keyCount != 0) {
                 throw new IllegalArgumentException("A null map must have zero entries");
             }
-            buildHashTableInternal(rawKeyBlock, keyOffset, keyCount, hashTables);
+            switch (mode) {
+                case DUPLICATE_NOT_CHECKED -> buildHashTableInternal(rawKeyBlock, keyOffset, keyCount, hashTables);
+                case STRICT_EQUALS -> buildHashTableStrictInternal(rawKeyBlock, keyOffset, keyCount, hashTables);
+                case STRICT_NOT_DISTINCT_FROM -> buildDistinctHashTableStrictInternal(rawKeyBlock, keyOffset, keyCount, hashTables);
+            }
         }
         this.hashTables = hashTables;
     }
@@ -161,6 +178,12 @@ public final class MapHashTables
             throw new IllegalStateException("hashTables not set");
         }
 
+        buildHashTableStrictInternal(keyBlock, keyOffset, keyCount, hashTables);
+        this.hashTables = hashTables;
+    }
+
+    private void buildHashTableStrictInternal(Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
@@ -200,7 +223,6 @@ public final class MapHashTables
                 }
             }
         }
-        this.hashTables = hashTables;
     }
 
     /**
@@ -214,6 +236,12 @@ public final class MapHashTables
             throw new IllegalStateException("hashTables not set");
         }
 
+        buildDistinctHashTableStrictInternal(keyBlock, keyOffset, keyCount, hashTables);
+        this.hashTables = hashTables;
+    }
+
+    private void buildDistinctHashTableStrictInternal(Block keyBlock, int keyOffset, int keyCount, int[] hashTables)
+    {
         int hashTableOffset = keyOffset * HASH_MULTIPLIER;
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
@@ -251,7 +279,6 @@ public final class MapHashTables
                 }
             }
         }
-        this.hashTables = hashTables;
     }
 
     private int getHashPosition(Block keyBlock, int position, int hashTableSize)

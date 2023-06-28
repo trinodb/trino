@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.block.BufferedMapValueBuilder.HashBuildMode;
+import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 
 public interface MapValueBuilder<E extends Throwable>
