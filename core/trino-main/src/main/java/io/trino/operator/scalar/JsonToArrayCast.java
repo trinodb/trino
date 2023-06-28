@@ -106,7 +106,8 @@ public class JsonToArrayCast
             if (jsonParser.nextToken() != null) {
                 throw new JsonCastException(format("Unexpected trailing token: %s", jsonParser.getText()));
             }
-            return arrayType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+            Block block = blockBuilder.build();
+            return arrayType.getObject(block, 0);
         }
         catch (TrinoException | JsonCastException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", arrayType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
