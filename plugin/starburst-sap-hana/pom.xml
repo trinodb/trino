@@ -190,6 +190,13 @@
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-trino-testing</artifactId>
             <scope>test</scope>
+            <exclusions>
+                <!-- conflicts with the non-shaded classes in ngdbc -->
+                <exclusion>
+                    <groupId>org.lz4</groupId>
+                    <artifactId>lz4-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
