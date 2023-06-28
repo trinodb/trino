@@ -20,7 +20,6 @@
     </properties>
 
     <dependencies>
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>

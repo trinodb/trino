@@ -97,7 +97,6 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
@@ -110,7 +109,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
@@ -147,12 +145,10 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- for testing -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
-
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
@@ -166,7 +162,6 @@
             <artifactId>trino-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
-
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
@@ -179,7 +174,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
             <scope>test</scope>
-
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
