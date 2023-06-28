@@ -2350,6 +2350,7 @@
                                     -Xep:EqualsGetClass:OFF \
                                     -Xep:EqualsIncompatibleType:ERROR \
                                     -Xep:FallThrough:ERROR \
+                                    -Xep:GetClassOnEnum:ERROR \
                                     <!-- needs some careful inspection -->
                                     -Xep:GuardedBy:OFF \
                                     -Xep:HidingField:ERROR \
