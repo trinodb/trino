@@ -13,19 +13,18 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import com.google.re2j.Matcher;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.ArrayType;
 import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
@@ -36,7 +35,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 @Description("Replaces substrings matching a regular expression using a lambda function")
 public final class Re2JRegexpReplaceLambdaFunction
 {
-    private final PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(VARCHAR));
+    private final BufferedArrayValueBuilder arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(VARCHAR));
 
     @LiteralParameters("x")
     @SqlType("varchar")
@@ -54,13 +53,6 @@ public final class Re2JRegexpReplaceLambdaFunction
 
         SliceOutput output = new DynamicSliceOutput(source.length());
 
-        // Prepare a BlockBuilder that will be used to create the target block
-        // that will be passed to the lambda function.
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
         int groupCount = matcher.groupCount();
         int appendPosition = 0;
 
@@ -75,17 +67,17 @@ public final class Re2JRegexpReplaceLambdaFunction
             appendPosition = end;
 
             // Append the capturing groups to the target block that will be passed to lambda
-            for (int i = 1; i <= groupCount; i++) {
-                Slice matchedGroupSlice = matcher.group(i);
-                if (matchedGroupSlice != null) {
-                    VARCHAR.writeSlice(blockBuilder, matchedGroupSlice);
+            Block target = arrayValueBuilder.build(groupCount, elementBuilder -> {
+                for (int i = 1; i <= groupCount; i++) {
+                    Slice matchedGroupSlice = matcher.group(i);
+                    if (matchedGroupSlice != null) {
+                        VARCHAR.writeSlice(elementBuilder, matchedGroupSlice);
+                    }
+                    else {
+                        elementBuilder.appendNull();
+                    }
                 }
-                else {
-                    blockBuilder.appendNull();
-                }
-            }
-            pageBuilder.declarePositions(groupCount);
-            Block target = blockBuilder.getRegion(blockBuilder.getPositionCount() - groupCount, groupCount);
+            });
 
             // Call the lambda function to replace the block, and append the result to output
             Slice replaced = (Slice) replaceFunction.apply(target);

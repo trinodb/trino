@@ -13,18 +13,17 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 
@@ -43,14 +42,14 @@ import static io.trino.util.Failures.checkCondition;
 @Description("Sorts the given array with a lambda comparator.")
 public final class ArraySortComparatorFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
     private static final int INITIAL_LENGTH = 128;
     private List<Integer> positions = Ints.asList(new int[INITIAL_LENGTH]);
 
     @TypeParameter("T")
     public ArraySortComparatorFunction(@TypeParameter("T") Type elementType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(elementType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered(new ArrayType(elementType));
     }
 
     @TypeParameter("T")
@@ -78,7 +77,11 @@ public final class ArraySortComparatorFunction
 
         sortPositions(arrayLength, comparator);
 
-        return computeResultBlock(type, block, arrayLength);
+        return arrayValueBuilder.build(arrayLength, elementBuilder -> {
+            for (int i = 0; i < arrayLength; i++) {
+                type.appendTo(block, positions.get(i), elementBuilder);
+            }
+        });
     }
 
     private void initPositionsList(int arrayLength)
@@ -101,22 +104,6 @@ public final class ArraySortComparatorFunction
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Lambda comparator violates the comparator contract", e);
         }
-    }
-
-    private Block computeResultBlock(Type type, Block block, int arrayLength)
-    {
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-
-        for (int i = 0; i < arrayLength; ++i) {
-            type.appendTo(block, positions.get(i), blockBuilder);
-        }
-        pageBuilder.declarePositions(arrayLength);
-
-        return blockBuilder.getRegion(blockBuilder.getPositionCount() - arrayLength, arrayLength);
     }
 
     private static int comparatorResult(Long result)
