@@ -208,7 +208,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Trino -->
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-array</artifactId>
@@ -761,7 +760,6 @@
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- Trino external -->
             <dependency>
                 <groupId>io.trino.benchto</groupId>
                 <artifactId>benchto-driver</artifactId>
@@ -853,7 +851,6 @@
                 <version>1.2</version>
             </dependency>
 
-            <!-- Airlift -->
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor</artifactId>
@@ -964,7 +961,6 @@
                 <version>1.6</version>
             </dependency>
 
-            <!-- 3rd party -->
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>

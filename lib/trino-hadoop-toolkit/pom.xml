@@ -17,7 +17,6 @@
     </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
