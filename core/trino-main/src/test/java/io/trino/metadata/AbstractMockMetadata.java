@@ -787,6 +787,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean isWindowFunction(Session session, QualifiedName name)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         BoundSignature signature = resolvedFunction.getSignature();

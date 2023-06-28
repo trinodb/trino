@@ -780,6 +780,12 @@ public class CountingAccessMetadata
     }
 
     @Override
+    public boolean isWindowFunction(Session session, QualifiedName name)
+    {
+        return delegate.isWindowFunction(session, name);
+    }
+
+    @Override
     public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         return delegate.getFunctionMetadata(session, resolvedFunction);
