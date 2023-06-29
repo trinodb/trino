@@ -24,6 +24,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
@@ -55,6 +56,8 @@ import java.util.stream.IntStream;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -114,9 +117,9 @@ public class BenchmarkGroupByHash
         }
     }
 
-    private static List<Page> createBigintPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, boolean useMixedBlockTypes)
+    private static List<Page> createIntegerPages(int positionCount, int groupCount, int channelCount, boolean hashEnabled, Type type, boolean useMixedBlockTypes)
     {
-        List<Type> types = Collections.nCopies(channelCount, BIGINT);
+        List<Type> types = Collections.nCopies(channelCount, type);
         ImmutableList.Builder<Page> pages = ImmutableList.builder();
         if (hashEnabled) {
             types = ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT)));
@@ -128,7 +131,7 @@ public class BenchmarkGroupByHash
             int rand = ThreadLocalRandom.current().nextInt(groupCount);
             pageBuilder.declarePosition();
             for (int numChannel = 0; numChannel < channelCount; numChannel++) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
+                type.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
             }
             if (hashEnabled) {
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash(rand));
@@ -210,8 +213,8 @@ public class BenchmarkGroupByHash
         @Param({"true", "false"})
         private boolean hashEnabled;
 
-        @Param({"VARCHAR", "BIGINT"})
-        private String dataType = "VARCHAR";
+        @Param({StandardTypes.DATE, StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.SMALLINT, StandardTypes.TINYINT, StandardTypes.VARCHAR})
+        private String dataType = StandardTypes.VARCHAR;
 
         private List<Page> pages;
         private List<Type> types;
@@ -220,13 +223,21 @@ public class BenchmarkGroupByHash
         public void setup()
         {
             switch (dataType) {
-                case "VARCHAR" -> {
+                case StandardTypes.VARCHAR -> {
                     types = Collections.nCopies(channelCount, VARCHAR);
                     pages = createVarcharPages(POSITIONS, groupCount, channelCount, hashEnabled);
                 }
-                case "BIGINT" -> {
+                case StandardTypes.BIGINT, StandardTypes.INTEGER, StandardTypes.DATE -> {
                     types = Collections.nCopies(channelCount, BIGINT);
-                    pages = createBigintPages(POSITIONS, groupCount, channelCount, hashEnabled, false);
+                    pages = createIntegerPages(POSITIONS, groupCount, channelCount, hashEnabled, BIGINT, false);
+                }
+                case StandardTypes.SMALLINT -> {
+                    types = Collections.nCopies(channelCount, SMALLINT);
+                    pages = createIntegerPages(POSITIONS, Short.MAX_VALUE, channelCount, hashEnabled, SMALLINT, false);
+                }
+                case StandardTypes.TINYINT -> {
+                    types = Collections.nCopies(channelCount, TINYINT);
+                    pages = createIntegerPages(POSITIONS, Byte.MAX_VALUE, channelCount, hashEnabled, TINYINT, false);
                 }
                 default -> throw new UnsupportedOperationException("Unsupported dataType");
             }

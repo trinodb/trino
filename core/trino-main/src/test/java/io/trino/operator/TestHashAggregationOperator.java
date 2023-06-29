@@ -304,7 +304,7 @@ public class TestHashAggregationOperator
         Operator operator = operatorFactory.createOperator(driverContext);
         toPages(operator, input.iterator(), revokeMemoryWhenAddingPages);
         // TODO (https://github.com/trinodb/trino/issues/10596): it should be 0, since operator is finished
-        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(spillEnabled && revokeMemoryWhenAddingPages ? 4752672 : 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(spillEnabled && revokeMemoryWhenAddingPages ? 4752680 : 0);
         assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes()).isEqualTo(0);
     }
 
