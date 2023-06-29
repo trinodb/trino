@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
+import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -125,6 +126,7 @@ public class TestCachingHiveMetastore
     private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
 
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
+            .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(2398040535435L), OptionalLong.empty(), OptionalLong.empty()))
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
             .build();
     private static final SchemaTableName TEST_SCHEMA_TABLE = new SchemaTableName(TEST_DATABASE, TEST_TABLE);
@@ -573,6 +575,22 @@ public class TestCachingHiveMetastore
         assertThat(metastore.getTableStatistics(tableCol23).getColumnStatistics())
                 .containsEntry("col2", intColumnStats(2))
                 .containsEntry("col3", intColumnStats(3));
+
+        metastore.getTableStatistics(table); // ensure cached
+        assertEquals(mockClient.getAccessCount(), 5);
+        ColumnStatisticsData newStats = new ColumnStatisticsData();
+        newStats.setLongStats(new LongColumnStatsData(327843, 4324));
+        mockClient.mockColumnStats(TEST_DATABASE, TEST_TABLE, ImmutableMap.of(TEST_COLUMN, newStats));
+        metastore.invalidateTable(TEST_DATABASE, TEST_TABLE);
+        assertEquals(metastore.getTableStatistics(table), PartitionStatistics.builder()
+                .setBasicStatistics(TEST_STATS.getBasicStatistics())
+                .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(
+                        OptionalLong.empty(),
+                        OptionalLong.empty(),
+                        OptionalLong.of(newStats.getLongStats().getNumNulls()),
+                        OptionalLong.of(newStats.getLongStats().getNumDVs() - 1))))
+                .build());
+        assertEquals(mockClient.getAccessCount(), 6);
     }
 
     @Test

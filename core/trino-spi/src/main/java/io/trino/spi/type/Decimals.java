@@ -16,6 +16,7 @@ package io.trino.spi.type;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlockBuilder;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -253,7 +254,7 @@ public final class Decimals
 
     public static void writeShortDecimal(BlockBuilder blockBuilder, long value)
     {
-        blockBuilder.writeLong(value).closeEntry();
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(value);
     }
 
     public static long rescale(long value, int fromScale, int toScale)

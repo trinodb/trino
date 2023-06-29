@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake.statistics;
 
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
@@ -21,14 +22,17 @@ public interface ExtendedStatisticsAccess
 {
     Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation);
 
     void updateExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation,
             ExtendedStatistics statistics);
 
     void deleteExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation);
 }

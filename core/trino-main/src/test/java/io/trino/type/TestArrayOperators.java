@@ -20,8 +20,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Collections;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -119,9 +119,12 @@ public class TestArrayOperators
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
-        BlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(1).writeLong(2).build());
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 1).writeLong(3).build());
+        ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
+        expectedBlockBuilder.buildEntry(elementBuilder -> {
+            BIGINT.writeLong(elementBuilder, 1);
+            BIGINT.writeLong(elementBuilder, 2);
+        });
+        expectedBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 3));
         Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
         writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);

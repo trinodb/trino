@@ -168,7 +168,6 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
-import static io.trino.filesystem.Locations.getParent;
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.INCREMENTAL;
@@ -846,8 +845,8 @@ public class DeltaLakeMetadata
 
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         // As a precaution, clear the caches
-        statisticsAccess.invalidateCache(location);
-        transactionLogAccess.invalidateCaches(location);
+        statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
+        transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
         metastore.createTable(
                 session,
                 table,
@@ -1049,7 +1048,8 @@ public class DeltaLakeMetadata
                 .map(dataFileInfoCodec::fromJson)
                 .collect(toImmutableList());
 
-        Table table = buildTable(session, schemaTableName(schemaName, tableName), location, handle.isExternal());
+        SchemaTableName schemaTableName = schemaTableName(schemaName, tableName);
+        Table table = buildTable(session, schemaTableName, location, handle.isExternal());
         // Ensure the table has queryId set. This is relied on for exception handling
         String queryId = session.getQueryId();
         verify(
@@ -1096,6 +1096,7 @@ public class DeltaLakeMetadata
                 updateTableStatistics(
                         session,
                         Optional.empty(),
+                        schemaTableName,
                         location,
                         maxFileModificationTime,
                         computedStatistics,
@@ -1105,8 +1106,8 @@ public class DeltaLakeMetadata
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
 
             // As a precaution, clear the caches
-            statisticsAccess.invalidateCache(location);
-            transactionLogAccess.invalidateCaches(location);
+            statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
+            transactionLogAccess.invalidateCache(schemaTableName, Optional.of(location));
             try {
                 metastore.createTable(session, table, principalPrivileges);
             }
@@ -1439,8 +1440,7 @@ public class DeltaLakeMetadata
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             return new DeltaLakeInsertTableHandle(
-                    table.getSchemaName(),
-                    table.getTableName(),
+                    table.getSchemaTableName(),
                     tableLocation,
                     table.getMetadataEntry(),
                     inputColumns,
@@ -1510,7 +1510,7 @@ public class DeltaLakeMetadata
 
             transactionLogWriter.flush();
             writeCommitted = true;
-            writeCheckpointIfNeeded(session, new SchemaTableName(handle.getSchemaName(), handle.getTableName()), handle.getLocation(), checkpointInterval, commitVersion);
+            writeCheckpointIfNeeded(session, handle.getTableName(), handle.getLocation(), checkpointInterval, commitVersion);
 
             if (isCollectExtendedStatisticsColumnStatisticsOnWrite(session) && !computedStatistics.isEmpty() && !dataFileInfos.isEmpty()) {
                 // TODO (https://github.com/trinodb/trino/issues/16088) Add synchronization when version conflict for INSERT is resolved.
@@ -1521,6 +1521,7 @@ public class DeltaLakeMetadata
                 updateTableStatistics(
                         session,
                         Optional.empty(),
+                        handle.getTableName(),
                         handle.getLocation(),
                         maxFileModificationTime,
                         computedStatistics,
@@ -1903,7 +1904,7 @@ public class DeltaLakeMetadata
     private boolean allowWrite(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         try {
-            String tableMetadataDirectory = appendPath(getParent(tableHandle.getLocation()), tableHandle.getTableName());
+            String tableMetadataDirectory = getTransactionLogDir(tableHandle.getLocation());
             boolean requiresOptIn = transactionLogWriterFactory.newWriter(session, tableMetadataDirectory).isUnsafe();
             return !requiresOptIn || unsafeWritesEnabled;
         }
@@ -2047,8 +2048,8 @@ public class DeltaLakeMetadata
             }
         }
         // As a precaution, clear the caches
-        statisticsAccess.invalidateCache(handle.location());
-        transactionLogAccess.invalidateCaches(handle.location());
+        statisticsAccess.invalidateCache(handle.schemaTableName(), Optional.of(handle.location()));
+        transactionLogAccess.invalidateCache(handle.schemaTableName(), Optional.of(handle.location()));
     }
 
     @Override
@@ -2555,7 +2556,7 @@ public class DeltaLakeMetadata
 
         Optional<ExtendedStatistics> statistics = Optional.empty();
         if (analyzeMode == INCREMENTAL) {
-            statistics = statisticsAccess.readExtendedStatistics(session, handle.getLocation());
+            statistics = statisticsAccess.readExtendedStatistics(session, handle.getSchemaTableName(), handle.getLocation());
         }
 
         Optional<Instant> alreadyAnalyzedModifiedTimeMax = statistics.map(ExtendedStatistics::getAlreadyAnalyzedModifiedTimeMax);
@@ -2635,7 +2636,7 @@ public class DeltaLakeMetadata
         Optional<Set<String>> analyzeColumnNames = Optional.empty();
         String tableLocation = getLocation(tableMetadata.getProperties());
         if (tableLocation != null) {
-            analyzeColumnNames = statisticsAccess.readExtendedStatistics(session, tableLocation)
+            analyzeColumnNames = statisticsAccess.readExtendedStatistics(session, tableMetadata.getTable(), tableLocation)
                     .flatMap(ExtendedStatistics::getAnalyzedColumns);
         }
 
@@ -2703,6 +2704,7 @@ public class DeltaLakeMetadata
         updateTableStatistics(
                 session,
                 Optional.of(analyzeHandle),
+                tableHandle.getSchemaTableName(),
                 tableHandle.getLocation(),
                 maxFileModificationTime,
                 computedStatistics,
@@ -2712,6 +2714,7 @@ public class DeltaLakeMetadata
     private void updateTableStatistics(
             ConnectorSession session,
             Optional<AnalyzeHandle> analyzeHandle,
+            SchemaTableName schemaTableName,
             String location,
             Optional<Instant> maxFileModificationTime,
             Collection<ComputedStatistics> computedStatistics,
@@ -2720,7 +2723,7 @@ public class DeltaLakeMetadata
         Optional<ExtendedStatistics> oldStatistics = Optional.empty();
         boolean loadExistingStats = analyzeHandle.isEmpty() || analyzeHandle.get().getAnalyzeMode() == INCREMENTAL;
         if (loadExistingStats) {
-            oldStatistics = statisticsAccess.readExtendedStatistics(session, location);
+            oldStatistics = statisticsAccess.readExtendedStatistics(session, schemaTableName, location);
         }
 
         // more elaborate logic for handling statistics model evaluation may need to be introduced in the future
@@ -2783,7 +2786,7 @@ public class DeltaLakeMetadata
                 mergedColumnStatistics,
                 analyzedColumns);
 
-        statisticsAccess.updateExtendedStatistics(session, location, mergedExtendedStatistics);
+        statisticsAccess.updateExtendedStatistics(session, schemaTableName, location, mergedExtendedStatistics);
     }
 
     private static String toPhysicalColumnName(String columnName, Optional<Map<String, String>> physicalColumnNameMapping)

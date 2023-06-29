@@ -1558,6 +1558,7 @@ The following file types and formats are supported for the Iceberg connector:
 
 * ORC
 * Parquet
+* Avro
 
 ORC format configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^

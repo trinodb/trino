@@ -84,6 +84,8 @@ configured connector to create a catalog named ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: query-comment-format.fragment
+
 .. |default_domain_compaction_threshold| replace:: ``1000``
 .. include:: jdbc-domain-compaction-threshold.fragment
 

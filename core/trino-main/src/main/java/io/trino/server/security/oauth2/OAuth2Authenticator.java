@@ -71,10 +71,10 @@ public class OAuth2Authenticator
         }
 
         TokenPair tokenPair = deserializeToken.get();
-        if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
+        if (tokenPair.expiration().before(Date.from(Instant.now()))) {
             return Optional.empty();
         }
-        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.getAccessToken());
+        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.accessToken());
         if (claims.isEmpty()) {
             return Optional.empty();
         }

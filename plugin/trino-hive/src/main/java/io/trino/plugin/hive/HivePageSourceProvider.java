@@ -150,9 +150,6 @@ public class HivePageSourceProvider
 
         Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(hiveSplit.getPath()));
 
-        TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
-                .getCurrentPredicate()
-                .transformKeys(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,
@@ -164,7 +161,9 @@ public class HivePageSourceProvider
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(simplifiedDynamicFilter),
+                hiveTable.getCompactEffectivePredicate().intersect(
+                                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
+                        .simplify(domainCompactionThreshold),
                 hiveColumns,
                 typeManager,
                 hiveSplit.getBucketConversion(),
@@ -212,8 +211,10 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
+        HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
+
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager, timestampPrecision);
 
             Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
                     configuration,
@@ -245,13 +246,13 @@ public class HivePageSourceProvider
                         bucketValidator,
                         adapter,
                         typeManager,
-                        getTimestampPrecision(session),
+                        timestampPrecision,
                         pageSource));
             }
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, false, typeManager);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, false, typeManager, timestampPrecision);
             Optional<ReaderRecordCursorWithProjections> readerWithProjections = provider.createRecordCursor(
                     configuration,
                     session,
@@ -546,7 +547,7 @@ public class HivePageSourceProvider
                     .collect(toImmutableList());
         }
 
-        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager)
+        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
@@ -562,14 +563,14 @@ public class HivePageSourceProvider
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
-                                    fromHiveType.getType(typeManager));
+                                    fromHiveType.getType(typeManager, timestampPrecision));
                         });
 
                         return new HiveColumnHandle(
                                 columnHandle.getBaseColumnName(),
                                 columnHandle.getBaseHiveColumnIndex(),
                                 fromHiveTypeBase,
-                                fromHiveTypeBase.getType(typeManager),
+                                fromHiveTypeBase.getType(typeManager, timestampPrecision),
                                 newColumnProjectionInfo,
                                 columnHandle.getColumnType(),
                                 columnHandle.getComment());

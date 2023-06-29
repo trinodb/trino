@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -36,6 +35,7 @@ import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.JsonUtil.createJsonParser;
@@ -118,7 +118,7 @@ public final class JsonExtract
 {
     private static final int ESTIMATED_JSON_OUTPUT_SIZE = 512;
 
-    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+    private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
             .disable(CANONICALIZE_FIELD_NAMES)
             .build();
 

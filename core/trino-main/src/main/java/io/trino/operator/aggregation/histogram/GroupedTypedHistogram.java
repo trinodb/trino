@@ -18,6 +18,7 @@ import io.trino.array.LongBigArray;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -171,15 +172,11 @@ public class GroupedTypedHistogram
             out.appendNull();
         }
         else {
-            BlockBuilder blockBuilder = out.beginBlockEntry();
-
-            iterateGroupNodes(currentGroupId, nodePointer -> {
+            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> iterateGroupNodes(currentGroupId, nodePointer -> {
                 checkArgument(nodePointer != NULL, "should never see null here as we exclude in iterateGroupNodesCall");
                 ValueNode valueNode = bucketNodeFactory.createValueNode(nodePointer);
-                valueNode.writeNodeAsBlock(values, blockBuilder);
-            });
-
-            out.closeEntry();
+                valueNode.writeNodeAsBlock(values, keyBuilder, valueBuilder);
+            }));
         }
     }
 
@@ -384,10 +381,10 @@ public class GroupedTypedHistogram
          *
          * @param valuesBlock - values.build() is called externally
          */
-        void writeNodeAsBlock(Block valuesBlock, BlockBuilder outputBlockBuilder)
+        void writeNodeAsBlock(Block valuesBlock, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
         {
-            type.appendTo(valuesBlock, getValuePosition(), outputBlockBuilder);
-            BIGINT.writeLong(outputBlockBuilder, getCount());
+            type.appendTo(valuesBlock, getValuePosition(), keyBuilder);
+            BIGINT.writeLong(valueBuilder, getCount());
         }
     }
 

@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.trino.metadata.AnalyzeMetadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -2184,48 +2185,56 @@ public class Analysis
 
             private Builder() {}
 
+            @CanIgnoreReturnValue
             public Builder withArgumentName(String argumentName)
             {
                 this.argumentName = argumentName;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withName(QualifiedName name)
             {
                 this.name = Optional.of(name);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withRelation(Relation relation)
             {
                 this.relation = relation;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPartitionBy(List<Expression> partitionBy)
             {
                 this.partitionBy = Optional.of(partitionBy);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withOrderBy(OrderBy orderBy)
             {
                 this.orderBy = Optional.of(orderBy);
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPruneWhenEmpty(boolean pruneWhenEmpty)
             {
                 this.pruneWhenEmpty = pruneWhenEmpty;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withRowSemantics(boolean rowSemantics)
             {
                 this.rowSemantics = rowSemantics;
                 return this;
             }
 
+            @CanIgnoreReturnValue
             public Builder withPassThroughColumns(boolean passThroughColumns)
             {
                 this.passThroughColumns = passThroughColumns;

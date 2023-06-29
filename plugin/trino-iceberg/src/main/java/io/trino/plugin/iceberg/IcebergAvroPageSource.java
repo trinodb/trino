@@ -38,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.serializeToTrinoBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergAvroPageSource
@@ -131,7 +132,7 @@ public class IcebergAvroPageSource
             Record record = recordIterator.next();
             for (int channel = 0; channel < columnTypes.size(); channel++) {
                 if (isIndexColumn(channel)) {
-                    pageBuilder.getBlockBuilder(channel).writeLong(rowId);
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(channel), rowId);
                 }
                 else {
                     String name = columnNames.get(channel);

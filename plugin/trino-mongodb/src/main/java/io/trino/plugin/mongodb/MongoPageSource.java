@@ -21,13 +21,18 @@ import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
@@ -56,8 +61,6 @@ import static io.trino.plugin.mongodb.MongoSession.ID;
 import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static io.trino.plugin.mongodb.TypeUtils.isArrayType;
 import static io.trino.plugin.mongodb.TypeUtils.isJsonType;
-import static io.trino.plugin.mongodb.TypeUtils.isMapType;
-import static io.trino.plugin.mongodb.TypeUtils.isRowType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -275,85 +278,77 @@ public class MongoPageSource
     private void writeBlock(BlockBuilder output, Type type, Object value)
     {
         if (isArrayType(type)) {
-            if (value instanceof List<?>) {
-                BlockBuilder builder = output.beginBlockEntry();
-
-                ((List<?>) value).forEach(element ->
-                        appendTo(type.getTypeParameters().get(0), element, builder));
-
-                output.closeEntry();
+            if (value instanceof List<?> list) {
+                ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> list.forEach(element -> appendTo(type.getTypeParameters().get(0), element, elementBuilder)));
                 return;
             }
         }
-        else if (isMapType(type)) {
+        else if (type instanceof MapType mapType) {
             if (value instanceof List<?>) {
-                BlockBuilder builder = output.beginBlockEntry();
-                for (Object element : (List<?>) value) {
-                    if (!(element instanceof Map<?, ?> document)) {
-                        continue;
-                    }
+                ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Object element : (List<?>) value) {
+                        if (!(element instanceof Map<?, ?> document)) {
+                            continue;
+                        }
 
-                    if (document.containsKey("key") && document.containsKey("value")) {
-                        appendTo(type.getTypeParameters().get(0), document.get("key"), builder);
-                        appendTo(type.getTypeParameters().get(1), document.get("value"), builder);
+                        if (document.containsKey("key") && document.containsKey("value")) {
+                            appendTo(mapType.getKeyType(), document.get("key"), keyBuilder);
+                            appendTo(mapType.getValueType(), document.get("value"), valueBuilder);
+                        }
                     }
-                }
-
-                output.closeEntry();
+                });
                 return;
             }
             if (value instanceof Map<?, ?> document) {
-                BlockBuilder builder = output.beginBlockEntry();
-                for (Map.Entry<?, ?> entry : document.entrySet()) {
-                    appendTo(type.getTypeParameters().get(0), entry.getKey(), builder);
-                    appendTo(type.getTypeParameters().get(1), entry.getValue(), builder);
-                }
-                output.closeEntry();
+                ((MapBlockBuilder) output).buildEntry((keyBuilder, valueBuilder) -> {
+                    for (Map.Entry<?, ?> entry : document.entrySet()) {
+                        appendTo(mapType.getKeyType(), entry.getKey(), keyBuilder);
+                        appendTo(mapType.getValueType(), entry.getValue(), valueBuilder);
+                    }
+                });
                 return;
             }
         }
-        else if (isRowType(type)) {
+        else if (type instanceof RowType rowType) {
             if (value instanceof Map<?, ?> mapValue) {
-                BlockBuilder builder = output.beginBlockEntry();
-
-                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                    String fieldName = parameter.getNamedTypeSignature().getName().orElse("field" + i);
-                    appendTo(type.getTypeParameters().get(i), mapValue.get(fieldName), builder);
-                }
-                output.closeEntry();
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                        TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                        String fieldName = parameter.getNamedTypeSignature().getName().orElse("field" + i);
+                        appendTo(type.getTypeParameters().get(i), mapValue.get(fieldName), fieldBuilders.get(i));
+                    }
+                });
                 return;
             }
             if (value instanceof DBRef dbRefValue) {
-                BlockBuilder builder = output.beginBlockEntry();
-
                 checkState(type.getTypeParameters().size() == 3, "DBRef should have 3 fields : %s", type);
-                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                    Type fieldType = type.getTypeParameters().get(i);
-                    String fieldName = parameter.getNamedTypeSignature().getName().orElseThrow();
-                    switch (fieldName) {
-                        case DATABASE_NAME -> appendTo(fieldType, dbRefValue.getDatabaseName(), builder);
-                        case COLLECTION_NAME -> appendTo(fieldType, dbRefValue.getCollectionName(), builder);
-                        case ID -> appendTo(fieldType, dbRefValue.getId(), builder);
-                        default -> throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected field name for DBRef: " + fieldName);
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
+                        TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
+                        Type fieldType = type.getTypeParameters().get(i);
+                        String fieldName = parameter.getNamedTypeSignature().getName().orElseThrow();
+                        BlockBuilder builder = fieldBuilders.get(i);
+                        switch (fieldName) {
+                            case DATABASE_NAME -> appendTo(fieldType, dbRefValue.getDatabaseName(), builder);
+                            case COLLECTION_NAME -> appendTo(fieldType, dbRefValue.getCollectionName(), builder);
+                            case ID -> appendTo(fieldType, dbRefValue.getId(), builder);
+                            default -> throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected field name for DBRef: " + fieldName);
+                        }
                     }
-                }
-
-                output.closeEntry();
+                });
                 return;
             }
             if (value instanceof List<?> listValue) {
-                BlockBuilder builder = output.beginBlockEntry();
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    if (index < listValue.size()) {
-                        appendTo(type.getTypeParameters().get(index), listValue.get(index), builder);
+                ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                    for (int index = 0; index < type.getTypeParameters().size(); index++) {
+                        if (index < listValue.size()) {
+                            appendTo(type.getTypeParameters().get(index), listValue.get(index), fieldBuilders.get(index));
+                        }
+                        else {
+                            fieldBuilders.get(index).appendNull();
+                        }
                     }
-                    else {
-                        builder.appendNull();
-                    }
-                }
-                output.closeEntry();
+                });
                 return;
             }
         }

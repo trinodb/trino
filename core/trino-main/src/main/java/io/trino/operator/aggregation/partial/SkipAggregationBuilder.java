@@ -165,13 +165,4 @@ public class SkipAggregationBuilder
         }
         return new Page(page.getPositionCount(), outputBlocks);
     }
-
-    private static long[] consecutive(int positionCount)
-    {
-        long[] longs = new long[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            longs[i] = i;
-        }
-        return longs;
-    }
 }

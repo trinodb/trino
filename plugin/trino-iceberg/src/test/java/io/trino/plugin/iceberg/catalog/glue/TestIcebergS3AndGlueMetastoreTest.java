@@ -14,12 +14,10 @@
 package io.trino.plugin.iceberg.catalog.glue;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
@@ -28,24 +26,22 @@ import java.util.stream.Collectors;
 
 import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergS3AndGlueMetastoreTest
         extends BaseS3AndGlueMetastoreTest
 {
-    @Parameters("s3.bucket")
-    public TestIcebergS3AndGlueMetastoreTest(String bucketName)
+    public TestIcebergS3AndGlueMetastoreTest()
     {
-        super("partitioning", "location", bucketName);
+        super("partitioning", "location", requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set"));
     }
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(TrinoFileSystemCache.INSTANCE::closeAll);
-
         metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
@@ -81,15 +77,15 @@ public class TestIcebergS3AndGlueMetastoreTest
     }
 
     @Override
-    protected void validateTableLocation(String tableName, String location)
+    protected String validateTableLocation(String tableName, String expectedLocation)
     {
-        if (location.endsWith("/")) {
-            //Iceberg removes trailing slash from location, and it's expected.
-            assertThat(getTableLocation(tableName) + "/").isEqualTo(location);
+        // Iceberg removes trailing slashes from location, and it's expected.
+        if (expectedLocation.endsWith("/")) {
+            expectedLocation = expectedLocation.replaceFirst("/+$", "");
         }
-        else {
-            assertThat(getTableLocation(tableName)).isEqualTo(location);
-        }
+        String actualTableLocation = getTableLocation(tableName);
+        assertThat(actualTableLocation).isEqualTo(expectedLocation);
+        return actualTableLocation;
     }
 
     private Set<String> getAllMetadataDataFilesFromTableDirectory(String tableLocation)
@@ -108,35 +104,34 @@ public class TestIcebergS3AndGlueMetastoreTest
     }
 
     @Test(dataProvider = "locationPatternsDataProvider")
-    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, String locationPattern)
+    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_analyze_" + randomNameSuffix();
-        String location = locationPattern.formatted(bucketName, schemaName, tableName);
+        String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
         String partitionQueryPart = (partitioned ? ",partitioning = ARRAY['col_str']" : "");
 
         assertUpdate("CREATE TABLE " + tableName + "(col_str, col_int)" +
                 "WITH (location = '" + location + "'" + partitionQueryPart + ") " +
                 "AS VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
+        try (UncheckedCloseable ignored = onClose("DROP TABLE " + tableName)) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
+            assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('str4', 4)", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3), ('str4', 4)");
+            String expectedStatistics = """
+                    VALUES
+                    ('col_str', null, 4.0, 0.0, null, null, null),
+                    ('col_int', null, 4.0, 0.0, null, 1, 4),
+                    (null, null, null, null, 4.0, null, null)""";
 
-        String expectedStatistics = """
-                VALUES
-                ('col_str', null, 4.0, 0.0, null, null, null),
-                ('col_int', null, 4.0, 0.0, null, 1, 4),
-                (null, null, null, null, 4.0, null, null)""";
+            // Check extended statistics collection on write
+            assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
 
-        //Check extended statistics collection on write
-        assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
-
-        // drop stats
-        assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
-        //Check extended statistics collection explicitly
-        assertUpdate("ANALYZE " + tableName);
-        assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
-
-        assertUpdate("DROP TABLE " + tableName);
+            // drop stats
+            assertUpdate("ALTER TABLE " + tableName + " EXECUTE DROP_EXTENDED_STATS");
+            // Check extended statistics collection explicitly
+            assertUpdate("ANALYZE " + tableName);
+            assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
+        }
     }
 
     @Test
@@ -170,14 +165,14 @@ public class TestIcebergS3AndGlueMetastoreTest
         String qualifiedTableName = schemaName + "." + tableName;
 
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
-        assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
+        try (UncheckedCloseable ignored = onClose("DROP SCHEMA " + schemaName)) {
+            assertThat(getSchemaLocation(schemaName)).isEqualTo(schemaLocation);
 
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)"))
-                .hasMessageContaining("location contains a fragment");
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)"))
+                    .hasMessageContaining("location contains a fragment");
 
-        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + " AS SELECT * FROM tpch.tiny.nation"))
-                .hasMessageContaining("location contains a fragment");
-
-        assertUpdate("DROP SCHEMA " + schemaName);
+            assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + qualifiedTableName + " AS SELECT * FROM tpch.tiny.nation"))
+                    .hasMessageContaining("location contains a fragment");
+        }
     }
 }

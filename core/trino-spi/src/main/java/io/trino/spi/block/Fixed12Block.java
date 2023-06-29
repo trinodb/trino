@@ -255,14 +255,10 @@ public class Fixed12Block
      */
     public static void encodeFixed12(long first, int second, int[] values, int position)
     {
-        encodeFirst(first, values, position);
-        values[position * 3 + 2] = second;
-    }
-
-    static void encodeFirst(long first, int[] values, int position)
-    {
-        values[(position * 3)] = (int) first;
-        values[(position * 3) + 1] = (int) (first >>> 32);
+        int entryPosition = position * 3;
+        values[entryPosition] = (int) first;
+        values[entryPosition + 1] = (int) (first >>> 32);
+        values[entryPosition + 2] = second;
     }
 
     /**

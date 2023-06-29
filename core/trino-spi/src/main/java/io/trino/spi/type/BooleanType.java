@@ -134,7 +134,7 @@ public final class BooleanType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeByte(block.getByte(position, 0)).closeEntry();
+            ((ByteArrayBlockBuilder) blockBuilder).writeByte(block.getByte(position, 0));
         }
     }
 
@@ -147,7 +147,7 @@ public final class BooleanType
     @Override
     public void writeBoolean(BlockBuilder blockBuilder, boolean value)
     {
-        blockBuilder.writeByte(value ? 1 : 0).closeEntry();
+        ((ByteArrayBlockBuilder) blockBuilder).writeByte((byte) (value ? 1 : 0));
     }
 
     @Override

@@ -60,6 +60,7 @@ public final class IdentifierMappingModule
         // CachingIdentifierMapping instance is bind only when case insensitive name matching is enabled.
         // As it's required for cache flush procedure we provide Optional binding by default.
         newOptionalBinder(binder, CachingIdentifierMapping.class);
+        newOptionalBinder(binder, RemoteIdentifierSupplier.class).setDefault().to(DatabaseMetaDataRemoteIdentifierSupplier.class).in(SINGLETON);
         if (config.isCaseInsensitiveNameMatching()) {
             Provider<JdbcClient> baseJdbcClientProvider = binder.getProvider(Key.get(JdbcClient.class, ForBaseJdbc.class));
             binder.bind(BaseJdbcClient.class).toProvider(() -> (BaseJdbcClient) baseJdbcClientProvider.get());

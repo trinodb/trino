@@ -203,23 +203,28 @@ public abstract class BaseHiveConnectorTest
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
     }
 
-    protected static QueryRunner createHiveQueryRunner(Map<String, String> extraProperties, Consumer<QueryRunner> additionalSetup)
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return createHiveQueryRunner(HiveQueryRunner.builder());
+    }
+
+    protected static QueryRunner createHiveQueryRunner(HiveQueryRunner.Builder<?> builder)
             throws Exception
     {
         // Use faster compression codec in tests. TODO remove explicit config when default changes
         verify(new HiveConfig().getHiveCompressionCodec() == HiveCompressionOption.GZIP);
         String hiveCompressionCodec = HiveCompressionCodec.ZSTD.name();
 
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
-                .setExtraProperties(extraProperties)
-                .setAdditionalSetup(additionalSetup)
-                .setHiveProperties(ImmutableMap.of(
-                        "hive.compression-codec", hiveCompressionCodec,
-                        "hive.allow-register-partition-procedure", "true",
-                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
-                        "hive.writer-sort-buffer-size", "1MB",
-                        // Make weighted split scheduling more conservative to avoid OOMs in test
-                        "hive.minimum-assigned-split-weight", "0.5"))
+        DistributedQueryRunner queryRunner = builder
+                .addHiveProperty("hive.compression-codec", hiveCompressionCodec)
+                .addHiveProperty("hive.allow-register-partition-procedure", "true")
+                // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
+                // Make weighted split scheduling more conservative to avoid OOMs in test
+                .addHiveProperty("hive.minimum-assigned-split-weight", "0.5")
+                .addHiveProperty("hive.partition-projection-enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setTpchBucketedCatalogEnabled(true)
                 .build();
@@ -4334,6 +4339,33 @@ public abstract class BaseHiveConnectorTest
         assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
     }
 
+    @Test
+    public void testShowCreateTableWithColumnProperties()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_show_create_table_with_column_properties",
+                "(a INT, b INT WITH (partition_projection_type = 'INTEGER', partition_projection_range = ARRAY['0', '10'])) " +
+                        "WITH (" +
+                        "    partition_projection_enabled = true," +
+                        "    partitioned_by = ARRAY['b']," +
+                        "    partition_projection_location_template = 's3://example/${b}')")) {
+            String result = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertEquals(
+                    result,
+                    "CREATE TABLE hive.tpch." + table.getName() + " (\n" +
+                            "   a integer,\n" +
+                            "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
+                            ")\n" +
+                            "WITH (\n" +
+                            "   format = 'ORC',\n" +
+                            "   partition_projection_enabled = true,\n" +
+                            "   partition_projection_location_template = 's3://example/${b}',\n" +
+                            "   partitioned_by = ARRAY['b']\n" +
+                            ")");
+        }
+    }
+
     private void testCreateExternalTable(
             String tableName,
             String fileContents,
@@ -5087,6 +5119,30 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testAvroTimestampUpCasting()
+    {
+        @Language("SQL") String createTable = "CREATE TABLE test_avro_timestamp_upcasting WITH (format = 'AVRO') AS SELECT TIMESTAMP '1994-09-27 11:23:45.678' my_timestamp";
+
+        //avro only stores as millis
+        assertUpdate(createTable, 1);
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MILLISECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.MICROSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000')");
+
+        // access with multiple precisions
+        assertQuery(withTimestampPrecision(getSession(), HiveTimestampPrecision.NANOSECONDS),
+                "SELECT * from test_avro_timestamp_upcasting",
+                "VALUES (TIMESTAMP '1994-09-27 11:23:45.678000000')");
+    }
+
+    @Test
     public void testOrderByChar()
     {
         assertUpdate("CREATE TABLE char_order_by (c_char char(2))");
@@ -5503,10 +5559,10 @@ public abstract class BaseHiveConnectorTest
         // eg. table column: a row(c varchar, b bigint), partition column: a row(b bigint, c varchar)
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate("INSERT INTO evolve_test values (2, row('def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row('def', 2), 2)", 1);
             assertQueryFails("SELECT a.b FROM evolve_test where d = 1", ".*There is a mismatch between the table and partition schemas.*");
         }
         finally {
@@ -5517,10 +5573,10 @@ public abstract class BaseHiveConnectorTest
         // i.e. "a.c" produces null for rows that were inserted before type of "a" was changed
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def'), 2)", 1);
             assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
         }
         finally {
@@ -5530,10 +5586,10 @@ public abstract class BaseHiveConnectorTest
         // Verify field access when the row evolves without changes to field type
         try {
             assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
-            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("INSERT INTO evolve_test values (10, row(1, 'abc'), 1)", 1);
             assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertUpdate("INSERT INTO evolve_test values (20, row(2, 'def', 2), 2)", 1);
             assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
         }
         finally {
@@ -5545,7 +5601,7 @@ public abstract class BaseHiveConnectorTest
     public void testSubfieldReordering()
     {
         // Validate for formats for which subfield access is name based
-        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET);
+        List<HiveStorageFormat> formats = ImmutableList.of(HiveStorageFormat.ORC, HiveStorageFormat.PARQUET, HiveStorageFormat.AVRO);
 
         for (HiveStorageFormat format : formats) {
             // Subfields reordered in the file are read correctly. e.g. if partition column type is row(b bigint, c varchar) but the file

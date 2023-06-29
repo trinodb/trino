@@ -42,6 +42,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -1416,7 +1417,9 @@ public class TestHiveGlueMetastore
 
     private Block singleValueBlock(long value)
     {
-        return BigintType.BIGINT.createBlockBuilder(null, 1).writeLong(value).build();
+        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
+        BIGINT.writeLong(blockBuilder, value);
+        return blockBuilder.build();
     }
 
     private void doGetPartitionsFilterTest(

@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Int128ArrayBlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
@@ -129,9 +130,7 @@ public final class DecimalSumAggregation
             long rawLow = decimal[offset + 1];
 
             Decimals.throwIfOverflows(rawHigh, rawLow);
-            out.writeLong(rawHigh);
-            out.writeLong(rawLow);
-            out.closeEntry();
+            ((Int128ArrayBlockBuilder) out).writeInt128(rawHigh, rawLow);
         }
         else {
             out.appendNull();

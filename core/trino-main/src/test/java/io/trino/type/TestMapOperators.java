@@ -1662,22 +1662,22 @@ public class TestMapOperators
 
         // invalid invocation
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[('a', 1), ('a', 2)]").evaluate())
-                .hasMessage("Duplicate keys (a) are not allowed");
+                .hasMessage("Duplicate map keys (a) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(1, 1), (1, 2)]").evaluate())
-                .hasMessage("Duplicate keys (1) are not allowed");
+                .hasMessage("Duplicate map keys (1) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(1.0, 1), (1.0, 2)]").evaluate())
-                .hasMessage("Duplicate keys (1.0) are not allowed");
+                .hasMessage("Duplicate map keys (1.0) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(ARRAY[1, 2], 1), (ARRAY[1, 2], 2)]").evaluate())
-                .hasMessage("Duplicate keys ([1, 2]) are not allowed");
+                .hasMessage("Duplicate map keys ([1, 2]) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(MAP(ARRAY[1], ARRAY[2]), 1), (MAP(ARRAY[1], ARRAY[2]), 2)]").evaluate())
-                .hasMessage("Duplicate keys ({1=2}) are not allowed");
+                .hasMessage("Duplicate map keys ({1=2}) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(NaN(), 1), (NaN(), 2)]").evaluate())
-                .hasMessage("Duplicate keys (NaN) are not allowed");
+                .hasMessage("Duplicate map keys (NaN) are not allowed");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("map_from_entries", "ARRAY[(null, 1), (null, 2)]").evaluate())
                 .hasMessage("map key cannot be null");

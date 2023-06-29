@@ -11,15 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.spi.block;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import io.trino.spi.block.BufferedMapValueBuilder.HashBuildMode;
+import io.trino.spi.type.MapType;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.PARAMETER)
-public @interface NullablePosition
+public interface MapValueBuilder<E extends Throwable>
 {
+    static <E extends Throwable> Block buildMapValue(MapType mapType, int entryCount, MapValueBuilder<E> builder)
+            throws E
+    {
+        return new BufferedMapValueBuilder(mapType, HashBuildMode.DUPLICATE_NOT_CHECKED, entryCount)
+                .build(entryCount, builder);
+    }
+
+    void build(BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+            throws E;
 }

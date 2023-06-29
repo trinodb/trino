@@ -481,6 +481,93 @@ public class TestHashDistributionSplitAssigner
                 .run();
     }
 
+    @Test
+    public void testCreateOutputPartitionToTaskPartitionWithMinTaskCount()
+    {
+        // without enforcing minTaskCount we should get only 2 tasks
+        testPartitionMapping()
+                .withSplitPartitionCount(8)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(10, 10, 10, 10, 10, 10, 10, 10))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0, 1, 2, 3, 4), 1),
+                        new PartitionMapping(ImmutableSet.of(5, 6, 7), 1))
+                .run();
+
+        // enforce at least 4 tasks
+        testPartitionMapping()
+                .withSplitPartitionCount(8)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(10, 10, 10, 10, 10, 10, 10, 10))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withTargetMinTaskCount(4)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0, 1), 1),
+                        new PartitionMapping(ImmutableSet.of(2, 3), 1),
+                        new PartitionMapping(ImmutableSet.of(4, 5), 1),
+                        new PartitionMapping(ImmutableSet.of(6, 7), 1))
+                .run();
+
+        // skewed partitions sizes - no minTaskCount enforcement
+        testPartitionMapping()
+                .withSplitPartitionCount(8)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 10, 1, 1, 1, 1, 1))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0, 1, 2, 3, 4, 5, 6, 7), 1))
+                .run();
+
+        // skewed partitions sizes - request at least 4 tasks
+        // with skew it is expected that we are getting 3 as minTaskCount is only used to compute target partitionSize
+        testPartitionMapping()
+                .withSplitPartitionCount(8)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(1, 1, 10, 1, 1, 1, 1, 1))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withTargetMinTaskCount(4)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0, 1, 3, 4), 1),
+                        new PartitionMapping(ImmutableSet.of(2), 1),
+                        new PartitionMapping(ImmutableSet.of(5, 6, 7), 1))
+                .run();
+
+        // 2 partitions merged
+        testPartitionMapping()
+                .withSplitPartitionCount(2)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(10, 10))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0, 1), 1))
+                .run();
+
+        // request 4 tasks when we only have 2 partitions only gets us 2 tasks.
+        testPartitionMapping()
+                .withSplitPartitionCount(2)
+                .withPartitionedSources(PARTITIONED_1)
+                .withSourceDataSizeEstimates(ImmutableMap.of(
+                        PARTITIONED_1, new OutputDataSizeEstimate(ImmutableLongArray.of(10, 10))))
+                .withTargetPartitionSizeInBytes(50)
+                .withMergeAllowed(true)
+                .withTargetMinTaskCount(4)
+                .withExpectedMappings(
+                        new PartitionMapping(ImmutableSet.of(0), 1),
+                        new PartitionMapping(ImmutableSet.of(1), 1))
+                .run();
+    }
+
     private static ListMultimap<Integer, Split> createSplitMap(Split... splits)
     {
         return Arrays.stream(splits)
@@ -543,6 +630,7 @@ public class TestHashDistributionSplitAssigner
         private int splitPartitionCount;
         private Optional<List<InternalNode>> partitionToNodeMap = Optional.empty();
         private long targetPartitionSizeInBytes;
+        private int taskTargetMinCount;
         private int taskTargetMaxCount = Integer.MAX_VALUE;
         private Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates = ImmutableMap.of();
         private Set<PlanNodeId> splittableSources = ImmutableSet.of();
@@ -623,6 +711,7 @@ public class TestHashDistributionSplitAssigner
                     partitionedSources,
                     sourceDataSizeEstimates,
                     targetPartitionSizeInBytes,
+                    taskTargetMinCount,
                     taskTargetMaxCount,
                     splittableSources::contains,
                     mergeAllowed);
@@ -710,6 +799,7 @@ public class TestHashDistributionSplitAssigner
         private int splitPartitionCount;
         private Optional<List<InternalNode>> partitionToNodeMap = Optional.empty();
         private long targetPartitionSizeInBytes;
+        private int targetMinTaskCount;
         private Map<PlanNodeId, OutputDataSizeEstimate> sourceDataSizeEstimates = ImmutableMap.of();
         private Set<PlanNodeId> splittableSources = ImmutableSet.of();
         private boolean mergeAllowed;
@@ -736,6 +826,12 @@ public class TestHashDistributionSplitAssigner
         public PartitionMappingTester withTargetPartitionSizeInBytes(long targetPartitionSizeInBytes)
         {
             this.targetPartitionSizeInBytes = targetPartitionSizeInBytes;
+            return this;
+        }
+
+        public PartitionMappingTester withTargetMinTaskCount(int targetMinTaskCount)
+        {
+            this.targetMinTaskCount = targetMinTaskCount;
             return this;
         }
 
@@ -771,6 +867,7 @@ public class TestHashDistributionSplitAssigner
                     partitionedSources,
                     sourceDataSizeEstimates,
                     targetPartitionSizeInBytes,
+                    targetMinTaskCount,
                     Integer.MAX_VALUE,
                     splittableSources::contains,
                     mergeAllowed);

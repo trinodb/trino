@@ -6681,6 +6681,14 @@ public class TestAnalyzer
                 .hasMessage("line 1:15: JSON_TABLE is not yet supported");
     }
 
+    @Test
+    public void testDisallowAggregationFunctionInUnnest()
+    {
+        assertFails("SELECT a FROM (VALUES (1), (2)) t(a), UNNEST(ARRAY[COUNT(t.a)])")
+                .hasErrorCode(EXPRESSION_NOT_SCALAR)
+                .hasMessage("line 1:46: UNNEST cannot contain aggregations, window functions or grouping operations: [COUNT(t.a)]");
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -6733,13 +6741,6 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         ColumnMetadata.builder().setName("x").setType(BIGINT).setHidden(true).build())),
-                false));
-
-        // table in different catalog
-        SchemaTableName table4 = new SchemaTableName("s2", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG,
-                new ConnectorTableMetadata(table4, ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT))),
                 false));
 
         // table with a hidden column
@@ -6802,16 +6803,6 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Optional.of(Identity.ofUser("user")));
         inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
-
-        // view referencing table in different schema from itself and session
-        ViewDefinition viewData3 = new ViewDefinition(
-                "select a from t4",
-                Optional.of(SECOND_CATALOG),
-                Optional.of("s2"),
-                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId(), Optional.empty())),
-                Optional.of("comment"),
-                Optional.of(Identity.ofUser("owner")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
 
         // valid view with uppercase column name
         ViewDefinition viewData4 = new ViewDefinition(

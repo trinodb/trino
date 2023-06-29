@@ -19,8 +19,10 @@ import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -42,6 +44,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -191,25 +194,21 @@ public class PrometheusRecordCursor
                 .collect(Collectors.toList());
     }
 
-    static Block getBlockFromMap(Type mapType, Map<?, ?> map)
+    static Block getBlockFromMap(Type type, Map<?, ?> map)
     {
         // on functions like COUNT() the Type won't be a MapType
-        if (!(mapType instanceof MapType)) {
+        if (!(type instanceof MapType mapType)) {
             return null;
         }
-        Type keyType = mapType.getTypeParameters().get(0);
-        Type valueType = mapType.getTypeParameters().get(1);
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
 
-        BlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 1);
-        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
-
-        for (Map.Entry<?, ?> entry : map.entrySet()) {
-            writeObject(builder, keyType, entry.getKey());
-            writeObject(builder, valueType, entry.getValue());
-        }
-
-        mapBlockBuilder.closeEntry();
-        return (Block) mapType.getObject(mapBlockBuilder, 0);
+        return buildMapValue(mapType, map.size(), (keyBuilder, valueBuilder) -> {
+            map.forEach((key, value) -> {
+                writeObject(keyBuilder, keyType, key);
+                writeObject(valueBuilder, valueType, value);
+            });
+        });
     }
 
     static Map<Object, Object> getMapFromBlock(Type type, Block block)
@@ -228,19 +227,19 @@ public class PrometheusRecordCursor
     {
         if (type instanceof ArrayType arrayType) {
             Type elementType = arrayType.getElementType();
-            BlockBuilder arrayBuilder = builder.beginBlockEntry();
-            for (Object item : (List<?>) obj) {
-                writeObject(arrayBuilder, elementType, item);
-            }
-            builder.closeEntry();
+            ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                for (Object item : (List<?>) obj) {
+                    writeObject(elementBuilder, elementType, item);
+                }
+            });
         }
         else if (type instanceof MapType mapType) {
-            BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
-            for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-                writeObject(mapBlockBuilder, mapType.getKeyType(), entry.getKey());
-                writeObject(mapBlockBuilder, mapType.getValueType(), entry.getValue());
-            }
-            builder.closeEntry();
+            ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
+                    writeObject(keyBuilder, mapType.getKeyType(), entry.getKey());
+                    writeObject(valueBuilder, mapType.getValueType(), entry.getValue());
+                }
+            });
         }
         else {
             if (BOOLEAN.equals(type)

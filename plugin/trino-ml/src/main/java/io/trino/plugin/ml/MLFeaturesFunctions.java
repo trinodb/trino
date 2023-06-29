@@ -14,14 +14,14 @@
 package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
@@ -38,189 +38,180 @@ public final class MLFeaturesFunctions
     @ScalarFunction("features")
     public static class Features1
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features1(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1)
         {
-            return featuresHelper(pageBuilder, f1);
+            return featuresHelper(mapValueBuilder, f1);
         }
     }
 
     @ScalarFunction("features")
     public static class Features2
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features2(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
         {
-            return featuresHelper(pageBuilder, f1, f2);
+            return featuresHelper(mapValueBuilder, f1, f2);
         }
     }
 
     @ScalarFunction("features")
     public static class Features3
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features3(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3);
+            return featuresHelper(mapValueBuilder, f1, f2, f3);
         }
     }
 
     @ScalarFunction("features")
     public static class Features4
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features4(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4);
         }
     }
 
     @ScalarFunction("features")
     public static class Features5
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features5(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5);
         }
     }
 
     @ScalarFunction("features")
     public static class Features6
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features6(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5, f6);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6);
         }
     }
 
     @ScalarFunction("features")
     public static class Features7
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features7(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5, f6, f7);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7);
         }
     }
 
     @ScalarFunction("features")
     public static class Features8
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features8(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5, f6, f7, f8);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8);
         }
     }
 
     @ScalarFunction("features")
     public static class Features9
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features9(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9);
         }
     }
 
     @ScalarFunction("features")
     public static class Features10
     {
-        private final PageBuilder pageBuilder;
+        private final BufferedMapValueBuilder mapValueBuilder;
 
         public Features10(@TypeParameter(MAP_BIGINT_DOUBLE) Type mapType)
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(mapType));
+            mapValueBuilder = BufferedMapValueBuilder.createBuffered((MapType) mapType);
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
         public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2, @SqlType(StandardTypes.DOUBLE) double f3, @SqlType(StandardTypes.DOUBLE) double f4, @SqlType(StandardTypes.DOUBLE) double f5, @SqlType(StandardTypes.DOUBLE) double f6, @SqlType(StandardTypes.DOUBLE) double f7, @SqlType(StandardTypes.DOUBLE) double f8, @SqlType(StandardTypes.DOUBLE) double f9, @SqlType(StandardTypes.DOUBLE) double f10)
         {
-            return featuresHelper(pageBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
+            return featuresHelper(mapValueBuilder, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
         }
     }
 
-    private static Block featuresHelper(PageBuilder pageBuilder, double... features)
+    private static Block featuresHelper(BufferedMapValueBuilder mapValueBuilder, double... features)
     {
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
-
-        BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
-
-        for (int i = 0; i < features.length; i++) {
-            BigintType.BIGINT.writeLong(blockBuilder, i);
-            DoubleType.DOUBLE.writeDouble(blockBuilder, features[i]);
-        }
-
-        mapBlockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-        return mapBlockBuilder.getObject(mapBlockBuilder.getPositionCount() - 1, Block.class);
+        return mapValueBuilder.build(features.length, (keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < features.length; i++) {
+                BigintType.BIGINT.writeLong(keyBuilder, i);
+                DoubleType.DOUBLE.writeDouble(valueBuilder, features[i]);
+            }
+        });
     }
 }

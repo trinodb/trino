@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.metastore.glue;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.hdfs.TrinoFileSystemCache;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.testing.DistributedQueryRunner;
@@ -42,8 +41,6 @@ public class TestDeltaS3AndGlueMetastoreTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        closeAfterClass(TrinoFileSystemCache.INSTANCE::closeAll);
-
         metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
         DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder()
                 .setCatalogName(DELTA_CATALOG)

@@ -24,7 +24,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.StandardTypes.MAP;
@@ -95,7 +95,7 @@ class ValidationHash
             return new ValidationHash(TIMESTAMP_HASH);
         }
 
-        return new ValidationHash(VALIDATION_TYPE_OPERATORS_CACHE.getHashCodeOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+        return new ValidationHash(VALIDATION_TYPE_OPERATORS_CACHE.getHashCodeOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
     }
 
     private final MethodHandle hashCodeOperator;

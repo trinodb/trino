@@ -28,7 +28,6 @@ import java.sql.Timestamp;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.SQL_SERVER;
@@ -50,6 +49,7 @@ import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.TIMESTAMP;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSelect
         extends ProductTest

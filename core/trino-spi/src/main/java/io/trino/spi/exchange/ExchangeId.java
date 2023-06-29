@@ -25,7 +25,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
-@Experimental(eta = "2023-01-01")
+@Experimental(eta = "2023-09-01")
 public class ExchangeId
 {
     private static final long INSTANCE_SIZE = instanceSize(ExchangeId.class);

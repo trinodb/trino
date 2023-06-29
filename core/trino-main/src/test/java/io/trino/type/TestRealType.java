@@ -61,16 +61,18 @@ public class TestRealType
     @Test
     public void testNaNHash()
     {
-        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 4);
-        blockBuilder.writeInt(floatToIntBits(Float.NaN));
-        blockBuilder.writeInt(floatToRawIntBits(Float.NaN));
+        BlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 5);
+        REAL.writeFloat(blockBuilder, Float.NaN);
+        REAL.writeInt(blockBuilder, floatToIntBits(Float.NaN));
+        REAL.writeInt(blockBuilder, floatToRawIntBits(Float.NaN));
         // the following two are the integer values of a float NaN
-        blockBuilder.writeInt(-0x400000);
-        blockBuilder.writeInt(0x7fc00000);
+        REAL.writeInt(blockBuilder, -0x400000);
+        REAL.writeInt(blockBuilder, 0x7fc00000);
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
         assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
     }
 }

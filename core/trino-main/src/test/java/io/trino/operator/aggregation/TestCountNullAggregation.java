@@ -25,6 +25,7 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -72,7 +73,7 @@ public class TestCountNullAggregation
         private CountNull() {}
 
         @InputFunction
-        public static void input(@AggregationState NullableLongState state, @BlockPosition @NullablePosition @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
+        public static void input(@AggregationState NullableLongState state, @BlockPosition @SqlNullable @SqlType(StandardTypes.BIGINT) Block block, @BlockIndex int position)
         {
             if (block.isNull(position)) {
                 state.setValue(state.getValue() + 1);

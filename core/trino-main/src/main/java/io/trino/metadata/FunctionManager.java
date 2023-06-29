@@ -232,9 +232,10 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
                             "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
                     break;
+                case BLOCK_POSITION_NOT_NULL:
                 case BLOCK_POSITION:
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected BLOCK_POSITION argument types to be Block and int");
+                            "Expected %s argument types to be Block and int".formatted(argumentConvention));
                     break;
                 case IN_OUT:
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");

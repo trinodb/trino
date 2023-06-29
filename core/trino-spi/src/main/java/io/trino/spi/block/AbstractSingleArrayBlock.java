@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.List;
 
@@ -81,6 +82,13 @@ public abstract class AbstractSingleArrayBlock
     }
 
     @Override
+    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        checkReadablePosition(this, position);
+        getBlock().writeSliceTo(position + start, offset, length, output);
+    }
+
+    @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
         checkReadablePosition(this, position);
@@ -99,13 +107,6 @@ public abstract class AbstractSingleArrayBlock
     {
         checkReadablePosition(this, position);
         return getBlock().bytesCompare(position + start, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
-    {
-        checkReadablePosition(this, position);
-        getBlock().writeBytesTo(position + start, offset, length, blockBuilder);
     }
 
     @Override

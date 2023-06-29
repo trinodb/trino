@@ -21,10 +21,13 @@ import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.tpch.OrderColumn;
 import it.unimi.dsi.fastutil.ints.IntArrays;
@@ -55,7 +58,6 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.trino.plugin.hive.HiveTestUtils.mapType;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormat.TRINO_OPTIMIZED_PARQUET;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.MIN_DATA_SIZE;
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.createTempDir;
@@ -64,9 +66,11 @@ import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.nextRando
 import static io.trino.plugin.hive.benchmark.BenchmarkFileFormatsUtils.printResults;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -263,7 +267,7 @@ public class BenchmarkHiveFileFormat
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
+                MapType type = new MapType(VARCHAR, DOUBLE, TESTING_TYPE_MANAGER.getTypeOperators());
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -275,15 +279,15 @@ public class BenchmarkHiveFileFormat
                 while (dataSize < MIN_DATA_SIZE) {
                     pageBuilder.declarePosition();
 
-                    BlockBuilder builder = pageBuilder.getBlockBuilder(0);
-                    BlockBuilder mapBuilder = builder.beginBlockEntry();
-                    int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
-                    IntArrays.shuffle(keys, random);
-                    for (int entryId = 0; entryId < entries; entryId++) {
-                        createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + keys[entryId]));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
-                    }
-                    builder.closeEntry();
+                    MapBlockBuilder builder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+                    builder.buildEntry((keyBuilder, valueBuilder) -> {
+                        int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
+                        IntArrays.shuffle(keys, random);
+                        for (int entryId = 0; entryId < entries; entryId++) {
+                            VARCHAR.writeSlice(keyBuilder, Slices.utf8Slice("key" + keys[entryId]));
+                            DOUBLE.writeDouble(valueBuilder, random.nextDouble());
+                        }
+                    });
 
                     if (pageBuilder.isFull()) {
                         Page page = pageBuilder.build();
@@ -302,7 +306,7 @@ public class BenchmarkHiveFileFormat
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = mapType(createUnboundedVarcharType(), DOUBLE);
+                MapType type = new MapType(VARCHAR, DOUBLE, TESTING_TYPE_MANAGER.getTypeOperators());
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -311,14 +315,14 @@ public class BenchmarkHiveFileFormat
                 while (dataSize < MIN_DATA_SIZE) {
                     pageBuilder.declarePosition();
 
-                    BlockBuilder builder = pageBuilder.getBlockBuilder(0);
-                    BlockBuilder mapBuilder = builder.beginBlockEntry();
-                    int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
-                    for (int entryId = 0; entryId < entries; entryId++) {
-                        createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
-                    }
-                    builder.closeEntry();
+                    MapBlockBuilder builder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+                    builder.buildEntry((keyBuilder, valueBuilder) -> {
+                        int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
+                        for (int entryId = 0; entryId < entries; entryId++) {
+                            VARCHAR.writeSlice(keyBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
+                            DOUBLE.writeDouble(valueBuilder, random.nextDouble());
+                        }
+                    });
 
                     if (pageBuilder.isFull()) {
                         Page page = pageBuilder.build();
@@ -337,7 +341,7 @@ public class BenchmarkHiveFileFormat
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = mapType(INTEGER, DOUBLE);
+                MapType type = new MapType(INTEGER, DOUBLE, TESTING_TYPE_MANAGER.getTypeOperators());
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -349,15 +353,15 @@ public class BenchmarkHiveFileFormat
                 while (dataSize < MIN_DATA_SIZE) {
                     pageBuilder.declarePosition();
 
-                    BlockBuilder builder = pageBuilder.getBlockBuilder(0);
-                    BlockBuilder mapBuilder = builder.beginBlockEntry();
-                    int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
-                    IntArrays.shuffle(keys, random);
-                    for (int entryId = 0; entryId < entries; entryId++) {
-                        INTEGER.writeLong(mapBuilder, keys[entryId]);
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
-                    }
-                    builder.closeEntry();
+                    MapBlockBuilder builder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+                    builder.buildEntry((keyBuilder, valueBuilder) -> {
+                        int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
+                        IntArrays.shuffle(keys, random);
+                        for (int entryId = 0; entryId < entries; entryId++) {
+                            INTEGER.writeLong(keyBuilder, keys[entryId]);
+                            DOUBLE.writeDouble(valueBuilder, random.nextDouble());
+                        }
+                    });
 
                     if (pageBuilder.isFull()) {
                         Page page = pageBuilder.build();
@@ -376,7 +380,7 @@ public class BenchmarkHiveFileFormat
             @Override
             public TestData createTestData(FileFormat format)
             {
-                Type type = mapType(INTEGER, DOUBLE);
+                MapType type = new MapType(INTEGER, DOUBLE, TESTING_TYPE_MANAGER.getTypeOperators());
                 Random random = new Random(1234);
 
                 PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -385,14 +389,14 @@ public class BenchmarkHiveFileFormat
                 while (dataSize < MIN_DATA_SIZE) {
                     pageBuilder.declarePosition();
 
-                    BlockBuilder builder = pageBuilder.getBlockBuilder(0);
-                    BlockBuilder mapBuilder = builder.beginBlockEntry();
-                    int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
-                    for (int entryId = 0; entryId < entries; entryId++) {
-                        INTEGER.writeLong(mapBuilder, random.nextInt(10_000_000));
-                        DOUBLE.writeDouble(mapBuilder, random.nextDouble());
-                    }
-                    builder.closeEntry();
+                    MapBlockBuilder builder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+                    builder.buildEntry((keyBuilder, valueBuilder) -> {
+                        int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
+                        for (int entryId = 0; entryId < entries; entryId++) {
+                            INTEGER.writeLong(keyBuilder, random.nextInt(10_000_000));
+                            DOUBLE.writeDouble(valueBuilder, random.nextDouble());
+                        }
+                    });
 
                     if (pageBuilder.isFull()) {
                         Page page = pageBuilder.build();
@@ -421,12 +425,12 @@ public class BenchmarkHiveFileFormat
                     pageBuilder.declarePosition();
 
                     BlockBuilder builder = pageBuilder.getBlockBuilder(0);
-                    BlockBuilder mapBuilder = builder.beginBlockEntry();
-                    int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
-                    for (int entryId = 0; entryId < entries; entryId++) {
-                        createUnboundedVarcharType().writeSlice(mapBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
-                    }
-                    builder.closeEntry();
+                    ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
+                        int entries = nextRandomBetween(random, MIN_ENTRIES, MAX_ENTRIES);
+                        for (int entryId = 0; entryId < entries; entryId++) {
+                            createUnboundedVarcharType().writeSlice(elementBuilder, Slices.utf8Slice("key" + random.nextInt(10_000_000)));
+                        }
+                    });
 
                     if (pageBuilder.isFull()) {
                         Page page = pageBuilder.build();

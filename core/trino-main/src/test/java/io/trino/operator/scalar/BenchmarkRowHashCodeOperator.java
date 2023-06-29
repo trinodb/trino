@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -86,15 +86,15 @@ public class BenchmarkRowHashCodeOperator
         private static Block createChannel(int positionCount, RowType rowType)
         {
             ThreadLocalRandom random = ThreadLocalRandom.current();
-            BlockBuilder blockBuilder = rowType.createBlockBuilder(null, positionCount);
+            RowBlockBuilder blockBuilder = rowType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-
-                List<Field> fields = rowType.getFields();
-                for (Field field : fields) {
-                    addElement(field.getType(), random, entryBuilder);
-                }
-                blockBuilder.closeEntry();
+                blockBuilder.buildEntry(fieldBuilders -> {
+                    List<Field> fields = rowType.getFields();
+                    for (int i = 0; i < fields.size(); i++) {
+                        Field field = fields.get(i);
+                        addElement(field.getType(), random, fieldBuilders.get(i));
+                    }
+                });
             }
             return blockBuilder.build();
         }

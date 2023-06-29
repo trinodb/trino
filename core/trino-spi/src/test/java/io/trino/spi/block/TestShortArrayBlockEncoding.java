@@ -31,7 +31,7 @@ public class TestShortArrayBlockEncoding
     @Override
     protected void write(BlockBuilder blockBuilder, Short value)
     {
-        blockBuilder.writeShort(value);
+        ((ShortArrayBlockBuilder) blockBuilder).writeShort(value);
     }
 
     @Override

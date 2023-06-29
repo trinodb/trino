@@ -30,28 +30,30 @@ import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static java.util.Objects.deepEquals;
 import static java.util.stream.Collectors.joining;
 
-public class ReportUnannotatedMethods
+public class ReportBadTestAnnotations
         implements IClassListener
 {
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
         try {
-            reportUnannotatedTestMethods(testClass);
+            reportBadTestAnnotations(testClass);
         }
         catch (RuntimeException | Error e) {
             reportListenerFailure(
-                    ReportUnannotatedMethods.class,
+                    ReportBadTestAnnotations.class,
                     "Failed to process %s: \n%s",
                     testClass,
                     getStackTraceAsString(e));
         }
     }
 
-    private void reportUnannotatedTestMethods(ITestClass testClass)
+    private void reportBadTestAnnotations(ITestClass testClass)
     {
         Class<?> realClass = testClass.getRealClass();
 
@@ -64,12 +66,58 @@ public class ReportUnannotatedMethods
         List<Method> unannotatedTestMethods = findUnannotatedTestMethods(realClass);
         if (!unannotatedTestMethods.isEmpty()) {
             reportListenerFailure(
-                    ReportUnannotatedMethods.class,
+                    ReportBadTestAnnotations.class,
                     "Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
                     realClass.getName(),
                     unannotatedTestMethods.stream()
                             .map(Method::toString)
                             .collect(joining("\n\t\t", "\n\t\t", "")));
+        }
+
+        if (!realClass.isAnnotationPresent(Suppress.class)) {
+            Optional<Class<?>> clazz = classWithMeaninglessTestAnnotation(realClass);
+            if (clazz.isPresent()) {
+                reportListenerFailure(
+                        ReportBadTestAnnotations.class,
+                        "Test class %s (%s) has meaningless class-level @Test annotation. We require each test method be explicitly " +
+                                "annotated, deliberately not leveraging https://testng.org/doc/documentation-main.html#class-level.",
+                        clazz.get().getName(),
+                        realClass.getName());
+            }
+        }
+    }
+
+    @VisibleForTesting
+    static Optional<Class<?>> classWithMeaninglessTestAnnotation(Class<?> realClass)
+    {
+        for (Class<?> clazz = realClass; clazz != null; clazz = clazz.getSuperclass()) {
+            org.testng.annotations.Test testAnnotation = clazz.getAnnotation(org.testng.annotations.Test.class);
+            if (testAnnotation != null && isAllDefaults(testAnnotation)) {
+                return Optional.of(clazz);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static boolean isAllDefaults(org.testng.annotations.Test annotationInstance)
+    {
+        try {
+            for (Method method : org.testng.annotations.Test.class.getDeclaredMethods()) {
+                if (Modifier.isStatic(method.getModifiers())) {
+                    continue;
+                }
+
+                Object value = method.invoke(annotationInstance);
+                Object defaultValue = method.getDefaultValue();
+                if (!deepEquals(value, defaultValue)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -112,7 +160,7 @@ public class ReportUnannotatedMethods
         }
 
         return getOverridden(method, method.getDeclaringClass().getSuperclass())
-                .map(ReportUnannotatedMethods::isAllowedPublicMethodInTest)
+                .map(ReportBadTestAnnotations::isAllowedPublicMethodInTest)
                 .orElse(false);
     }
 
@@ -159,7 +207,7 @@ public class ReportUnannotatedMethods
     }
 
     @Retention(RUNTIME)
-    @Target(METHOD)
+    @Target({TYPE, METHOD})
     public @interface Suppress
     {
     }

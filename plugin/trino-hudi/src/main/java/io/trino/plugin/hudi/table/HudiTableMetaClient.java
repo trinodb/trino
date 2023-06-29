@@ -24,7 +24,6 @@ import io.trino.plugin.hudi.timeline.HudiActiveTimeline;
 import io.trino.plugin.hudi.timeline.HudiTimeline;
 import io.trino.plugin.hudi.timeline.TimelineLayout;
 import io.trino.plugin.hudi.timeline.TimelineLayoutVersion;
-import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,9 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_TABLE_TYPE;
-import static io.trino.plugin.hudi.HudiUtil.isHudiTable;
-import static java.lang.String.format;
+import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
 import static java.util.Objects.requireNonNull;
 
 public class HudiTableMetaClient
@@ -50,11 +47,12 @@ public class HudiTableMetaClient
 
     private final Location metaPath;
     private final Location basePath;
-    private HudiTableType tableType;
-    private TimelineLayoutVersion timelineLayoutVersion;
-    private HudiTableConfig tableConfig;
+    private final HudiTableType tableType;
+    private final TimelineLayoutVersion timelineLayoutVersion;
+    private final HudiTableConfig tableConfig;
+    private final TrinoFileSystem fileSystem;
+
     private HudiActiveTimeline activeTimeline;
-    private TrinoFileSystem fileSystem;
 
     protected HudiTableMetaClient(
             TrinoFileSystem fileSystem,
@@ -63,7 +61,7 @@ public class HudiTableMetaClient
     {
         this.metaPath = requireNonNull(basePath, "basePath is null").appendPath(METAFOLDER_NAME);
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
-        checkArgument(isHudiTable(fileSystem, basePath), "Could not check if %s is a valid table", basePath);
+        checkArgument(hudiMetadataExists(fileSystem, basePath), "Could not check if %s is a valid table", basePath);
         this.basePath = basePath;
 
         this.tableConfig = new HudiTableConfig(fileSystem, metaPath);
@@ -99,7 +97,6 @@ public class HudiTableMetaClient
                 // Include commit action to be able to start doing a MOR over a COW table - no
                 // migration required
                     getActiveTimeline().getCommitsTimeline();
-            default -> throw new TrinoException(HUDI_UNSUPPORTED_TABLE_TYPE, format("Unsupported table type : %s", this.getTableType()));
         };
     }
 

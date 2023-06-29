@@ -55,7 +55,6 @@ import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_IN
 import static io.trino.parquet.writer.ParquetSchemaConverter.HIVE_PARQUET_USE_LEGACY_DECIMAL_ENCODING;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class StandardFileFormats
@@ -73,7 +72,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override
@@ -104,7 +103,7 @@ public final class StandardFileFormats
         @Override
         public Optional<HivePageSourceFactory> getHivePageSourceFactory(HdfsEnvironment hdfsEnvironment)
         {
-            return Optional.of(new RcFilePageSourceFactory(TESTING_TYPE_MANAGER, HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
+            return Optional.of(new RcFilePageSourceFactory(HDFS_FILE_SYSTEM_FACTORY, new FileFormatDataSourceStats(), new HiveConfig().setRcfileTimeZone("UTC")));
         }
 
         @Override

@@ -22,8 +22,6 @@ import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
@@ -41,7 +39,7 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName, HIVE3_IMAGE);
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
         hiveMinioDataLake.start();
         metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
@@ -58,7 +56,6 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
-            throws IOException
     {
         metastore = null;
     }
@@ -109,22 +106,20 @@ public class TestDeltaLakeFlushMetadataCacheProcedure
     public void testFlushMetadataCacheAfterTableCreated()
     {
         String schema = getSession().getSchema().orElseThrow();
-        String tableName = "flush_metadata_after_table_created";
-        String intermediateTableName = "test_flush_intermediate_" + randomNameSuffix();
 
-        String location = "s3://%s/%s".formatted(bucketName, intermediateTableName);
-        assertUpdate("CREATE TABLE " + intermediateTableName + " WITH (location = '" + location + "') AS TABLE tpch.tiny.region", 5);
+        String location = "s3://%s/test_flush_intermediate_tmp_table".formatted(bucketName);
+        assertUpdate("CREATE TABLE test_flush_intermediate_tmp_table WITH (location = '" + location + "') AS TABLE tpch.tiny.region", 5);
 
         // This may cause the connector to cache the fact that the table does not exist
-        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
+        assertQueryFails("TABLE flush_metadata_after_table_created", "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
 
-        metastore.renameTable(schema, intermediateTableName, schema, tableName);
+        metastore.renameTable(schema, "test_flush_intermediate_tmp_table", schema, "flush_metadata_after_table_created");
 
         // Verify cached state (we currently cache missing objects in CachingMetastore)
-        assertQueryFails("TABLE " + tableName, "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
+        assertQueryFails("TABLE flush_metadata_after_table_created", "\\Qline 1:1: Table 'delta.default.flush_metadata_after_table_created' does not exist");
 
-        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
-        assertThat(query("TABLE " + tableName))
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'flush_metadata_after_table_created')");
+        assertThat(query("TABLE flush_metadata_after_table_created"))
                 .skippingTypesCheck() // Delta has no parametric varchar
                 .matches("TABLE tpch.tiny.region");
 

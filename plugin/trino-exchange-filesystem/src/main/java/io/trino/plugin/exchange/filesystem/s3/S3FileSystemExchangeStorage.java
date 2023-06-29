@@ -120,6 +120,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElseGet;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static software.amazon.awssdk.core.async.AsyncRequestBody.fromByteBufferUnsafe;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_PREFIX;
 import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.USER_AGENT_SUFFIX;
 
@@ -712,7 +713,7 @@ public class S3FileSystemExchangeStorage
                         .key(key)
                         .storageClass(storageClass);
                 directUploadFuture = translateFailures(toListenableFuture(s3AsyncClient.putObject(putObjectRequestBuilder.build(),
-                        ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))));
+                        fromByteBufferUnsafe(slice.toByteBuffer()))));
                 stats.getPutObject().record(directUploadFuture);
                 stats.getPutObjectDataSizeInBytes().add(slice.length());
                 return directUploadFuture;
@@ -804,7 +805,7 @@ public class S3FileSystemExchangeStorage
                     .partNumber(partNumber);
             UploadPartRequest uploadPartRequest = uploadPartRequestBuilder.build();
             stats.getUploadPartDataSizeInBytes().add(slice.length());
-            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, ByteBufferAsyncRequestBody.fromByteBuffer(slice.toByteBuffer()))),
+            return stats.getUploadPart().record(Futures.transform(toListenableFuture(s3AsyncClient.uploadPart(uploadPartRequest, fromByteBufferUnsafe(slice.toByteBuffer()))),
                     uploadPartResponse -> CompletedPart.builder().eTag(uploadPartResponse.eTag()).partNumber(partNumber).build(), directExecutor()));
         }
 

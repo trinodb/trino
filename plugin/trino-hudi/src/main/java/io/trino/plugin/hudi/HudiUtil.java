@@ -74,20 +74,17 @@ public final class HudiUtil
         return dotIndex == -1 ? "" : fileName.substring(dotIndex);
     }
 
-    public static boolean isHudiTable(TrinoFileSystem trinoFileSystem, Location baseLocation)
+    public static boolean hudiMetadataExists(TrinoFileSystem trinoFileSystem, Location baseLocation)
     {
         try {
             Location metaLocation = baseLocation.appendPath(METAFOLDER_NAME);
             FileIterator iterator = trinoFileSystem.listFiles(metaLocation);
             // If there is at least one file in the .hoodie directory, it's a valid Hudi table
-            if (!iterator.hasNext()) {
-                return false;
-            }
+            return iterator.hasNext();
         }
         catch (IOException e) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed to check for Hudi table at location: " + baseLocation, e);
         }
-        return true;
     }
 
     public static boolean partitionMatchesPredicates(
