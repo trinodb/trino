@@ -59,6 +59,7 @@ public class TaskStatus
     private final int runningPartitionedDrivers;
     private final long runningPartitionedSplitsWeight;
     private final OutputBufferStatus outputBufferStatus;
+    private final DataSize writerInputDataSize;
     private final DataSize outputDataSize;
     private final DataSize physicalWrittenDataSize;
     private final Optional<Integer> maxWriterCount;
@@ -87,6 +88,7 @@ public class TaskStatus
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
             @JsonProperty("outputBufferStatus") OutputBufferStatus outputBufferStatus,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
+            @JsonProperty("writerInputDataSize") DataSize writerInputDataSize,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("writerCount") Optional<Integer> maxWriterCount,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
@@ -121,6 +123,7 @@ public class TaskStatus
         this.outputBufferStatus = requireNonNull(outputBufferStatus, "outputBufferStatus is null");
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
 
+        this.writerInputDataSize = requireNonNull(writerInputDataSize, "writerInputDataSize is null");
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
         this.maxWriterCount = requireNonNull(maxWriterCount, "maxWriterCount is null");
 
@@ -194,6 +197,12 @@ public class TaskStatus
     public int getRunningPartitionedDrivers()
     {
         return runningPartitionedDrivers;
+    }
+
+    @JsonProperty
+    public DataSize getWriterInputDataSize()
+    {
+        return writerInputDataSize;
     }
 
     @JsonProperty
@@ -293,6 +302,7 @@ public class TaskStatus
                 OutputBufferStatus.initial(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 Optional.empty(),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -319,6 +329,7 @@ public class TaskStatus
                 taskStatus.getRunningPartitionedDrivers(),
                 taskStatus.getOutputBufferStatus(),
                 taskStatus.getOutputDataSize(),
+                taskStatus.getWriterInputDataSize(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMaxWriterCount(),
                 taskStatus.getMemoryReservation(),

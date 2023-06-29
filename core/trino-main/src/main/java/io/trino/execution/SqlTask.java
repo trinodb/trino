@@ -322,6 +322,7 @@ public class SqlTask
         int runningPartitionedDrivers = 0;
         long runningPartitionedSplitsWeight = 0L;
         DataSize outputDataSize = DataSize.ofBytes(0);
+        DataSize writerInputDataSize = DataSize.ofBytes(0);
         DataSize physicalWrittenDataSize = DataSize.ofBytes(0);
         Optional<Integer> writerCount = Optional.empty();
         DataSize userMemoryReservation = DataSize.ofBytes(0);
@@ -337,6 +338,7 @@ public class SqlTask
             queuedPartitionedSplitsWeight = taskStats.getQueuedPartitionedSplitsWeight();
             runningPartitionedDrivers = taskStats.getRunningPartitionedDrivers();
             runningPartitionedSplitsWeight = taskStats.getRunningPartitionedSplitsWeight();
+            writerInputDataSize = taskStats.getWriterInputDataSize();
             physicalWrittenDataSize = taskStats.getPhysicalWrittenDataSize();
             writerCount = taskStats.getMaxWriterCount();
             userMemoryReservation = taskStats.getUserMemoryReservation();
@@ -358,6 +360,7 @@ public class SqlTask
                 runningPartitionedSplitsWeight += pipelineStatus.getRunningPartitionedSplitsWeight();
                 physicalWrittenBytes += pipelineContext.getPhysicalWrittenDataSize();
             }
+            writerInputDataSize = succinctBytes(taskContext.getWriterInputDataSize());
             physicalWrittenDataSize = succinctBytes(physicalWrittenBytes);
             writerCount = taskContext.getMaxWriterCount();
             userMemoryReservation = taskContext.getMemoryReservation();
@@ -382,6 +385,7 @@ public class SqlTask
                 runningPartitionedDrivers,
                 outputBuffer.getStatus(),
                 outputDataSize,
+                writerInputDataSize,
                 physicalWrittenDataSize,
                 writerCount,
                 userMemoryReservation,
