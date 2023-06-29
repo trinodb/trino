@@ -166,6 +166,7 @@ public final class MapHashTables
         int hashTableSize = keyCount * HASH_MULTIPLIER;
 
         for (int i = 0; i < keyCount; i++) {
+            // this throws if the position is null
             int hash = getHashPosition(keyBlock, keyOffset + i, hashTableSize);
             while (true) {
                 if (hashTables[hashTableOffset + hash] == -1) {
@@ -175,7 +176,8 @@ public final class MapHashTables
 
                 Boolean isDuplicateKey;
                 try {
-                    // assuming maps with indeterminate keys are not supported
+                    // assuming maps with indeterminate keys are not supported,
+                    // the left and right values are never null because the above call check for null before the insertion
                     isDuplicateKey = (Boolean) mapType.getKeyBlockEqual().invokeExact(keyBlock, keyOffset + i, keyBlock, keyOffset + hashTables[hashTableOffset + hash]);
                 }
                 catch (RuntimeException e) {
