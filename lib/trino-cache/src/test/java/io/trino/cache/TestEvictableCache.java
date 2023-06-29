@@ -350,7 +350,7 @@ public class TestEvictableCache
     private static Integer newInteger(int value)
     {
         Integer integer = value;
-        @SuppressWarnings({"UnnecessaryBoxing", "deprecation", "BoxedPrimitiveConstructor"})
+        @SuppressWarnings({"UnnecessaryBoxing", "BoxedPrimitiveConstructor", "CachedNumberConstructorCall", "removal"})
         Integer newInteger = new Integer(value);
         assertNotSame(integer, newInteger);
         return newInteger;
