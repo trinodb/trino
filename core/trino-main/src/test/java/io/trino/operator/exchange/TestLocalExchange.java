@@ -80,6 +80,7 @@ public class TestLocalExchange
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
     private static final DataSize RETAINED_PAGE_SIZE = DataSize.ofBytes(createPage(42).getRetainedSizeInBytes());
+    private static final DataSize PAGE_SIZE = DataSize.ofBytes(createPage(42).getSizeInBytes());
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, MEGABYTE);
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
@@ -240,7 +241,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATOR_FACTORY,
-                DataSize.ofBytes(retainedSizeOfPages(2)));
+                DataSize.ofBytes(sizeOfPages(2)));
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -252,16 +253,13 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            AtomicLong physicalWrittenBytesA = new AtomicLong(0);
-            LocalExchangeSource sourceA = exchange.getNextSource(physicalWrittenBytesA::get);
+            LocalExchangeSource sourceA = getNextSource(exchange);
             assertSource(sourceA, 0);
 
-            AtomicLong physicalWrittenBytesB = new AtomicLong(0);
-            LocalExchangeSource sourceB = exchange.getNextSource(physicalWrittenBytesB::get);
+            LocalExchangeSource sourceB = getNextSource(exchange);
             assertSource(sourceB, 0);
 
-            AtomicLong physicalWrittenBytesC = new AtomicLong(0);
-            LocalExchangeSource sourceC = exchange.getNextSource(physicalWrittenBytesC::get);
+            LocalExchangeSource sourceC = getNextSource(exchange);
             assertSource(sourceC, 0);
 
             sink.addPage(createPage(0));
@@ -270,8 +268,7 @@ public class TestLocalExchange
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 0);
             assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
 
-            // writer min file and buffered data size limits are exceeded, so we should see pages in sourceB
-            physicalWrittenBytesA.set(retainedSizeOfPages(2));
+            // writer min output size and buffered data size limits are exceeded, so we should see pages in sourceB
             sink.addPage(createPage(0));
             assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 1);
@@ -280,30 +277,12 @@ public class TestLocalExchange
             assertRemovePage(sourceA, createPage(0));
             assertRemovePage(sourceA, createPage(0));
 
-            // no limit is breached, so we should see round-robin distribution across sourceA and sourceB
-            physicalWrittenBytesB.set(retainedSizeOfPages(1));
+            // writer min output size and buffered data size limits are exceeded again,
             sink.addPage(createPage(0));
             sink.addPage(createPage(0));
             sink.addPage(createPage(0));
-            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
+            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 1);
             assertEquals(sourceB.getBufferInfo().getBufferedPages(), 2);
-            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
-
-            // writer min file and buffered data size limits are exceeded again, but according to
-            // round-robin sourceB should receive a page
-            physicalWrittenBytesA.set(retainedSizeOfPages(4));
-            sink.addPage(createPage(0));
-            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
-            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
-            assertEquals(sourceC.getBufferInfo().getBufferedPages(), 0);
-
-            assertSinkWriteBlocked(sink);
-
-            // sourceC should receive a page
-            physicalWrittenBytesB.set(retainedSizeOfPages(3));
-            sink.addPage(createPage(0));
-            assertEquals(sourceA.getBufferInfo().getBufferedPages(), 2);
-            assertEquals(sourceB.getBufferInfo().getBufferedPages(), 3);
             assertEquals(sourceC.getBufferInfo().getBufferedPages(), 1);
         });
     }
@@ -321,7 +300,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(4)),
                 TYPE_OPERATOR_FACTORY,
-                DataSize.ofBytes(retainedSizeOfPages(2)));
+                DataSize.ofBytes(sizeOfPages(10)));
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -362,7 +341,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(20)),
                 TYPE_OPERATOR_FACTORY,
-                DataSize.ofBytes(retainedSizeOfPages(2)));
+                DataSize.ofBytes(sizeOfPages(2)));
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 3);
@@ -1170,6 +1149,11 @@ public class TestLocalExchange
         List<Long> values = range(0, length).mapToObj(i -> (long) value).collect(toImmutableList());
         Block block = BlockAssertions.createLongsBlock(values);
         return new Page(block);
+    }
+
+    private static long sizeOfPages(int count)
+    {
+        return PAGE_SIZE.toBytes() * count;
     }
 
     public static long retainedSizeOfPages(int count)

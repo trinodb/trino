@@ -90,6 +90,7 @@ public class OperatorContext
     private final AtomicReference<Metrics> metrics = new AtomicReference<>(Metrics.EMPTY);  // this is not incremental, but gets overwritten by the latest value.
     private final AtomicReference<Metrics> connectorMetrics = new AtomicReference<>(Metrics.EMPTY); // this is not incremental, but gets overwritten by the latest value.
 
+    private final AtomicLong writerInputDataSize = new AtomicLong();
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
     private final AtomicReference<SettableFuture<Void>> memoryFuture;
@@ -243,6 +244,11 @@ public class OperatorContext
     public void setFinishedFuture(ListenableFuture<Void> finishedFuture)
     {
         checkState(this.finishedFuture.getAndSet(requireNonNull(finishedFuture, "finishedFuture is null")) == null, "finishedFuture already set");
+    }
+
+    public void recordWriterInputDataSize(long sizeInBytes)
+    {
+        writerInputDataSize.getAndAdd(sizeInBytes);
     }
 
     public void recordPhysicalWrittenData(long sizeInBytes)
@@ -483,6 +489,11 @@ public class OperatorContext
     public CounterStat getOutputPositions()
     {
         return outputPositions;
+    }
+
+    public long getWriterInputDataSize()
+    {
+        return writerInputDataSize.get();
     }
 
     public long getPhysicalWrittenDataSize()

@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -129,18 +130,12 @@ public class LocalExchange
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
                     .collect(toImmutableList());
+            AtomicLong dataProcessed = new AtomicLong(0);
             exchangerSupplier = () -> new ScaleWriterExchanger(
                     asPageConsumers(sources),
                     memoryManager,
                     maxBufferedBytes.toBytes(),
-                    () -> {
-                        // Avoid using stream api for performance reasons
-                        long physicalWrittenBytes = 0;
-                        for (Supplier<Long> physicalWrittenBytesSupplier : physicalWrittenBytesSuppliers) {
-                            physicalWrittenBytes += physicalWrittenBytesSupplier.get();
-                        }
-                        return physicalWrittenBytes;
-                    },
+                    dataProcessed,
                     writerScalingMinDataProcessed);
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
