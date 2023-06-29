@@ -54,6 +54,18 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPoolingConnectionFactory
 {
+    private final IdentityCacheMapping identityCacheMapping;
+
+    public TestPoolingConnectionFactory()
+    {
+        this(new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig().setUserCredentialName("user").setPasswordCredentialName("password")));
+    }
+
+    public TestPoolingConnectionFactory(IdentityCacheMapping identityCacheMapping)
+    {
+        this.identityCacheMapping = identityCacheMapping;
+    }
+
     @Test(timeOut = 60_000)
     public void testPoolingConnectionFactory()
             throws SQLException, InterruptedException
@@ -140,7 +152,7 @@ public class TestPoolingConnectionFactory
                         return Optional.of("password");
                     }
                 }),
-                new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig().setUserCredentialName("user").setPasswordCredentialName("password")));
+                identityCacheMapping);
     }
 
     private static class TestConnection
