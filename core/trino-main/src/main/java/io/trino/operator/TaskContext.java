@@ -354,6 +354,16 @@ public class TaskContext
         return stat;
     }
 
+    public long getWriterInputDataSize()
+    {
+        // Avoid using stream api due to performance reasons
+        long writerInputDataSize = 0;
+        for (PipelineContext context : pipelineContexts) {
+            writerInputDataSize += context.getWriterInputDataSize();
+        }
+        return writerInputDataSize;
+    }
+
     public long getPhysicalWrittenDataSize()
     {
         // Avoid using stream api for performance reasons
@@ -599,6 +609,7 @@ public class TaskContext
                 succinctBytes(outputDataSize),
                 outputPositions,
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
+                succinctBytes(getWriterInputDataSize()),
                 succinctBytes(physicalWrittenDataSize),
                 getMaxWriterCount(),
                 fullGcCount,

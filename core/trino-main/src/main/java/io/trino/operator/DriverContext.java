@@ -266,6 +266,16 @@ public class DriverContext
         return new CounterStat();
     }
 
+    public long getWriterInputDataSize()
+    {
+        // Avoid using stream api for performance reasons
+        long writerInputDataSize = 0;
+        for (OperatorContext context : operatorContexts) {
+            writerInputDataSize += context.getWriterInputDataSize();
+        }
+        return writerInputDataSize;
+    }
+
     public long getPhysicalWrittenDataSize()
     {
         // Avoid using stream api for performance reasons

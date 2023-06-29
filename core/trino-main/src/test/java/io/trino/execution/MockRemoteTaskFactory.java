@@ -284,6 +284,7 @@ public class MockRemoteTaskFactory
                     combinedSplitsInfo.getCount() - queuedSplitsInfo.getCount(),
                     outputBuffer.getStatus(),
                     stats.getOutputDataSize(),
+                    stats.getWriterInputDataSize(),
                     stats.getPhysicalWrittenDataSize(),
                     stats.getMaxWriterCount(),
                     stats.getUserMemoryReservation(),

@@ -317,6 +317,16 @@ public class PipelineContext
         return stat;
     }
 
+    public long getWriterInputDataSize()
+    {
+        // Avoid using stream api due to performance reasons
+        long writerInputDataSize = 0;
+        for (DriverContext context : drivers) {
+            writerInputDataSize += context.getWriterInputDataSize();
+        }
+        return writerInputDataSize;
+    }
+
     public long getPhysicalWrittenDataSize()
     {
         // Avoid using stream api due to performance reasons

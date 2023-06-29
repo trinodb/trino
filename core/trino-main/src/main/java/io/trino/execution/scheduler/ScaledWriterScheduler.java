@@ -120,17 +120,17 @@ public class ScaledWriterScheduler
     private boolean isWriteThroughputSufficient()
     {
         Collection<TaskStatus> writerTasks = writerTasksProvider.get();
-        long writtenBytes = writerTasks.stream()
-                .map(TaskStatus::getPhysicalWrittenDataSize)
+        long writerInputBytes = writerTasks.stream()
+                .map(TaskStatus::getWriterInputDataSize)
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        long minWrittenBytesToScaleUp = writerTasks.stream()
+        long minWriterInputBytesToScaleUp = writerTasks.stream()
                 .map(TaskStatus::getMaxWriterCount)
                 .map(Optional::get)
                 .mapToLong(writerCount -> writerScalingMinDataProcessed * writerCount)
                 .sum();
-        return writtenBytes >= minWrittenBytesToScaleUp;
+        return writerInputBytes >= minWriterInputBytesToScaleUp;
     }
 
     private boolean isWeightedBufferFull()
