@@ -63,7 +63,7 @@ public final class ArrayAggregationFunction
             out.appendNull();
         }
         else {
-            ((ArrayBlockBuilder) out).buildEntry(elementBuilder -> state.forEach((block, position) -> elementType.appendTo(block, position, elementBuilder)));
+            ((ArrayBlockBuilder) out).buildEntry(state::writeAll);
         }
     }
 }
