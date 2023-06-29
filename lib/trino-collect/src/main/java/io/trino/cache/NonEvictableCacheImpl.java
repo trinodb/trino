@@ -11,19 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.collect.cache;
+package io.trino.cache;
 
-import com.google.common.cache.LoadingCache;
+import com.google.common.cache.Cache;
 import com.google.common.collect.ForwardingConcurrentMap;
 
 import java.util.concurrent.ConcurrentMap;
 
 // package-private. The interface provides deprecation and javadoc to help at call sites
-final class NonEvictableLoadingCacheImpl<K, V>
-        extends NonKeyEvictableLoadingCacheImpl<K, V>
-        implements NonEvictableLoadingCache<K, V>
+final class NonEvictableCacheImpl<K, V>
+        extends NonKeyEvictableCacheImpl<K, V>
+        implements NonEvictableCache<K, V>
 {
-    NonEvictableLoadingCacheImpl(LoadingCache<K, V> delegate)
+    NonEvictableCacheImpl(Cache<K, V> delegate)
     {
         super(delegate);
     }
