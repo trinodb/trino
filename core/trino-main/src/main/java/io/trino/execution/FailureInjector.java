@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
@@ -27,7 +27,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.execution.FailureInjector.InjectedFailureType.TASK_FAILURE;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.collect.cache;
+package io.trino.cache;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
@@ -22,7 +22,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.cache.Weigher;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
-import io.trino.collect.cache.EvictableCache.Token;
+import io.trino.cache.EvictableCache.Token;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.time.Duration;
