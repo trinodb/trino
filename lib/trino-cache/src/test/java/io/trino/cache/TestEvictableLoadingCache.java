@@ -13,7 +13,6 @@
  */
 package io.trino.cache;
 
-import com.google.common.base.Strings;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
@@ -114,11 +113,11 @@ public class TestEvictableLoadingCache
                 .weigher((Integer key, String value) -> value.length())
                 .build(CacheLoader.from(key -> {
                     loads.incrementAndGet();
-                    return Strings.repeat("a", key);
+                    return "a".repeat(key);
                 }));
 
         for (int i = 0; i < 10; i++) {
-            assertEquals((Object) cache.get(i), Strings.repeat("a", i));
+            assertEquals((Object) cache.get(i), "a".repeat(i));
         }
         cache.cleanUp();
         // It's not deterministic which entries get evicted
@@ -132,7 +131,7 @@ public class TestEvictableLoadingCache
 
         // Ensure cache is effective, i.e. no new load
         int lastKey = 10 - 1;
-        assertEquals((Object) cache.get(lastKey), Strings.repeat("a", lastKey));
+        assertEquals((Object) cache.get(lastKey), "a".repeat(lastKey));
         assertEquals(loads.get(), 10);
     }
 
