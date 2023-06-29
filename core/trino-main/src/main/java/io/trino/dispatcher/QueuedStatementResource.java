@@ -504,7 +504,15 @@ public class QueuedStatementResource
 
         public void initialize(DispatchManager dispatchManager)
         {
-            scheduledExecutorService.scheduleWithFixedDelay(() -> syncWith(dispatchManager), 200, 200, MILLISECONDS);
+            scheduledExecutorService.scheduleWithFixedDelay(() -> {
+                try {
+                    syncWith(dispatchManager);
+                }
+                catch (Throwable e) {
+                    // ignore to avoid getting unscheduled
+                    log.error(e, "Unexpected error synchronizing with dispatch manager");
+                }
+            }, 200, 200, MILLISECONDS);
         }
 
         public void destroy()
