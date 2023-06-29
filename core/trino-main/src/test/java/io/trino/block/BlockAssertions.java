@@ -684,6 +684,11 @@ public final class BlockAssertions
         return createTypedLongsBlock(BIGINT, values);
     }
 
+    public static ValueBlock createTypedLongsBlock(Type type, Long... values)
+    {
+        return createBlock(type, type::writeLong, Arrays.asList(values));
+    }
+
     public static ValueBlock createTypedLongsBlock(Type type, Iterable<Long> values)
     {
         return createBlock(type, type::writeLong, values);
@@ -691,10 +696,14 @@ public final class BlockAssertions
 
     public static ValueBlock createLongSequenceBlock(int start, int end)
     {
-        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(end - start);
+        return createLongSequenceBlock(start, end, BIGINT);
+    }
 
+    public static ValueBlock createLongSequenceBlock(int start, int end, Type type)
+    {
+        BlockBuilder builder = type.createBlockBuilder(null, end - start);
         for (int i = start; i < end; i++) {
-            BIGINT.writeLong(builder, i);
+            type.writeLong(builder, i);
         }
 
         return builder.buildValueBlock();
@@ -703,16 +712,27 @@ public final class BlockAssertions
     public static Block createLongDictionaryBlock(int start, int length)
     {
         checkArgument(length > 5, "block must have more than 5 entries");
-        return createLongDictionaryBlock(start, length, length / 5);
+        return createDictionaryBlock(start, length, BIGINT);
     }
 
     public static Block createLongDictionaryBlock(int start, int length, int dictionarySize)
     {
+        return createDictionaryBlock(start, length, dictionarySize, BIGINT);
+    }
+
+    public static Block createDictionaryBlock(int start, int length, Type type)
+    {
+        checkArgument(length > 5, "block must have more than 5 entries");
+        return createDictionaryBlock(start, length, length / 5, type);
+    }
+
+    public static Block createDictionaryBlock(int start, int length, int dictionarySize, Type type)
+    {
         checkArgument(dictionarySize > 0, "dictionarySize must be greater than 0");
 
-        BlockBuilder builder = BIGINT.createBlockBuilder(null, dictionarySize);
+        BlockBuilder builder = type.createBlockBuilder(null, dictionarySize);
         for (int i = start; i < start + dictionarySize; i++) {
-            BIGINT.writeLong(builder, i);
+            type.writeLong(builder, i);
         }
         int[] ids = new int[length];
         for (int i = 0; i < length; i++) {
@@ -904,8 +924,13 @@ public final class BlockAssertions
 
     public static Block createRepeatedValuesBlock(long value, int positionCount)
     {
-        BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 1);
-        BIGINT.writeLong(blockBuilder, value);
+        return createRepeatedValuesBlock(value, positionCount, BIGINT);
+    }
+
+    public static Block createRepeatedValuesBlock(long value, int positionCount, Type type)
+    {
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
+        type.writeLong(blockBuilder, value);
         return RunLengthEncodedBlock.create(blockBuilder.build(), positionCount);
     }
 
