@@ -299,7 +299,7 @@ public class ZooKeeperMetadataManager
                 return false;
             }
 
-            throw new TrinoException(ZOOKEEPER_ERROR, "Error checking if path %s is an AccumuloTable object", e);
+            throw new TrinoException(ZOOKEEPER_ERROR, "Error checking if path is an AccumuloTable object", e);
         }
     }
 
