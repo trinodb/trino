@@ -14,9 +14,6 @@
 package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.SerializerProvider;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -27,9 +24,6 @@ import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.TypeOperatorDeclaration;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
-import org.bson.types.ObjectId;
-
-import java.io.IOException;
 
 public class ObjectIdType
         extends AbstractVariableWidthType
@@ -103,16 +97,5 @@ public class ObjectIdType
     public void writeSlice(BlockBuilder blockBuilder, Slice value, int offset, int length)
     {
         ((VariableWidthBlockBuilder) blockBuilder).writeEntry(value, offset, length);
-    }
-
-    public static class ObjectIdSerializer
-            extends JsonSerializer<ObjectId>
-    {
-        @Override
-        public void serialize(ObjectId objectId, JsonGenerator jsonGenerator, SerializerProvider serializerProvider)
-                throws IOException
-        {
-            jsonGenerator.writeString(objectId.toString());
-        }
     }
 }
