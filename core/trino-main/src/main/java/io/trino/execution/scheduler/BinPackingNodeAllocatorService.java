@@ -165,7 +165,15 @@ public class BinPackingNodeAllocatorService
         }
 
         refreshNodePoolMemoryInfos();
-        executor.scheduleWithFixedDelay(this::refreshNodePoolMemoryInfos, 1, 1, TimeUnit.SECONDS);
+        executor.scheduleWithFixedDelay(() -> {
+            try {
+                refreshNodePoolMemoryInfos();
+            }
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while refreshing node pool memory infos");
+            }
+        }, 1, 1, TimeUnit.SECONDS);
     }
 
     @PreDestroy

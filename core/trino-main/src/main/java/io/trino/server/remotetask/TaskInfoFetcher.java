@@ -21,6 +21,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -57,6 +58,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TaskInfoFetcher
 {
+    private static final Logger log = Logger.get(TaskInfoFetcher.class);
+
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
@@ -186,14 +189,20 @@ public class TaskInfoFetcher
     private synchronized void scheduleUpdate()
     {
         scheduledFuture = updateScheduledExecutor.scheduleWithFixedDelay(() -> {
-            synchronized (this) {
-                // if the previous request still running, don't schedule a new request
-                if (future != null && !future.isDone()) {
-                    return;
+            try {
+                synchronized (this) {
+                    // if the previous request still running, don't schedule a new request
+                    if (future != null && !future.isDone()) {
+                        return;
+                    }
+                }
+                if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
+                    sendNextRequest();
                 }
             }
-            if (nanosSince(lastUpdateNanos.get()).toMillis() >= updateIntervalMillis) {
-                sendNextRequest();
+            catch (Throwable e) {
+                // ignore to avoid getting unscheduled
+                log.error(e, "Unexpected error while getting task info");
             }
         }, 0, 100, MILLISECONDS);
     }
