@@ -40,7 +40,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
+            <artifactId>trino-cache</artifactId>
         </dependency>
 
         <dependency>

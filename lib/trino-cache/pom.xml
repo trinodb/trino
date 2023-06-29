@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-collect</artifactId>
+    <artifactId>trino-cache</artifactId>
     <name>trino-collect</name>
 
     <properties>
