@@ -11,18 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.collect.cache;
+package io.trino.cache;
 
-/**
- * A {@link com.google.common.cache.LoadingCache} that does not support eviction.
- */
-public interface NonEvictableLoadingCache<K, V>
-        extends NonKeyEvictableLoadingCache<K, V>
+import org.testng.annotations.DataProvider;
+
+import java.util.stream.Stream;
+
+enum Invalidation
 {
-    /**
-     * @deprecated Not supported. Use {@link EvictableCacheBuilder} to build a cache instead.
-     */
-    @Deprecated
-    @Override
-    void invalidateAll();
+    INVALIDATE_KEY,
+    INVALIDATE_PREDEFINED_KEYS,
+    INVALIDATE_SELECTED_KEYS,
+    INVALIDATE_ALL,
+    /**/;
+
+    @DataProvider
+    public static Object[][] invalidations()
+    {
+        return Stream.of(values())
+                .map(invalidation -> new Object[] {invalidation})
+                .toArray(Object[][]::new);
+    }
 }

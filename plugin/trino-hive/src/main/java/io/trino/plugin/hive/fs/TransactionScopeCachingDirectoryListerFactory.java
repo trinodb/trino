@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister.FetchingValueHolder;
 

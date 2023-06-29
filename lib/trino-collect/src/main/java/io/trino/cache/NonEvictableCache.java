@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.collect.cache;
+package io.trino.cache;
 
 import com.google.common.cache.Cache;
 
 /**
- * A {@link com.google.common.cache.Cache} that does not support key-based eviction.
+ * A {@link com.google.common.cache.Cache} that does not support eviction.
  */
 @ElementTypesAreNonnullByDefault
-public interface NonKeyEvictableCache<K, V>
+public interface NonEvictableCache<K, V>
         extends Cache<K, V>
 {
     /**
@@ -37,10 +37,9 @@ public interface NonKeyEvictableCache<K, V>
     void invalidateAll(Iterable<?> keys);
 
     /**
-     * Invalidates all live entries in the cache. Ongoing loads may not be invalidated, so subsequent
-     * get from the cache is not guaranteed to return fresh state. Must not be relied on for correctness,
-     * but can be used for manual intervention, e.g. as a method exposed over JMX.
+     * @deprecated Not supported. Use {@link EvictableCache} cache implementation instead.
      */
+    @Deprecated
     @Override
     void invalidateAll();
 }
