@@ -13,7 +13,6 @@
  */
 package io.trino.cache;
 
-import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
@@ -109,7 +108,7 @@ public class TestEvictableCache
                 .build();
 
         for (int i = 0; i < 10; i++) {
-            String value = Strings.repeat("a", i);
+            String value = "a".repeat(i);
             assertEquals((Object) cache.get(i, () -> value), value);
         }
         cache.cleanUp();
@@ -125,7 +124,7 @@ public class TestEvictableCache
         int lastKey = 10 - 1;
         assertEquals(cache.get(lastKey, () -> {
             throw new UnsupportedOperationException();
-        }), Strings.repeat("a", lastKey));
+        }), "a".repeat(lastKey));
     }
 
     @Test(timeOut = TEST_TIMEOUT_MILLIS)
