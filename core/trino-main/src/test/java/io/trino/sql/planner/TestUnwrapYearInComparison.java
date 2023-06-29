@@ -70,6 +70,13 @@ public class TestUnwrapYearInComparison
     }
 
     @Test
+    public void testInPredicate()
+    {
+        testUnwrap("date", "year(a) IN (1000, 1400, 1800)", "a BETWEEN DATE '1000-01-01' AND DATE '1000-12-31' OR a BETWEEN DATE '1400-01-01' AND DATE '1400-12-31' OR a BETWEEN DATE '1800-01-01' AND DATE '1800-12-31'");
+        testUnwrap("timestamp", "year(a) IN (1000, 1400, 1800)", "a BETWEEN TIMESTAMP '1000-01-01 00:00:00.000' AND TIMESTAMP '1000-12-31 23:59:59.999' OR a BETWEEN TIMESTAMP '1400-01-01 00:00:00.000' AND TIMESTAMP '1400-12-31 23:59:59.999' OR a BETWEEN TIMESTAMP '1800-01-01 00:00:00.000' AND TIMESTAMP '1800-12-31 23:59:59.999'");
+    }
+
+    @Test
     public void testNotEquals()
     {
         testUnwrap("date", "year(a) <> -0001", "NOT (a BETWEEN DATE '-0001-01-01' AND DATE '-0001-12-31')");
