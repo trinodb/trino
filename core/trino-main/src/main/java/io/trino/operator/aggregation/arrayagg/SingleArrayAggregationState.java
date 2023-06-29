@@ -15,83 +15,84 @@ package io.trino.operator.aggregation.arrayagg;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 
-import static com.google.common.base.Verify.verify;
+import java.lang.invoke.MethodHandle;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.operator.aggregation.BlockBuilderCopier.copyBlockBuilder;
-import static java.util.Objects.requireNonNull;
 
 public class SingleArrayAggregationState
         implements ArrayAggregationState
 {
     private static final int INSTANCE_SIZE = instanceSize(SingleArrayAggregationState.class);
-    private BlockBuilder blockBuilder;
-    private final Type type;
 
-    public SingleArrayAggregationState(Type type)
+    private final FlatArrayBuilder arrayBuilder;
+    private Block tempDeserializeBlock;
+
+    public SingleArrayAggregationState(Type type, MethodHandle readFlat, MethodHandle writeFlat)
     {
-        this.type = requireNonNull(type, "type is null");
+        arrayBuilder = new FlatArrayBuilder(type, readFlat, writeFlat, false);
     }
 
-    // for copying
-    private SingleArrayAggregationState(BlockBuilder blockBuilder, Type type)
+    private SingleArrayAggregationState(SingleArrayAggregationState state)
     {
-        this.blockBuilder = blockBuilder;
-        this.type = type;
+        // tempDeserializeBlock should never be set during a copy operation it is only used during deserialization
+        checkArgument(state.tempDeserializeBlock == null);
+
+        arrayBuilder = state.arrayBuilder.copy();
+        tempDeserializeBlock = null;
     }
 
     @Override
     public long getEstimatedSize()
     {
-        long estimatedSize = INSTANCE_SIZE;
-        if (blockBuilder != null) {
-            estimatedSize += blockBuilder.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + arrayBuilder.getEstimatedSize();
+    }
+
+    @Override
+    public void addAll(Block block)
+    {
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            add(block, position);
         }
-        return estimatedSize;
     }
 
     @Override
     public void add(Block block, int position)
     {
-        if (blockBuilder == null) {
-            blockBuilder = type.createBlockBuilder(null, 16);
-        }
-        type.appendTo(block, position, blockBuilder);
+        arrayBuilder.add(block, position);
     }
 
     @Override
-    public void forEach(ArrayAggregationStateConsumer consumer)
+    public void writeAll(BlockBuilder blockBuilder)
     {
-        if (blockBuilder == null) {
-            return;
-        }
-
-        for (int i = 0; i < blockBuilder.getPositionCount(); i++) {
-            consumer.accept(blockBuilder, i);
-        }
+        arrayBuilder.writeAll(blockBuilder);
     }
 
     @Override
     public boolean isEmpty()
     {
-        if (blockBuilder == null) {
-            return true;
-        }
-        verify(blockBuilder.getPositionCount() != 0);
-        return false;
+        return arrayBuilder.size() == 0;
     }
 
     @Override
-    public void reset()
+    public ArrayAggregationState copy()
     {
-        blockBuilder = null;
+        return new SingleArrayAggregationState(this);
     }
 
-    @Override
-    public AccumulatorState copy()
+    Block removeTempDeserializeBlock()
     {
-        return new SingleArrayAggregationState(copyBlockBuilder(type, blockBuilder), type);
+        Block block = tempDeserializeBlock;
+        checkState(block != null, "tempDeserializeBlock is null");
+        tempDeserializeBlock = null;
+        return block;
+    }
+
+    void setTempDeserializeBlock(Block tempDeserializeBlock)
+    {
+        this.tempDeserializeBlock = tempDeserializeBlock;
     }
 }
