@@ -258,6 +258,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-cache</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
             <exclusions>
                 <exclusion>
@@ -269,11 +274,6 @@
                     <artifactId>okhttp-urlconnection</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
         </dependency>
 
         <dependency>

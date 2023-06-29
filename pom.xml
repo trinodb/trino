@@ -39,7 +39,7 @@
         <module>core/trino-spi</module>
         <module>docs</module>
         <module>lib/trino-array</module>
-        <module>lib/trino-collect</module>
+        <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>
         <module>lib/trino-filesystem-azure</module>
         <module>lib/trino-filesystem-manager</module>
@@ -906,6 +906,19 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-cache</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-cache</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-cli</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -914,19 +927,6 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-client</artifactId>
                 <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-collect</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-collect</artifactId>
-                <version>${project.version}</version>
-                <type>test-jar</type>
             </dependency>
 
             <dependency>
