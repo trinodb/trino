@@ -174,52 +174,52 @@ public class TestDeltaLakeBasic
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
-        Assertions.assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
+        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
                 .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
 
         JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
-        Assertions.assertThat(fields).hasSize(2);
+        assertThat(fields).hasSize(2);
         JsonNode columnX = fields.get(0);
         JsonNode columnY = fields.get(1);
 
         List<JsonNode> rowFields = ImmutableList.copyOf(columnY.get("type").get("fields").elements());
-        Assertions.assertThat(rowFields).hasSize(3);
+        assertThat(rowFields).hasSize(3);
         JsonNode nestedArray = rowFields.get(0);
         JsonNode nestedMap = rowFields.get(1);
         JsonNode nestedRow = rowFields.get(2);
 
         // Verify delta.columnMapping.id and delta.columnMapping.physicalName values
-        Assertions.assertThat(columnX.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(1);
-        Assertions.assertThat(columnX.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
-        Assertions.assertThat(columnY.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(6);
-        Assertions.assertThat(columnY.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(columnX.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(1);
+        assertThat(columnX.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(columnY.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(6);
+        assertThat(columnY.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
-        Assertions.assertThat(nestedArray.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(2);
-        Assertions.assertThat(nestedArray.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedArray.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(2);
+        assertThat(nestedArray.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
-        Assertions.assertThat(nestedMap.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(3);
-        Assertions.assertThat(nestedMap.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedMap.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(3);
+        assertThat(nestedMap.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
-        Assertions.assertThat(nestedRow.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(5);
-        Assertions.assertThat(nestedRow.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
-        Assertions.assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(4);
-        Assertions.assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(nestedRow.get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(5);
+        assertThat(nestedRow.get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
+        assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.id").asInt()).isEqualTo(4);
+        assertThat(getOnlyElement(nestedRow.get("type").get("fields").elements()).get("metadata").get("delta.columnMapping.physicalName").asText()).containsPattern(PHYSICAL_COLUMN_NAME_PATTERN);
 
         // Repeat adding a new column and verify the existing fields are preserved
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN third_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry thirdMetadata = loadMetadataEntry(2, tableLocation);
         JsonNode latestSchema = OBJECT_MAPPER.readTree(thirdMetadata.getSchemaString());
         List<JsonNode> latestFields = ImmutableList.copyOf(latestSchema.get("fields").elements());
-        Assertions.assertThat(latestFields).hasSize(3);
+        assertThat(latestFields).hasSize(3);
         JsonNode latestColumnX = latestFields.get(0);
         JsonNode latestColumnY = latestFields.get(1);
-        Assertions.assertThat(latestColumnX).isEqualTo(columnX);
-        Assertions.assertThat(latestColumnY).isEqualTo(columnY);
+        assertThat(latestColumnX).isEqualTo(columnX);
+        assertThat(latestColumnY).isEqualTo(columnY);
 
-        Assertions.assertThat(thirdMetadata.getConfiguration())
+        assertThat(thirdMetadata.getConfiguration())
                 .containsEntry("delta.columnMapping.maxColumnId", "11");
-        Assertions.assertThat(thirdMetadata.getSchemaString())
+        assertThat(thirdMetadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){11}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){11}");
     }
