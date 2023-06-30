@@ -475,7 +475,7 @@ public class ClickHouseClient
     }
 
     @Override
-    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName)
+    protected void dropTable(ConnectorSession session, RemoteTableName remoteTableName, boolean temporaryTable)
     {
         String sql = "DROP TABLE " + quoted(remoteTableName) + getClusterInfo();
         execute(session, sql);
