@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.decoder.avro.AvroRowDecoderFactory.DATA_SCHEMA;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaRecordSetProvider
@@ -79,7 +80,7 @@ public class KafkaRecordSetProvider
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)
     {
         ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
-        dataSchema.ifPresent(schema -> parameters.put("dataSchema", schema));
+        dataSchema.ifPresent(schema -> parameters.put(DATA_SCHEMA, schema));
         return parameters.buildOrThrow();
     }
 }
