@@ -19,7 +19,14 @@ TRINO_VERSION=
 while getopts ":a:h:r:" o; do
     case "${o}" in
         a)
-            IFS=, read -ra ARCHITECTURES <<< "$OPTARG"
+            IFS=, read -ra ARCH_ARG <<< "$OPTARG"
+            for arch in "${ARCH_ARG[@]}"; do
+                if echo "${ARCHITECTURES[@]}" | grep -v -w "$arch" &>/dev/null; then
+                    usage
+                    exit 0
+                fi
+            done
+            ARCHITECTURES=("${ARCH_ARG[@]}")
             ;;
         r)
             TRINO_VERSION=${OPTARG}
