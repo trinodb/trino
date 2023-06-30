@@ -31,7 +31,7 @@ stages:
                     options: -DskipTests -Dair.check.skip-all=true
                     publishJUnitResults: false
                     javaHomeOption: "JDKVersion"
-                    jdkVersionOption: "1.7"
+                    jdkVersionOption: "1.8"
                     jdkArchitectureOption: 'x64'
                     mavenVersionOption: "Default"
                     mavenAuthenticateFeed: false
