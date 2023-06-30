@@ -17,20 +17,9 @@ import io.trino.plugin.kafka.KafkaTableHandle;
 
 import java.util.Optional;
 
-public abstract class AbstractContentSchemaReader
-        implements ContentSchemaReader
+public interface ContentSchemaProvider
 {
-    @Override
-    public final Optional<String> readKeyContentSchema(KafkaTableHandle tableHandle)
-    {
-        return readSchema(tableHandle.getKeyDataSchemaLocation(), tableHandle.getKeySubject());
-    }
+    Optional<String> readKeyContentSchema(KafkaTableHandle tableHandle);
 
-    @Override
-    public final Optional<String> readValueContentSchema(KafkaTableHandle tableHandle)
-    {
-        return readSchema(tableHandle.getMessageDataSchemaLocation(), tableHandle.getMessageSubject());
-    }
-
-    protected abstract Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject);
+    Optional<String> readValueContentSchema(KafkaTableHandle tableHandle);
 }
