@@ -433,7 +433,7 @@ Inserts are not supported, and the only data format supported is AVRO.
         * ``IGNORE`` - Ignore structs with no fields. This propagates to parents.
           For example, an array of structs with no fields is ignored.
         * ``FAIL`` - Fail the query if a struct with no fields is defined.
-        * ``DUMMY`` - Add a dummy boolean field called ``dummy``, which is null.
+        * ``MARK`` - Add a marker field named ``$empty_field_marker``, which of type boolean with a null value.
           This may be desired if the struct represents a marker field.
     - ``IGNORE``
   * - ``kafka.confluent-subjects-cache-refresh-interval``
