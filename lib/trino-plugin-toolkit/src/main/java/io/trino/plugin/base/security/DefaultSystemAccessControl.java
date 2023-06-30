@@ -21,6 +21,7 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
+import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 
 /**
  * Default system access control rules.
@@ -54,5 +55,11 @@ public class DefaultSystemAccessControl
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
         denyImpersonateUser(context.getIdentity().getUser(), userName);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        denyWriteSystemInformationAccess();
     }
 }

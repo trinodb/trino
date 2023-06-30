@@ -13,11 +13,10 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,12 +24,12 @@ import java.nio.file.Paths;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetSymlinkInputFormat
 {

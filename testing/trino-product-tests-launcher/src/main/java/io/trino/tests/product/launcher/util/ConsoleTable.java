@@ -211,7 +211,7 @@ public class ConsoleTable
                         value = lines.get(col).get(row);
                     }
 
-                    builder.append("|").append(" " + pad(value, columnsWidth[col], alignment) + " ");
+                    builder.append("|").append(" ").append(pad(value, columnsWidth[col], alignment)).append(" ");
                     if (col == columnsWidth.length - 1) {
                         builder.append("|");
                     }

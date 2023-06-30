@@ -26,7 +26,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
  * <p>
  * This class may recycle deallocated IDs for new allocations.
  */
-public class IdRegistry<T>
+public final class IdRegistry<T>
 {
     private static final long INSTANCE_SIZE = instanceSize(IdRegistry.class);
 
@@ -38,18 +38,19 @@ public class IdRegistry<T>
      *
      * @return ID referencing the provided object
      */
-    public int allocateId(IntFunction<T> factory)
+    public T allocateId(IntFunction<T> factory)
     {
-        int newId;
+        T result;
         if (!emptySlots.isEmpty()) {
-            newId = emptySlots.dequeueInt();
-            objects.set(newId, factory.apply(newId));
+            int id = emptySlots.dequeueInt();
+            result = factory.apply(id);
+            objects.set(id, result);
         }
         else {
-            newId = objects.size();
-            objects.add(factory.apply(newId));
+            result = factory.apply(objects.size());
+            objects.add(result);
         }
-        return newId;
+        return result;
     }
 
     public void deallocate(int id)

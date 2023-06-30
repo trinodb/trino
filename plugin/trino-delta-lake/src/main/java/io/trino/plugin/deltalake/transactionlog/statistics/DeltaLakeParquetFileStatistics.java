@@ -82,13 +82,19 @@ public class DeltaLakeParquetFileStatistics
     @Override
     public Optional<Object> getMaxColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getPhysicalName(), maxValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        return getStat(columnHandle.getBasePhysicalColumnName(), maxValues);
     }
 
     @Override
     public Optional<Object> getMinColumnValue(DeltaLakeColumnHandle columnHandle)
     {
-        return getStat(columnHandle.getPhysicalName(), minValues);
+        if (!columnHandle.isBaseColumn()) {
+            return Optional.empty();
+        }
+        return getStat(columnHandle.getBasePhysicalColumnName(), minValues);
     }
 
     @Override

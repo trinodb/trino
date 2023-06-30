@@ -225,7 +225,7 @@ public interface SystemAccessControl
      */
     default void checkCanWriteSystemInformation(SystemSecurityContext context)
     {
-        AccessDeniedException.denyReadSystemInformationAccess();
+        AccessDeniedException.denyWriteSystemInformationAccess();
     }
 
     /**

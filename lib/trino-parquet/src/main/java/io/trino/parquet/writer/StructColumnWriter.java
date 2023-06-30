@@ -16,8 +16,8 @@ package io.trino.parquet.writer;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarRow;
 
@@ -54,15 +54,15 @@ public class StructColumnWriter
                 .addAll(columnChunk.getDefLevelWriterProviders())
                 .add(DefLevelWriterProviders.of(columnarRow, maxDefinitionLevel))
                 .build();
-        List<RepLevelIterable> repLevelIterables = ImmutableList.<RepLevelIterable>builder()
-                .addAll(columnChunk.getRepLevelIterables())
-                .add(RepLevelIterables.of(columnChunk.getBlock()))
+        List<RepLevelWriterProvider> repLevelWriterProviders = ImmutableList.<RepLevelWriterProvider>builder()
+                .addAll(columnChunk.getRepLevelWriterProviders())
+                .add(RepLevelWriterProviders.of(columnarRow))
                 .build();
 
         for (int i = 0; i < columnWriters.size(); ++i) {
             ColumnWriter columnWriter = columnWriters.get(i);
             Block block = columnarRow.getField(i);
-            columnWriter.writeBlock(new ColumnChunk(block, defLevelWriterProviders, repLevelIterables));
+            columnWriter.writeBlock(new ColumnChunk(block, defLevelWriterProviders, repLevelWriterProviders));
         }
     }
 

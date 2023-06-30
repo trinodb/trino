@@ -20,8 +20,8 @@ import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -45,6 +45,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.spi.block.MapValueBuilder.buildMapValue;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
@@ -171,7 +172,8 @@ public class KafkaRecordSet
             long timeStamp = message.timestamp() * MICROSECONDS_PER_MILLISECOND;
 
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedKey = keyDecoder.decodeRow(keyData);
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
+            // tombstone message has null value body
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = message.value() == null ? Optional.empty() : messageDecoder.decodeRow(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = columnHandles.stream()
                     .filter(KafkaColumnHandle::isInternal)
@@ -267,25 +269,25 @@ public class KafkaRecordSet
         Type valueArrayType = varcharMapType.getTypeParameters().get(1);
         Type valueType = valueArrayType.getTypeParameters().get(0);
 
-        BlockBuilder mapBlockBuilder = varcharMapType.createBlockBuilder(null, 1);
-        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
-
         // Group by keys and collect values as array.
         Multimap<String, byte[]> headerMap = ArrayListMultimap.create();
         for (Header header : headers) {
             headerMap.put(header.key(), header.value());
         }
 
-        for (String headerKey : headerMap.keySet()) {
-            writeNativeValue(keyType, builder, headerKey);
-            BlockBuilder arrayBuilder = builder.beginBlockEntry();
-            for (byte[] value : headerMap.get(headerKey)) {
-                writeNativeValue(valueType, arrayBuilder, value);
-            }
-            builder.closeEntry();
-        }
-
-        mapBlockBuilder.closeEntry();
+        Block map = buildMapValue(
+                varcharMapType,
+                headerMap.size(),
+                (keyBuilder, valueBuilder) -> {
+                    for (String headerKey : headerMap.keySet()) {
+                        writeNativeValue(keyType, keyBuilder, headerKey);
+                        ((ArrayBlockBuilder) valueBuilder).buildEntry(elementBuilder -> {
+                            for (byte[] value : headerMap.get(headerKey)) {
+                                writeNativeValue(valueType, elementBuilder, value);
+                            }
+                        });
+                    }
+                });
 
         return new FieldValueProvider()
         {
@@ -298,7 +300,7 @@ public class KafkaRecordSet
             @Override
             public Block getBlock()
             {
-                return varcharMapType.getObject(mapBlockBuilder, 0);
+                return map;
             }
         };
     }

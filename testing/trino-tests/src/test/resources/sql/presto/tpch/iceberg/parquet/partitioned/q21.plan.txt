@@ -9,22 +9,26 @@ local exchange (GATHER, SINGLE, [])
                                 partial aggregation over (commitdate, exists, name, name_9, nationkey, orderkey_13, orderstatus, receiptdate, suppkey_0, unique)
                                     join (RIGHT, PARTITIONED):
                                         remote exchange (REPARTITION, HASH, ["orderkey_32"])
-                                            scan lineitem
+                                            dynamic filter (["orderkey_32"])
+                                                scan lineitem
                                         final aggregation over (commitdate, name, name_9, nationkey, orderkey_13, orderstatus, receiptdate, suppkey_0, unique_54)
                                             local exchange (GATHER, SINGLE, [])
                                                 partial aggregation over (commitdate, name, name_9, nationkey, orderkey_13, orderstatus, receiptdate, suppkey_0, unique_54)
                                                     join (INNER, PARTITIONED):
                                                         remote exchange (REPARTITION, HASH, ["orderkey_13"])
-                                                            scan lineitem
+                                                            dynamic filter (["orderkey_13"])
+                                                                scan lineitem
                                                         local exchange (GATHER, SINGLE, [])
                                                             join (INNER, PARTITIONED):
                                                                 remote exchange (REPARTITION, HASH, ["orderkey"])
                                                                     join (INNER, REPLICATED):
-                                                                        scan lineitem
+                                                                        dynamic filter (["orderkey", "suppkey_0"])
+                                                                            scan lineitem
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 join (INNER, REPLICATED):
-                                                                                    scan supplier
+                                                                                    dynamic filter (["nationkey"])
+                                                                                        scan supplier
                                                                                     local exchange (GATHER, SINGLE, [])
                                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                                             scan nation

@@ -58,26 +58,19 @@ public class ByteArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
-    public BlockBuilder writeByte(int value)
+    public BlockBuilder writeByte(byte value)
     {
         if (values.length <= positionCount) {
             growCapacity();
         }
 
-        values[positionCount] = (byte) value;
+        values[positionCount] = value;
 
         hasNonNullValue = true;
         positionCount++;
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(ByteArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
         return this;
     }
 

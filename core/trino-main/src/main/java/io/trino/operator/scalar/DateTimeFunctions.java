@@ -329,7 +329,7 @@ public final class DateTimeFunctions
             case "year":
                 return chronology.year();
         }
-        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Timestamp field");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIMESTAMP field");
     }
 
     @Description("Parses the specified date/time by the given format")

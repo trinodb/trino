@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -87,6 +88,7 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -94,6 +96,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -131,6 +134,7 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetast
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
@@ -144,6 +148,7 @@ public class ThriftHiveMetastore
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
 
     private static final String DEFAULT_METASTORE_USER = "presto";
+    private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
 
     private final Optional<ConnectorIdentity> identity;
     private final HdfsEnvironment hdfsEnvironment;
@@ -387,6 +392,19 @@ public class ThriftHiveMetastore
                         }));
         Map<String, OptionalLong> partitionRowCounts = partitionBasicStatistics.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getRowCount()));
+
+        long tableRowCount = partitionRowCounts.values().stream()
+                .mapToLong(count -> count.orElse(0))
+                .sum();
+        if (!partitionRowCounts.isEmpty() && tableRowCount == 0) {
+            // When the table has partitions, but row count statistics are set to zero, we treat this case as empty
+            // statistics to avoid underestimation in the CBO. This scenario may be caused when other engines are
+            // used to ingest data into partitioned hive tables.
+            partitionBasicStatistics = partitionBasicStatistics.keySet().stream()
+                    .map(partitionName -> new SimpleEntry<>(partitionName, HiveBasicStatistics.createEmptyStatistics()))
+                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue));
+        }
+
         Map<String, Map<String, HiveColumnStatistics>> partitionColumnStatistics = getPartitionColumnStatistics(
                 table.getDbName(),
                 table.getTableName(),
@@ -864,8 +882,57 @@ public class ThriftHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAllTables", stats.getGetAllTables().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getAllTables();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        // Without translateHiveViews, Hive views are represented as tables in Trino,
+        // and they should not be returned from ThriftHiveMetastore.getAllViews() call
+        if (!translateHiveViews) {
+            return Optional.empty();
+        }
+
+        try {
+            return retry()
+                    .stopOn(UnknownDBException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getAllViews", stats.getGetAllViews().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getAllViews();
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
     public void createDatabase(Database database)
     {
+        validateObjectName(database.getName());
         try {
             retry()
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class)
@@ -916,6 +983,9 @@ public class ThriftHiveMetastore
     @Override
     public void alterDatabase(String databaseName, Database database)
     {
+        if (!Objects.equals(databaseName, database.getName())) {
+            validateObjectName(database.getName());
+        }
         try {
             retry()
                     .stopOn(NoSuchObjectException.class, MetaException.class)
@@ -941,6 +1011,7 @@ public class ThriftHiveMetastore
     @Override
     public void createTable(Table table)
     {
+        validateObjectName(table.getTableName());
         try {
             retry()
                     .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class)
@@ -1031,6 +1102,12 @@ public class ThriftHiveMetastore
     @Override
     public void alterTable(String databaseName, String tableName, Table table)
     {
+        if (!Objects.equals(databaseName, table.getDbName())) {
+            validateObjectName(table.getDbName());
+        }
+        if (!Objects.equals(tableName, table.getTableName())) {
+            validateObjectName(table.getTableName());
+        }
         try {
             retry()
                     .stopOn(InvalidOperationException.class, MetaException.class)
@@ -1961,5 +2038,21 @@ public class ThriftHiveMetastore
         }
         throwIfUnchecked(throwable);
         throw new RuntimeException(throwable);
+    }
+
+    private static void validateObjectName(String objectName)
+    {
+        if (isNullOrEmpty(objectName)) {
+            throw new IllegalArgumentException("The provided objectName cannot be null or empty");
+        }
+        if (DOT_MATCHER.matchesAllOf(objectName)) {
+            // '.' or '..' object names can cause the object to have an inaccurate location on the object storage
+            throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
+        }
+        if (objectName.contains("/")) {
+            // Older HMS instances may allow names like 'foo/bar' which can cause managed tables to be
+            // saved in a different location than its intended schema directory
+            throw new TrinoException(GENERIC_USER_ERROR, format("Invalid object name: '%s'", objectName));
+        }
     }
 }

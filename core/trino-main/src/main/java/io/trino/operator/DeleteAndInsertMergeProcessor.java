@@ -33,7 +33,6 @@ import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class DeleteAndInsertMergeProcessor
@@ -108,7 +107,7 @@ public class DeleteAndInsertMergeProcessor
         int insertPositions = 0;
         int deletePositions = 0;
         for (int position = 0; position < originalPositionCount; position++) {
-            int operation = toIntExact(TINYINT.getLong(operationChannelBlock, position));
+            byte operation = TINYINT.getByte(operationChannelBlock, position);
             switch (operation) {
                 case DEFAULT_CASE_OPERATION_NUMBER -> { /* ignored */ }
                 case INSERT_OPERATION_NUMBER -> insertPositions++;
@@ -130,7 +129,7 @@ public class DeleteAndInsertMergeProcessor
 
         PageBuilder pageBuilder = new PageBuilder(totalPositions, pageTypes);
         for (int position = 0; position < originalPositionCount; position++) {
-            long operation = TINYINT.getLong(operationChannelBlock, position);
+            byte operation = TINYINT.getByte(operationChannelBlock, position);
             if (operation != DEFAULT_CASE_OPERATION_NUMBER) {
                 // Delete and Update because both create a delete row
                 if (operation == DELETE_OPERATION_NUMBER || operation == UPDATE_OPERATION_NUMBER) {

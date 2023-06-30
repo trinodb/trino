@@ -24,8 +24,6 @@ import org.testng.SkipException;
 import java.util.List;
 import java.util.Map;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 public class BaseBigQueryFailureRecoveryTest
         extends BaseFailureRecoveryTest
 {
@@ -63,50 +61,49 @@ public class BaseBigQueryFailureRecoveryTest
     @Override
     protected void testAnalyzeTable()
     {
-        assertThatThrownBy(super::testAnalyzeTable).hasMessageMatching("This connector does not support analyze");
+        // This connector does not support analyze
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testDelete()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // This connector does not support modifying table rows
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testDeleteWithSubquery()
     {
-        assertThatThrownBy(super::testDeleteWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // This connector does not support modifying table rows
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testMerge()
     {
-        assertThatThrownBy(super::testMerge).hasMessageContaining("This connector does not support modifying table rows");
+        // This connector does not support modifying table rows
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testRefreshMaterializedView()
     {
-        assertThatThrownBy(super::testRefreshMaterializedView)
-                .hasMessageContaining("This connector does not support creating materialized views");
+        // This connector does not support creating materialized views
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testUpdate()
     {
-        assertThatThrownBy(super::testUpdate).hasMessageContaining("This connector does not support modifying table rows");
+        // This connector does not support modifying table rows
         throw new SkipException("skipped");
     }
 
     @Override
     protected void testUpdateWithSubquery()
     {
-        assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("This connector does not support modifying table rows");
+        // This connector does not support modifying table rows
         throw new SkipException("skipped");
     }
 }

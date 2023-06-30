@@ -13,23 +13,34 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
+
+import java.util.List;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcExpression
 {
     private final String expression;
+    private final List<QueryParameter> parameters;
     private final JdbcTypeHandle jdbcTypeHandle;
 
-    public JdbcExpression(String expression, JdbcTypeHandle jdbcTypeHandle)
+    public JdbcExpression(String expression, List<QueryParameter> parameters, JdbcTypeHandle jdbcTypeHandle)
     {
         this.expression = requireNonNull(expression, "expression is null");
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
     }
 
     public String getExpression()
     {
         return expression;
+    }
+
+    public List<QueryParameter> getParameters()
+    {
+        return parameters;
     }
 
     public JdbcTypeHandle getJdbcTypeHandle()
@@ -42,6 +53,7 @@ public final class JdbcExpression
     {
         return toStringHelper(this)
                 .add("expression", expression)
+                .add("parameters", parameters)
                 .add("jdbcTypeHandle", jdbcTypeHandle)
                 .toString();
     }

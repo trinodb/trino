@@ -33,6 +33,6 @@ public class TestDeltaLakeDatabricksMinioReads
     public void testReadRegionTable()
     {
         super.testReadRegionTable();
-        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/part-00000-98195ace-e492-4cd7-97d1-9b955202874b-c000.snappy.parquet", 1);
+        assertNotificationsCount(NOTIFICATIONS_TABLE, OBJECT_ACCESSED_GET, tableName + "/part-00000-98195ace-e492-4cd7-97d1-9b955202874b-c000.snappy.parquet", 2);
     }
 }

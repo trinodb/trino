@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.example;
 
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.ArrayList;

@@ -40,7 +40,7 @@ connection properties as appropriate for your setup:
 The ``connection-url`` defines the connection information and parameters to pass
 to the ClickHouse JDBC driver. The supported parameters for the URL are
 available in the `ClickHouse JDBC driver configuration
-<https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-jdbc#Configuration>`_.
+<https://clickhouse.com/docs/en/integrations/java#configuration>`_.
 
 The ``connection-user`` and ``connection-password`` are typically required and
 determine the user credentials for the connection, often a service user. You can
@@ -83,6 +83,8 @@ For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. include:: query-comment-format.fragment
 
 .. |default_domain_compaction_threshold| replace:: ``1000``
 .. include:: jdbc-domain-compaction-threshold.fragment

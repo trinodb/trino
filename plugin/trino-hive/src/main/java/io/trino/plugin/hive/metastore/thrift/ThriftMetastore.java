@@ -65,9 +65,13 @@ public interface ThriftMetastore
 
     List<String> getAllTables(String databaseName);
 
+    Optional<List<SchemaTableName>> getAllTables();
+
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     List<String> getAllViews(String databaseName);
+
+    Optional<List<SchemaTableName>> getAllViews();
 
     Optional<Database> getDatabase(String databaseName);
 

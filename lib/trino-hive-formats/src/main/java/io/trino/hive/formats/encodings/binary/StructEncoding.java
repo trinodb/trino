@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -61,40 +62,38 @@ public class StructEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        int fieldId = 0;
-        int nullByte = 0;
-        int elementOffset = offset;
-        BlockBuilder rowBuilder = builder.beginBlockEntry();
-        while (fieldId < structFields.size() && elementOffset < offset + length) {
-            BinaryColumnEncoding field = structFields.get(fieldId);
+        ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
+            int fieldId = 0;
+            int nullByte = 0;
+            int elementOffset = offset;
+            while (fieldId < structFields.size() && elementOffset < offset + length) {
+                BinaryColumnEncoding field = structFields.get(fieldId);
 
-            // null byte prefixes every 8 fields
-            if ((fieldId % 8) == 0) {
-                nullByte = slice.getByte(elementOffset);
-                elementOffset++;
+                // null byte prefixes every 8 fields
+                if ((fieldId % 8) == 0) {
+                    nullByte = slice.getByte(elementOffset);
+                    elementOffset++;
+                }
+
+                // read field
+                if ((nullByte & (1 << (fieldId % 8))) != 0) {
+                    int valueOffset = field.getValueOffset(slice, elementOffset);
+                    int valueLength = field.getValueLength(slice, elementOffset);
+
+                    field.decodeValueInto(fieldBuilders.get(fieldId), slice, elementOffset + valueOffset, valueLength);
+
+                    elementOffset = elementOffset + valueOffset + valueLength;
+                }
+                else {
+                    fieldBuilders.get(fieldId).appendNull();
+                }
+                fieldId++;
             }
-
-            // read field
-            if ((nullByte & (1 << (fieldId % 8))) != 0) {
-                int valueOffset = field.getValueOffset(slice, elementOffset);
-                int valueLength = field.getValueLength(slice, elementOffset);
-
-                field.decodeValueInto(rowBuilder, slice, elementOffset + valueOffset, valueLength);
-
-                elementOffset = elementOffset + valueOffset + valueLength;
+            // Sometimes a struct does not have all fields written, so we fill with nulls
+            while (fieldId < structFields.size()) {
+                fieldBuilders.get(fieldId).appendNull();
+                fieldId++;
             }
-            else {
-                rowBuilder.appendNull();
-            }
-            fieldId++;
-        }
-
-        // Sometimes a struct does not have all fields written, so we fill with nulls
-        while (fieldId < structFields.size()) {
-            rowBuilder.appendNull();
-            fieldId++;
-        }
-
-        builder.closeEntry();
+        });
     }
 }

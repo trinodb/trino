@@ -348,7 +348,7 @@ public final class DecimalCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             toType.writeLong(blockBuilder,
-                    realToShortDecimal(fromType.getLong(block, position), toType.getPrecision(), toType.getScale()));
+                    realToShortDecimal(fromType.getFloat(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
 
@@ -364,7 +364,7 @@ public final class DecimalCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             toType.writeObject(blockBuilder,
-                    realToLongDecimal(fromType.getLong(block, position), toType.getPrecision(), toType.getScale()));
+                    realToLongDecimal(fromType.getFloat(block, position), toType.getPrecision(), toType.getScale()));
         }
     }
 }

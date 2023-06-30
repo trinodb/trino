@@ -13,8 +13,14 @@
  */
 package io.trino.parquet.reader.flat;
 
+import io.airlift.slice.Slice;
+
+import static com.google.common.base.Preconditions.checkArgument;
+
 public interface FlatDefinitionLevelDecoder
 {
+    void init(Slice input);
+
     /**
      * Populate 'values' with true for nulls and return the number of non-nulls encountered.
      * 'values' array is assumed to be empty at the start of reading a batch, i.e. contain only false values.
@@ -25,4 +31,18 @@ public interface FlatDefinitionLevelDecoder
      * Skip 'length' values and return the number of non-nulls encountered
      */
     int skip(int length);
+
+    interface DefinitionLevelDecoderProvider
+    {
+        FlatDefinitionLevelDecoder create(int maxDefinitionLevel);
+    }
+
+    static FlatDefinitionLevelDecoder getFlatDefinitionLevelDecoder(int maxDefinitionLevel)
+    {
+        checkArgument(maxDefinitionLevel >= 0 && maxDefinitionLevel <= 1, "Invalid max definition level: " + maxDefinitionLevel);
+        if (maxDefinitionLevel == 0) {
+            return new ZeroDefinitionLevelDecoder();
+        }
+        return new NullsDecoder();
+    }
 }

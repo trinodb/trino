@@ -115,6 +115,12 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
@@ -124,6 +130,12 @@ public abstract class ForwardingHiveMetastore
     public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return delegate.getAllViews();
     }
 
     @Override

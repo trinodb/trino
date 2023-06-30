@@ -54,12 +54,11 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
@@ -323,25 +322,25 @@ public class QueryAssertions
             this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
         }
 
-        // TODO for better readability, replace this with `exceptColumns(String... columnNamesToExclude)` leveraging MaterializedResult.getColumnNames
-        @Deprecated
-        public QueryAssert projected(int... columns)
+        public QueryAssert exceptColumns(String... columnNamesToExclude)
         {
             return new QueryAssert(
                     runner,
                     session,
-                    format("%s projected with %s", query, Arrays.toString(columns)),
-                    new MaterializedResult(
-                            actual.getMaterializedRows().stream()
-                                    .map(row -> new MaterializedRow(
-                                            row.getPrecision(),
-                                            IntStream.of(columns)
-                                                    .mapToObj(row::getField)
-                                                    .collect(toList()))) // values are nullable
-                                    .collect(toImmutableList()),
-                            IntStream.of(columns)
-                                    .mapToObj(actual.getTypes()::get)
-                                    .collect(toImmutableList())),
+                    format("%s except columns %s", query, Arrays.toString(columnNamesToExclude)),
+                    actual.exceptColumns(columnNamesToExclude),
+                    ordered,
+                    skipTypesCheck,
+                    skipResultsCorrectnessCheckForPushdown);
+        }
+
+        public QueryAssert projected(String... columnNamesToInclude)
+        {
+            return new QueryAssert(
+                    runner,
+                    session,
+                    format("%s projected with %s", query, Arrays.toString(columnNamesToInclude)),
+                    actual.project(columnNamesToInclude),
                     ordered,
                     skipTypesCheck,
                     skipResultsCorrectnessCheckForPushdown);
@@ -404,7 +403,7 @@ public class QueryAssertions
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -481,7 +480,7 @@ public class QueryAssertions
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -566,7 +565,7 @@ public class QueryAssertions
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
@@ -588,7 +587,7 @@ public class QueryAssertions
         {
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                         planVerification.accept(plan);
                     });
 

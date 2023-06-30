@@ -15,12 +15,13 @@ package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testng.services.Flaky;
+import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -34,11 +35,14 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
 {
+    private static final String SCHEMA_CHANGE_OPERATION_FAIL_ISSUE = "https://github.com/trinodb/trino/issues/14391";
+    @Language("RegExp")
+    private static final String SCHEMA_CHANGE_OPERATION_FAIL_MATCH = "Schema change operation failed: Thread got interrupted while trying to acquire table lock.";
+
     private TestingIgniteServer igniteServer;
 
     @Override
@@ -64,7 +68,6 @@ public class TestIgniteConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_DELETE:
             case SUPPORTS_TRUNCATE:
                 return false;
 
@@ -77,12 +80,8 @@ public class TestIgniteConnectorTest
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
-            case SUPPORTS_DROP_COLUMN:
-                return true;
-
-            // https://issues.apache.org/jira/browse/IGNITE-18829
-            // Add not null column to non-empty table Ignite doesn't give the default value
-            case SUPPORTS_ADD_COLUMN:
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
+            case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -96,10 +95,20 @@ public class TestIgniteConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
             case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
-            case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return true;
+
+            case SUPPORTS_NATIVE_QUERY:
+                return false;
+
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+                return false;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -161,7 +170,7 @@ public class TestIgniteConnectorTest
         String tableWithQuote = "create_table_with_unsupported_quote_column";
         String tableDefinitionWithQuote = "(`a\"b` bigint primary key, c varchar)";
         assertThatThrownBy(() -> onRemoteDatabase().execute("CREATE TABLE " + tableWithQuote + tableDefinitionWithQuote))
-                .getRootCause()
+                .rootCause()
                 .hasMessageContaining("Failed to parse query");
 
         // Test the property column with comma
@@ -187,6 +196,20 @@ public class TestIgniteConnectorTest
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo(format(pattern, catalog, schema, tableName));
         }
+    }
+
+    @Test
+    public void testCreateTableWithNonExistingPrimaryKey()
+    {
+        String tableName = "test_invalid_primary_key" + randomNameSuffix();
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['not_existing_column'])",
+                "Column 'not_existing_column' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['dummy_id'])",
+                "Column 'dummy_id' specified in property 'primary_key' doesn't exist in table");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a bigint) WITH (primary_key = ARRAY['A'])",
+                "Column 'A' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
@@ -295,100 +318,62 @@ public class TestIgniteConnectorTest
     }
 
     @Override
-    public void testNativeQuerySimple()
+    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails("SELECT * FROM TABLE(system.query(query => 'SELECT 1'))", "line 1:21: Table function system.query not registered");
+        assertThat(e).hasMessage("Schema change operation failed: Thread got interrupted while trying to acquire table lock.");
     }
 
+    @Test
     @Override
-    public void testNativeQueryParameters()
+    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    public void testDropAndAddColumnWithSameName()
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        Session session = Session.builder(getSession())
-                .addPreparedStatement("my_query_simple", "SELECT * FROM TABLE(system.query(query => ?))")
-                .addPreparedStatement("my_query", "SELECT * FROM TABLE(system.query(query => format('SELECT %s FROM %s', ?, ?)))")
-                .build();
-        assertQueryFails(session, "EXECUTE my_query_simple USING 'SELECT 1 a'", "line 1:21: Table function system.query not registered");
-        assertQueryFails(session, "EXECUTE my_query USING 'a', '(SELECT 2 a) t'", "line 1:21: Table function system.query not registered");
-    }
+        // Override because Ignite can access old data after dropping and adding a column with same name
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
-    @Override
-    public void testNativeQuerySelectFromNation()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertQueryFails(
-                format("SELECT * FROM TABLE(system.query(query => 'SELECT name FROM %s.nation WHERE nationkey = 0'))", getSession().getSchema().orElseThrow()),
-                "line 1:21: Table function system.query not registered");
-    }
-
-    @Override
-    public void testNativeQuerySelectFromTestTable()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = simpleTable()) {
-            assertQueryFails(
-                    format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName()),
-                    "line 1:21: Table function system.query not registered");
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
         }
     }
 
+    @Test
     @Override
-    public void testNativeQuerySelectUnsupportedType()
+    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    public void testAddColumn()
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = createTableWithUnsupportedColumn()) {
-            String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
-            // Check that column 'two' is not supported.
-            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
-            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    .hasMessage("line 1:21: Table function system.query not registered");
-        }
+        super.testAddColumn();
     }
 
+    @Test
     @Override
-    public void testNativeQueryCreateStatement()
+    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    public void testDropColumn()
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        super.testDropColumn();
     }
 
+    @Test
     @Override
-    public void testNativeQueryInsertStatementTableDoesNotExist()
+    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    public void testAlterTableAddLongColumnName()
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
+        super.testAlterTableAddLongColumnName();
     }
 
+    @Test(dataProvider = "testColumnNameDataProvider")
     @Override
-    public void testNativeQueryInsertStatementTableExists()
+    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
+    public void testAddAndDropColumnName(String columnName)
     {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3, 4)'))", testTable.getName())))
-                    .hasMessage("line 1:21: Table function system.query not registered");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 1), (2, 2)");
-        }
+        super.testAddAndDropColumnName(columnName);
     }
 
     @Override
     protected TestTable simpleTable()
     {
         return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
-    }
-
-    @Override
-    public void testNativeQueryIncorrectSyntax()
-    {
-        // table function disabled for Ignite, because it doesn't provide ResultSetMetaData, so the result relation type cannot be determined
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessage("line 1:21: Table function system.query not registered");
     }
 
     @Override
@@ -440,22 +425,22 @@ public class TestIgniteConnectorTest
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertQueryFails(
                 "SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'",
-                errorMessageForDateOutOrRange("-1996-09-14"));
+                errorMessageForDateOutOfRange("-1996-09-14"));
     }
 
     @Override
     protected String errorMessageForInsertNegativeDate(String date)
     {
-        return errorMessageForDateOutOrRange(date);
+        return errorMessageForDateOutOfRange(date);
     }
 
     @Override
     protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
     {
-        return errorMessageForDateOutOrRange(date);
+        return errorMessageForDateOutOfRange(date);
     }
 
-    private String errorMessageForDateOutOrRange(String date)
+    private String errorMessageForDateOutOfRange(String date)
     {
         return "Date must be between 1970-01-01 and 9999-12-31 in Ignite: " + date;
     }

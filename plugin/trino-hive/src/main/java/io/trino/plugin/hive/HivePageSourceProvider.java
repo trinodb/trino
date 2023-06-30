@@ -13,11 +13,12 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HivePageSource.BucketValidator;
@@ -46,8 +47,6 @@ import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
-import javax.inject.Inject;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,19 +57,20 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.uniqueIndex;
-import static io.trino.plugin.hive.AbstractHiveAcidWriters.ORIGINAL_FILE_PATH_MATCHER;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveColumnHandle.isRowIdColumnHandle;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
+import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPrefilledColumnValue;
@@ -81,6 +81,9 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    // The original file path looks like this: /root/dir/nnnnnnn_m(_copy_ccc)?
+    private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
+
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final int domainCompactionThreshold;
@@ -126,16 +129,15 @@ public class HivePageSourceProvider
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
 
-        Path path = new Path(hiveSplit.getPath());
-        boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
+        boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(hiveSplit.getPath()).matches();
 
         List<ColumnMapping> columnMappings = ColumnMapping.buildColumnMappings(
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
                 hiveColumns,
-                hiveSplit.getBucketConversion().map(BucketConversion::getBucketColumnHandles).orElse(ImmutableList.of()),
+                hiveSplit.getBucketConversion().map(BucketConversion::bucketColumnHandles).orElse(ImmutableList.of()),
                 hiveSplit.getTableToPartitionMapping(),
-                path,
+                hiveSplit.getPath(),
                 hiveSplit.getTableBucketNumber(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getFileModifiedTime());
@@ -146,23 +148,22 @@ public class HivePageSourceProvider
             return new EmptyPageSource();
         }
 
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), path);
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(hiveSplit.getPath()));
 
-        TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
-                .getCurrentPredicate()
-                .transformKeys(HiveColumnHandle.class::cast).simplify(domainCompactionThreshold);
         Optional<ConnectorPageSource> pageSource = createHivePageSource(
                 pageSourceFactories,
                 cursorProviders,
                 configuration,
                 session,
-                path,
+                Location.of(hiveSplit.getPath()),
                 hiveSplit.getTableBucketNumber(),
                 hiveSplit.getStart(),
                 hiveSplit.getLength(),
                 hiveSplit.getEstimatedFileSize(),
                 hiveSplit.getSchema(),
-                hiveTable.getCompactEffectivePredicate().intersect(simplifiedDynamicFilter),
+                hiveTable.getCompactEffectivePredicate().intersect(
+                                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast))
+                        .simplify(domainCompactionThreshold),
                 hiveColumns,
                 typeManager,
                 hiveSplit.getBucketConversion(),
@@ -184,7 +185,7 @@ public class HivePageSourceProvider
             Set<HiveRecordCursorProvider> cursorProviders,
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location path,
             OptionalInt tableBucketNumber,
             long start,
             long length,
@@ -210,8 +211,10 @@ public class HivePageSourceProvider
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, tableBucketNumber, regularAndInterimColumnMappings);
         Optional<BucketValidator> bucketValidator = createBucketValidator(path, bucketValidation, tableBucketNumber, regularAndInterimColumnMappings);
 
+        HiveTimestampPrecision timestampPrecision = getTimestampPrecision(session);
+
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager, timestampPrecision);
 
             Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
                     configuration,
@@ -243,15 +246,13 @@ public class HivePageSourceProvider
                         bucketValidator,
                         adapter,
                         typeManager,
+                        timestampPrecision,
                         pageSource));
             }
         }
 
         for (HiveRecordCursorProvider provider : cursorProviders) {
-            // GenericHiveRecordCursor will automatically do the coercion without HiveCoercionRecordCursor
-            boolean doCoercion = !(provider instanceof GenericHiveRecordCursorProvider);
-
-            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, doCoercion, typeManager);
+            List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, false, typeManager, timestampPrecision);
             Optional<ReaderRecordCursorWithProjections> readerWithProjections = provider.createRecordCursor(
                     configuration,
                     session,
@@ -286,11 +287,6 @@ public class HivePageSourceProvider
                             bucketAdaptation.get().getBucketToKeep(),
                             typeManager,
                             delegate);
-                }
-
-                // Need to wrap RcText and RcBinary into a wrapper, which will do the coercion for mismatch columns
-                if (doCoercion) {
-                    delegate = new HiveCoercionRecordCursor(regularAndInterimColumnMappings, typeManager, delegate);
                 }
 
                 // bucket adaptation already validates that data is in the right bucket
@@ -348,8 +344,7 @@ public class HivePageSourceProvider
                 HivePageSourceProvider::getProjection);
     }
 
-    @VisibleForTesting
-    static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
+    public static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
     {
         HiveColumnHandle expectedColumn = (HiveColumnHandle) expected;
         HiveColumnHandle readColumn = (HiveColumnHandle) read;
@@ -459,7 +454,7 @@ public class HivePageSourceProvider
                 List<HiveColumnHandle> columns,
                 List<HiveColumnHandle> requiredInterimColumns,
                 TableToPartitionMapping tableToPartitionMapping,
-                Path path,
+                String path,
                 OptionalInt bucketNumber,
                 long estimatedFileSize,
                 long fileModifiedTime)
@@ -552,7 +547,7 @@ public class HivePageSourceProvider
                     .collect(toImmutableList());
         }
 
-        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager)
+        public static List<HiveColumnHandle> toColumnHandles(List<ColumnMapping> regularColumnMappings, boolean doCoercion, TypeManager typeManager, HiveTimestampPrecision timestampPrecision)
         {
             return regularColumnMappings.stream()
                     .map(columnMapping -> {
@@ -568,14 +563,14 @@ public class HivePageSourceProvider
                                     projectedColumn.getDereferenceIndices(),
                                     projectedColumn.getDereferenceNames(),
                                     fromHiveType,
-                                    fromHiveType.getType(typeManager));
+                                    fromHiveType.getType(typeManager, timestampPrecision));
                         });
 
                         return new HiveColumnHandle(
                                 columnHandle.getBaseColumnName(),
                                 columnHandle.getBaseHiveColumnIndex(),
                                 fromHiveTypeBase,
-                                fromHiveTypeBase.getType(typeManager),
+                                fromHiveTypeBase.getType(typeManager, timestampPrecision),
                                 newColumnProjectionInfo,
                                 columnHandle.getColumnType(),
                                 columnHandle.getComment());
@@ -601,18 +596,18 @@ public class HivePageSourceProvider
                     .collect(toList());
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = uniqueIndex(baseColumnMapping, mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex());
 
-            int[] bucketColumnIndices = conversion.getBucketColumnHandles().stream()
+            int[] bucketColumnIndices = conversion.bucketColumnHandles().stream()
                     .mapToInt(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getIndex())
                     .toArray();
-            List<HiveType> bucketColumnHiveTypes = conversion.getBucketColumnHandles().stream()
+            List<HiveType> bucketColumnHiveTypes = conversion.bucketColumnHandles().stream()
                     .map(columnHandle -> baseHiveColumnToBlockIndex.get(columnHandle.getBaseHiveColumnIndex()).getHiveColumnHandle().getHiveType())
                     .collect(toImmutableList());
             return new BucketAdaptation(
                     bucketColumnIndices,
                     bucketColumnHiveTypes,
-                    conversion.getBucketingVersion(),
-                    conversion.getTableBucketCount(),
-                    conversion.getPartitionBucketCount(),
+                    conversion.bucketingVersion(),
+                    conversion.tableBucketCount(),
+                    conversion.partitionBucketCount(),
                     bucketNumber.getAsInt());
         });
     }
@@ -673,18 +668,18 @@ public class HivePageSourceProvider
         }
     }
 
-    private static Optional<BucketValidator> createBucketValidator(Path path, Optional<BucketValidation> bucketValidation, OptionalInt bucketNumber, List<ColumnMapping> columnMappings)
+    private static Optional<BucketValidator> createBucketValidator(Location path, Optional<BucketValidation> bucketValidation, OptionalInt bucketNumber, List<ColumnMapping> columnMappings)
     {
         return bucketValidation.flatMap(validation -> {
             Map<Integer, ColumnMapping> baseHiveColumnToBlockIndex = columnMappings.stream()
                     .filter(mapping -> mapping.getHiveColumnHandle().isBaseColumn())
                     .collect(toImmutableMap(mapping -> mapping.getHiveColumnHandle().getBaseHiveColumnIndex(), identity()));
 
-            int[] bucketColumnIndices = new int[validation.getBucketColumns().size()];
+            int[] bucketColumnIndices = new int[validation.bucketColumns().size()];
 
             List<TypeInfo> bucketColumnTypes = new ArrayList<>();
-            for (int i = 0; i < validation.getBucketColumns().size(); i++) {
-                HiveColumnHandle column = validation.getBucketColumns().get(i);
+            for (int i = 0; i < validation.bucketColumns().size(); i++) {
+                HiveColumnHandle column = validation.bucketColumns().get(i);
                 ColumnMapping mapping = baseHiveColumnToBlockIndex.get(column.getBaseHiveColumnIndex());
                 if (mapping == null) {
                     // The bucket column is not read by the query, and thus invalid bucketing cannot
@@ -700,16 +695,24 @@ public class HivePageSourceProvider
                     path,
                     bucketColumnIndices,
                     bucketColumnTypes,
-                    validation.getBucketingVersion(),
-                    validation.getBucketCount(),
+                    validation.bucketingVersion(),
+                    validation.bucketCount(),
                     bucketNumber.orElseThrow()));
         });
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns if required.
+     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
+    {
+        return projectBaseColumns(columns, false);
+    }
+
+    /**
+     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
+     */
+    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
     {
         requireNonNull(columns, "columns is null");
 
@@ -720,16 +723,16 @@ public class HivePageSourceProvider
 
         ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
         ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Integer, Integer> mappedHiveColumnIndices = new HashMap<>();
+        Map<Object, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
         int projectedColumnCount = 0;
 
         for (HiveColumnHandle column : columns) {
-            int hiveColumnIndex = column.getBaseHiveColumnIndex();
-            Integer mapped = mappedHiveColumnIndices.get(hiveColumnIndex);
+            Object baseColumnKey = useColumnNames ? column.getBaseColumnName() : column.getBaseHiveColumnIndex();
+            Integer mapped = mappedHiveBaseColumnKeys.get(baseColumnKey);
 
             if (mapped == null) {
                 projectedColumns.add(column.getBaseColumn());
-                mappedHiveColumnIndices.put(hiveColumnIndex, projectedColumnCount);
+                mappedHiveBaseColumnKeys.put(baseColumnKey, projectedColumnCount);
                 outputColumnMapping.add(projectedColumnCount);
                 projectedColumnCount++;
             }

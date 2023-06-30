@@ -91,7 +91,7 @@ public final class DoubleType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeLong(block.getLong(position, 0)).closeEntry();
+            ((LongArrayBlockBuilder) blockBuilder).writeLong(block.getLong(position, 0));
         }
     }
 
@@ -104,7 +104,7 @@ public final class DoubleType
     @Override
     public void writeDouble(BlockBuilder blockBuilder, double value)
     {
-        blockBuilder.writeLong(doubleToLongBits(value)).closeEntry();
+        ((LongArrayBlockBuilder) blockBuilder).writeLong(doubleToLongBits(value));
     }
 
     @Override

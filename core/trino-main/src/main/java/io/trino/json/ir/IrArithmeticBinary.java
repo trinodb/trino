@@ -13,79 +13,28 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class IrArithmeticBinary
-        extends IrPathNode
+public record IrArithmeticBinary(Operator operator, IrPathNode left, IrPathNode right, Optional<Type> type)
+        implements IrPathNode
 {
-    private final Operator operator;
-    private final IrPathNode left;
-    private final IrPathNode right;
-
-    @JsonCreator
-    public IrArithmeticBinary(
-            @JsonProperty("operator") Operator operator,
-            @JsonProperty("left") IrPathNode left,
-            @JsonProperty("right") IrPathNode right,
-            @JsonProperty("type") Optional<Type> resultType)
+    public IrArithmeticBinary
     {
-        super(resultType);
-        this.operator = requireNonNull(operator, "operator is null");
-        this.left = requireNonNull(left, "left is null");
-        this.right = requireNonNull(right, "right is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(operator, "operator is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrArithmeticBinary(this, context);
-    }
-
-    @JsonProperty
-    public Operator getOperator()
-    {
-        return operator;
-    }
-
-    @JsonProperty
-    public IrPathNode getLeft()
-    {
-        return left;
-    }
-
-    @JsonProperty
-    public IrPathNode getRight()
-    {
-        return right;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrArithmeticBinary other = (IrArithmeticBinary) obj;
-        return this.operator == other.operator &&
-                Objects.equals(this.left, other.left) &&
-                Objects.equals(this.right, other.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(operator, left, right);
     }
 
     public enum Operator

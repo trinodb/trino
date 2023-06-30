@@ -15,6 +15,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.DistributionStat;
 import io.trino.orc.OrcReaderOptions;
@@ -36,8 +37,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;

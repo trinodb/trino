@@ -13,19 +13,15 @@
  */
 package io.trino.testing.containers;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.PullImageResultCallback;
-import com.github.dockerjava.api.exception.NotFoundException;
-import com.github.dockerjava.api.model.PullResponseItem;
-import org.testcontainers.DockerClientFactory;
+import io.trino.testing.containers.TestContainers.DockerArchitectureInfo;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.ImageNameSubstitutor;
 
-import static com.google.common.base.Strings.padEnd;
 import static com.sun.jna.Platform.isARM;
+import static io.trino.testing.containers.TestContainers.DockerArchitecture.ARM64;
+import static io.trino.testing.containers.TestContainers.getDockerArchitectureInfo;
 import static java.lang.System.exit;
 import static java.lang.System.getenv;
-import static java.util.Locale.ENGLISH;
 
 public class PlatformChecks
         extends ImageNameSubstitutor
@@ -39,20 +35,13 @@ public class PlatformChecks
             return dockerImageName;
         }
 
-        DockerClient client = DockerClientFactory.lazyClient();
-        if (!imageExists(client, dockerImageName)) {
-            pullImage(client, dockerImageName);
-        }
-
-        String imageArch = getImageArch(client, dockerImageName);
+        DockerArchitectureInfo architecture = getDockerArchitectureInfo(dockerImageName);
 
         boolean isJavaOnArm = isARM();
-        boolean isImageArmBased = imageArch.contains("arm");
+        boolean isImageArmBased = architecture.imageArch().equals(ARM64);
         boolean hasIncompatibleRuntime = (isJavaOnArm != isImageArmBased);
 
         if (hasIncompatibleRuntime) {
-            String dockerArch = client.versionCmd().exec().getArch();
-
             System.err.println("""
 
                     !!! ERROR !!!
@@ -63,7 +52,7 @@ public class PlatformChecks
 
                     Set environment variable TESTCONTAINERS_SKIP_ARCHITECTURE_CHECK=true to skip this check.
                     !!! ERROR !!!
-                    """.formatted(System.getProperty("os.name"), System.getProperty("os.arch"), dockerArch, imageArch));
+                    """.formatted(System.getProperty("os.name"), System.getProperty("os.arch"), architecture.hostArch(), architecture.imageArch()));
 
             exit(99);
         }
@@ -75,44 +64,5 @@ public class PlatformChecks
     protected String getDescription()
     {
         return "Image substitutor that checks whether the image platform matches host platform";
-    }
-
-    private static boolean imageExists(DockerClient client, DockerImageName imageName)
-    {
-        try {
-            getImageArch(client, imageName);
-            return true;
-        }
-        catch (NotFoundException e) {
-            return false;
-        }
-    }
-
-    private static String getImageArch(DockerClient client, DockerImageName imageName)
-    {
-        return client.inspectImageCmd(imageName.asCanonicalNameString())
-                .exec()
-                .getArch()
-                .toLowerCase(ENGLISH);
-    }
-
-    private static void pullImage(DockerClient client, DockerImageName imageName)
-    {
-        try {
-            client.pullImageCmd(imageName.asCanonicalNameString()).exec(new PullImageResultCallback() {
-                @Override
-                public void onNext(PullResponseItem item)
-                {
-                    String progress = item.getProgress();
-                    if (progress != null) {
-                        System.err.println(padEnd(imageName.asCanonicalNameString() + ":" + item.getId(), 50, ' ') + ' ' + progress);
-                    }
-                }
-            }).awaitCompletion();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
     }
 }

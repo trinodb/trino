@@ -176,7 +176,8 @@ public class TestPagePartitionerPool
                 new PositionsAppenderFactory(new BlockTypeOperators()),
                 Optional.empty(),
                 memoryContext,
-                2);
+                2,
+                Optional.empty());
     }
 
     private long processSplitsConcurrently(PartitionedOutputOperatorFactory factory, AggregatedMemoryContext memoryContext, Page... splits)

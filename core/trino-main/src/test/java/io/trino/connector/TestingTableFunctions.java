@@ -16,34 +16,38 @@ package io.trino.connector;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.SchemaFunctionName;
+import io.trino.spi.function.table.AbstractConnectorTableFunction;
+import io.trino.spi.function.table.Argument;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.Descriptor;
+import io.trino.spi.function.table.DescriptorArgumentSpecification;
+import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
+import io.trino.spi.function.table.ScalarArgument;
+import io.trino.spi.function.table.ScalarArgumentSpecification;
+import io.trino.spi.function.table.TableArgument;
+import io.trino.spi.function.table.TableArgumentSpecification;
+import io.trino.spi.function.table.TableFunctionAnalysis;
+import io.trino.spi.function.table.TableFunctionDataProcessor;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.ptf.AbstractConnectorTableFunction;
-import io.trino.spi.ptf.Argument;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.Descriptor;
-import io.trino.spi.ptf.DescriptorArgumentSpecification;
-import io.trino.spi.ptf.ReturnTypeSpecification.DescribedTable;
-import io.trino.spi.ptf.ScalarArgument;
-import io.trino.spi.ptf.ScalarArgumentSpecification;
-import io.trino.spi.ptf.TableArgument;
-import io.trino.spi.ptf.TableArgumentSpecification;
-import io.trino.spi.ptf.TableFunctionAnalysis;
-import io.trino.spi.ptf.TableFunctionDataProcessor;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
-import io.trino.spi.ptf.TableFunctionProcessorState;
-import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
-import io.trino.spi.ptf.TableFunctionSplitProcessor;
 import io.trino.spi.type.RowType;
 
 import java.util.List;
@@ -57,12 +61,13 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.TestingTableFunctions.ConstantFunction.ConstantFunctionSplit.DEFAULT_SPLIT_SIZE;
-import static io.trino.spi.ptf.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
-import static io.trino.spi.ptf.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Processed.produced;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Processed.usedInput;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Processed.usedInputAndProduced;
+import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
+import static io.trino.spi.function.table.ReturnTypeSpecification.OnlyPassThrough.ONLY_PASS_THROUGH;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInput;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.usedInputAndProduced;
+import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -75,7 +80,7 @@ public class TestingTableFunctions
     private static final String SCHEMA_NAME = "system";
     private static final String TABLE_NAME = "table";
     private static final String COLUMN_NAME = "column";
-    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionHandle();
+    private static final ConnectorTableFunctionHandle HANDLE = new TestingTableFunctionPushdownHandle();
     private static final TableFunctionAnalysis ANALYSIS = TableFunctionAnalysis.builder()
             .handle(HANDLE)
             .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
@@ -116,13 +121,19 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument argument = (ScalarArgument) arguments.get("COLUMN");
             String columnName = ((Slice) argument.getValue()).toStringUtf8();
 
+            String schema = getSchema();
+
             return TableFunctionAnalysis.builder()
-                    .handle(new SimpleTableFunctionHandle(getSchema(), TABLE_NAME, columnName))
+                    .handle(new SimpleTableFunctionHandle(schema, TABLE_NAME, columnName))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(columnName, Optional.of(BOOLEAN)))))
                     .build();
         }
@@ -131,6 +142,7 @@ public class TestingTableFunctions
                 implements ConnectorTableFunctionHandle
         {
             private final MockConnectorTableHandle tableHandle;
+            private final String columnName;
 
             public SimpleTableFunctionHandle(String schema, String table, String column)
             {
@@ -138,12 +150,43 @@ public class TestingTableFunctions
                         new SchemaTableName(schema, table),
                         TupleDomain.all(),
                         Optional.of(ImmutableList.of(new MockConnectorColumnHandle(column, BOOLEAN))));
+                this.columnName = requireNonNull(column, "column is null");
             }
 
             public MockConnectorTableHandle getTableHandle()
             {
                 return tableHandle;
             }
+
+            public String getColumnName()
+            {
+                return columnName;
+            }
+        }
+    }
+
+    /**
+     * A table function returning a table with single empty column of type BOOLEAN.
+     * The argument `COLUMN` is the column name.
+     * The argument `IGNORED` is ignored.
+     * Both arguments are optional.
+     * Performs access control checks
+     */
+    public static class SimpleTableFunctionWithAccessControl
+            extends SimpleTableFunction
+    {
+        @Override
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
+        {
+            TableFunctionAnalysis analyzeResult = super.analyze(session, transaction, arguments, accessControl);
+            SimpleTableFunction.SimpleTableFunctionHandle handle = (SimpleTableFunction.SimpleTableFunctionHandle) analyzeResult.getHandle();
+            accessControl.checkCanSelectFromColumns(null, handle.getTableHandle().getTableName(), ImmutableSet.of(handle.getColumnName()));
+
+            return analyzeResult;
         }
     }
 
@@ -169,7 +212,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return ANALYSIS;
         }
@@ -178,11 +225,13 @@ public class TestingTableFunctions
     public static class TableArgumentFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "table_argument_function";
+
         public TableArgumentFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "table_argument_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -192,10 +241,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT", ImmutableList.of(0))
                     .build();
@@ -205,11 +258,13 @@ public class TestingTableFunctions
     public static class TableArgumentRowSemanticsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "table_argument_row_semantics_function";
+
         public TableArgumentRowSemanticsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "table_argument_row_semantics_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -219,10 +274,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT", ImmutableList.of(0))
                     .build();
@@ -246,7 +305,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return ANALYSIS;
         }
@@ -255,11 +318,13 @@ public class TestingTableFunctions
     public static class TwoTableArgumentsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "two_table_arguments_function";
+
         public TwoTableArgumentsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "two_table_arguments_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT1")
@@ -273,10 +338,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT1", ImmutableList.of(0))
                     .requiredColumns("INPUT2", ImmutableList.of(0))
@@ -302,7 +371,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -323,7 +396,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
                     .handle(HANDLE)
@@ -349,7 +426,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -374,7 +455,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return NO_DESCRIPTOR_ANALYSIS;
         }
@@ -383,11 +468,13 @@ public class TestingTableFunctions
     public static class DifferentArgumentTypesFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "different_arguments_function";
+
         public DifferentArgumentTypesFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "different_arguments_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT_1")
@@ -414,10 +501,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field(COLUMN_NAME, Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT_1", ImmutableList.of(0))
                     .requiredColumns("INPUT_2", ImmutableList.of(0))
@@ -429,11 +520,13 @@ public class TestingTableFunctions
     public static class RequiredColumnsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "required_columns_function";
+
         public RequiredColumnsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "required_columns_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -443,22 +536,26 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(HANDLE)
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN)))))
                     .requiredColumns("INPUT", ImmutableList.of(0, 1))
                     .build();
         }
     }
 
-    public static class TestingTableFunctionHandle
+    public static class TestingTableFunctionPushdownHandle
             implements ConnectorTableFunctionHandle
     {
         private final MockConnectorTableHandle tableHandle;
 
-        public TestingTableFunctionHandle()
+        public TestingTableFunctionPushdownHandle()
         {
             this.tableHandle = new MockConnectorTableHandle(
                     new SchemaTableName(SCHEMA_NAME, TABLE_NAME),
@@ -477,11 +574,13 @@ public class TestingTableFunctions
     public static class IdentityFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "identity_function";
+
         public IdentityFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "identity_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -491,14 +590,18 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             List<RowType.Field> inputColumns = ((TableArgument) arguments.get("INPUT")).getRowType().getFields();
             Descriptor returnedType = new Descriptor(inputColumns.stream()
                     .map(field -> new Descriptor.Field(field.getName().orElse("anonymous_column"), Optional.of(field.getType())))
                     .collect(toImmutableList()));
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .returnedType(returnedType)
                     .requiredColumns("INPUT", IntStream.range(0, inputColumns.size()).boxed().collect(toImmutableList()))
                     .build();
@@ -524,11 +627,13 @@ public class TestingTableFunctions
     public static class IdentityPassThroughFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "identity_pass_through_function";
+
         public IdentityPassThroughFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "identity_pass_through_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT")
@@ -539,10 +644,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT", ImmutableList.of(0)) // per spec, function must require at least one column
                     .build();
         }
@@ -573,7 +682,7 @@ public class TestingTableFunctions
                 BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                 for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                     // TODO check for long overflow
-                    builder.writeLong(index);
+                    BIGINT.writeLong(builder, index);
                 }
                 processedPositions = processedPositions + page.getPositionCount();
                 return usedInputAndProduced(new Page(builder.build()));
@@ -604,7 +713,11 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
@@ -676,7 +789,7 @@ public class TestingTableFunctions
                     BlockBuilder builder = BIGINT.createBlockBuilder(null, page.getPositionCount());
                     for (long index = processedPositions; index < processedPositions + page.getPositionCount(); index++) {
                         // TODO check for long overflow
-                        builder.writeLong(index);
+                        BIGINT.writeLong(builder, index);
                     }
                     processedPositions = processedPositions + page.getPositionCount();
                     indexes = builder.build();
@@ -705,11 +818,13 @@ public class TestingTableFunctions
     public static class EmptyOutputFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "empty_output";
+
         public EmptyOutputFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "empty_output",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
@@ -718,10 +833,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -756,11 +875,13 @@ public class TestingTableFunctions
     public static class EmptyOutputWithPassThroughFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "empty_output_with_pass_through";
+
         public EmptyOutputWithPassThroughFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "empty_output_with_pass_through",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
@@ -770,10 +891,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -811,11 +936,13 @@ public class TestingTableFunctions
     public static class TestInputsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "test_inputs_function";
+
         public TestInputsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "test_inputs_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .rowSemantics()
@@ -837,10 +964,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT_1", IntStream.range(0, ((TableArgument) arguments.get("INPUT_1")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .requiredColumns("INPUT_2", IntStream.range(0, ((TableArgument) arguments.get("INPUT_2")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .requiredColumns("INPUT_3", IntStream.range(0, ((TableArgument) arguments.get("INPUT_3")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
@@ -872,11 +1003,13 @@ public class TestingTableFunctions
     public static class PassThroughInputFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "pass_through";
+
         public PassThroughInputFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "pass_through",
+                    FUNCTION_NAME,
                     ImmutableList.of(
                             TableArgumentSpecification.builder()
                                     .name("INPUT_1")
@@ -894,10 +1027,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT_1", ImmutableList.of(0))
                     .requiredColumns("INPUT_2", ImmutableList.of(0))
                     .build();
@@ -942,7 +1079,7 @@ public class TestingTableFunctions
                     // pass-through index for input_1
                     BlockBuilder input1PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
                     if (input1Present) {
-                        input1PassThroughBuilder.writeLong(input1EndIndex - 1);
+                        BIGINT.writeLong(input1PassThroughBuilder, input1EndIndex - 1);
                     }
                     else {
                         input1PassThroughBuilder.appendNull();
@@ -951,7 +1088,7 @@ public class TestingTableFunctions
                     // pass-through index for input_2
                     BlockBuilder input2PassThroughBuilder = BIGINT.createBlockBuilder(null, 1);
                     if (input2Present) {
-                        input2PassThroughBuilder.writeLong(input2EndIndex - 1);
+                        BIGINT.writeLong(input2PassThroughBuilder, input2EndIndex - 1);
                     }
                     else {
                         input2PassThroughBuilder.appendNull();
@@ -975,11 +1112,13 @@ public class TestingTableFunctions
     public static class TestInputFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "test_input";
+
         public TestInputFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "test_input",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .name("INPUT")
                             .keepWhenEmpty()
@@ -988,10 +1127,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -1033,11 +1176,13 @@ public class TestingTableFunctions
     public static class TestSingleInputRowSemanticsFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "test_single_input_function";
+
         public TestSingleInputRowSemanticsFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "test_single_input_function",
+                    FUNCTION_NAME,
                     ImmutableList.of(TableArgumentSpecification.builder()
                             .rowSemantics()
                             .name("INPUT")
@@ -1046,10 +1191,14 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .requiredColumns("INPUT", IntStream.range(0, ((TableArgument) arguments.get("INPUT")).getRowType().getFields().size()).boxed().collect(toImmutableList()))
                     .build();
         }
@@ -1098,11 +1247,15 @@ public class TestingTableFunctions
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             ScalarArgument count = (ScalarArgument) arguments.get("N");
             requireNonNull(count.getValue(), "count value for function repeat() is null");
-            checkArgument((long) count.getValue() > 0, "count value for function repeat() must be positive");
+            checkArgument((long) count.getValue() >= 0, "count value for function repeat() must not be negative");
 
             return TableFunctionAnalysis.builder()
                     .handle(new ConstantFunctionHandle((Long) ((ScalarArgument) arguments.get("VALUE")).getValue(), (long) count.getValue()))
@@ -1139,9 +1292,9 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
-                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue());
+                return new ConstantFunctionProcessor(((ConstantFunctionHandle) handle).getValue(), (ConstantFunctionSplit) split);
             }
         }
 
@@ -1150,73 +1303,31 @@ public class TestingTableFunctions
         {
             private static final int PAGE_SIZE = 1000;
 
-            private final Long value;
-
+            private final Block value;
             private long fullPagesCount;
             private long processedPages;
             private int reminder;
-            private Block block;
 
-            public ConstantFunctionProcessor(Long value)
+            public ConstantFunctionProcessor(Long value, ConstantFunctionSplit split)
             {
-                this.value = value;
+                this.value = nativeValueToBlock(INTEGER, value);
+                long count = split.getCount();
+                this.fullPagesCount = count / PAGE_SIZE;
+                this.reminder = toIntExact(count % PAGE_SIZE);
             }
 
             @Override
-            public TableFunctionProcessorState process(ConnectorSplit split)
+            public TableFunctionProcessorState process()
             {
-                boolean usedData = false;
-
-                if (split != null) {
-                    long count = ((ConstantFunctionSplit) split).getCount();
-                    this.fullPagesCount = count / PAGE_SIZE;
-                    this.reminder = toIntExact(count % PAGE_SIZE);
-                    if (fullPagesCount > 0) {
-                        BlockBuilder builder = INTEGER.createBlockBuilder(null, PAGE_SIZE);
-                        if (value == null) {
-                            for (int i = 0; i < PAGE_SIZE; i++) {
-                                builder.appendNull();
-                            }
-                        }
-                        else {
-                            for (int i = 0; i < PAGE_SIZE; i++) {
-                                builder.writeInt(toIntExact(value));
-                            }
-                        }
-                        this.block = builder.build();
-                    }
-                    else {
-                        BlockBuilder builder = INTEGER.createBlockBuilder(null, reminder);
-                        if (value == null) {
-                            for (int i = 0; i < reminder; i++) {
-                                builder.appendNull();
-                            }
-                        }
-                        else {
-                            for (int i = 0; i < reminder; i++) {
-                                builder.writeInt(toIntExact(value));
-                            }
-                        }
-                        this.block = builder.build();
-                    }
-                    usedData = true;
-                }
-
                 if (processedPages < fullPagesCount) {
                     processedPages++;
-                    Page result = new Page(block);
-                    if (usedData) {
-                        return usedInputAndProduced(result);
-                    }
+                    Page result = new Page(RunLengthEncodedBlock.create(value, PAGE_SIZE));
                     return produced(result);
                 }
 
                 if (reminder > 0) {
-                    Page result = new Page(block.getRegion(0, toIntExact(reminder)));
+                    Page result = new Page(RunLengthEncodedBlock.create(value, reminder));
                     reminder = 0;
-                    if (usedData) {
-                        return usedInputAndProduced(result);
-                    }
                     return produced(result);
                 }
 
@@ -1287,20 +1398,26 @@ public class TestingTableFunctions
     public static class EmptySourceFunction
             extends AbstractConnectorTableFunction
     {
+        public static final String FUNCTION_NAME = "empty_source";
+
         public EmptySourceFunction()
         {
             super(
                     SCHEMA_NAME,
-                    "empty_source",
+                    FUNCTION_NAME,
                     ImmutableList.of(),
                     new DescribedTable(new Descriptor(ImmutableList.of(new Descriptor.Field("column", Optional.of(BOOLEAN))))));
         }
 
         @Override
-        public TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments)
+        public TableFunctionAnalysis analyze(
+                ConnectorSession session,
+                ConnectorTransactionHandle transaction,
+                Map<String, Argument> arguments,
+                ConnectorAccessControl accessControl)
         {
             return TableFunctionAnalysis.builder()
-                    .handle(new EmptyTableFunctionHandle())
+                    .handle(new TestingTableFunctionHandle(new SchemaFunctionName(SCHEMA_NAME, FUNCTION_NAME)))
                     .build();
         }
 
@@ -1308,7 +1425,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
+            public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
             {
                 return new EmptySourceFunctionProcessor();
             }
@@ -1319,20 +1436,26 @@ public class TestingTableFunctions
         {
             private static final Page EMPTY_PAGE = new Page(BOOLEAN.createBlockBuilder(null, 0).build());
 
-            @Override
-            public TableFunctionProcessorState process(ConnectorSplit split)
-            {
-                if (split == null) {
-                    return FINISHED;
-                }
+            private boolean produced;
 
-                return usedInputAndProduced(EMPTY_PAGE);
+            @Override
+            public TableFunctionProcessorState process()
+            {
+                if (!produced) {
+                    produced = true;
+                    return produced(EMPTY_PAGE);
+                }
+                return FINISHED;
             }
         }
     }
 
-    public static class EmptyTableFunctionHandle
+    public record TestingTableFunctionHandle(SchemaFunctionName name)
             implements ConnectorTableFunctionHandle
     {
+        public TestingTableFunctionHandle
+        {
+            requireNonNull(name, "name is null");
+        }
     }
 }

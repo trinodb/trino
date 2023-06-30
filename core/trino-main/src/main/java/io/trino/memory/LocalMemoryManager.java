@@ -14,9 +14,8 @@
 package io.trino.memory;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.inject.Inject;
 import io.airlift.units.DataSize;
-
-import javax.inject.Inject;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
@@ -37,7 +36,7 @@ public final class LocalMemoryManager
     }
 
     @VisibleForTesting
-    LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
+    public LocalMemoryManager(NodeMemoryConfig config, long availableMemory)
     {
         validateHeapHeadroom(config, availableMemory);
         DataSize memoryPoolSize = DataSize.ofBytes(availableMemory - config.getHeapHeadroom().toBytes());

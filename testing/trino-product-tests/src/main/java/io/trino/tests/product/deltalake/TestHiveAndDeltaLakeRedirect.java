@@ -33,7 +33,6 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
@@ -46,6 +45,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveAndDeltaLakeRedirect
         extends BaseTestDeltaLakeS3Storage
@@ -88,7 +88,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .collect(toImmutableList()));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onDelta().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -607,7 +607,7 @@ public class TestHiveAndDeltaLakeRedirect
                     .containsOnly(expectedDestinationTableRows);
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE %s.%s", destSchema, destTableName));
+            dropDeltaTableWithRetry(format("%s.%s", destSchema, destTableName));
             onTrino().executeQuery("DROP SCHEMA " + destSchema);
         }
     }
@@ -653,7 +653,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment", 4, null, "YES", "varchar"));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }
@@ -743,7 +743,7 @@ public class TestHiveAndDeltaLakeRedirect
                             row("delta", schemaName, tableName, "comment"));
         }
         finally {
-            onDelta().executeQuery(format("DROP TABLE IF EXISTS %s.%s", schemaName, tableName));
+            dropDeltaTableWithRetry(format("%s.%s", schemaName, tableName));
             onTrino().executeQuery("DROP SCHEMA " + schemaName);
         }
     }

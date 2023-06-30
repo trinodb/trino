@@ -2,7 +2,7 @@
 JDBC driver
 ===========
 
-The Trino `JDBC driver <https://en.wikipedia.org/wiki/JDBC_driver>`_ allows
+The Trino `JDBC driver <https://wikipedia.org/wiki/JDBC_driver>`_ allows
 users to access Trino using Java-based applications, and other non-Java
 applications running in a JVM. Both desktop and server-side applications, such
 as those used for reporting and database development, use the JDBC driver.

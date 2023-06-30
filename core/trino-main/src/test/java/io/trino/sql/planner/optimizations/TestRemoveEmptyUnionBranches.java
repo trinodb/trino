@@ -121,7 +121,7 @@ public class TestRemoveEmptyUnionBranches
                         .collect(toImmutableList()))
                 .withGetTableProperties((session, handle) -> {
                     MockConnectorTableHandle table = (MockConnectorTableHandle) handle;
-                    return new ConnectorTableProperties(table.getConstraint(), Optional.empty(), Optional.empty(), Optional.empty(), emptyList());
+                    return new ConnectorTableProperties(table.getConstraint(), Optional.empty(), Optional.empty(), emptyList());
                 })
                 .withApplyFilter(applyFilter())
                 .withName(catalogHandle)

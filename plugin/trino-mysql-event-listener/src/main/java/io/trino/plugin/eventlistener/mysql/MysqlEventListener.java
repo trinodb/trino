@@ -32,8 +32,7 @@ import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import java.time.Duration;
 import java.util.List;
@@ -137,6 +136,7 @@ public class MysqlEventListener
                 stats.getResourceWaitingTime().map(Duration::toMillis).orElse(0L),
                 stats.getAnalysisTime().map(Duration::toMillis).orElse(0L),
                 stats.getPlanningTime().map(Duration::toMillis).orElse(0L),
+                stats.getPlanningCpuTime().map(Duration::toMillis).orElse(0L),
                 stats.getExecutionTime().map(Duration::toMillis).orElse(0L),
                 stats.getInputBlockedTime().map(Duration::toMillis).orElse(0L),
                 stats.getFailedInputBlockedTime().map(Duration::toMillis).orElse(0L),

@@ -20,20 +20,21 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
+import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.EvictableCacheBuilder;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -51,8 +52,9 @@ import java.util.Set;
 import static com.google.api.client.googleapis.javanet.GoogleNetHttpTransport.newTrustedTransport;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_BAD_CREDENTIALS_ERROR;
+import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_INSERT_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_METASTORE_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_TABLE_LOAD_ERROR;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
@@ -70,10 +72,13 @@ public class SheetsClient
     private static final String APPLICATION_NAME = "trino google sheets integration";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
-    private static final List<String> SCOPES = ImmutableList.of(SheetsScopes.SPREADSHEETS_READONLY);
+    private static final List<String> SCOPES = ImmutableList.of(SheetsScopes.SPREADSHEETS);
+
+    private static final String INSERT_VALUE_OPTION = "RAW";
+    private static final String INSERT_DATA_OPTION = "INSERT_ROWS";
 
     private final NonEvictableLoadingCache<String, Optional<String>> tableSheetMappingCache;
-    private final NonEvictableLoadingCache<String, List<List<Object>>> sheetDataCache;
+    private final LoadingCache<String, List<List<Object>>> sheetDataCache;
 
     private final Optional<String> metadataSheetId;
 
@@ -87,7 +92,7 @@ public class SheetsClient
         this.metadataSheetId = config.getMetadataSheetId();
 
         try {
-            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(config), config.getReadTimeout())).setApplicationName(APPLICATION_NAME).build();
+            this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, setTimeout(getCredentials(config), config)).setApplicationName(APPLICATION_NAME).build();
         }
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
@@ -96,7 +101,7 @@ public class SheetsClient
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
 
         this.tableSheetMappingCache = buildNonEvictableCache(
-                newCacheBuilder(expiresAfterWriteMillis, maxCacheSize),
+                CacheBuilder.newBuilder().expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS).maximumSize(maxCacheSize),
                 new CacheLoader<>()
                 {
                     @Override
@@ -112,9 +117,10 @@ public class SheetsClient
                     }
                 });
 
-        this.sheetDataCache = buildNonEvictableCache(
-                newCacheBuilder(expiresAfterWriteMillis, maxCacheSize),
-                CacheLoader.from(this::readAllValuesFromSheetExpression));
+        this.sheetDataCache = EvictableCacheBuilder.newBuilder()
+                .expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS)
+                .maximumSize(maxCacheSize)
+                .build(CacheLoader.from(this::readAllValuesFromSheetExpression));
     }
 
     public Optional<SheetsTable> getTable(SheetsConnectorTableHandle tableHandle)
@@ -182,8 +188,7 @@ public class SheetsClient
     public List<List<Object>> readAllValues(String tableName)
     {
         try {
-            String sheetExpression = tableSheetMappingCache.getUnchecked(tableName)
-                    .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName));
+            String sheetExpression = getCachedSheetExpressionForTable(tableName);
             return readAllValuesFromSheet(sheetExpression);
         }
         catch (UncheckedExecutionException e) {
@@ -203,6 +208,27 @@ public class SheetsClient
         }
     }
 
+    public void insertIntoSheet(String sheetExpression, List<List<Object>> rows)
+    {
+        ValueRange body = new ValueRange().setValues(rows);
+        SheetsSheetIdAndRange sheetIdAndRange = new SheetsSheetIdAndRange(sheetExpression);
+        try {
+            sheetsService.spreadsheets().values().append(sheetIdAndRange.getSheetId(), sheetIdAndRange.getRange(), body)
+                    .setValueInputOption(INSERT_VALUE_OPTION)
+                    .setInsertDataOption(INSERT_DATA_OPTION)
+                    .execute();
+        }
+        catch (IOException e) {
+            throw new TrinoException(SHEETS_INSERT_ERROR, "Error inserting data to sheet: ", e);
+        }
+
+        // Flush the cache contents for the table that was written to.
+        // This is a best-effort solution, since the Google Sheets API seems to be eventually consistent.
+        // If the table written to will be queried directly afterward the inserts might not have been propagated yet.
+        // and the users needs to wait till the cached version alters out.
+        sheetDataCache.invalidate(sheetExpression);
+    }
+
     public static List<List<String>> convertToStringValues(List<List<Object>> values)
     {
         return values.stream()
@@ -217,6 +243,12 @@ public class SheetsClient
             return Optional.empty();
         }
         return tableSheetMap.get(tableName);
+    }
+
+    public String getCachedSheetExpressionForTable(String tableName)
+    {
+        return tableSheetMappingCache.getUnchecked(tableName)
+                .orElseThrow(() -> new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName));
     }
 
     private Map<String, Optional<String>> getAllTableSheetExpressionMapping()
@@ -291,17 +323,17 @@ public class SheetsClient
         }
     }
 
-    private static CacheBuilder<Object, Object> newCacheBuilder(long expiresAfterWriteMillis, long maximumSize)
+    private HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer, SheetsConfig config)
     {
-        return CacheBuilder.newBuilder().expireAfterWrite(expiresAfterWriteMillis, MILLISECONDS).maximumSize(maximumSize);
-    }
+        requireNonNull(config.getConnectionTimeout(), "connectionTimeout is null");
+        requireNonNull(config.getReadTimeout(), "readTimeout is null");
+        requireNonNull(config.getWriteTimeout(), "writeTimeout is null");
 
-    private static HttpRequestInitializer setTimeout(HttpRequestInitializer requestInitializer, Duration readTimeout)
-    {
-        requireNonNull(readTimeout, "readTimeout is null");
         return httpRequest -> {
             requestInitializer.initialize(httpRequest);
-            httpRequest.setReadTimeout(toIntExact(readTimeout.toMillis()));
+            httpRequest.setConnectTimeout(toIntExact(config.getConnectionTimeout().toMillis()));
+            httpRequest.setReadTimeout(toIntExact(config.getReadTimeout().toMillis()));
+            httpRequest.setWriteTimeout(toIntExact(config.getWriteTimeout().toMillis()));
         };
     }
 }

@@ -634,7 +634,8 @@ public class TestPagePartitioner
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
                     memoryContext,
-                    1);
+                    1,
+                    Optional.empty());
             OperatorFactory factory = operatorFactory.createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), PAGES_SERDE_FACTORY);
             PartitionedOutputOperator operator = (PartitionedOutputOperator) factory
                     .createOperator(driverContext);
@@ -660,7 +661,8 @@ public class TestPagePartitioner
                     PARTITION_MAX_MEMORY,
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
-                    memoryContext);
+                    memoryContext,
+                    true);
             pagePartitioner.setupOperator(operatorContext);
 
             return pagePartitioner;

@@ -13,12 +13,11 @@
  */
 package io.trino.server.ui;
 
+import com.google.inject.Inject;
 import io.trino.server.security.InsecureAuthenticatorConfig;
 import io.trino.server.security.SecurityConfig;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 

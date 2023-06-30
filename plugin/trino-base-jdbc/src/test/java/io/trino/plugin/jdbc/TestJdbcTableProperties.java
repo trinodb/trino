@@ -19,7 +19,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.fail;
 
 // Single-threaded because of shared mutable state, e.g. onGetTableProperties
 @Test(singleThreaded = true)
@@ -53,7 +53,7 @@ public class TestJdbcTableProperties
         return createH2QueryRunner(ImmutableList.copyOf(TpchTable.getTables()), properties, module);
     }
 
-    @BeforeTest
+    @BeforeMethod
     public void reset()
     {
         onGetTableProperties = () -> {};

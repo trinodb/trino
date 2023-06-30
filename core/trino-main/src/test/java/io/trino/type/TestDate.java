@@ -84,11 +84,11 @@ public class TestDate
         // three digit for month or day
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-002'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '2013-02-002' is not a valid date literal");
+                .hasMessage("line 1:12: '2013-02-002' is not a valid DATE literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-002-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '2013-002-02' is not a valid date literal");
+                .hasMessage("line 1:12: '2013-002-02' is not a valid DATE literal");
 
         // zero-padded year
         assertThat(assertions.expression("DATE '02013-02-02'"))
@@ -102,7 +102,7 @@ public class TestDate
         // invalid date
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013-02-29'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '2013-02-29' is not a valid date literal");
+                .hasMessage("line 1:12: '2013-02-29' is not a valid DATE literal");
 
         // surrounding whitespace
         assertThat(assertions.expression("DATE '  2013-02-02  '"))
@@ -116,20 +116,20 @@ public class TestDate
         // intra whitespace
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013 -02-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '2013 -02-02' is not a valid date literal");
+                .hasMessage("line 1:12: '2013 -02-02' is not a valid DATE literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '2013- 2-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '2013- 2-02' is not a valid date literal");
+                .hasMessage("line 1:12: '2013- 2-02' is not a valid DATE literal");
 
         // large year
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '5881580-07-12'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '5881580-07-12' is not a valid date literal");
+                .hasMessage("line 1:12: '5881580-07-12' is not a valid DATE literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '392251590-07-12'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '392251590-07-12' is not a valid date literal");
+                .hasMessage("line 1:12: '392251590-07-12' is not a valid DATE literal");
 
         // signed
         assertThat(assertions.expression("DATE '+2013-02-02'"))
@@ -147,11 +147,11 @@ public class TestDate
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '+ 2013-02-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '+ 2013-02-02' is not a valid date literal");
+                .hasMessage("line 1:12: '+ 2013-02-02' is not a valid DATE literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' + 2013-02-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: ' + 2013-02-02' is not a valid date literal");
+                .hasMessage("line 1:12: ' + 2013-02-02' is not a valid DATE literal");
 
         assertThat(assertions.expression("DATE ' -2013-02-02'"))
                 .hasType(DATE)
@@ -159,11 +159,11 @@ public class TestDate
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE '- 2013-02-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: '- 2013-02-02' is not a valid date literal");
+                .hasMessage("line 1:12: '- 2013-02-02' is not a valid DATE literal");
 
         assertTrinoExceptionThrownBy(() -> assertions.expression("DATE ' - 2013-02-02'").evaluate())
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:12: ' - 2013-02-02' is not a valid date literal");
+                .hasMessage("line 1:12: ' - 2013-02-02' is not a valid DATE literal");
     }
 
     @Test

@@ -14,6 +14,7 @@
 package io.trino.server;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import io.airlift.http.client.HttpClient;
@@ -23,14 +24,12 @@ import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.server.testing.TestingTrinoServer;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import javax.inject.Qualifier;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.Path;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -45,8 +44,8 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -66,9 +65,9 @@ public class TestGenerateTokenFilter
 
         // extract the filter
         List<HttpRequestFilter> filters = httpClient.getRequestFilters();
-        assertEquals(filters.size(), 3);
-        assertInstanceOf(filters.get(2), GenerateTraceTokenRequestFilter.class);
-        filter = (GenerateTraceTokenRequestFilter) filters.get(2);
+        assertEquals(filters.size(), 2);
+        assertInstanceOf(filters.get(1), GenerateTraceTokenRequestFilter.class);
+        filter = (GenerateTraceTokenRequestFilter) filters.get(1);
     }
 
     @AfterClass(alwaysRun = true)
@@ -91,7 +90,7 @@ public class TestGenerateTokenFilter
 
     @Retention(RUNTIME)
     @Target(ElementType.PARAMETER)
-    @Qualifier
+    @BindingAnnotation
     private @interface GenerateTokenFilterTest {}
 
     @Path("/testing")

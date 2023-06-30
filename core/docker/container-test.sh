@@ -22,7 +22,7 @@ function test_trino_starts {
     I=0
     until docker inspect "${CONTAINER_ID}" --format "{{json .State.Health.Status }}" | grep -q '"healthy"'; do
         if [[ $((I++)) -ge ${QUERY_RETRIES} ]]; then
-            echo "🚨 Too many retries waiting for Trino to start"
+            echo "🚨 Too many retries waiting for Trino to start" >&2
             echo "Logs from ${CONTAINER_ID} follow..."
             docker logs "${CONTAINER_ID}"
             break
@@ -30,15 +30,19 @@ function test_trino_starts {
         sleep ${QUERY_PERIOD}
     done
     if ! RESULT=$(docker exec "${CONTAINER_ID}" trino --execute "SELECT 'success'" 2>/dev/null); then
-        echo "🚨 Failed to execute a query after Trino container started"
+        echo "🚨 Failed to execute a query after Trino container started" >&2
     fi
     set -e
 
     cleanup
     trap - EXIT
 
-    # Return proper exit code.
-    [[ ${RESULT} == '"success"' ]]
+    if ! [[ ${RESULT} == '"success"' ]]; then
+        echo "🚨 Test query didn't return expected result (\"success\"): [${RESULT}]" >&2
+        return 1
+    fi
+
+    return 0
 }
 
 function test_javahome {

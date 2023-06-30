@@ -37,6 +37,7 @@ public class QueryStatistics
     private final Optional<Duration> resourceWaitingTime;
     private final Optional<Duration> analysisTime;
     private final Optional<Duration> planningTime;
+    private final Optional<Duration> planningCpuTime;
     private final Optional<Duration> executionTime;
     private final Optional<Duration> inputBlockedTime;
     private final Optional<Duration> failedInputBlockedTime;
@@ -77,6 +78,7 @@ public class QueryStatistics
      * can change without preserving backward compatibility.
      */
     private final List<String> operatorSummaries;
+    private final List<QueryPlanOptimizerStatistics> optimizerRulesSummaries;
     /**
      * Plan node stats and costs serialized to JSON. Serialization format and structure
      * can change without preserving backward compatibility.
@@ -95,6 +97,7 @@ public class QueryStatistics
             Optional<Duration> resourceWaitingTime,
             Optional<Duration> analysisTime,
             Optional<Duration> planningTime,
+            Optional<Duration> planningCpuTime,
             Optional<Duration> executionTime,
             Optional<Duration> inputBlockedTime,
             Optional<Duration> failedInputBlockedTime,
@@ -125,6 +128,7 @@ public class QueryStatistics
             List<StageCpuDistribution> cpuTimeDistribution,
             List<StageOutputBufferUtilization> outputBufferUtilization,
             List<String> operatorSummaries,
+            List<QueryPlanOptimizerStatistics> optimizerRulesSummaries,
             Optional<String> planNodeStatsAndCosts)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
@@ -136,6 +140,7 @@ public class QueryStatistics
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
         this.planningTime = requireNonNull(planningTime, "planningTime is null");
+        this.planningCpuTime = requireNonNull(planningCpuTime, "planningCpuTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.inputBlockedTime = requireNonNull(inputBlockedTime, "inputBlockedTime is null");
         this.failedInputBlockedTime = requireNonNull(failedInputBlockedTime, "failedInputBlockedTime is null");
@@ -166,6 +171,7 @@ public class QueryStatistics
         this.cpuTimeDistribution = requireNonNull(cpuTimeDistribution, "cpuTimeDistribution is null");
         this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
         this.operatorSummaries = requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.optimizerRulesSummaries = requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null");
         this.planNodeStatsAndCosts = requireNonNull(planNodeStatsAndCosts, "planNodeStatsAndCosts is null");
     }
 
@@ -221,6 +227,12 @@ public class QueryStatistics
     public Optional<Duration> getPlanningTime()
     {
         return planningTime;
+    }
+
+    @JsonProperty
+    public Optional<Duration> getPlanningCpuTime()
+    {
+        return planningCpuTime;
     }
 
     @JsonProperty
@@ -401,6 +413,12 @@ public class QueryStatistics
     public List<String> getOperatorSummaries()
     {
         return operatorSummaries;
+    }
+
+    @JsonProperty
+    public List<QueryPlanOptimizerStatistics> getOptimizerRulesSummaries()
+    {
+        return optimizerRulesSummaries;
     }
 
     @JsonProperty

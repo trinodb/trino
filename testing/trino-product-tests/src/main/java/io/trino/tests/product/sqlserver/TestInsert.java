@@ -13,8 +13,8 @@
  */
 package io.trino.tests.product.sqlserver;
 
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import java.sql.Date;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.TestGroups.SQL_SERVER;
@@ -34,6 +33,7 @@ import static io.trino.tests.product.sqlserver.TestConstants.KEY_SPACE;
 import static io.trino.tests.product.utils.QueryExecutors.onSqlServer;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInsert
         extends ProductTest
@@ -49,8 +49,8 @@ public class TestInsert
     private static final String MASTER = "master";
     private static final String INSERT_TABLE_NAME = format("%s.%s", KEY_SPACE, SQLSERVER_INSERT.getName());
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void dropTestTables()
     {
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", INSERT_TABLE_NAME));

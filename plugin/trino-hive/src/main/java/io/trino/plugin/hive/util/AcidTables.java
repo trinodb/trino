@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.spi.TrinoException;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,9 +67,9 @@ public final class AcidTables
         return isTransactionalTable(parameters) && !isInsertOnlyTable(parameters);
     }
 
-    public static Path bucketFileName(Path subdir, int bucket)
+    public static Location bucketFileName(Location subdir, int bucket)
     {
-        return new Path(subdir, "bucket_%05d".formatted(bucket));
+        return subdir.appendPath("bucket_%05d".formatted(bucket));
     }
 
     public static String deltaSubdir(long writeId, int statementId)
@@ -82,7 +82,7 @@ public final class AcidTables
         return "delete_" + deltaSubdir(writeId, statementId);
     }
 
-    public static void writeAcidVersionFile(TrinoFileSystem fileSystem, String deltaOrBaseDir)
+    public static void writeAcidVersionFile(TrinoFileSystem fileSystem, Location deltaOrBaseDir)
             throws IOException
     {
         TrinoOutputFile file = fileSystem.newOutputFile(versionFilePath(deltaOrBaseDir));
@@ -91,7 +91,7 @@ public final class AcidTables
         }
     }
 
-    public static int readAcidVersionFile(TrinoFileSystem fileSystem, String deltaOrBaseDir)
+    public static int readAcidVersionFile(TrinoFileSystem fileSystem, Location deltaOrBaseDir)
             throws IOException
     {
         TrinoInputFile file = fileSystem.newInputFile(versionFilePath(deltaOrBaseDir));
@@ -108,12 +108,12 @@ public final class AcidTables
         }
     }
 
-    private static String versionFilePath(String deltaOrBaseDir)
+    private static Location versionFilePath(Location deltaOrBaseDir)
     {
-        return deltaOrBaseDir + "/_orc_acid_version";
+        return deltaOrBaseDir.appendPath("_orc_acid_version");
     }
 
-    public static AcidState getAcidState(TrinoFileSystem fileSystem, String directory, ValidWriteIdList writeIdList)
+    public static AcidState getAcidState(TrinoFileSystem fileSystem, Location directory, ValidWriteIdList writeIdList)
             throws IOException
     {
         // directory = /hive/data/abc
@@ -126,7 +126,7 @@ public final class AcidTables
         List<FileEntry> originalFiles = new ArrayList<>();
 
         for (FileEntry file : listFiles(fileSystem, directory)) {
-            String suffix = listingSuffix(directory, file.location());
+            String suffix = listingSuffix(directory.toString(), file.location().toString());
 
             int slash = suffix.indexOf('/');
             String name = (slash == -1) ? "" : suffix.substring(0, slash);
@@ -188,7 +188,7 @@ public final class AcidTables
             originalFiles.clear();
         }
 
-        originalFiles.sort(comparing(FileEntry::location));
+        originalFiles.sort(comparing(entry -> entry.location().toString()));
         workingDeltas.sort(null);
 
         List<ParsedDelta> deltas = new ArrayList<>();
@@ -217,7 +217,9 @@ public final class AcidTables
             }
         }
 
-        return new AcidState(Optional.ofNullable(bestBasePath), bestBaseFiles, deltas, originalFiles);
+        Optional<Location> baseDirectory = Optional.ofNullable(bestBasePath).map(Location::of);
+
+        return new AcidState(baseDirectory, bestBaseFiles, deltas, originalFiles);
     }
 
     private static boolean isValidBase(ParsedBase base, ValidWriteIdList writeIdList, TrinoFileSystem fileSystem, String baseDir)
@@ -237,7 +239,8 @@ public final class AcidTables
     private static boolean isCompacted(TrinoFileSystem fileSystem, String baseDir)
             throws IOException
     {
-        TrinoInputFile file = fileSystem.newInputFile(baseDir + "/_metadata_acid");
+        Location location = Location.of(baseDir).appendPath("_metadata_acid");
+        TrinoInputFile file = fileSystem.newInputFile(location);
         if (!file.exists()) {
             return false;
         }
@@ -305,15 +308,15 @@ public final class AcidTables
                 parseLong(name.substring(index + 2)));
     }
 
-    private static List<FileEntry> listFiles(TrinoFileSystem fileSystem, String directory)
+    private static List<FileEntry> listFiles(TrinoFileSystem fileSystem, Location directory)
             throws IOException
     {
         List<FileEntry> files = new ArrayList<>();
         FileIterator iterator = fileSystem.listFiles(directory);
         while (iterator.hasNext()) {
             FileEntry file = iterator.next();
-            String name = new Path(file.location()).getName();
-            if (!name.startsWith("_") && !name.startsWith(".")) {
+            String path = file.location().path();
+            if (!path.contains("/_") && !path.contains("/.")) {
                 files.add(file);
             }
         }
@@ -330,7 +333,7 @@ public final class AcidTables
     }
 
     public record AcidState(
-            Optional<String> baseDirectory,
+            Optional<Location> baseDirectory,
             List<FileEntry> baseFiles,
             List<ParsedDelta> deltas,
             List<FileEntry> originalFiles)

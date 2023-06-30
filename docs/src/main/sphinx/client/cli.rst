@@ -199,7 +199,7 @@ mode:
       :doc:`/admin/resource-groups`.
   * - ``--timezone``
     - Sets the time zone for the session using the `time zone name
-      <https://en.wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
+      <https://wikipedia.org/wiki/List_of_tz_database_time_zones>`_. Defaults
       to the timezone set on your workstation.
   * - ``--user``
     - Sets the username for :ref:`cli-username-password-auth`. Defaults to your
@@ -285,7 +285,22 @@ and prompts the CLI for your password:
 
 .. code-block:: text
 
-  ./trino --server https://trino.example.com --user=myusername --password
+  ./trino --server https://trino.example.com --user=exampleusername --password
+
+Alternatively, set the password as the value of the ``TRINO_PASSWORD``
+environment variable. Typically use single quotes to avoid problems with
+special characters such as ``$``:
+
+.. code-block:: text
+
+  export TRINO_PASSWORD='LongSecurePassword123!@#'
+
+If the ``TRINO_PASSWORD`` environment variable is set, you are not prompted
+to provide a password to connect with the CLI.
+
+.. code-block:: text
+
+  ./trino --server https://trino.example.com --user=exampleusername --password
 
 .. _cli-external-sso-auth:
 
@@ -355,7 +370,7 @@ enabled.
 
 Invoking the CLI with Kerberos support enabled requires a number of additional
 command line options. You also need the :ref:`Kerberos configuration files
-<server_kerberos_principals>` for your user on the machine running the CLI. The
+<server-kerberos-principals>` for your user on the machine running the CLI. The
 simplest way to invoke the CLI is with a wrapper script:
 
 .. code-block:: text

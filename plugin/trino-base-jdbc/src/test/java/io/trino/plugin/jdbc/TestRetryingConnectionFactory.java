@@ -35,9 +35,8 @@ import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFa
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 
 public class TestRetryingConnectionFactory
 {
@@ -53,8 +52,8 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(SESSION));
-        assertEquals(mock.getCallCount(), 1);
+        assertThat(factory.openConnection(SESSION)).isNotNull();
+        assertThat(mock.getCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -65,7 +64,7 @@ public class TestRetryingConnectionFactory
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Testing Trino exception");
-        assertEquals(mock.getCallCount(), 2);
+        assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     @Test
@@ -76,7 +75,7 @@ public class TestRetryingConnectionFactory
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(SQLException.class)
                 .hasMessage("Testing sql exception");
-        assertEquals(mock.getCallCount(), 2);
+        assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     @Test
@@ -87,7 +86,7 @@ public class TestRetryingConnectionFactory
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("Testing NPE");
-        assertEquals(mock.getCallCount(), 1);
+        assertThat(mock.getCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -96,8 +95,8 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(SESSION));
-        assertEquals(mock.getCallCount(), 2);
+        assertThat(factory.openConnection(SESSION)).isNotNull();
+        assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     @Test
@@ -106,8 +105,8 @@ public class TestRetryingConnectionFactory
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION, RETURN);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
-        assertNotNull(factory.openConnection(SESSION));
-        assertEquals(mock.getCallCount(), 2);
+        assertThat(factory.openConnection(SESSION)).isNotNull();
+        assertThat(mock.getCallCount()).isEqualTo(2);
     }
 
     public static class MockConnectorFactory

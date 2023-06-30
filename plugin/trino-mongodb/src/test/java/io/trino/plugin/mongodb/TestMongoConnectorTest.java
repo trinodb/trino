@@ -32,6 +32,7 @@ import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -60,8 +61,8 @@ import static org.testng.Assert.assertNotNull;
 public class TestMongoConnectorTest
         extends BaseConnectorTest
 {
-    private MongoServer server;
-    private MongoClient client;
+    protected MongoServer server;
+    protected MongoClient client;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -70,6 +71,12 @@ public class TestMongoConnectorTest
         server = new MongoServer();
         client = createMongoClient(server);
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @BeforeClass
+    public void initTestSchema()
+    {
+        assertUpdate("CREATE SCHEMA IF NOT EXISTS test");
     }
 
     @AfterClass(alwaysRun = true)
@@ -86,18 +93,28 @@ public class TestMongoConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+                return true;
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+            case SUPPORTS_TRUNCATE:
+                return false;
+
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
+                return false;
+
             case SUPPORTS_RENAME_SCHEMA:
                 return false;
 
             case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_RENAME_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_DELETE:
-                return true;
 
             default:
                 return super.hasBehavior(connectorBehavior);
@@ -461,6 +478,80 @@ public class TestMongoConnectorTest
     }
 
     @Test
+    public void testDbRefFieldOrder()
+    {
+        // DBRef's field order is databaseName, collectionName and id
+        // Create a table with different order and verify the result
+        String tableName = "test_dbref_field_order" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(1, 'test_collection', 'test_db') AS row(id int, \"collectionName\" varchar, \"databaseName\" varchar))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefMissingField()
+    {
+        // DBRef has 3 fields (databaseName, collectionName and id)
+        // Create a table without id field and verify the result
+        String tableName = "test_dbref_missing_field" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" varchar, \"collectionName\" varchar))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // TODO Fix MongoPageSource to throw TrinoException
+        assertThatThrownBy(() -> query("SELECT * FROM test." + tableName))
+                .hasMessageContaining("DBRef should have 3 fields : row(databaseName varchar, collectionName varchar)");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldName()
+    {
+        // DBRef has 3 fields databaseName, collectionName and id
+        // Create a table with different field names and verify the failure
+        String tableName = "test_dbref_wrong_field_name" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(a varchar, b varchar, c int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", 1));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        assertQueryFails("SELECT * FROM test." + tableName, "Unexpected field name for DBRef: a");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
+    public void testDbRefWrongFieldType()
+    {
+        // DBRef has 3 fields (varchar databaseName, varchar collectionName and arbitrary type id)
+        // Create a table with different types and verify the result
+        String tableName = "test_dbref_wrong_field_type" + randomNameSuffix();
+        assertUpdate("CREATE TABLE test." + tableName + "(x row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        Document document = new Document()
+                .append("x", new DBRef("test_db", "test_collection", "test_id"));
+        client.getDatabase("test").getCollection(tableName).insertOne(document);
+
+        // The connector returns NULL when the actual field value is different from the column type
+        // See TODO comment in MongoPageSource
+        assertThat(query("SELECT * FROM test." + tableName))
+                .matches("SELECT CAST(row(NULL, NULL, NULL) AS row(\"databaseName\" int, \"collectionName\" int, id int))");
+
+        assertUpdate("DROP TABLE test." + tableName);
+    }
+
+    @Test
     public void testMaps()
     {
         String mapIntegerTable = "test_map_integer" + randomNameSuffix();
@@ -738,6 +829,20 @@ public class TestMongoConnectorTest
 
         assertQuery(
                 "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
+                "VALUES 1");
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNativeQueryHelperFunction()
+    {
+        String tableName = "test_query_helper_function" + randomNameSuffix();
+        MongoCollection<Document> collection = client.getDatabase("tpch").getCollection(tableName);
+        collection.insertOne(new Document(ImmutableMap.of("id", 1, "timestamp", LocalDateTime.of(2023, 3, 20, 1, 2, 3))));
+        collection.insertOne(new Document(ImmutableMap.of("id", 2, "timestamp", LocalDateTime.of(2024, 3, 20, 1, 2, 3))));
+
+        assertQuery(
+                "SELECT id FROM TABLE(mongodb.system.query(database => 'tpch', collection => '" + tableName + "', filter => '{ timestamp: ISODate(\"2023-03-20T01:02:03.000Z\") }'))",
                 "VALUES 1");
         assertUpdate("DROP TABLE " + tableName);
     }

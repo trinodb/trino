@@ -14,8 +14,7 @@
 package io.trino.tests.product.launcher.suite;
 
 import com.google.common.collect.Ordering;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;

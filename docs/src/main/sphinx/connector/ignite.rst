@@ -14,7 +14,7 @@ Requirements
 
 To connect to a Ignite server, you need:
 
-* Ignite version 2.8.0 or latter
+* Ignite version 2.9.0 or latter
 * Network access from the Trino coordinator and workers to the Ignite
   server. Port 10800 is the default port.
 * Specify ``--add-opens=java.base/java.nio=ALL-UNNAMED`` in the ``jvm.config`` when starting the Trino server.
@@ -64,6 +64,8 @@ For example, if you name the property file ``sales.properties``, Trino uses the
 configured connector to create a catalog named ``sales``.
 
 .. include:: jdbc-common-configurations.fragment
+
+.. include:: query-comment-format.fragment
 
 .. |default_domain_compaction_threshold| replace:: ``1000``
 .. include:: jdbc-domain-compaction-threshold.fragment
@@ -171,6 +173,7 @@ Ignite.  In addition to the :ref:`globally available
 statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
+* :doc:`/sql/delete`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`
@@ -185,6 +188,7 @@ Pushdown
 
 The connector supports pushdown for a number of operations:
 
+* :ref:`join-pushdown`
 * :ref:`limit-pushdown`
 * :ref:`topn-pushdown`
 

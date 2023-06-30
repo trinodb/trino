@@ -16,7 +16,6 @@ package io.trino.plugin.bigquery;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
 import static io.trino.spi.type.DateType.DATE;
@@ -63,14 +62,5 @@ public enum BigQueryPseudoColumn
                 ImmutableList.of(),
                 null,
                 true);
-    }
-
-    public ColumnMetadata getColumnMetadata()
-    {
-        return ColumnMetadata.builder()
-                .setName(trinoColumnName)
-                .setType(trinoType)
-                .setHidden(true)
-                .build();
     }
 }

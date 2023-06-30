@@ -19,6 +19,8 @@ import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.Page;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.reader.decoders.ValueDecoder;
+import io.trino.parquet.reader.decoders.ValueDecoders;
 import io.trino.spi.block.Block;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
@@ -150,6 +152,12 @@ public abstract class AbstractColumnReaderRowRangesTest
         ColumnReader createColumnReader();
 
         PrimitiveField getField();
+    }
+
+    protected static ValueDecoder.ValueDecodersProvider<int[]> getIntDecodersProvider(PrimitiveField field)
+    {
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return valueDecoders::getIntDecoder;
     }
 
     @DataProvider

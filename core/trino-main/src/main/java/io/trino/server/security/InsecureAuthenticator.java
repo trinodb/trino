@@ -13,14 +13,13 @@
  */
 package io.trino.server.security;
 
+import com.google.inject.Inject;
 import io.trino.client.ProtocolDetectionException;
 import io.trino.client.ProtocolHeaders;
 import io.trino.server.ProtocolConfig;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.util.Optional;
 

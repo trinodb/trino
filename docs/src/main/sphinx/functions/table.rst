@@ -15,6 +15,9 @@ Polymorphic table functions allow you to dynamically invoke custom logic from
 within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
+For the list of built-in table functions available in Trino, see :ref:`built in
+table functions<built-in-table-functions>`.
+
 Trino supports adding custom table functions. They are declared by connectors
 through implementing dedicated interfaces. For guidance on adding new table
 functions, see the :doc:`developer guide</develop/table-functions>`.
@@ -22,6 +25,50 @@ functions, see the :doc:`developer guide</develop/table-functions>`.
 Connectors offer support for different functions on a per-connector basis. For
 more information about supported table functions, refer to the :doc:`connector
 documentation <../../connector>`.
+
+.. _built-in-table-functions:
+
+Built-in table functions
+------------------------
+
+.. function:: exclude_columns(input => table, columns => descriptor) -> table
+
+    Excludes from ``table`` all columns listed in ``descriptor``::
+
+        SELECT *
+        FROM TABLE(exclude_columns(
+                                input => TABLE(orders),
+                                columns => DESCRIPTOR(clerk, comment)))
+
+    The argument ``input`` is a table or a query.
+    The argument ``columns`` is a descriptor without types.
+
+.. _sequence_table_function:
+
+.. function:: sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
+    :noindex:
+
+    Returns a single column ``sequential_number`` containing a sequence of
+    bigint::
+
+        SELECT *
+        FROM TABLE(sequence(
+                        start => 1000000,
+                        stop => -2000000,
+                        step => -3))
+
+    ``start`` is the first element in te sequence. The default value is ``0``.
+
+    ``stop`` is the end of the range, inclusive. The last element in the
+    sequence is equal to ``stop``, or it is the last value within range,
+    reachable by steps.
+
+    ``step`` is the difference between subsequent values. The default value is
+    ``1``.
+
+.. note::
+
+    The result of the ``sequence`` table function might not be ordered.
 
 Table function invocation
 -------------------------
@@ -47,6 +94,55 @@ by the specified catalog, the query fails.
 The table function name is resolved case-insensitive, analogically to scalar
 function and table resolution in Trino.
 
+Arguments
+^^^^^^^^^
+
+There are three types of arguments.
+
+1. Scalar arguments
+
+They must be constant expressions, and they can be of any SQL type, which is
+compatible with the declared argument type::
+
+    factor => 42
+
+2. Descriptor arguments
+
+Descriptors consist of fields with names and optional data types::
+
+    schema => DESCRIPTOR(id BIGINT, name VARCHAR)
+    columns => DESCRIPTOR(date, status, comment)
+
+To pass ``null`` for a descriptor, use::
+
+    schema => CAST(null AS DESCRIPTOR)
+
+3. Table arguments
+
+You can pass a table name, or a query. Use the keyword ``TABLE``::
+
+    input => TABLE(orders)
+    data => TABLE(SELECT * FROM region, nation WHERE region.regionkey = nation.regionkey)
+
+If the table argument is declared as :ref:`set semantics<tf-set-or-row-semantics>`,
+you can specify partitioning and ordering. Each partition is processed
+independently by the table function. If you do not specify partitioning, the
+argument is processed as a single partition. You can also specify
+``PRUNE WHEN EMPTY`` or ``KEEP WHEN EMPTY``. With ``PRUNE WHEN EMPTY`` you
+declare that you are not interested in the function result if the argument is
+empty. This information is used by the Trino engine to optimize the query. The
+``KEEP WHEN EMPTY`` option indicates that the function should be executed even
+if the table argument is empty. Note that by specifying ``KEEP WHEN EMPTY`` or
+``PRUNE WHEN EMPTY``, you override the property set for the argument by the
+function author.
+
+The following example shows how the table argument properties should be ordered::
+
+    input => TABLE(orders)
+                        PARTITION BY orderstatus
+                        KEEP WHEN EMPTY
+                        ORDER BY orderdate
+
 Argument passing conventions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -70,9 +166,7 @@ skipped arguments are declared with default values.
 
 You cannot mix the argument conventions in one invocation.
 
-All arguments must be constant expressions, and they can be of any SQL type,
-which is compatible with the declared argument type. You can also use
-parameters in arguments::
+You can also use parameters in arguments::
 
     PREPARE stmt FROM
     SELECT * FROM TABLE(my_function(row_count => ? + 1, column_count => ?));

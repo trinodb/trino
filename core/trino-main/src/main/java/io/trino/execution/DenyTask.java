@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -25,8 +26,6 @@ import io.trino.spi.security.Privilege;
 import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GrantOnType;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

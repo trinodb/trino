@@ -14,23 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.minio.messages.Event;
 import io.trino.Session;
-import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.ConfigurationInitializer;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
-import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
 import org.apache.iceberg.FileFormat;
@@ -47,6 +35,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -55,25 +44,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseIcebergMinioConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    protected final TrinoFileSystemFactory fileSystemFactory;
-
     private final String schemaName;
     private final String bucketName;
 
     private HiveMinioDataLake hiveMinioDataLake;
 
-    public BaseIcebergMinioConnectorSmokeTest(FileFormat format)
+    protected BaseIcebergMinioConnectorSmokeTest(FileFormat format)
     {
         super(format);
         this.schemaName = "tpch_" + format.name().toLowerCase(ENGLISH);
         this.bucketName = "test-iceberg-minio-smoke-test-" + randomNameSuffix();
-
-        ConfigurationInitializer s3Config = new TrinoS3ConfigurationInitializer(new HiveS3Config()
-                .setS3AwsAccessKey(MINIO_ACCESS_KEY)
-                .setS3AwsSecretKey(MINIO_SECRET_KEY));
-        HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
-        this.fileSystemFactory = new HdfsFileSystemFactory(new HdfsEnvironment(hdfsConfiguration, new HdfsConfig(), new NoHdfsAuthentication()));
     }
 
     @Override
@@ -90,11 +70,15 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", "thrift://" + hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
                                 .put("hive.metastore-timeout", "1m") // read timed out sometimes happens with the default timeout
-                                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                                .put("hive.s3.endpoint", "http://" + hiveMinioDataLake.getMinio().getMinioApiEndpoint())
-                                .put("hive.s3.path-style-access", "true")
-                                .put("hive.s3.streaming.part-size", "5MB")
+                                .put("fs.hadoop.enabled", "false")
+                                .put("fs.native-s3.enabled", "true")
+                                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                                .put("s3.region", MINIO_REGION)
+                                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                                .put("s3.path-style-access", "true")
+                                .put("s3.streaming.part-size", "5MB") // minimize memory usage
+                                .put("s3.max-connections", "2") // verify no leaks
                                 .put("iceberg.register-table-procedure.enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .buildOrThrow())
@@ -205,7 +189,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
 
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES (VARCHAR 'one', 1), (VARCHAR 'two', 2)");
-        assertThat(events).hasSize(2);
+        assertThat(events).hasSize(3);
         // if files were deleted in batch there should be only one request id because there was one request only
         assertThat(events.stream()
                 .map(event -> event.responseElements().get("x-amz-request-id"))

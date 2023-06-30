@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.hive.thrift.metastore.Table;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -24,6 +25,7 @@ import io.trino.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreFactory;
+import io.trino.plugin.iceberg.IcebergPlugin;
 import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
@@ -47,7 +49,8 @@ public class TestIcebergHiveMetastoreTableOperationsReleaseLockFailure
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createQueryRunner() throws Exception
+    protected LocalQueryRunner createQueryRunner()
+            throws Exception
     {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
@@ -58,6 +61,10 @@ public class TestIcebergHiveMetastoreTableOperationsReleaseLockFailure
         baseDir.deleteOnExit();
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+
+        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
+        new IcebergPlugin().getFunctions().forEach(functions::functions);
+        queryRunner.addFunctions(functions.build());
 
         ThriftMetastore thriftMetastore = createMetastoreWithReleaseLockFailure();
         HiveMetastore hiveMetastore = new BridgingHiveMetastore(thriftMetastore);

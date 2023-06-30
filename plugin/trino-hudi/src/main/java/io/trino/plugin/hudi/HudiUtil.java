@@ -15,11 +15,16 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hudi.model.HudiFileFormat;
+import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -27,13 +32,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hudi.common.fs.FSUtils;
-import org.apache.hudi.common.model.HoodieBaseFile;
-import org.apache.hudi.common.model.HoodieFileFormat;
-import org.apache.hudi.hadoop.HoodieParquetInputFormat;
-import org.apache.hudi.hadoop.utils.HoodieInputFormatUtils;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,35 +40,51 @@ import java.util.Map;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
+import static io.trino.plugin.hudi.table.HudiTableMetaClient.METAFOLDER_NAME;
 import static java.util.stream.Collectors.toList;
 
 public final class HudiUtil
 {
     private HudiUtil() {}
 
-    public static boolean isHudiParquetInputFormat(InputFormat<?, ?> inputFormat)
+    public static HudiFileFormat getHudiFileFormat(String path)
     {
-        return inputFormat instanceof HoodieParquetInputFormat;
-    }
-
-    public static HoodieFileFormat getHudiFileFormat(String path)
-    {
-        final String extension = FSUtils.getFileExtension(path);
-        if (extension.equals(HoodieFileFormat.PARQUET.getFileExtension())) {
-            return HoodieFileFormat.PARQUET;
+        String extension = getFileExtension(path);
+        if (extension.equals(HudiFileFormat.PARQUET.getFileExtension())) {
+            return HudiFileFormat.PARQUET;
         }
-        if (extension.equals(HoodieFileFormat.HOODIE_LOG.getFileExtension())) {
-            return HoodieFileFormat.HOODIE_LOG;
+        if (extension.equals(HudiFileFormat.HOODIE_LOG.getFileExtension())) {
+            return HudiFileFormat.HOODIE_LOG;
         }
-        if (extension.equals(HoodieFileFormat.ORC.getFileExtension())) {
-            return HoodieFileFormat.ORC;
+        if (extension.equals(HudiFileFormat.ORC.getFileExtension())) {
+            return HudiFileFormat.ORC;
         }
-        if (extension.equals(HoodieFileFormat.HFILE.getFileExtension())) {
-            return HoodieFileFormat.HFILE;
+        if (extension.equals(HudiFileFormat.HFILE.getFileExtension())) {
+            return HudiFileFormat.HFILE;
         }
         throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "Hoodie InputFormat not implemented for base file of type " + extension);
+    }
+
+    private static String getFileExtension(String fullName)
+    {
+        String fileName = Location.of(fullName).fileName();
+        int dotIndex = fileName.lastIndexOf('.');
+        return dotIndex == -1 ? "" : fileName.substring(dotIndex);
+    }
+
+    public static boolean hudiMetadataExists(TrinoFileSystem trinoFileSystem, Location baseLocation)
+    {
+        try {
+            Location metaLocation = baseLocation.appendPath(METAFOLDER_NAME);
+            FileIterator iterator = trinoFileSystem.listFiles(metaLocation);
+            // If there is at least one file in the .hoodie directory, it's a valid Hudi table
+            return iterator.hasNext();
+        }
+        catch (IOException e) {
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed to check for Hudi table at location: " + baseLocation, e);
+        }
     }
 
     public static boolean partitionMatchesPredicates(
@@ -79,11 +93,8 @@ public final class HudiUtil
             List<HiveColumnHandle> partitionColumnHandles,
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
-        List<Type> partitionColumnTypes = partitionColumnHandles.stream()
-                .map(HiveColumnHandle::getType)
-                .collect(toList());
         HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles, partitionColumnTypes);
+                tableName, hivePartitionName, partitionColumnHandles);
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
     }
@@ -152,13 +163,13 @@ public final class HudiUtil
         return partitionKeys.build();
     }
 
-    public static FileStatus getFileStatus(HoodieBaseFile baseFile)
+    public static HudiTableMetaClient buildTableMetaClient(
+            TrinoFileSystem fileSystem,
+            String basePath)
     {
-        try {
-            return HoodieInputFormatUtils.getFileStatus(baseFile);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error getting file status of " + baseFile.getPath(), e);
-        }
+        return HudiTableMetaClient.builder()
+                .setTrinoFileSystem(fileSystem)
+                .setBasePath(Location.of(basePath))
+                .build();
     }
 }

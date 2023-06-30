@@ -14,19 +14,22 @@
 package io.trino.plugin.deltalake.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
+import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
-import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
+import io.trino.plugin.deltalake.LocatedTableHandle;
+import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
+import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.procedure.Procedure;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
-
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -55,11 +58,15 @@ public class UnregisterTableProcedure
     }
 
     private final DeltaLakeMetadataFactory metadataFactory;
+    private final TransactionLogAccess transactionLogAccess;
+    private final CachingExtendedStatisticsAccess statisticsAccess;
 
     @Inject
-    public UnregisterTableProcedure(DeltaLakeMetadataFactory metadataFactory)
+    public UnregisterTableProcedure(DeltaLakeMetadataFactory metadataFactory, TransactionLogAccess transactionLogAccess, CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
+        this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
     }
 
     @Override
@@ -88,12 +95,15 @@ public class UnregisterTableProcedure
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         accessControl.checkCanDropTable(null, schemaTableName);
-        DeltaLakeMetastore metastore = metadataFactory.create(session.getIdentity()).getMetastore();
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
 
-        if (metastore.getDatabase(schemaName).isEmpty()) {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
+        LocatedTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+        if (tableHandle == null) {
+            throw new TableNotFoundException(schemaTableName);
         }
-
-        metastore.dropTable(session, schemaName, tableName, false);
+        metadata.getMetastore().dropTable(session, schemaTableName, tableHandle.location(), false);
+        // As a precaution, clear the caches
+        statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
+        transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableHandle.location()));
     }
 }

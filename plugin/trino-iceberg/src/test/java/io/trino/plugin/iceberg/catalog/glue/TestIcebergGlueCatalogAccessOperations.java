@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Sets;
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
@@ -33,8 +34,6 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
-
-import javax.inject.Qualifier;
 
 import java.io.File;
 import java.lang.annotation.Retention;
@@ -52,6 +51,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
@@ -158,7 +158,9 @@ public class TestIcebergGlueCatalogAccessOperations
     public void testCreateTableAsSelect()
     {
         try {
-            assertGlueMetastoreApiInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
+            assertGlueMetastoreApiInvocations(
+                    withStatsOnWrite(getSession(), false),
+                    "CREATE TABLE test_ctas AS SELECT 1 AS age",
                     ImmutableMultiset.builder()
                             .add(GET_DATABASE)
                             .add(GET_DATABASE)
@@ -168,6 +170,22 @@ public class TestIcebergGlueCatalogAccessOperations
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_ctas");
+        }
+
+        try {
+            assertGlueMetastoreApiInvocations(
+                    withStatsOnWrite(getSession(), true),
+                    "CREATE TABLE test_ctas_with_stats AS SELECT 1 AS age",
+                    ImmutableMultiset.builder()
+                            .add(GET_DATABASE)
+                            .add(GET_DATABASE)
+                            .add(CREATE_TABLE)
+                            .addCopies(GET_TABLE, 5)
+                            .add(UPDATE_TABLE)
+                            .build());
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS test_ctas_with_stats");
         }
     }
 
@@ -475,9 +493,17 @@ public class TestIcebergGlueCatalogAccessOperations
         fail("Expected: \n\t\t" + join(",\n\t\t", mismatchReport));
     }
 
+    private static Session withStatsOnWrite(Session session, boolean enabled)
+    {
+        String catalog = session.getCatalog().orElseThrow();
+        return Session.builder(session)
+                .setCatalogSessionProperty(catalog, COLLECT_EXTENDED_STATISTICS_ON_WRITE, Boolean.toString(enabled))
+                .build();
+    }
+
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface GlueStatsReference {}
 
     static class StealStatsModule

@@ -25,7 +25,6 @@ import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -35,7 +34,6 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableLayout;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
-import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.LimitApplicationResult;
@@ -47,9 +45,9 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.ArrayType;
@@ -259,6 +257,12 @@ public class MongoMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
+    {
+        mongoSession.renameColumn(((MongoTableHandle) tableHandle), ((MongoColumnHandle) source).getName(), target);
     }
 
     @Override
@@ -511,7 +515,6 @@ public class MongoMetadata
     {
         MongoTableHandle tableHandle = (MongoTableHandle) table;
 
-        Optional<Set<ColumnHandle>> partitioningColumns = Optional.empty(); //TODO: sharding key
         ImmutableList.Builder<LocalProperty<ColumnHandle>> localProperties = ImmutableList.builder();
 
         MongoTable tableInfo = mongoSession.getTable(tableHandle.getSchemaTableName());
@@ -531,7 +534,6 @@ public class MongoMetadata
         return new ConnectorTableProperties(
                 TupleDomain.all(),
                 Optional.empty(),
-                partitioningColumns,
                 Optional.empty(),
                 localProperties.build());
     }
@@ -616,14 +618,9 @@ public class MongoMetadata
         }
 
         ConnectorTableHandle tableHandle = ((QueryFunctionHandle) handle).getTableHandle();
-        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
-        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
-                .filter(column -> !column.isHidden())
-                .map(ColumnSchema::getName)
-                .map(columnHandlesByName::get)
+        List<ColumnHandle> columnHandles = getColumnHandles(session, tableHandle).values().stream()
+                .filter(column -> !((MongoColumnHandle) column).isHidden())
                 .collect(toImmutableList());
-
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 

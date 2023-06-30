@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.log.Logger;
+import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.RemoteTask;
@@ -207,13 +208,13 @@ public class PipelinedStageExecution
     }
 
     @Override
-    public synchronized void beginScheduling()
+    public void beginScheduling()
     {
         stateMachine.transitionToScheduling();
     }
 
     @Override
-    public synchronized void transitionToSchedulingSplits()
+    public void transitionToSchedulingSplits()
     {
         stateMachine.transitionToSchedulingSplits();
     }
@@ -298,7 +299,8 @@ public class PipelinedStageExecution
                 outputBuffers,
                 initialSplits,
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                false);
 
         if (optionalTask.isEmpty()) {
             return Optional.empty();
@@ -550,6 +552,12 @@ public class PipelinedStageExecution
     public int getAttemptId()
     {
         return attempt;
+    }
+
+    @Override
+    public Span getStageSpan()
+    {
+        return stage.getStageSpan();
     }
 
     @Override

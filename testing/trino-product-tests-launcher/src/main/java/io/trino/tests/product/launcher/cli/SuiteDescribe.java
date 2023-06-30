@@ -14,11 +14,11 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import com.google.inject.Module;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.trino.tests.product.launcher.Extensions;
-import io.trino.tests.product.launcher.LauncherModule;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonOutput;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonSuite;
 import io.trino.tests.product.launcher.cli.suite.describe.json.JsonTestRun;
@@ -35,21 +35,15 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 
-import javax.inject.Inject;
-
 import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.Charset;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.ExitCode.OK;
@@ -60,11 +54,8 @@ import static picocli.CommandLine.Option;
         description = "Describe tests suite",
         usageHelpAutoWidth = true)
 public class SuiteDescribe
-        implements Callable<Integer>
+        extends LauncherCommand
 {
-    private final Module additionalSuites;
-    private final Module additionalEnvironments;
-
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
 
@@ -74,23 +65,18 @@ public class SuiteDescribe
     @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    public SuiteDescribe(Extensions extensions)
+    public SuiteDescribe(OutputStream outputStream, Extensions extensions)
     {
-        this.additionalSuites = extensions.getAdditionalSuites();
-        this.additionalEnvironments = extensions.getAdditionalEnvironments();
+        super(SuiteDescribe.Execution.class, outputStream, extensions);
     }
 
     @Override
-    public Integer call()
+    List<Module> getCommandModules()
     {
-        return runCommand(
-                ImmutableList.<Module>builder()
-                        .add(new LauncherModule())
-                        .add(new SuiteModule(additionalSuites))
-                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
-                        .add(options.toModule())
-                        .build(),
-                SuiteDescribe.Execution.class);
+        return ImmutableList.of(
+                new SuiteModule(extensions.getAdditionalSuites()),
+                new EnvironmentModule(environmentOptions, extensions.getAdditionalEnvironments()),
+                options.toModule());
     }
 
     public enum SuiteDescribeFormat
@@ -213,7 +199,7 @@ public class SuiteDescribe
         private final EnvironmentConfigFactory configFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentOptions environmentOptions;
-        private final PrintStream out;
+        private final PrintStream printStream;
         private final OutputBuilder outputBuilder;
 
         @Inject
@@ -222,7 +208,8 @@ public class SuiteDescribe
                 SuiteFactory suiteFactory,
                 EnvironmentConfigFactory configFactory,
                 EnvironmentFactory environmentFactory,
-                EnvironmentOptions environmentOptions)
+                EnvironmentOptions environmentOptions,
+                PrintStream printStream)
         {
             this.describeOptions = requireNonNull(describeOptions, "describeOptions is null");
             this.config = requireNonNull(environmentOptions.config, "environmentOptions.config is null");
@@ -230,14 +217,8 @@ public class SuiteDescribe
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
+            this.printStream = requireNonNull(printStream, "printStream is null");
             this.outputBuilder = describeOptions.format.outputBuilderFactory.get();
-
-            try {
-                this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
-            }
-            catch (UnsupportedEncodingException e) {
-                throw new IllegalStateException("Could not create print stream", e);
-            }
         }
 
         @Override
@@ -252,13 +233,13 @@ public class SuiteDescribe
                 for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                     testRun = testRun.withConfigApplied(config);
                     TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
-                    Environment.Builder builder = environmentFactory.get(runOptions.environment, config, testRun.getExtraOptions())
+                    Environment.Builder builder = environmentFactory.get(runOptions.environment, printStream, config, testRun.getExtraOptions())
                             .setContainerOutputMode(environmentOptions.output);
                     Environment environment = builder.build();
                     outputBuilder.addTestRun(environmentOptions, runOptions, environment);
                 }
             }
-            out.print(outputBuilder.build());
+            printStream.print(outputBuilder.build());
             return OK;
         }
 

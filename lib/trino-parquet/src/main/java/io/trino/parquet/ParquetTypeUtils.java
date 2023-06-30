@@ -251,6 +251,11 @@ public final class ParquetTypeUtils
         return !required && (definitionLevel == maxDefinitionLevel - 1);
     }
 
+    public static boolean isOptionalFieldValueNull(int definitionLevel, int maxDefinitionLevel)
+    {
+        return definitionLevel == maxDefinitionLevel - 1;
+    }
+
     public static long getShortDecimalValue(byte[] bytes)
     {
         return getShortDecimalValue(bytes, 0, bytes.length);

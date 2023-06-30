@@ -50,7 +50,9 @@ public class TestSheetsConfig
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
                 .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
-                .setReadTimeout(new Duration(20, TimeUnit.SECONDS)));
+                .setConnectionTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setReadTimeout(new Duration(20, TimeUnit.SECONDS))
+                .setWriteTimeout(new Duration(20, TimeUnit.SECONDS)));
     }
 
     @Test
@@ -64,7 +66,9 @@ public class TestSheetsConfig
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
-                .put("gsheets.read-timeout", "1m")
+                .put("gsheets.connection-timeout", "1m")
+                .put("gsheets.read-timeout", "2m")
+                .put("gsheets.write-timeout", "3m")
                 .buildOrThrow();
 
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
@@ -75,7 +79,9 @@ public class TestSheetsConfig
         assertEquals(config.getMetadataSheetId(), Optional.of("foo_bar_sheet_id#Sheet1"));
         assertEquals(config.getSheetsDataMaxCacheSize(), 2000);
         assertEquals(config.getSheetsDataExpireAfterWrite(), Duration.valueOf("10m"));
-        assertEquals(config.getReadTimeout(), Duration.valueOf("1m"));
+        assertEquals(config.getConnectionTimeout(), Duration.valueOf("1m"));
+        assertEquals(config.getReadTimeout(), Duration.valueOf("2m"));
+        assertEquals(config.getWriteTimeout(), Duration.valueOf("3m"));
     }
 
     @Test

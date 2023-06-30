@@ -15,21 +15,21 @@ connector:
     - Support case insensitive schema and table names.
     - ``false``
   * - ``case-insensitive-name-matching.cache-ttl``
-    -
+    - This value should be a :ref:`prop-type-duration`.
     - ``1m``
   * - ``case-insensitive-name-matching.config-file``
     - Path to a name mapping configuration file in JSON format that allows
       Trino to disambiguate between schemas and tables with similar names in
       different cases.
     - ``null``
-  * - ``case-insensitive-name-matching.refresh-period``
+  * - ``case-insensitive-name-matching.config-file.refresh-period``
     - Frequency with which Trino checks the name matching configuration file
-      for changes.
-    - ``0`` (refresh disabled)
+      for changes. This value should be a :ref:`prop-type-duration`.
+    - (refresh disabled)
   * - ``metadata.cache-ttl``
-    - Duration for which metadata, including table and column statistics, is
-      cached.
-    - ``0`` (caching disabled)
+    - :ref:`The duration <prop-type-duration>` for which metadata, including
+      table and column statistics, is cached.
+    - ``0s`` (caching disabled)
   * - ``metadata.cache-missing``
     - Cache the fact that metadata, including table and column statistics, is
       not available
@@ -46,8 +46,8 @@ connector:
     - Push down dynamic filters into JDBC queries
     - ``true``
   * - ``dynamic-filtering.wait-timeout``
-    - Maximum duration for which Trino will wait for dynamic filters to be
-      collected from the build side of joins before starting a JDBC query.
-      Using a large timeout can potentially result in more detailed dynamic filters.
-      However, it can also increase latency for some queries.
+    - Maximum :ref:`prop-type-duration` for which Trino will wait for dynamic
+      filters to be collected from the build side of joins before starting a
+      JDBC query. Using a large timeout can potentially result in more detailed
+      dynamic filters. However, it can also increase latency for some queries.
     - ``20s``

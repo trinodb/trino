@@ -16,10 +16,10 @@ package io.trino.orc.metadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
@@ -74,12 +74,20 @@ import static io.trino.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYT
 import static io.trino.orc.metadata.statistics.TimestampStatistics.TIMESTAMP_VALUE_BYTES;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class OrcMetadataReader
         implements MetadataReader
 {
     private static final int REPLACEMENT_CHARACTER_CODE_POINT = 0xFFFD;
     private static final int PROTOBUF_MESSAGE_MAX_LIMIT = toIntExact(DataSize.of(1, GIGABYTE).toBytes());
+
+    private final OrcReaderOptions orcReaderOptions;
+
+    public OrcMetadataReader(OrcReaderOptions orcReaderOptions)
+    {
+        this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
+    }
 
     @Override
     public PostScript readPostScript(InputStream inputStream)
@@ -172,7 +180,10 @@ public class OrcMetadataReader
                 toStream(stripeFooter.getStreamsList()),
                 toColumnEncoding(stripeFooter.getColumnsList()),
                 Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
-                        .map(ZoneId::of)
+                        .map(zoneId ->
+                                orcReaderOptions.isReadLegacyShortZoneId()
+                                        ? ZoneId.of(zoneId, ZoneId.SHORT_IDS)
+                                        : ZoneId.of(zoneId))
                         .orElse(legacyFileTimeZone));
     }
 
@@ -227,7 +238,12 @@ public class OrcMetadataReader
                 builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
             }
             else {
-                builder.add(new BloomFilter(Longs.toArray(orcBloomFilter.getBitsetList()), orcBloomFilter.getNumHashFunctions()));
+                int length = orcBloomFilter.getBitsetCount();
+                long[] bits = new long[length];
+                for (int i = 0; i < length; i++) {
+                    bits[i] = orcBloomFilter.getBitset(i);
+                }
+                builder.add(new BloomFilter(bits, orcBloomFilter.getNumHashFunctions()));
             }
         }
         return builder.build();

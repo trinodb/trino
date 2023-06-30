@@ -15,6 +15,7 @@ package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.filesystem.Location;
 import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
@@ -24,7 +25,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
 import org.testng.annotations.Test;
 
@@ -120,7 +120,7 @@ public class TestS3SelectRecordCursorProvider
         return s3SelectRecordCursorProvider.createRecordCursor(
                 ConfigurationInstantiator.newEmptyConfiguration(),
                 SESSION,
-                new Path("s3://fakeBucket/fakeObject.gz"),
+                Location.of("s3://fakeBucket/fakeObject.gz"),
                 0,
                 10,
                 10,

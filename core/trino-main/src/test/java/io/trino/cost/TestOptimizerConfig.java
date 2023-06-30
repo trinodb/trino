@@ -51,7 +51,6 @@ public class TestOptimizerConfig
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(true)
                 .setUsePreferredWritePartitioning(true)
-                .setPreferredWritePartitioningMinNumberOfPartitions(50)
                 .setEnableStatsCalculator(true)
                 .setStatisticsPrecalculationForPushdownEnabled(true)
                 .setCollectPlanStatisticsForAllQueries(false)
@@ -86,12 +85,12 @@ public class TestOptimizerConfig
                 .setMergeProjectWithValues(true)
                 .setForceSingleNodeOutput(false)
                 .setAdaptivePartialAggregationEnabled(true)
-                .setAdaptivePartialAggregationMinRows(100_000)
                 .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.8)
                 .setJoinPartitionedBuildMinRowCount(1_000_000)
                 .setMinInputSizePerTask(DataSize.of(5, GIGABYTE))
                 .setMinInputRowsPerTask(10_000_000L)
-                .setUseExactPartitioning(false));
+                .setUseExactPartitioning(false)
+                .setUseCostBasedPartitioning(true));
     }
 
     @Test
@@ -119,7 +118,6 @@ public class TestOptimizerConfig
                 .put("spatial-joins-enabled", "false")
                 .put("distributed-sort", "false")
                 .put("use-preferred-write-partitioning", "false")
-                .put("preferred-write-partitioning-min-number-of-partitions", "10")
                 .put("optimizer.optimize-metadata-queries", "true")
                 .put("optimizer.optimize-hash-generation", "false")
                 .put("optimizer.optimize-mixed-distinct-aggregations", "true")
@@ -144,12 +142,12 @@ public class TestOptimizerConfig
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .put("optimizer.merge-project-with-values", "false")
                 .put("adaptive-partial-aggregation.enabled", "false")
-                .put("adaptive-partial-aggregation.min-rows", "1")
                 .put("adaptive-partial-aggregation.unique-rows-ratio-threshold", "0.99")
                 .put("optimizer.join-partitioned-build-min-row-count", "1")
                 .put("optimizer.min-input-size-per-task", "1MB")
                 .put("optimizer.min-input-rows-per-task", "1000000")
                 .put("optimizer.use-exact-partitioning", "true")
+                .put("optimizer.use-cost-based-partitioning", "false")
                 .buildOrThrow();
 
         OptimizerConfig expected = new OptimizerConfig()
@@ -170,7 +168,6 @@ public class TestOptimizerConfig
                 .setColocatedJoinsEnabled(false)
                 .setSpatialJoinsEnabled(false)
                 .setUsePreferredWritePartitioning(false)
-                .setPreferredWritePartitioningMinNumberOfPartitions(10)
                 .setDefaultFilterFactorEnabled(true)
                 .setFilterConjunctionIndependenceFactor(1.0)
                 .setNonEstimatablePredicateApproximationEnabled(false)
@@ -199,12 +196,12 @@ public class TestOptimizerConfig
                 .setMergeProjectWithValues(false)
                 .setForceSingleNodeOutput(true)
                 .setAdaptivePartialAggregationEnabled(false)
-                .setAdaptivePartialAggregationMinRows(1)
                 .setAdaptivePartialAggregationUniqueRowsRatioThreshold(0.99)
                 .setJoinPartitionedBuildMinRowCount(1)
                 .setMinInputSizePerTask(DataSize.of(1, MEGABYTE))
                 .setMinInputRowsPerTask(1_000_000L)
-                .setUseExactPartitioning(true);
+                .setUseExactPartitioning(true)
+                .setUseCostBasedPartitioning(false);
         assertFullMapping(properties, expected);
     }
 }

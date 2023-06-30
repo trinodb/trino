@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcSplit
 {
@@ -30,11 +29,11 @@ public class TestJdbcSplit
     public void testAddresses()
     {
         // split uses "example" scheme so no addresses are available and is not remotely accessible
-        assertEquals(split.getAddresses(), ImmutableList.of());
-        assertEquals(split.isRemotelyAccessible(), true);
+        assertThat(split.getAddresses()).isEmpty();
+        assertThat(split.isRemotelyAccessible()).isTrue();
 
         JdbcSplit jdbcSplit = new JdbcSplit(Optional.empty());
-        assertEquals(jdbcSplit.getAddresses(), ImmutableList.of());
+        assertThat(jdbcSplit.getAddresses()).isEmpty();
     }
 
     @Test
@@ -43,9 +42,9 @@ public class TestJdbcSplit
         JsonCodec<JdbcSplit> codec = jsonCodec(JdbcSplit.class);
         String json = codec.toJson(split);
         JdbcSplit copy = codec.fromJson(json);
-        assertEquals(copy.getAdditionalPredicate(), split.getAdditionalPredicate());
+        assertThat(copy.getAdditionalPredicate()).isEqualTo(split.getAdditionalPredicate());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of());
-        assertEquals(copy.isRemotelyAccessible(), true);
+        assertThat(copy.getAddresses()).isEmpty();
+        assertThat(copy.isRemotelyAccessible()).isTrue();
     }
 }

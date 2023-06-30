@@ -80,7 +80,6 @@ public class TestPruneTableExecuteSourceColumns
                                     ImmutableList.of(partition, hash),
                                     ImmutableList.of(partition),
                                     hash)),
-                            Optional.empty(),
                             p.values(a, partition, hash));
                 })
                 .doesNotFire();

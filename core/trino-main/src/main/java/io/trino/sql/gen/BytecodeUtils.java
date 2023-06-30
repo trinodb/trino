@@ -111,7 +111,7 @@ public final class BytecodeUtils
 
         isNull.pushJavaDefault(returnType);
         String loadDefaultComment;
-        loadDefaultComment = format("loadJavaDefault(%s)", returnType.getName());
+        loadDefaultComment = "loadJavaDefault(" + returnType.getName() + ")";
 
         isNull.gotoLabel(label);
 
@@ -354,7 +354,7 @@ public final class BytecodeUtils
     private static InvocationArgumentConvention getPreferredArgumentConvention(BytecodeNode argument, int argumentCount, boolean nullable)
     {
         // a Java function can only have 255 arguments, so if the count is low use block position or boxed nullable as they are more efficient
-        if (argumentCount <= 100) {
+        if (argumentCount <= 64) {
             if (argument instanceof InputReferenceNode) {
                 return BLOCK_POSITION;
             }

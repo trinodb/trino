@@ -104,14 +104,6 @@ class PreferredProperties
                 .build();
     }
 
-    public static PreferredProperties undistributedWithLocal(List<? extends LocalProperty<Symbol>> localProperties)
-    {
-        return builder()
-                .global(Global.undistributed())
-                .local(localProperties)
-                .build();
-    }
-
     public static PreferredProperties local(List<? extends LocalProperty<Symbol>> localProperties)
     {
         return builder()

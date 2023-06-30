@@ -216,6 +216,13 @@ public abstract class AbstractColumnReaderTest
         format.assertBlock(values2, block2);
     }
 
+//    @Test
+//    public <T> void testReadNoNullX()
+//            throws IOException
+//    {
+//        testReadNoNull(DataPageVersion.V2,
+//                new ColumnReaderFormat<>(INT64, timestampType(false, NANOS), TIMESTAMP_NANOS, PLAIN_WRITER, DICTIONARY_LONG_WRITER, WRITE_LONG_TIMESTAMP, assertLongTimestamp(3)));
+//    }
     @Test(dataProvider = "readersWithPageVersions", dataProviderClass = TestingColumnReader.class)
     public <T> void testReadNoNull(DataPageVersion version, ColumnReaderFormat<T> format)
             throws IOException
@@ -532,7 +539,8 @@ public abstract class AbstractColumnReaderTest
         // Create reader
         PrimitiveField field = createField(format, true);
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
-        ColumnReader reader = ColumnReaderFactory.create(field, UTC, memoryContext, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions().withBatchColumnReaders(true));
+        ColumnReader reader = columnReaderFactory.create(field, memoryContext);
         // Write data
         DictionaryValuesWriter dictionaryWriter = format.getDictionaryWriter();
         format.write(dictionaryWriter, new Integer[] {1, 2, 3});

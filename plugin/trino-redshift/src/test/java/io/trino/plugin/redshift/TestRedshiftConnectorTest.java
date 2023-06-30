@@ -67,11 +67,16 @@ public class TestRedshiftConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return true;
+
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
                 return false;
 
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
+            case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -82,10 +87,10 @@ public class TestRedshiftConnectorTest
             case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
                 return false;
 
-            case SUPPORTS_AGGREGATION_PUSHDOWN_STDDEV:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE:
-            case SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT:
-                return true;
+            case SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION:
+            case SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION:
+                return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_VARCHAR_EQUALITY:
@@ -142,14 +147,12 @@ public class TestRedshiftConnectorTest
     public void testReadFromLateBindingView(String redshiftType, String trinoType)
     {
         try (TestView view = new TestView(onRemoteDatabase(), TEST_SCHEMA + ".late_schema_binding", "SELECT CAST(NULL AS %s) AS value WITH NO SCHEMA BINDING".formatted(redshiftType))) {
-            assertThat(query("SELECT value, true FROM %s WHERE value IS NULL".formatted(view.getName())))
-                    .projected(1)
+            assertThat(query("SELECT true FROM %s WHERE value IS NULL".formatted(view.getName())))
                     .containsAll("VALUES (true)");
 
             assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
-                    .projected(1)
                     .skippingTypesCheck()
-                    .containsAll("VALUES ('%s')".formatted(trinoType));
+                    .containsAll("VALUES ('value', '%s', '', '')".formatted(trinoType));
         }
     }
 
@@ -165,9 +168,8 @@ public class TestRedshiftConnectorTest
                     .matches("VALUES null");
 
             assertThat(query("SHOW COLUMNS FROM %s LIKE 'value'".formatted(view.getName())))
-                    .projected(1)
                     .skippingTypesCheck()
-                    .matches("VALUES '%s'".formatted(trinoType));
+                    .matches("VALUES ('value', '%s', '', '')".formatted(trinoType));
         }
     }
 
@@ -195,6 +197,15 @@ public class TestRedshiftConnectorTest
                 {"TIME", "time(6)"},
                 {"TIMESTAMP", "timestamp(6)"},
                 {"TIMESTAMPTZ", "timestamp(6) with time zone"}};
+    }
+
+    @Test
+    public void testRedshiftAddNotNullColumn()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, TEST_SCHEMA + ".test_add_column_", "(col int)")) {
+            assertThatThrownBy(() -> onRemoteDatabase().execute("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int NOT NULL"))
+                    .hasMessageContaining("ERROR: ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
+        }
     }
 
     @Override
@@ -539,9 +550,9 @@ public class TestRedshiftConnectorTest
                     .isInstanceOf(AssertionError.class)
                     .hasMessageContaining("""
                             elements not found:
-                              <(555555555555555555561728450.9938271605)>
+                              (555555555555555555561728450.9938271605)
                             and elements not expected:
-                              <(555555555555555555561728450.9938271604)>
+                              (555555555555555555561728450.9938271604)
                             """);
         }
     }
@@ -634,13 +645,6 @@ public class TestRedshiftConnectorTest
     {
         assertThatThrownBy(super::testDeleteWithLike)
                 .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
-    }
-
-    @Test
-    @Override
-    public void testAddNotNullColumnToNonEmptyTable()
-    {
-        throw new SkipException("Redshift ALTER TABLE ADD COLUMN defined as NOT NULL must have a non-null default expression");
     }
 
     private static class TestView

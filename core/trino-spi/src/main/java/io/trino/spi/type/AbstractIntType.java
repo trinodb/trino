@@ -72,6 +72,11 @@ public abstract class AbstractIntType
     @Override
     public final long getLong(Block block, int position)
     {
+        return getInt(block, position);
+    }
+
+    public final int getInt(Block block, int position)
+    {
         return block.getInt(position, 0);
     }
 
@@ -85,7 +90,12 @@ public abstract class AbstractIntType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         checkValueValid(value);
-        blockBuilder.writeInt((int) value).closeEntry();
+        writeInt(blockBuilder, (int) value);
+    }
+
+    public BlockBuilder writeInt(BlockBuilder blockBuilder, int value)
+    {
+        return ((IntArrayBlockBuilder) blockBuilder).writeInt(value);
     }
 
     protected void checkValueValid(long value)
@@ -105,7 +115,7 @@ public abstract class AbstractIntType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeInt(block.getInt(position, 0)).closeEntry();
+            writeInt(blockBuilder, block.getInt(position, 0));
         }
     }
 

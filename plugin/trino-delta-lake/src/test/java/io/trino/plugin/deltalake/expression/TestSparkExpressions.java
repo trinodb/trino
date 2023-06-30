@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.expression;
 
-import io.trino.spi.TrinoException;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -128,9 +127,33 @@ public class TestSparkExpressions
     }
 
     @Test
+    public void testArithmeticBinary()
+    {
+        assertExpressionTranslates("a = b % 1", "(\"a\" = (\"b\" % 1))");
+        assertExpressionTranslates("a = b * 1", "(\"a\" = (\"b\" * 1))");
+        assertExpressionTranslates("a = b + 1", "(\"a\" = (\"b\" + 1))");
+        assertExpressionTranslates("a = b - 1", "(\"a\" = (\"b\" - 1))");
+        assertExpressionTranslates("a = b / 1", "(\"a\" = (\"b\" / 1))");
+        assertExpressionTranslates("a = b & 1", "(\"a\" = (bitwise_and(\"b\", 1)))");
+        assertExpressionTranslates("a = b ^ 1", "(\"a\" = (bitwise_xor(\"b\", 1)))");
+    }
+
+    @Test
+    public void testBetween()
+    {
+        assertExpressionTranslates("a BETWEEN 1 AND 10", "(\"a\" BETWEEN 1 AND 10)");
+        assertExpressionTranslates("a NOT BETWEEN 1 AND 10", "(\"a\" NOT BETWEEN 1 AND 10)");
+        assertExpressionTranslates("a BETWEEN NULL AND 10", "(\"a\" BETWEEN NULL AND 10)");
+        assertExpressionTranslates("a BETWEEN 1 AND NULL", "(\"a\" BETWEEN 1 AND NULL)");
+        assertExpressionTranslates("a NOT BETWEEN NULL AND NULL", "(\"a\" NOT BETWEEN NULL AND NULL)");
+        assertExpressionTranslates("a not between null and null", "(\"a\" NOT BETWEEN NULL AND NULL)");
+        assertExpressionTranslates("a BETWEEN b AND c", "(\"a\" BETWEEN \"b\" AND \"c\")");
+    }
+
+    @Test
     public void testInvalidNotBoolean()
     {
-        assertParseFailure("a + a");
+        assertParseFailure("'Spark' || 'SQL'");
     }
 
     // TODO: Support following expressions
@@ -152,16 +175,8 @@ public class TestSparkExpressions
     {
         assertParseFailure("a <=> 1");
         assertParseFailure("a == 1");
-        assertParseFailure("a = b % 1");
-        assertParseFailure("a = b & 1");
-        assertParseFailure("a = b * 1");
-        assertParseFailure("a = b + 1");
-        assertParseFailure("a = b - 1");
-        assertParseFailure("a = b / 1");
-        assertParseFailure("a = b ^ 1");
         assertParseFailure("a = b::INTEGER");
         assertParseFailure("a = json_column:root");
-        assertParseFailure("a BETWEEN 1 AND 10");
         assertParseFailure("a IS NULL");
         assertParseFailure("a IS DISTINCT FROM b");
         assertParseFailure("a IS true");
@@ -204,7 +219,7 @@ public class TestSparkExpressions
     private static void assertParseFailure(@Language("SQL") String sparkExpression)
     {
         assertThatThrownBy(() -> toTrinoExpression(sparkExpression))
-                .isInstanceOf(TrinoException.class)
-                .hasMessageContaining("Unsupported Spark expression: " + sparkExpression);
+                .isInstanceOf(ParsingException.class)
+                .hasMessageContaining("Cannot parse Spark expression");
     }
 }

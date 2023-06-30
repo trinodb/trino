@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
@@ -143,7 +144,15 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         requireNonNull(plan, "plan is null");
         requireNonNull(session, "session is null");
@@ -863,24 +872,24 @@ public class PredicatePushDown
             joinPredicate = filterDeterministicConjuncts(metadata, joinPredicate);
 
             // Generate equality inferences
-            EqualityInference inheritedInference = EqualityInference.newInstance(metadata, inheritedPredicate);
-            EqualityInference outerInference = EqualityInference.newInstance(metadata, inheritedPredicate, outerEffectivePredicate);
+            EqualityInference inheritedInference = new EqualityInference(metadata, inheritedPredicate);
+            EqualityInference outerInference = new EqualityInference(metadata, inheritedPredicate, outerEffectivePredicate);
 
             Set<Symbol> innerScope = ImmutableSet.copyOf(innerSymbols);
             Set<Symbol> outerScope = ImmutableSet.copyOf(outerSymbols);
 
             EqualityInference.EqualityPartition equalityPartition = inheritedInference.generateEqualitiesPartitionedBy(outerScope);
             Expression outerOnlyInheritedEqualities = combineConjuncts(metadata, equalityPartition.getScopeEqualities());
-            EqualityInference potentialNullSymbolInference = EqualityInference.newInstance(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
+            EqualityInference potentialNullSymbolInference = new EqualityInference(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, innerEffectivePredicate, joinPredicate);
 
             // Push outer and join equalities into the inner side. For example:
             // SELECT * FROM nation LEFT OUTER JOIN region ON nation.regionkey = region.regionkey and nation.name = region.name WHERE nation.name = 'blah'
 
-            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = EqualityInference.newInstance(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
+            EqualityInference potentialNullSymbolInferenceWithoutInnerInferred = new EqualityInference(metadata, outerOnlyInheritedEqualities, outerEffectivePredicate, joinPredicate);
             innerPushdownConjuncts.addAll(potentialNullSymbolInferenceWithoutInnerInferred.generateEqualitiesPartitionedBy(innerScope).getScopeEqualities());
 
             // TODO: we can further improve simplifying the equalities by considering other relationships from the outer side
-            EqualityInference.EqualityPartition joinEqualityPartition = EqualityInference.newInstance(metadata, joinPredicate).generateEqualitiesPartitionedBy(innerScope);
+            EqualityInference.EqualityPartition joinEqualityPartition = new EqualityInference(metadata, joinPredicate).generateEqualitiesPartitionedBy(innerScope);
             innerPushdownConjuncts.addAll(joinEqualityPartition.getScopeEqualities());
             joinConjuncts.addAll(joinEqualityPartition.getScopeComplementEqualities())
                     .addAll(joinEqualityPartition.getScopeStraddlingEqualities());
@@ -1000,14 +1009,14 @@ public class PredicatePushDown
 
             // Attempt to simplify the effective left/right predicates with the predicate we're pushing down
             // This, effectively, inlines any constants derived from such predicate
-            EqualityInference predicateInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+            EqualityInference predicateInference = new EqualityInference(metadata, inheritedPredicate);
             Expression simplifiedLeftEffectivePredicate = predicateInference.rewrite(leftEffectivePredicate, leftScope);
             Expression simplifiedRightEffectivePredicate = predicateInference.rewrite(rightEffectivePredicate, rightScope);
 
             // Generate equality inferences
-            EqualityInference allInference = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate, simplifiedRightEffectivePredicate);
-            EqualityInference allInferenceWithoutLeftInferred = EqualityInference.newInstance(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate, simplifiedRightEffectivePredicate);
-            EqualityInference allInferenceWithoutRightInferred = EqualityInference.newInstance(metadata, inheritedPredicate, leftEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate);
+            EqualityInference allInference = new EqualityInference(metadata, inheritedPredicate, leftEffectivePredicate, rightEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate, simplifiedRightEffectivePredicate);
+            EqualityInference allInferenceWithoutLeftInferred = new EqualityInference(metadata, inheritedPredicate, rightEffectivePredicate, joinPredicate, simplifiedRightEffectivePredicate);
+            EqualityInference allInferenceWithoutRightInferred = new EqualityInference(metadata, inheritedPredicate, leftEffectivePredicate, joinPredicate, simplifiedLeftEffectivePredicate);
 
             // Add equalities from the inference back in
             leftPushDownConjuncts.addAll(allInferenceWithoutLeftInferred.generateEqualitiesPartitionedBy(leftScope).getScopeEqualities());
@@ -1300,7 +1309,7 @@ public class PredicatePushDown
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
-            EqualityInference inheritedInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+            EqualityInference inheritedInference = new EqualityInference(metadata, inheritedPredicate);
             EqualityInference.nonInferrableConjuncts(metadata, inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);
                 // Since each source row is reflected exactly once in the output, ok to push non-deterministic predicates down
@@ -1359,9 +1368,9 @@ public class PredicatePushDown
             List<Expression> postJoinConjuncts = new ArrayList<>();
 
             // Generate equality inferences
-            EqualityInference allInference = EqualityInference.newInstance(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, filteringSourceEffectivePredicate, joinExpression);
-            EqualityInference allInferenceWithoutSourceInferred = EqualityInference.newInstance(metadata, deterministicInheritedPredicate, filteringSourceEffectivePredicate, joinExpression);
-            EqualityInference allInferenceWithoutFilteringSourceInferred = EqualityInference.newInstance(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, joinExpression);
+            EqualityInference allInference = new EqualityInference(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutSourceInferred = new EqualityInference(metadata, deterministicInheritedPredicate, filteringSourceEffectivePredicate, joinExpression);
+            EqualityInference allInferenceWithoutFilteringSourceInferred = new EqualityInference(metadata, deterministicInheritedPredicate, sourceEffectivePredicate, joinExpression);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
             Set<Symbol> sourceScope = ImmutableSet.copyOf(sourceSymbols);
@@ -1452,7 +1461,7 @@ public class PredicatePushDown
 
             Expression inheritedPredicate = context.get();
 
-            EqualityInference equalityInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+            EqualityInference equalityInference = new EqualityInference(metadata, inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();
             List<Expression> postAggregationConjuncts = new ArrayList<>();
@@ -1514,7 +1523,7 @@ public class PredicatePushDown
             }
 
             //TODO for LEFT or INNER join type, push down UnnestNode's filter on replicate symbols
-            EqualityInference equalityInference = EqualityInference.newInstance(metadata, inheritedPredicate);
+            EqualityInference equalityInference = new EqualityInference(metadata, inheritedPredicate);
 
             List<Expression> pushdownConjuncts = new ArrayList<>();
             List<Expression> postUnnestConjuncts = new ArrayList<>();

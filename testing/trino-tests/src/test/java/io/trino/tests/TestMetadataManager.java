@@ -15,6 +15,7 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.trace.Span;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.dispatcher.DispatchManager;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingSessionContext;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.tracing.TracingMetadata;
 import io.trino.transaction.TransactionBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -87,7 +89,7 @@ public class TestMetadataManager
             }
         });
         queryRunner.createCatalog("upper_case_schema_catalog", "mock");
-        metadataManager = (MetadataManager) queryRunner.getMetadata();
+        metadataManager = (MetadataManager) ((TracingMetadata) queryRunner.getMetadata()).getDelegate();
     }
 
     @AfterClass(alwaysRun = true)
@@ -138,6 +140,7 @@ public class TestMetadataManager
         QueryId queryId = dispatchManager.createQueryId();
         dispatchManager.createQuery(
                 queryId,
+                Span.getInvalid(),
                 Slug.createNew(),
                 TestingSessionContext.fromSession(TEST_SESSION),
                 "SELECT * FROM lineitem")

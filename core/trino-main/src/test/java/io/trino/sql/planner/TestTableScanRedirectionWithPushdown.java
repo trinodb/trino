@@ -54,6 +54,7 @@ import java.util.Set;
 import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -285,7 +286,7 @@ public class TestTableScanRedirectionWithPushdown
             // but dest_col_d has mismatched type compared to source domain
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
+                        assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP, createPlanOptimizersStatsCollector()))
                                 .isInstanceOf(TrinoException.class)
                                 .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
                     });
@@ -485,7 +486,7 @@ public class TestTableScanRedirectionWithPushdown
         List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
 
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

@@ -161,7 +161,6 @@ public class ImplementTableFunctionSource
             return Result.ofPlanNode(new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
-                    node.getFunctionCatalog(),
                     node.getProperOutputs(),
                     Optional.empty(),
                     false,
@@ -184,7 +183,6 @@ public class ImplementTableFunctionSource
             return Result.ofPlanNode(new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
-                    node.getFunctionCatalog(),
                     node.getProperOutputs(),
                     Optional.of(getOnlyElement(node.getSources())),
                     sourceProperties.isPruneWhenEmpty(),
@@ -280,7 +278,6 @@ public class ImplementTableFunctionSource
         return Result.ofPlanNode(new TableFunctionProcessorNode(
                 node.getId(),
                 node.getName(),
-                node.getFunctionCatalog(),
                 node.getProperOutputs(),
                 Optional.of(marked.node()),
                 pruneWhenEmpty,

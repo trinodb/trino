@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -95,7 +96,7 @@ public class BenchmarkBlockSerde
     }
 
     @Benchmark
-    public Object serializeInt96(LongTimestampBenchmarkData data)
+    public Object serializeFixed12(LongTimestampBenchmarkData data)
     {
         return serializePages(data);
     }
@@ -252,26 +253,29 @@ public class BenchmarkBlockSerde
                 TIMESTAMP_PICOS.writeObject(blockBuilder, value);
             }
             else if (INTEGER.equals(type)) {
-                blockBuilder.writeInt((int) value);
+                INTEGER.writeInt(blockBuilder, (int) value);
             }
             else if (SMALLINT.equals(type)) {
-                blockBuilder.writeShort((short) value);
+                SMALLINT.writeShort(blockBuilder, (short) value);
             }
             else if (TINYINT.equals(type)) {
-                blockBuilder.writeByte((byte) value);
+                TINYINT.writeByte(blockBuilder, (byte) value);
             }
             else if (type instanceof RowType) {
-                BlockBuilder row = blockBuilder.beginBlockEntry();
                 List<?> values = (List<?>) value;
                 if (values.size() != type.getTypeParameters().size()) {
                     throw new IllegalArgumentException("Size of types and values must have the same size");
                 }
-                List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
-                for (int i = 0; i < type.getTypeParameters().size(); i++) {
-                    pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
-                }
-                pairs.forEach(p -> writeValue(p.getKey(), p.getValue(), row));
-                blockBuilder.closeEntry();
+                ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                    List<SimpleEntry<Type, Object>> pairs = new ArrayList<>();
+                    for (int i = 0; i < type.getTypeParameters().size(); i++) {
+                        pairs.add(new SimpleEntry<>(type.getTypeParameters().get(i), ((List<?>) value).get(i)));
+                    }
+                    for (int i = 0; i < pairs.size(); i++) {
+                        SimpleEntry<Type, Object> p = pairs.get(i);
+                        writeValue(p.getKey(), p.getValue(), fieldBuilders.get(i));
+                    }
+                });
             }
             else {
                 throw new IllegalArgumentException("Unsupported type " + type);

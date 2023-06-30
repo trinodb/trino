@@ -32,6 +32,7 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.io.Resources.getResource;
@@ -56,7 +57,11 @@ public class DruidQueryRunner
 
     private DruidQueryRunner() {}
 
-    public static DistributedQueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer, Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
+    public static DistributedQueryRunner createDruidQueryRunnerTpch(
+            TestingDruidServer testingDruidServer,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -67,7 +72,7 @@ public class DruidQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> connectorProperties = new HashMap<>();
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", testingDruidServer.getJdbcUrl());
             queryRunner.installPlugin(new DruidJdbcPlugin());
             queryRunner.createCatalog("druid", "druid", connectorProperties);
@@ -91,6 +96,25 @@ public class DruidQueryRunner
         }
     }
 
+    public static void copyAndIngestTpchDataFromSourceToTarget(
+            MaterializedResult rows,
+            TestingDruidServer testingDruidServer,
+            String sourceDatasource,
+            String targetDatasource,
+            Optional<String> fileName)
+            throws IOException, InterruptedException
+    {
+        String tsvFileLocation = format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), targetDatasource);
+        writeDataAsTsv(rows, tsvFileLocation);
+        testingDruidServer.ingestData(
+                targetDatasource,
+                fileName,
+                Resources.toString(
+                        getResource(getIngestionSpecFileName(sourceDatasource)),
+                        Charset.defaultCharset()),
+                tsvFileLocation);
+    }
+
     public static void copyAndIngestTpchData(MaterializedResult rows, TestingDruidServer testingDruidServer, String druidDatasource)
             throws IOException, InterruptedException
     {
@@ -98,6 +122,7 @@ public class DruidQueryRunner
         writeDataAsTsv(rows, tsvFileLocation);
         testingDruidServer.ingestData(
                 druidDatasource,
+                Optional.empty(),
                 Resources.toString(
                         getResource(getIngestionSpecFileName(druidDatasource)),
                         Charset.defaultCharset()),
@@ -142,6 +167,7 @@ public class DruidQueryRunner
         DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
+                ImmutableMap.of(),
                 ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
 
         Logger log = Logger.get(DruidQueryRunner.class);

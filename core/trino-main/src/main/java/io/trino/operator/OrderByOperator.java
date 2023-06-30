@@ -18,7 +18,6 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spiller.Spiller;
@@ -286,11 +285,7 @@ public class OrderByOperator
             return null;
         }
         Page nextPage = next.get();
-        Block[] blocks = new Block[outputChannels.length];
-        for (int i = 0; i < outputChannels.length; i++) {
-            blocks[i] = nextPage.getBlock(outputChannels[i]);
-        }
-        return new Page(nextPage.getPositionCount(), blocks);
+        return nextPage.getColumns(outputChannels);
     }
 
     @Override

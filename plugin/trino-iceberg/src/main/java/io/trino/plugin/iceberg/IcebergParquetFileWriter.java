@@ -17,7 +17,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
-import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
@@ -39,8 +39,7 @@ public class IcebergParquetFileWriter
         implements IcebergFileWriter
 {
     private final MetricsConfig metricsConfig;
-    private final String outputPath;
-    private final TrinoFileSystem fileSystem;
+    private final InputFile inputFile;
 
     public IcebergParquetFileWriter(
             MetricsConfig metricsConfig,
@@ -54,7 +53,6 @@ public class IcebergParquetFileWriter
             int[] fileInputColumnIndexes,
             CompressionCodec compressionCodec,
             String trinoVersion,
-            String outputPath,
             TrinoFileSystem fileSystem)
             throws IOException
     {
@@ -72,14 +70,12 @@ public class IcebergParquetFileWriter
                 Optional.empty(),
                 Optional.empty());
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
-        this.outputPath = requireNonNull(outputPath, "outputPath is null");
-        this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.inputFile = new ForwardingInputFile(fileSystem.newInputFile(outputFile.location()));
     }
 
     @Override
     public Metrics getMetrics()
     {
-        InputFile inputFile = new ForwardingFileIo(fileSystem).newInputFile(outputPath);
         return fileMetrics(inputFile, metricsConfig);
     }
 }

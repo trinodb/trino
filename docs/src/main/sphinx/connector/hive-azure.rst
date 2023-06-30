@@ -78,7 +78,7 @@ catalog configuration.
     secret for your ADLS Gen1 account's App Registration, and save this value
     because you won't able to retrieve the key later. Refer to the Azure
     `documentation
-    <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory>`_
+    <https://docs.microsoft.com/azure/data-lake-store/data-lake-store-service-to-service-authenticate-using-active-directory>`_
     for details.
 
 .. list-table:: ADLS properties

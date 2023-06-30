@@ -13,110 +13,70 @@
  */
 package io.trino.plugin.hudi.partition;
 
-import io.trino.plugin.hive.metastore.Partition;
+import io.airlift.concurrent.MoreFutures;
+import io.trino.plugin.hive.HivePartitionKey;
+import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
-import io.trino.spi.connector.ConnectorSession;
-import org.apache.hudi.exception.HoodieIOException;
+import io.trino.plugin.hudi.split.HudiSplitFactory;
+import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.stream.Collectors;
-
-import static io.trino.plugin.hudi.HudiSessionProperties.getMaxPartitionBatchSize;
-import static io.trino.plugin.hudi.HudiSessionProperties.getMinPartitionBatchSize;
 
 public class HudiPartitionInfoLoader
         implements Runnable
 {
     private final HudiDirectoryLister hudiDirectoryLister;
-    private final int minPartitionBatchSize;
-    private final int maxPartitionBatchSize;
-    private final Deque<HudiPartitionInfo> partitionQueue;
-    private int currentBatchSize;
+    private final HudiSplitFactory hudiSplitFactory;
+    private final AsyncQueue<ConnectorSplit> asyncQueue;
+    private final Deque<String> partitionQueue;
+
+    private boolean isRunning;
 
     public HudiPartitionInfoLoader(
-            ConnectorSession session,
-            HudiDirectoryLister hudiDirectoryLister)
+            HudiDirectoryLister hudiDirectoryLister,
+            HudiSplitFactory hudiSplitFactory,
+            AsyncQueue<ConnectorSplit> asyncQueue,
+            Deque<String> partitionQueue)
     {
         this.hudiDirectoryLister = hudiDirectoryLister;
-        this.partitionQueue = new ConcurrentLinkedDeque<>();
-        this.minPartitionBatchSize = getMinPartitionBatchSize(session);
-        this.maxPartitionBatchSize = getMaxPartitionBatchSize(session);
-        this.currentBatchSize = -1;
+        this.hudiSplitFactory = hudiSplitFactory;
+        this.asyncQueue = asyncQueue;
+        this.partitionQueue = partitionQueue;
+        this.isRunning = true;
     }
 
     @Override
     public void run()
     {
-        List<HudiPartitionInfo> hudiPartitionInfoList = hudiDirectoryLister.getPartitionsToScan().stream()
-                .sorted(Comparator.comparing(HudiPartitionInfo::getComparingKey))
-                .collect(Collectors.toList());
+        while (isRunning || !partitionQueue.isEmpty()) {
+            String partitionName = partitionQueue.poll();
 
-        // empty partitioned table
-        if (hudiPartitionInfoList.isEmpty()) {
-            return;
-        }
-
-        // non-partitioned table
-        if (hudiPartitionInfoList.size() == 1 && hudiPartitionInfoList.get(0).getHivePartitionName().isEmpty()) {
-            partitionQueue.addAll(hudiPartitionInfoList);
-            return;
-        }
-
-        boolean shouldUseHiveMetastore = hudiPartitionInfoList.get(0) instanceof HiveHudiPartitionInfo;
-        Iterator<HudiPartitionInfo> iterator = hudiPartitionInfoList.iterator();
-        while (iterator.hasNext()) {
-            int batchSize = updateBatchSize();
-            List<HudiPartitionInfo> partitionInfoBatch = new ArrayList<>();
-            while (iterator.hasNext() && batchSize > 0) {
-                partitionInfoBatch.add(iterator.next());
-                batchSize--;
-            }
-
-            if (!partitionInfoBatch.isEmpty()) {
-                if (shouldUseHiveMetastore) {
-                    Map<String, Optional<Partition>> partitions = hudiDirectoryLister.getPartitions(partitionInfoBatch.stream()
-                            .map(HudiPartitionInfo::getHivePartitionName)
-                            .collect(Collectors.toList()));
-                    for (HudiPartitionInfo partitionInfo : partitionInfoBatch) {
-                        String hivePartitionName = partitionInfo.getHivePartitionName();
-                        if (!partitions.containsKey(hivePartitionName)) {
-                            throw new HoodieIOException("Partition does not exist: " + hivePartitionName);
-                        }
-                        partitionInfo.loadPartitionInfo(partitions.get(hivePartitionName));
-                        partitionQueue.add(partitionInfo);
-                    }
-                }
-                else {
-                    for (HudiPartitionInfo partitionInfo : partitionInfoBatch) {
-                        partitionInfo.getHivePartitionKeys();
-                        partitionQueue.add(partitionInfo);
-                    }
-                }
+            if (partitionName != null) {
+                generateSplitsFromPartition(partitionName);
             }
         }
     }
 
-    public Deque<HudiPartitionInfo> getPartitionQueue()
+    private void generateSplitsFromPartition(String partitionName)
     {
-        return partitionQueue;
+        Optional<HudiPartitionInfo> partitionInfo = hudiDirectoryLister.getPartitionInfo(partitionName);
+        partitionInfo.ifPresent(hudiPartitionInfo -> {
+            if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals("")) {
+                List<HivePartitionKey> partitionKeys = hudiPartitionInfo.getHivePartitionKeys();
+                List<HudiFileStatus> partitionFiles = hudiDirectoryLister.listStatus(hudiPartitionInfo);
+                partitionFiles.stream()
+                        .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus).stream())
+                        .map(asyncQueue::offer)
+                        .forEachOrdered(MoreFutures::getFutureValue);
+            }
+        });
     }
 
-    private int updateBatchSize()
+    public void stopRunning()
     {
-        if (currentBatchSize <= 0) {
-            currentBatchSize = minPartitionBatchSize;
-        }
-        else {
-            currentBatchSize *= 2;
-            currentBatchSize = Math.min(currentBatchSize, maxPartitionBatchSize);
-        }
-        return currentBatchSize;
+        this.isRunning = false;
     }
 }

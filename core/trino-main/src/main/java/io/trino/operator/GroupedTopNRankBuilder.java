@@ -42,6 +42,7 @@ public class GroupedTopNRankBuilder
     private final List<Type> sourceTypes;
     private final boolean produceRanking;
     private final GroupByHash groupByHash;
+    private final PageWithPositionComparator comparator;
     private final RowReferencePageManager pageManager = new RowReferencePageManager();
     private final GroupedTopNRankAccumulator groupedTopNRankAccumulator;
 
@@ -58,7 +59,7 @@ public class GroupedTopNRankBuilder
         this.produceRanking = produceRanking;
         this.groupByHash = requireNonNull(groupByHash, "groupByHash is null");
 
-        requireNonNull(comparator, "comparator is null");
+        this.comparator = requireNonNull(comparator, "comparator is null");
         requireNonNull(equalsAndHash, "equalsAndHash is null");
         groupedTopNRankAccumulator = new GroupedTopNRankAccumulator(
                 new RowIdComparisonHashStrategy()
@@ -101,7 +102,7 @@ public class GroupedTopNRankBuilder
         return new TransformWork<>(
                 groupByHash.getGroupIds(page),
                 groupIds -> {
-                    processPage(page, groupIds);
+                    processPage(page, groupByHash.getGroupCount(), groupIds);
                     return null;
                 });
     }
@@ -121,11 +122,16 @@ public class GroupedTopNRankBuilder
                 + groupedTopNRankAccumulator.sizeOf();
     }
 
-    private void processPage(Page newPage, GroupByIdBlock groupIds)
+    private void processPage(Page newPage, int groupCount, int[] groupIds)
     {
-        try (LoadCursor loadCursor = pageManager.add(newPage)) {
-            for (int position = 0; position < newPage.getPositionCount(); position++) {
-                long groupId = groupIds.getGroupId(position);
+        int firstPositionToAdd = groupedTopNRankAccumulator.findFirstPositionToAdd(newPage, groupCount, groupIds, comparator, pageManager);
+        if (firstPositionToAdd < 0) {
+            return;
+        }
+
+        try (LoadCursor loadCursor = pageManager.add(newPage, firstPositionToAdd)) {
+            for (int position = firstPositionToAdd; position < newPage.getPositionCount(); position++) {
+                int groupId = groupIds[position];
                 loadCursor.advance();
                 groupedTopNRankAccumulator.add(groupId, loadCursor);
             }
@@ -139,8 +145,8 @@ public class GroupedTopNRankBuilder
             extends AbstractIterator<Page>
     {
         private final PageBuilder pageBuilder;
-        private final long groupIdCount = groupByHash.getGroupCount();
-        private long currentGroupId = -1;
+        private final int groupIdCount = groupByHash.getGroupCount();
+        private int currentGroupId = -1;
         private final LongBigArray rowIdOutput = new LongBigArray();
         private final LongBigArray rankingOutput = new LongBigArray();
         private long currentGroupSize;

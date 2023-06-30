@@ -34,7 +34,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
@@ -78,7 +77,6 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                 .setSchema("mock")
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .setSystemProperty(SCALE_WRITERS, "false")
-                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
                 .build();
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
         queryRunner.createCatalog("mock_merge_and_insert", createMergeConnectorFactory(), ImmutableMap.of());

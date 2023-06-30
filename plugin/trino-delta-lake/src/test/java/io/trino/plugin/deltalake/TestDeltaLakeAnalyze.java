@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
@@ -79,14 +80,21 @@ public class TestDeltaLakeAnalyze
         // check that analyze does not change already calculated statistics
         assertUpdate("ANALYZE " + tableName);
 
+        String expectedStats = "VALUES " +
+                "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                "(null, null, null, null, 25.0, null, null)";
         assertQuery(
                 "SHOW STATS FOR " + tableName,
-                "VALUES " +
-                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
-                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
-                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
-                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
-                        "(null, null, null, null, 25.0, null, null)");
+                expectedStats);
+
+        // check that analyze with mode = incremental returns the same result as analyze without mode
+        assertUpdate("ANALYZE " + tableName + " WITH(mode = 'incremental')");
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                expectedStats);
 
         // insert one more copy
         assertUpdate("INSERT INTO " + tableName + " SELECT * FROM tpch.sf1.nation", 25);
@@ -123,6 +131,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -191,6 +201,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -232,6 +244,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -249,6 +263,8 @@ public class TestDeltaLakeAnalyze
                 extendedStatisticsDisabled,
                 "ANALYZE " + tableName,
                 "ANALYZE not supported if extended statistics are disabled. Enable via delta.extended-statistics.enabled config property or extended_statistics_enabled session property.");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -258,7 +274,7 @@ public class TestDeltaLakeAnalyze
         String tableName = "test_analyze_" + randomNameSuffix();
 
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
                 25);
 
@@ -284,6 +300,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 434.0, 5.0, 0.0, null, null, null)," +
                         "('name', 33.0, 5.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 30.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -346,19 +364,31 @@ public class TestDeltaLakeAnalyze
                         "('name', null, null, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
 
-        // drop stats
-        assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, tableName));
-
-        // now we should be able to analyze all columns
-        assertUpdate(format("ANALYZE %s", tableName));
+        // show that using full_refresh allows us to analyze any subset of columns
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh', columns = ARRAY['nationkey', 'regionkey', 'name'])", tableName));
         assertQuery(
                 "SHOW STATS FOR " + tableName,
                 "VALUES " +
                         "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
                         "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
-                        "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
+                        "('comment', null, null, 0.0, null, null, null)," +
                         "('name', 379.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        String expectedFullStats = "VALUES " +
+                "('nationkey', null, 50.0, 0.0, null, 0, 49)," +
+                "('regionkey', null, 10.0, 0.0, null, 0, 9)," +
+                "('comment', 3764.0, 50.0, 0.0, null, null, null)," +
+                "('name', 379.0, 50.0, 0.0, null, null, null)," +
+                "(null, null, null, null, 50.0, null, null)";
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
+
+        // drop stats
+        assertUpdate(format("CALL %s.system.drop_extended_stats('%s', '%s')", DELTA_CATALOG, TPCH_SCHEMA, tableName));
+        // now we should be able to analyze all columns
+        assertUpdate(format("ANALYZE %s", tableName));
+        assertQuery("SHOW STATS FOR " + tableName, expectedFullStats);
 
         // we and we should be able to reanalyze with a subset of columns
         assertUpdate(format("ANALYZE %s WITH(columns = ARRAY['nationkey', 'regionkey'])", tableName));
@@ -381,6 +411,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', null, null, 0.0, null, null, null)," +
                         "('name', null, null, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -478,7 +510,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation",
                 25);
 
@@ -501,6 +533,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -508,7 +542,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName
                         + " WITH ("
                         + "   partitioned_by = ARRAY['regionkey']"
@@ -535,6 +569,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
                         "('name', 177.0, 25.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -542,7 +578,7 @@ public class TestDeltaLakeAnalyze
     {
         String tableName = "test_statistics_on_insert_when_stats_not_collected_before_" + randomNameSuffix();
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "CREATE TABLE " + tableName + " AS SELECT * FROM tpch.sf1.nation", 25);
 
         assertQuery(
@@ -565,6 +601,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 1.0, 1.0, 0.0, null, null, null)," +
                         "('name', 1.0, 1.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 26.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -584,7 +622,7 @@ public class TestDeltaLakeAnalyze
 
         // insert modified rows
         assertUpdate(
-                disableStatisticsCollectionOnWrite(getSession()),
+                withStatsOnWrite(false),
                 "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
         // without ANALYZE all stats but size and NDV should be updated
@@ -608,6 +646,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
                         "('name', 354.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -631,7 +671,8 @@ public class TestDeltaLakeAnalyze
                         "(null, null, null, null, 25.0, null, null)");
 
         // insert modified rows
-        assertUpdate(disableStatisticsCollectionOnWrite(getSession()),
+        assertUpdate(
+                withStatsOnWrite(false),
                 "INSERT INTO " + tableName + " SELECT nationkey + 25, reverse(name), regionkey + 5, reverse(comment) FROM tpch.sf1.nation", 25);
 
         // without ANALYZE all stats but size and NDV should be updated
@@ -655,6 +696,8 @@ public class TestDeltaLakeAnalyze
                         "('comment', 3714.0, 50.0, 0.0, null, null, null)," +
                         "('name', 354.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 50.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -693,12 +736,174 @@ public class TestDeltaLakeAnalyze
                         "('comment', 5571.0, 50.0, 0.0, null, null, null)," +
                         "('name', 531.0, 50.0, 0.0, null, null, null)," +
                         "(null, null, null, null, 75.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
-    private static Session disableStatisticsCollectionOnWrite(Session session)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testCollectStatsAfterColumnAdded(boolean collectOnWrite)
     {
+        String tableName = "test_collect_stats_after_column_added_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (col_int_1 bigint, col_varchar_1 varchar)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (11, 'aa')", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN col_int_2 bigint");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN col_varchar_2 varchar");
+
+        assertUpdate(
+                withStatsOnWrite(collectOnWrite),
+                "INSERT INTO " + tableName + " VALUES (12, 'ab', 21, 'ba'), (13, 'ac', 22, 'bb')",
+                2);
+
+        if (!collectOnWrite) {
+            assertQuery(
+                    "SHOW STATS FOR " + tableName,
+                    """
+                            VALUES
+                            ('col_int_1', null, 1.0, 0.0, null, 11, 13),
+                            ('col_varchar_1', 2.0, 1.0, 0.0, null, null, null),
+                            ('col_int_2', null, null, null, null, 21, 22),
+                            ('col_varchar_2', null, null, null, null, null, null),
+                            (null, null, null, null, 3.0, null, null)
+                            """);
+
+            assertUpdate("ANALYZE " + tableName);
+        }
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                """
+                        VALUES
+                        ('col_int_1', null, 3.0, 0.0, null, 11, 13),
+                        ('col_varchar_1', 6.0, 3.0, 0.0, null, null, null),
+                        ('col_int_2', null, 2.0, 0.1, null, 21, 22),
+                        ('col_varchar_2', 4.0, 2.0, 0.1, null, null, null),
+                        (null, null, null, null, 3.0, null, null)
+                        """);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testForceRecalculateStatsWithDeleteAndUpdate()
+    {
+        String tableName = "test_recalculate_all_stats_with_delete_and_update_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName
+                + " AS SELECT * FROM tpch.sf1.nation", 25);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 25.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 1", 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 24.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 24.0, 0.0, null, null, null)," +
+                        "('name', 177.0, 24.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 24.0, null, null)");
+        assertUpdate("UPDATE " + tableName + " SET name = null WHERE nationkey = 2", 1);
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 24.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1857.0, 24.0, 0.0, null, null, null)," +
+                        "('name', 180.84782608695653, 23.5, 0.02083333333333337, null, null, null)," +
+                        "(null, null, null, null, 24.0, null, null)");
+
+        assertUpdate(format("ANALYZE %s", tableName));
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 24.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 3638.0, 24.0, 0.0, null, null, null)," +
+                        "('name', 346.3695652173913, 23.5, 0.02083333333333337, null, null, null)," +
+                        "(null, null, null, null, 24.0, null, null)");
+
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 24.0, 0.0, null, 0, 24)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('comment', 1781.0, 24.0, 0.0, null, null, null)," +
+                        "('name', 162.0, 23.0, 0.041666666666666664, null, null, null)," +
+                        "(null, null, null, null, 24.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testForceRecalculateAllStats()
+    {
+        String tableName = "test_recalculate_all_stats_" + randomNameSuffix();
+        assertUpdate(
+                withStatsOnWrite(false),
+                "CREATE TABLE " + tableName + " AS SELECT nationkey, regionkey, name  FROM tpch.sf1.nation",
+                25);
+
+        assertUpdate(
+                withStatsOnWrite(true),
+                "INSERT INTO " + tableName + " VALUES(27, 1, 'name1')",
+                1);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 1.0, 0.0, null, 0, 27)," +
+                        "('regionkey', null, 1.0, 0.0, null, 0, 4)," +
+                        "('name', 5.0, 1.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 26.0, null, null)");
+
+        // check that analyze does not change already calculated statistics
+        assertUpdate("ANALYZE " + tableName);
+
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 1.0, 0.0, null, 0, 27)," +
+                        "('regionkey', null, 1.0, 0.0, null, 0, 4)," +
+                        "('name', 5.0, 1.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 26.0, null, null)");
+
+        assertUpdate(format("ANALYZE %s WITH(mode = 'full_refresh')", tableName));
+        assertQuery(
+                "SHOW STATS FOR " + tableName,
+                "VALUES " +
+                        "('nationkey', null, 26.0, 0.0, null, 0, 27)," +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4)," +
+                        "('name', 182.0, 26.0, 0.0, null, null, null)," +
+                        "(null, null, null, null, 26.0, null, null)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private Session withStatsOnWrite(boolean value)
+    {
+        Session session = getSession();
         return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), EXTENDED_STATISTICS_COLLECT_ON_WRITE, Boolean.toString(value))
                 .build();
     }
 }

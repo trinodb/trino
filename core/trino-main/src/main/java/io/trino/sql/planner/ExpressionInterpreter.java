@@ -31,7 +31,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.FunctionNullability;
@@ -133,6 +132,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -162,6 +162,7 @@ import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.type.LikeFunctions.isLikePattern;
+import static io.trino.type.LikeFunctions.isMatchAllPattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
@@ -1043,7 +1044,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!metadata.getFunctionMetadata(session, resolvedFunction).isDeterministic() ||
+            if (optimize && (!resolvedFunction.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
@@ -1153,34 +1154,43 @@ public class ExpressionInterpreter
                 return evaluateLikePredicate(node, (Slice) value, matcher);
             }
 
-            // if pattern is a constant without % or _ replace with a comparison
-            if (pattern instanceof Slice && (escape == null || escape instanceof Slice) && !isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
+            if (pattern instanceof Slice && (escape == null || escape instanceof Slice)) {
                 Type valueType = type(node.getValue());
-                Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
-                VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
+                // if pattern is a constant without % or _ replace with a comparison
+                if (!isLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape))) {
+                    Slice unescapedPattern = unescapeLiteralLikePattern((Slice) pattern, Optional.ofNullable((Slice) escape));
+                    VarcharType patternType = createVarcharType(countCodePoints(unescapedPattern));
 
-                Expression valueExpression;
-                Expression patternExpression;
-                if (valueType instanceof CharType) {
-                    if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
-                        return false;
+                    Expression valueExpression;
+                    Expression patternExpression;
+                    if (valueType instanceof CharType) {
+                        if (((CharType) valueType).getLength() != patternType.getBoundedLength()) {
+                            return false;
+                        }
+                        valueExpression = toExpression(value, valueType);
+                        patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
                     }
-                    valueExpression = toExpression(value, valueType);
-                    patternExpression = toExpression(trimTrailingSpaces(unescapedPattern), valueType);
-                }
-                else if (valueType instanceof VarcharType) {
-                    Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
-                            .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
-                    valueExpression = toExpression(value, valueType);
-                    if (!valueType.equals(superType)) {
-                        valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                    else if (valueType instanceof VarcharType) {
+                        Type superType = typeCoercion.getCommonSuperType(valueType, patternType)
+                                .orElseThrow(() -> new IllegalArgumentException("Missing super type when optimizing " + node));
+                        valueExpression = toExpression(value, valueType);
+                        if (!valueType.equals(superType)) {
+                            valueExpression = new Cast(valueExpression, toSqlType(superType), false, typeCoercion.isTypeOnlyCoercion(valueType, superType));
+                        }
+                        patternExpression = toExpression(unescapedPattern, superType);
                     }
-                    patternExpression = toExpression(unescapedPattern, superType);
+                    else {
+                        throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                    }
+                    return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
                 }
-                else {
-                    throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                else if (isMatchAllPattern((Slice) pattern)) {
+                    if (!(valueType instanceof CharType) && !(valueType instanceof VarcharType)) {
+                        throw new IllegalStateException("Unsupported valueType for LIKE: " + valueType);
+                    }
+                    // if pattern matches all
+                    return new IsNotNullPredicate(toExpression(value, valueType));
                 }
-                return new ComparisonExpression(ComparisonExpression.Operator.EQUAL, valueExpression, patternExpression);
             }
 
             Optional<Expression> optimizedEscape = Optional.empty();
@@ -1434,13 +1444,11 @@ public class ExpressionInterpreter
             if (hasUnresolvedValue(values)) {
                 return new Row(toExpressions(values, parameterTypes));
             }
-            BlockBuilder blockBuilder = new RowBlockBuilder(parameterTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = blockBuilder.beginBlockEntry();
-            for (int i = 0; i < cardinality; ++i) {
-                writeNativeValue(parameterTypes.get(i), singleRowBlockWriter, values.get(i));
-            }
-            blockBuilder.closeEntry();
-            return rowType.getObject(blockBuilder, 0);
+            return buildRowValue(rowType, fields -> {
+                for (int i = 0; i < cardinality; ++i) {
+                    writeNativeValue(parameterTypes.get(i), fields.get(i), values.get(i));
+                }
+            });
         }
 
         @Override
@@ -1473,17 +1481,15 @@ public class ExpressionInterpreter
                     .resolveFunction(session, QualifiedName.of(FormatFunction.NAME), TypeSignatureProvider.fromTypes(VARCHAR, rowType));
 
             // Construct a row with arguments [1..n] and invoke the underlying function
-            BlockBuilder rowBuilder = new RowBlockBuilder(argumentTypes, null, 1);
-            BlockBuilder singleRowBlockWriter = rowBuilder.beginBlockEntry();
-            for (int i = 0; i < arguments.size(); ++i) {
-                writeNativeValue(argumentTypes.get(i), singleRowBlockWriter, processedArguments.get(i));
-            }
-            rowBuilder.closeEntry();
-
+            Block row = buildRowValue(rowType, fields -> {
+                for (int i = 0; i < arguments.size(); ++i) {
+                    writeNativeValue(argumentTypes.get(i), fields.get(i), processedArguments.get(i));
+                }
+            });
             return functionInvoker.invoke(
                     function,
                     connectorSession,
-                    ImmutableList.of(format, rowType.getObject(rowBuilder, 0)));
+                    ImmutableList.of(format, row));
         }
 
         @Override

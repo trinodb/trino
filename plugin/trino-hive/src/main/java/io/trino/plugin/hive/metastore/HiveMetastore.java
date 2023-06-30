@@ -62,9 +62,19 @@ public interface HiveMetastore
 
     List<String> getAllTables(String databaseName);
 
+    /**
+     * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllTables();
+
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     List<String> getAllViews(String databaseName);
+
+    /**
+     * @return List of views including materialized views names from all schemas or Optional.empty if operation is not supported
+     */
+    Optional<List<SchemaTableName>> getAllViews();
 
     void createDatabase(Database database);
 

@@ -15,10 +15,9 @@ package io.trino.tests.product.launcher.env.configs;
 
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

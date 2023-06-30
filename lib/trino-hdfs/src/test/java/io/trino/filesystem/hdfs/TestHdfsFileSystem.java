@@ -16,12 +16,14 @@ package io.trino.filesystem.hdfs;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.FileIterator;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
 import org.testng.annotations.Test;
@@ -36,6 +38,7 @@ import static java.nio.file.Files.createDirectory;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHdfsFileSystem
 {
@@ -46,12 +49,16 @@ public class TestHdfsFileSystem
         HdfsConfig hdfsConfig = new HdfsConfig();
         DynamicHdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
         HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
+        TrinoHdfsFileSystemStats fileSystemStats = new TrinoHdfsFileSystemStats();
 
-        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment);
+        TrinoFileSystemFactory factory = new HdfsFileSystemFactory(hdfsEnvironment, fileSystemStats);
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));
 
         Path tempDir = createTempDirectory("testListing");
-        String root = tempDir.toString();
+
+        String root = tempDir.toUri().toString();
+        assertThat(root).endsWith("/");
+        root = root.substring(0, root.length() - 1);
 
         assertThat(listFiles(fileSystem, root)).isEmpty();
 
@@ -65,10 +72,18 @@ public class TestHdfsFileSystem
                 root + "/e f",
                 root + "/xyz");
 
-        assertThat(listFiles(fileSystem, root + "/abc")).containsExactly(root + "/abc");
-        assertThat(listFiles(fileSystem, root + "/abc/")).containsExactly(root + "/abc/");
-        assertThat(listFiles(fileSystem, root + "/abc//")).containsExactly(root + "/abc//");
-        assertThat(listFiles(fileSystem, root + "///abc")).containsExactly(root + "///abc");
+        for (String path : List.of("/abc", "/abc/", "/abc//", "///abc")) {
+            String directory = root + path;
+            assertThatThrownBy(() -> listFiles(fileSystem, directory))
+                    .isInstanceOf(IOException.class)
+                    .hasMessage("Listing location is a file, not a directory: %s", directory);
+        }
+
+        String rootPath = tempDir.toAbsolutePath().toString();
+        assertThat(listFiles(fileSystem, rootPath)).containsExactlyInAnyOrder(
+                rootPath + "/abc",
+                rootPath + "/e f",
+                rootPath + "/xyz");
 
         createFile(tempDir.resolve("mydir").resolve("qqq"));
 
@@ -89,10 +104,10 @@ public class TestHdfsFileSystem
     private static List<String> listFiles(TrinoFileSystem fileSystem, String path)
             throws IOException
     {
-        FileIterator iterator = fileSystem.listFiles(path);
+        FileIterator iterator = fileSystem.listFiles(Location.of(path));
         ImmutableList.Builder<String> files = ImmutableList.builder();
         while (iterator.hasNext()) {
-            files.add(iterator.next().location());
+            files.add(iterator.next().location().toString());
         }
         return files.build();
     }

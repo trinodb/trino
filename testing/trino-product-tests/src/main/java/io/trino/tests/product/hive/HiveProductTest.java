@@ -13,9 +13,8 @@
  */
 package io.trino.tests.product.hive;
 
+import com.google.inject.Inject;
 import io.trino.tempto.ProductTest;
-
-import javax.inject.Inject;
 
 public class HiveProductTest
         extends ProductTest

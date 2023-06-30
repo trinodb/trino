@@ -22,15 +22,17 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.hive.orc.OrcConf;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -95,9 +97,7 @@ import org.apache.hadoop.util.Progressable;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
@@ -633,7 +633,7 @@ public class OrcTester
                 .collect(toImmutableList());
 
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(outputFile)),
                 columnNames,
                 types,
                 OrcType.createRootOrcType(columnNames, types),
@@ -673,7 +673,7 @@ public class OrcTester
         }));
 
         OrcWriter writer = new OrcWriter(
-                OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(outputFile)),
+                OutputStreamOrcDataSink.create(new LocalOutputFile(outputFile)),
                 ImmutableList.of("test"),
                 types,
                 orcType,
@@ -763,32 +763,32 @@ public class OrcTester
                 if (type instanceof ArrayType) {
                     List<?> array = (List<?>) value;
                     Type elementType = type.getTypeParameters().get(0);
-                    BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Object elementValue : array) {
-                        writeValue(elementType, arrayBlockBuilder, elementValue);
-                    }
-                    blockBuilder.closeEntry();
+                    ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                        for (Object elementValue : array) {
+                            writeValue(elementType, elementBuilder, elementValue);
+                        }
+                    });
                 }
-                else if (type instanceof MapType) {
+                else if (type instanceof MapType mapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
-                    Type keyType = type.getTypeParameters().get(0);
-                    Type valueType = type.getTypeParameters().get(1);
-                    BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Entry<?, ?> entry : map.entrySet()) {
-                        writeValue(keyType, mapBlockBuilder, entry.getKey());
-                        writeValue(valueType, mapBlockBuilder, entry.getValue());
-                    }
-                    blockBuilder.closeEntry();
+                    Type keyType = mapType.getKeyType();
+                    Type valueType = mapType.getValueType();
+                    ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                        map.forEach((key, value1) -> {
+                            writeValue(keyType, keyBuilder, key);
+                            writeValue(valueType, valueBuilder, value1);
+                        });
+                    });
                 }
                 else if (type instanceof RowType) {
                     List<?> array = (List<?>) value;
                     List<Type> fieldTypes = type.getTypeParameters();
-                    BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                        Type fieldType = fieldTypes.get(fieldId);
-                        writeValue(fieldType, rowBlockBuilder, array.get(fieldId));
-                    }
-                    blockBuilder.closeEntry();
+                    ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                        for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                            Type fieldType = fieldTypes.get(fieldId);
+                            writeValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
+                        }
+                    });
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported type " + type);
@@ -1387,42 +1387,5 @@ public class OrcTester
                     .anyMatch(OrcTester::isUuid);
         }
         return false;
-    }
-
-    public static class LocalTrinoOutputFile
-            implements TrinoOutputFile
-    {
-        private final File file;
-
-        public LocalTrinoOutputFile(File file)
-        {
-            this.file = file;
-        }
-
-        @Override
-        public OutputStream create(AggregatedMemoryContext memoryContext)
-                throws IOException
-        {
-            return new FileOutputStream(file);
-        }
-
-        @Override
-        public OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
-                throws IOException
-        {
-            return new FileOutputStream(file);
-        }
-
-        @Override
-        public String location()
-        {
-            return file.getAbsolutePath();
-        }
-
-        @Override
-        public String toString()
-        {
-            return location();
-        }
     }
 }

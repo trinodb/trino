@@ -30,6 +30,8 @@ import io.trino.tests.product.launcher.env.common.Kerberos;
 import io.trino.tests.product.launcher.env.common.Minio;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.StandardMultinode;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
+import io.trino.tests.product.launcher.env.jdk.JdkProviderFactory;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -38,8 +40,10 @@ import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.trino.tests.product.launcher.Configurations.findConfigsByBasePackage;
 import static io.trino.tests.product.launcher.Configurations.findEnvironmentsByBasePackage;
+import static io.trino.tests.product.launcher.Configurations.findJdkProvidersByBasePackage;
 import static io.trino.tests.product.launcher.Configurations.nameForConfigClass;
 import static io.trino.tests.product.launcher.Configurations.nameForEnvironmentClass;
+import static io.trino.tests.product.launcher.Configurations.nameForJdkProvider;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -49,6 +53,8 @@ public final class EnvironmentModule
     private static final String LAUNCHER_PACKAGE = "io.trino.tests.product.launcher";
     private static final String ENVIRONMENT_PACKAGE = LAUNCHER_PACKAGE + ".env.environment";
     private static final String CONFIG_PACKAGE = LAUNCHER_PACKAGE + ".env.configs";
+    private static final String JDK_PACKAGE = LAUNCHER_PACKAGE + ".env.jdk";
+
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 
@@ -85,6 +91,10 @@ public final class EnvironmentModule
         findConfigsByBasePackage(CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz).in(SINGLETON));
 
         binder.install(additionalEnvironments);
+
+        binder.bind(JdkProviderFactory.class).in(SINGLETON);
+        MapBinder<String, JdkProvider> providers = newMapBinder(binder, String.class, JdkProvider.class);
+        findJdkProvidersByBasePackage(JDK_PACKAGE).forEach(clazz -> providers.addBinding(nameForJdkProvider(clazz)).to(clazz).in(SINGLETON));
     }
 
     @Provides
@@ -120,9 +130,9 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
-    public SupportedTrinoJdk provideJavaVersion(EnvironmentOptions options)
+    public JdkProvider provideJdkProvider(JdkProviderFactory factory, EnvironmentOptions options)
     {
-        return requireNonNull(options.jdkVersion, "JDK version is null");
+        return factory.get(requireNonNull(options.jdkProvider, "options.jdkProvider is null"));
     }
 
     @Provides

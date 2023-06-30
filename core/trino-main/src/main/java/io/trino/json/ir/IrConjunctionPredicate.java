@@ -13,62 +13,20 @@
  */
 package io.trino.json.ir;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Objects;
-
 import static java.util.Objects.requireNonNull;
 
-public class IrConjunctionPredicate
-        extends IrPredicate
+public record IrConjunctionPredicate(IrPredicate left, IrPredicate right)
+        implements IrPredicate
 {
-    private final IrPredicate left;
-    private final IrPredicate right;
-
-    @JsonCreator
-    public IrConjunctionPredicate(@JsonProperty("left") IrPredicate left, @JsonProperty("right") IrPredicate right)
+    public IrConjunctionPredicate
     {
-        super();
-        this.left = requireNonNull(left, "left is null");
-        this.right = requireNonNull(right, "right is null");
+        requireNonNull(left, "left is null");
+        requireNonNull(right, "right is null");
     }
 
     @Override
-    protected <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
+    public <R, C> R accept(IrJsonPathVisitor<R, C> visitor, C context)
     {
         return visitor.visitIrConjunctionPredicate(this, context);
-    }
-
-    @JsonProperty
-    public IrPathNode getLeft()
-    {
-        return left;
-    }
-
-    @JsonProperty
-    public IrPathNode getRight()
-    {
-        return right;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        IrConjunctionPredicate other = (IrConjunctionPredicate) obj;
-        return Objects.equals(this.left, other.left) &&
-                Objects.equals(this.right, other.right);
-    }
-
-    @Override
-    public int hashCode()
-    {
-        return Objects.hash(left, right);
     }
 }

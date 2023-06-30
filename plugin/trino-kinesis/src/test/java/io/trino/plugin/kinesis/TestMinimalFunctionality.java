@@ -163,7 +163,7 @@ public class TestMinimalFunctionality
                 .matches("VALUES %s".formatted(count));
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         embeddedKinesisStream.deleteStream(streamName);

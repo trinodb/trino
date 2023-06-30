@@ -53,6 +53,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.execution.SqlStage.createSqlStage;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
@@ -117,6 +118,7 @@ public class TestSqlStage
                 true,
                 nodeTaskMap,
                 executor,
+                noopTracer(),
                 new SplitSchedulerStats());
 
         // add listener that fetches stage info when the final status is available
@@ -148,7 +150,8 @@ public class TestSqlStage
                             PipelinedOutputBuffers.createInitial(ARBITRARY),
                             initialSplits,
                             ImmutableSet.of(),
-                            Optional.empty());
+                            Optional.empty(),
+                            false);
                     if (created.isPresent()) {
                         if (created.get() instanceof MockRemoteTaskFactory.MockRemoteTask mockTask) {
                             mockTask.start();

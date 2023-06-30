@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.hive.formats.ReadWriteUtils;
@@ -73,7 +74,7 @@ public class RcFileReader
 
     private static final String COLUMN_COUNT_METADATA_KEY = "hive.io.rcfile.column.number";
 
-    private final String location;
+    private final Location location;
     private final long fileSize;
     private final Map<Integer, Type> readColumns;
     private final TrinoDataInputStream input;
@@ -137,7 +138,7 @@ public class RcFileReader
         this.writeChecksumBuilder = writeValidation.map(validation -> WriteChecksumBuilder.createWriteChecksumBuilder(readColumns));
 
         verify(offset >= 0, "offset is negative");
-        verify(offset < inputFile.length(), "offset is greater than data size");
+        verify(offset < fileSize, "offset is greater than data size");
         verify(length >= 1, "length must be at least 1");
         this.length = length;
         this.end = offset + length;
@@ -438,7 +439,7 @@ public class RcFileReader
         return columns[columnIndex].readBlock(rowGroupPosition, currentChunkRowCount);
     }
 
-    public String getFileLocation()
+    public Location getFileLocation()
     {
         return location;
     }

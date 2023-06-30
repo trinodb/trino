@@ -63,6 +63,11 @@ public final class RealType
         if (block.isNull(position)) {
             return null;
         }
+        return getFloat(block, position);
+    }
+
+    public float getFloat(Block block, int position)
+    {
         return intBitsToFloat(block.getInt(position, 0));
     }
 
@@ -76,7 +81,12 @@ public final class RealType
         catch (ArithmeticException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
-        blockBuilder.writeInt(floatValue).closeEntry();
+        writeInt(blockBuilder, floatValue);
+    }
+
+    public void writeFloat(BlockBuilder blockBuilder, float value)
+    {
+        writeInt(blockBuilder, floatToIntBits(value));
     }
 
     @Override

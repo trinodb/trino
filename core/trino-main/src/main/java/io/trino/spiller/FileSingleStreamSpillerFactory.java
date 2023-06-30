@@ -21,16 +21,16 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.FeaturesConfig;
-import io.trino.collect.cache.NonKeyEvictableLoadingCache;
+import io.trino.cache.NonKeyEvictableLoadingCache;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.crypto.SecretKey;
 
 import java.io.IOException;
@@ -44,7 +44,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.lang.String.format;

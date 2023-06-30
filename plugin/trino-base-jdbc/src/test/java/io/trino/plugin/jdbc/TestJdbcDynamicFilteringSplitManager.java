@@ -37,8 +37,7 @@ import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcDynamicFilteringSplitManager
 {
@@ -102,9 +101,9 @@ public class TestJdbcDynamicFilteringSplitManager
 
         // verify that getNextBatch() future completes after a timeout
         CompletableFuture<?> future = splitSource.getNextBatch(100);
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
         future.get(10, SECONDS);
-        assertTrue(splitSource.isFinished());
+        assertThat(splitSource.isFinished()).isTrue();
         splitSource.close();
     }
 }

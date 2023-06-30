@@ -22,6 +22,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Timestamps;
@@ -37,6 +38,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.Float.intBitsToFloat;
@@ -103,19 +105,18 @@ public final class PinotQueryBuilder
 
     public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, boolean forHavingClause)
     {
+        checkState(!tupleDomain.isNone(), "Pinot does not support 1 = 0 syntax, as a workaround use <column> != <column>");
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
         checkState((forHavingClause && timePredicate.isEmpty()) || !forHavingClause, "Unexpected time predicate with having clause");
         timePredicate.ifPresent(conjunctsBuilder::add);
-        if (!tupleDomain.equals(TupleDomain.all())) {
-            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
-            for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-                PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
-                // If this is for a having clause, only include aggregate columns.
-                // If this is for a where clause, only include non-aggregate columns.
-                // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
-                if (forHavingClause == pinotColumnHandle.isAggregate()) {
-                    conjunctsBuilder.add(toPredicate(pinotColumnHandle, entry.getValue()));
-                }
+        Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+        for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
+            PinotColumnHandle pinotColumnHandle = (PinotColumnHandle) entry.getKey();
+            // If this is for a having clause, only include aggregate columns.
+            // If this is for a where clause, only include non-aggregate columns.
+            // i.e. (forHavingClause && isAggregate) || (!forHavingClause && !isAggregate)
+            if (forHavingClause == pinotColumnHandle.isAggregate()) {
+                toPredicate(pinotColumnHandle, entry.getValue()).ifPresent(conjunctsBuilder::add);
             }
         }
         List<String> conjuncts = conjunctsBuilder.build();
@@ -125,12 +126,32 @@ public final class PinotQueryBuilder
         return Optional.empty();
     }
 
-    private static String toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
+    private static Optional<String> toPredicate(PinotColumnHandle pinotColumnHandle, Domain domain)
     {
         String predicateArgument = pinotColumnHandle.isAggregate() ? pinotColumnHandle.getExpression() : quoteIdentifier(pinotColumnHandle.getColumnName());
+        ValueSet valueSet = domain.getValues();
+        if (valueSet.isNone()) {
+            verify(!domain.isNullAllowed(), "IS NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
+            return Optional.of(format("(%s != %s)", predicateArgument, predicateArgument));
+        }
+        if (valueSet.isAll()) {
+            verify(domain.isNullAllowed(), "IS NOT NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
+            // Pinot does not support "1 = 1" syntax: see https://github.com/apache/pinot/issues/10600
+            // As a workaround, skip adding always true to conjuncts
+            return Optional.empty();
+        }
+        verify(!domain.getValues().getRanges().getOrderedRanges().isEmpty() && !domain.isNullAllowed(), "IS NULL is not supported due to different null handling semantics. See https://docs.pinot.apache.org/developers/advanced/null-value-support");
         List<String> disjuncts = new ArrayList<>();
         List<Object> singleValues = new ArrayList<>();
-        for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
+        boolean invertPredicate = false;
+        if (!valueSet.isDiscreteSet()) {
+            ValueSet complement = domain.getValues().complement();
+            if (complement.isDiscreteSet()) {
+                invertPredicate = complement.isDiscreteSet();
+                valueSet = complement;
+            }
+        }
+        for (Range range : valueSet.getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
                 singleValues.add(convertValue(range.getType(), range.getSingleValue()));
@@ -150,12 +171,14 @@ public final class PinotQueryBuilder
         }
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toConjunct(predicateArgument, "=", getOnlyElement(singleValues)));
+            String operator = invertPredicate ? "!=" : "=";
+            disjuncts.add(toConjunct(predicateArgument, operator, getOnlyElement(singleValues)));
         }
         else if (singleValues.size() > 1) {
-            disjuncts.add(inClauseValues(predicateArgument, singleValues));
+            String operator = invertPredicate ? "NOT IN" : "IN";
+            disjuncts.add(inClauseValues(predicateArgument, operator, singleValues));
         }
-        return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
+        return Optional.of("(" + Joiner.on(" OR ").join(disjuncts) + ")");
     }
 
     private static Object convertValue(Type type, Object value)
@@ -191,9 +214,9 @@ public final class PinotQueryBuilder
         return format("%s %s %s", columnName, operator, singleQuote(value));
     }
 
-    private static String inClauseValues(String columnName, List<Object> singleValues)
+    private static String inClauseValues(String columnName, String operator, List<Object> singleValues)
     {
-        return format("%s IN (%s)", columnName, singleValues.stream()
+        return format("%s %s (%s)", columnName, operator, singleValues.stream()
                 .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }

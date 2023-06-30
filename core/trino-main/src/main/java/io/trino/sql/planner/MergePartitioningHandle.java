@@ -43,7 +43,6 @@ import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_DELETE_OPERATION_
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_INSERT_OPERATION_NUMBER;
 import static io.trino.spi.connector.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class MergePartitioningHandle
@@ -213,7 +212,7 @@ public final class MergePartitioningHandle
         public int getPartition(Page page, int position)
         {
             Block operationBlock = page.getBlock(0);
-            int operation = toIntExact(TINYINT.getLong(operationBlock, position));
+            byte operation = TINYINT.getByte(operationBlock, position);
             return switch (operation) {
                 case INSERT_OPERATION_NUMBER, UPDATE_INSERT_OPERATION_NUMBER -> insertFunction.getPartition(page.getColumns(insertColumns), position);
                 case UPDATE_OPERATION_NUMBER, DELETE_OPERATION_NUMBER, UPDATE_DELETE_OPERATION_NUMBER -> updateFunction.getPartition(page.getColumns(updateColumns), position);

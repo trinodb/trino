@@ -274,16 +274,16 @@ public class TestJdbcConnection
             }
 
             for (String part : ImmutableList.of(",", "=", ":", "|", "/", "\\", "'", "\\'", "''", "\"", "\\\"", "[", "]")) {
-                String value = format("/tmp/presto-%s-${USER}", part);
+                String value = format("my-table-%s-name", part);
                 try {
                     try (Statement statement = connection.createStatement()) {
-                        statement.execute(format("SET SESSION hive.temporary_staging_directory_path = '%s'", value.replace("'", "''")));
+                        statement.execute(format("SET SESSION spatial_partitioning_table_name = '%s'", value.replace("'", "''")));
                     }
 
                     assertThat(listSession(connection))
                             .contains("join_distribution_type|BROADCAST|AUTOMATIC")
                             .contains("exchange_compression|true|false")
-                            .contains(format("hive.temporary_staging_directory_path|%s|/tmp/presto-${USER}", value));
+                            .contains(format("spatial_partitioning_table_name|%s|", value));
                 }
                 catch (Exception e) {
                     fail(format("Failed to set session property value to [%s]", value), e);
@@ -420,14 +420,14 @@ public class TestJdbcConnection
     public void testSessionProperties()
             throws SQLException
     {
-        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:all-at-once")) {
+        try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.hive_views_legacy_translation:true;execution_policy:all-at-once")) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
             assertThat(trinoConnection.getSessionProperties())
-                    .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
-                    .containsExactly("/tmp", "all-at-once");
+                    .extractingByKeys("hive.hive_views_legacy_translation", "execution_policy")
+                    .containsExactly("true", "all-at-once");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
                     "execution_policy|all-at-once|phased",
-                    "hive.temporary_staging_directory_path|/tmp|/tmp/presto-${USER}"));
+                    "hive.hive_views_legacy_translation|true|false"));
         }
     }
 

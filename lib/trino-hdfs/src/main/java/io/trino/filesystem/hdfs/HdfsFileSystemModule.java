@@ -15,9 +15,10 @@ package io.trino.filesystem.hdfs;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsFileSystemModule
         implements Module
@@ -25,6 +26,8 @@ public class HdfsFileSystemModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TrinoFileSystemFactory.class).to(HdfsFileSystemFactory.class).in(SINGLETON);
+        binder.bind(HdfsFileSystemFactory.class).in(SINGLETON);
+        binder.bind(TrinoHdfsFileSystemStats.class).in(SINGLETON);
+        newExporter(binder).export(TrinoHdfsFileSystemStats.class).withGeneratedName();
     }
 }

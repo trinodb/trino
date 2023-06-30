@@ -217,11 +217,14 @@ public class GenericHiveRecordCursor<K, V extends Writable>
                 return false;
             }
 
-            // reset loaded flags
-            Arrays.fill(loaded, false);
+            // Only deserialize the value if atleast one column is required
+            if (types.length > 0) {
+                // reset loaded flags
+                Arrays.fill(loaded, false);
 
-            // decode value
-            rowData = deserializer.deserialize(value);
+                // decode value
+                rowData = deserializer.deserialize(value);
+            }
 
             return true;
         }
@@ -537,7 +540,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (type instanceof CharType) {
             parseStringColumn(column);
         }
-        else if (isStructuralType(hiveTypes[column])) {
+        else if (isStructuralType(type)) {
             parseObjectColumn(column);
         }
         else if (DATE.equals(type)) {

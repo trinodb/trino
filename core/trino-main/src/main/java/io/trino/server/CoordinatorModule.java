@@ -15,8 +15,10 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.concurrent.BoundedExecutor;
@@ -62,11 +64,8 @@ import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
-import io.trino.execution.scheduler.ConstantPartitionMemoryEstimator;
 import io.trino.execution.scheduler.EventDrivenTaskSourceFactory;
-import io.trino.execution.scheduler.FixedCountNodeAllocatorService;
 import io.trino.execution.scheduler.NodeAllocatorService;
-import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskDescriptorStorage;
@@ -111,10 +110,7 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.rewrite.StatementRewrite.Rewrite;
-
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.annotation.PreDestroy;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -129,12 +125,10 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
-import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.BIN_PACKING;
-import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeAllocatorType.FIXED_COUNT;
+import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -167,10 +161,10 @@ public class CoordinatorModule
         });
 
         // failure detector
-        binder.install(new FailureDetectorModule());
+        install(new FailureDetectorModule());
         jaxrsBinder(binder).bind(NodeResource.class);
         jaxrsBinder(binder).bind(WorkerResource.class);
-        httpClientBinder(binder).bindHttpClient("workerInfo", ForWorkerInfo.class);
+        install(internalHttpClientModule("workerInfo", ForWorkerInfo.class).build());
 
         // query monitor
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
@@ -206,12 +200,12 @@ public class CoordinatorModule
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
         binder.bind(ClusterMemoryPoolManager.class).to(ClusterMemoryManager.class).in(Scopes.SINGLETON);
-        httpClientBinder(binder).bindHttpClient("memoryManager", ForMemoryManager.class)
+        install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
                 .withTracing()
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                });
+                }).build());
 
         bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.NONE, NoneLowMemoryKiller.class);
         bindLowMemoryTaskKiller(LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES, TotalReservationOnBlockedNodesTaskLowMemoryKiller.class);
@@ -223,21 +217,9 @@ public class CoordinatorModule
         newExporter(binder).export(ClusterMemoryManager.class).withGeneratedName();
 
         // node allocator
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> FIXED_COUNT == config.getNodeAllocatorType(),
-                innerBinder -> {
-                    innerBinder.bind(NodeAllocatorService.class).to(FixedCountNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).toInstance(ConstantPartitionMemoryEstimator::new);
-                }));
-        install(conditionalModule(
-                NodeSchedulerConfig.class,
-                config -> BIN_PACKING == config.getNodeAllocatorType(),
-                innerBinder -> {
-                    innerBinder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
-                    innerBinder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
-                    innerBinder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
-                }));
+        binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
+        binder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
+        binder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
@@ -293,14 +275,14 @@ public class CoordinatorModule
         binder.bind(RemoteTaskStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(RemoteTaskStats.class).withGeneratedName();
 
-        httpClientBinder(binder).bindHttpClient("scheduler", ForScheduler.class)
+        install(internalHttpClientModule("scheduler", ForScheduler.class)
                 .withTracing()
                 .withFilter(GenerateTraceTokenRequestFilter.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
                     config.setMaxConnectionsPerServer(250);
-                });
+                }).build());
 
         binder.bind(ScheduledExecutorService.class).annotatedWith(ForScheduler.class)
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));

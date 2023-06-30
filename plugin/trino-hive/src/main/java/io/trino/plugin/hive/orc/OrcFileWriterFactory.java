@@ -14,10 +14,11 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.hive.orc.OrcConf;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -25,9 +26,9 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
-import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.WriterKind;
@@ -37,12 +38,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -53,7 +50,6 @@ import java.util.Properties;
 import java.util.function.Supplier;
 
 import static io.trino.orc.metadata.OrcType.createRootOrcType;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
@@ -73,7 +69,6 @@ import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
 import static io.trino.plugin.hive.util.HiveUtil.getOrcWriterOptions;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -126,11 +121,11 @@ public class OrcFileWriterFactory
 
     @Override
     public Optional<FileWriter> createFileWriter(
-            Path path,
+            Location location,
             List<String> inputColumnNames,
             StorageFormat storageFormat,
+            HiveCompressionCodec compressionCodec,
             Properties schema,
-            JobConf configuration,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
@@ -140,8 +135,6 @@ public class OrcFileWriterFactory
         if (!ORC_OUTPUT_FORMAT_CLASS.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
-
-        CompressionKind compression = getCompression(schema, configuration);
 
         // existing tables and partitions may have columns in a different order than the writer is providing, so build
         // an index to rearrange columns in the proper order
@@ -155,16 +148,15 @@ public class OrcFileWriterFactory
                 .toArray();
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            String stringPath = path.toString();
-            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, stringPath);
+            OrcDataSink orcDataSink = createOrcDataSink(fileSystem, location);
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();
             if (isOrcOptimizedWriterValidate(session)) {
                 validationInputFactory = Optional.of(() -> {
                     try {
-                        TrinoInputFile inputFile = fileSystem.newInputFile(stringPath);
+                        TrinoInputFile inputFile = fileSystem.newInputFile(location);
                         return new HdfsOrcDataSource(
-                                new OrcDataSourceId(stringPath),
+                                new OrcDataSourceId(location.toString()),
                                 inputFile.length(),
                                 new OrcReaderOptions(),
                                 inputFile,
@@ -176,7 +168,7 @@ public class OrcFileWriterFactory
                 });
             }
 
-            Closeable rollbackAction = () -> fileSystem.deleteFile(stringPath);
+            Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
             if (transaction.isInsert() && useAcidSchema) {
                 // Only add the ACID columns if the request is for insert-type operations - - for delete operations,
@@ -198,7 +190,7 @@ public class OrcFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     createRootOrcType(fileColumnNames, fileColumnTypes),
-                    compression,
+                    compressionCodec.getOrcCompressionKind(),
                     getOrcWriterOptions(schema, orcWriterOptions)
                             .withStripeMinSize(getOrcOptimizedWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcOptimizedWriterMaxStripeSize(session))
@@ -219,26 +211,9 @@ public class OrcFileWriterFactory
         }
     }
 
-    public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, String path)
+    public static OrcDataSink createOrcDataSink(TrinoFileSystem fileSystem, Location location)
             throws IOException
     {
-        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(path));
-    }
-
-    private static CompressionKind getCompression(Properties schema, JobConf configuration)
-    {
-        String compressionName = OrcConf.COMPRESS.getString(schema, configuration);
-        if (compressionName == null) {
-            return CompressionKind.ZLIB;
-        }
-
-        CompressionKind compression;
-        try {
-            compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
-        }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
-        }
-        return compression;
+        return OutputStreamOrcDataSink.create(fileSystem.newOutputFile(location));
     }
 }

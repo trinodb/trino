@@ -42,10 +42,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Resources.getResource;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -58,6 +60,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_SECONDS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -173,7 +176,8 @@ public class TestDeltaLakeSchemaSupport
                 OptionalInt.empty(),
                 "arr",
                 new ArrayType(new ArrayType(INTEGER)),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         DeltaLakeColumnHandle structColumn = new DeltaLakeColumnHandle(
                 "str",
@@ -189,7 +193,8 @@ public class TestDeltaLakeSchemaSupport
                         new RowType.Field(Optional.of("s2"), RowType.from(ImmutableList.of(
                                 new RowType.Field(Optional.of("i1"), INTEGER),
                                 new RowType.Field(Optional.of("d2"), DecimalType.createDecimalType(38, 0))))))),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         TypeOperators typeOperators = new TypeOperators();
         DeltaLakeColumnHandle mapColumn = new DeltaLakeColumnHandle(
@@ -204,12 +209,21 @@ public class TestDeltaLakeSchemaSupport
                         INTEGER,
                         new MapType(INTEGER, INTEGER, typeOperators),
                         typeOperators),
-                REGULAR);
+                REGULAR,
+                Optional.empty());
 
         URL expected = getResource("io/trino/plugin/deltalake/transactionlog/schema/nested_schema.json");
         ObjectMapper objectMapper = new ObjectMapper();
 
-        String jsonEncoding = serializeSchemaAsJson(ImmutableList.of(arrayColumn, structColumn, mapColumn), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        List<DeltaLakeColumnHandle> columnHandles = ImmutableList.of(arrayColumn, structColumn, mapColumn);
+        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(columnHandles.size());
+        ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(columnHandles.size());
+        for (DeltaLakeColumnHandle column : columnHandles) {
+            columnNames.add(column.getColumnName());
+            columnTypes.put(column.getColumnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getBaseType()));
+        }
+
+        String jsonEncoding = serializeSchemaAsJson(columnNames.build(), columnTypes.buildOrThrow(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
         assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
     }
 
@@ -223,11 +237,16 @@ public class TestDeltaLakeSchemaSupport
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
-        List<DeltaLakeColumnHandle> columnHandles = schema.stream()
-                .map(metadata -> new DeltaLakeColumnHandle(metadata.getName(), metadata.getType(), OptionalInt.empty(), metadata.getName(), metadata.getType(), REGULAR))
-                .collect(toImmutableList());
+
+        ImmutableList.Builder<String> columnNames = ImmutableList.builderWithExpectedSize(schema.size());
+        ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(schema.size());
+        for (ColumnMetadata column : schema) {
+            columnNames.add(column.getName());
+            columnTypes.put(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()));
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
-        String jsonEncoding = serializeSchemaAsJson(columnHandles, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
+        String jsonEncoding = serializeSchemaAsJson(columnNames.build(), columnTypes.buildOrThrow(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
         assertThat(objectMapper.readTree(jsonEncoding)).isEqualTo(objectMapper.readTree(expected));
     }
 
@@ -252,7 +271,10 @@ public class TestDeltaLakeSchemaSupport
                 {DATE},
                 {VARCHAR},
                 {DecimalType.createDecimalType(3)},
-                {TIMESTAMP_TZ_MILLIS}};
+                {TIMESTAMP_TZ_MILLIS},
+                {new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators())},
+                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS))},
+                {new ArrayType(TIMESTAMP_TZ_MILLIS)}};
     }
 
     @Test(dataProvider = "unsupportedTypes")
@@ -275,15 +297,15 @@ public class TestDeltaLakeSchemaSupport
     @Test(dataProvider = "unsupportedNestedTimestamp")
     public void testTimestampNestedInStructTypeIsNotSupported(Type type)
     {
-        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Nested TIMESTAMP types are not supported, invalid type: " + type);
+        assertThatCode(() -> DeltaLakeSchemaSupport.validateType(type)).hasMessage("Unsupported type: timestamp(0) with time zone");
     }
 
     @DataProvider(name = "unsupportedNestedTimestamp")
     public static Object[][] unsupportedNestedTimestamp()
     {
         return new Object[][] {
-                {new MapType(TIMESTAMP_TZ_MILLIS, TIMESTAMP_TZ_MILLIS, new TypeOperators())},
-                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_MILLIS))},
-                {new ArrayType(TIMESTAMP_TZ_MILLIS)}};
+                {new MapType(TIMESTAMP_TZ_SECONDS, TIMESTAMP_TZ_SECONDS, new TypeOperators())},
+                {RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS))},
+                {new ArrayType(TIMESTAMP_TZ_SECONDS)}};
     }
 }

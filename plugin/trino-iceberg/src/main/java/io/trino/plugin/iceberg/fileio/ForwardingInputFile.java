@@ -62,7 +62,7 @@ public class ForwardingInputFile
     @Override
     public String location()
     {
-        return inputFile.location();
+        return inputFile.location().toString();
     }
 
     @Override
@@ -74,5 +74,11 @@ public class ForwardingInputFile
         catch (IOException e) {
             throw new UncheckedIOException("Failed to check existence for file: " + location(), e);
         }
+    }
+
+    @Override
+    public String toString()
+    {
+        return inputFile.toString();
     }
 }

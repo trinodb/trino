@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
@@ -53,8 +54,6 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.HashSet;

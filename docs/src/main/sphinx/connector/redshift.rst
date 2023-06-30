@@ -79,6 +79,8 @@ catalog named ``sales`` using the configured connector.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: query-comment-format.fragment
+
 .. |default_domain_compaction_threshold| replace:: ``32``
 .. include:: jdbc-domain-compaction-threshold.fragment
 
@@ -142,6 +144,14 @@ statements, the connector supports the following features:
 
 .. include:: alter-schema-limitation.fragment
 
+.. _redshift-fte-support:
+
+Fault-tolerant execution support
+--------------------------------
+
+The connector supports :doc:`/admin/fault-tolerant-execution` of query
+processing. Read and write operations are both supported with any retry policy.
+
 Table functions
 ---------------
 
@@ -159,7 +169,7 @@ processed in Redshift. This can be useful for accessing native features which
 are not implemented in Trino or for improving query performance in situations
 where running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
 For example, query the ``example`` catalog and select the top 10 nations by
 population::
@@ -178,3 +188,4 @@ population::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

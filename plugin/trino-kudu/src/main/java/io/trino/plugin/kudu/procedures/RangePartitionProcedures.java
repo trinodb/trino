@@ -14,14 +14,13 @@
 package io.trino.plugin.kudu.procedures;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.kudu.KuduClientSession;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.RangePartition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 

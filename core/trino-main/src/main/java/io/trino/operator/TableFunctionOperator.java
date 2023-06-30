@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,8 +23,8 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -39,6 +38,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -511,40 +511,6 @@ public class TableFunctionOperator
         checkPositionIndex(startPosition, pagesIndex.getPositionCount(), "startPosition out of bounds");
 
         return findEndPosition(startPosition, pagesIndex.getPositionCount(), (firstPosition, secondPosition) -> pagesIndex.positionNotDistinctFromPosition(pagesHashStrategy, firstPosition, secondPosition));
-    }
-
-    /**
-     * @param startPosition - inclusive
-     * @param endPosition - exclusive
-     * @param comparator - returns true if positions given as parameters are equal
-     * @return the end of the group position exclusive (the position the very next group starts)
-     */
-    @VisibleForTesting
-    static int findEndPosition(int startPosition, int endPosition, PositionComparator comparator)
-    {
-        checkArgument(startPosition >= 0, "startPosition must be greater or equal than zero: %s", startPosition);
-        checkArgument(startPosition < endPosition, "startPosition (%s) must be less than endPosition (%s)", startPosition, endPosition);
-
-        int left = startPosition;
-        int right = endPosition;
-
-        while (right - left > 1) {
-            int middle = (left + right) >>> 1;
-
-            if (comparator.test(startPosition, middle)) {
-                left = middle;
-            }
-            else {
-                right = middle;
-            }
-        }
-
-        return right;
-    }
-
-    private interface PositionComparator
-    {
-        boolean test(int first, int second);
     }
 
     private WorkProcessor<TableFunctionPartition> pagesIndexToTableFunctionPartitions(

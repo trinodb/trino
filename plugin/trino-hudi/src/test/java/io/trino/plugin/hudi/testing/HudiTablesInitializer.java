@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hudi.testing;
 
+import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.QueryRunner;
-import org.apache.hadoop.conf.Configuration;
 
 public interface HudiTablesInitializer
 {
@@ -24,6 +24,6 @@ public interface HudiTablesInitializer
             HiveMetastore metastore,
             String schemaName,
             String dataDir,
-            Configuration conf)
+            HdfsEnvironment hdfsEnvironment)
             throws Exception;
 }

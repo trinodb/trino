@@ -15,9 +15,8 @@ package io.trino.plugin.kafka;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import jakarta.annotation.PostConstruct;
 import org.apache.kafka.common.security.auth.SecurityProtocol;
-
-import javax.annotation.PostConstruct;
 
 import java.util.Optional;
 

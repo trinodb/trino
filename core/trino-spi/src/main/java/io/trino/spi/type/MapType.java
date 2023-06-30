@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
@@ -42,12 +43,14 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 
 public class MapType
         extends AbstractType
 {
+    private static final MethodHandle NOT;
     private static final InvocationConvention EQUAL_CONVENTION = simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL);
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
@@ -63,6 +66,7 @@ public class MapType
     static {
         try {
             Lookup lookup = MethodHandles.lookup();
+            NOT = lookup.findStatic(MapType.class, "not", methodType(boolean.class, boolean.class));
             EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
             HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
             DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
@@ -81,6 +85,8 @@ public class MapType
     private final Type valueType;
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
+    private final MethodHandle keyBlockNativeNotDistinctFrom;
+    private final MethodHandle keyBlockNotDistinctFrom;
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEqual;
@@ -104,12 +110,17 @@ public class MapType
         this.keyType = keyType;
         this.valueType = valueType;
 
-        keyBlockNativeEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, NEVER_NULL))
+        keyBlockNativeEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, NEVER_NULL))
                 .asType(methodType(Boolean.class, Block.class, int.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
-        keyBlockEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        keyBlockEqual = typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
+
+        keyBlockNativeNotDistinctFrom = filterReturnValue(typeOperators.getDistinctFromOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, NEVER_NULL)), NOT)
+                .asType(methodType(boolean.class, Block.class, int.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
+        keyBlockNotDistinctFrom = filterReturnValue(typeOperators.getDistinctFromOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)), NOT);
+
         keyNativeHashCode = typeOperators.getHashCodeOperator(keyType, HASH_CODE_CONVENTION)
                 .asType(methodType(long.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
-        keyBlockHashCode = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        keyBlockHashCode = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
     }
 
     @Override
@@ -140,15 +151,15 @@ public class MapType
 
     private static OperatorMethodHandle getHashCodeOperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
     {
-        MethodHandle keyHashCodeOperator = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
-        MethodHandle valueHashCodeOperator = typeOperators.getHashCodeOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle keyHashCodeOperator = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle valueHashCodeOperator = typeOperators.getHashCodeOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(keyHashCodeOperator).bindTo(valueHashCodeOperator));
     }
 
     private static OperatorMethodHandle getXxHash64OperatorMethodHandle(TypeOperators typeOperators, Type keyType, Type valueType)
     {
-        MethodHandle keyHashCodeOperator = typeOperators.getXxHash64Operator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
-        MethodHandle valueHashCodeOperator = typeOperators.getXxHash64Operator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle keyHashCodeOperator = typeOperators.getXxHash64Operator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+        MethodHandle valueHashCodeOperator = typeOperators.getXxHash64Operator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return new OperatorMethodHandle(HASH_CODE_CONVENTION, HASH_CODE.bindTo(keyHashCodeOperator).bindTo(valueHashCodeOperator));
     }
 
@@ -157,9 +168,9 @@ public class MapType
         MethodHandle seekKey = MethodHandles.insertArguments(
                 SEEK_KEY,
                 1,
-                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)),
-                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
-        MethodHandle valueEqualOperator = typeOperators.getEqualOperator(valueType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)),
+                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
+        MethodHandle valueEqualOperator = typeOperators.getEqualOperator(valueType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL));
         return new OperatorMethodHandle(EQUAL_CONVENTION, EQUAL.bindTo(seekKey).bindTo(valueEqualOperator));
     }
 
@@ -168,8 +179,8 @@ public class MapType
         MethodHandle seekKey = MethodHandles.insertArguments(
                 SEEK_KEY,
                 1,
-                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)),
-                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)));
+                typeOperators.getEqualOperator(keyType, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION_NOT_NULL, BLOCK_POSITION_NOT_NULL)),
+                typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
 
         MethodHandle valueDistinctFromOperator = typeOperators.getDistinctFromOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator));
@@ -177,18 +188,18 @@ public class MapType
 
     private static OperatorMethodHandle getIndeterminateOperatorInvoker(TypeOperators typeOperators, Type valueType)
     {
-        MethodHandle valueIndeterminateOperator = typeOperators.getIndeterminateOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
+        MethodHandle valueIndeterminateOperator = typeOperators.getIndeterminateOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
         return new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(valueIndeterminateOperator));
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
+    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         return new MapBlockBuilder(this, blockBuilderStatus, expectedEntries);
     }
 
     @Override
-    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    public MapBlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         return createBlockBuilder(blockBuilderStatus, expectedEntries, EXPECTED_BYTES_PER_ENTRY);
     }
@@ -252,14 +263,12 @@ public class MapType
             throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
         }
 
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            keyType.appendTo(singleMapBlock, i, entryBuilder);
-            valueType.appendTo(singleMapBlock, i + 1, entryBuilder);
-        }
-
-        blockBuilder.closeEntry();
+        ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+            for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
+                keyType.appendTo(singleMapBlock, i, keyBuilder);
+                valueType.appendTo(singleMapBlock, i + 1, valueBuilder);
+            }
+        });
     }
 
     @Override
@@ -316,6 +325,22 @@ public class MapType
         return keyBlockEqual;
     }
 
+    /**
+     * Internal use by this package and io.trino.spi.block only.
+     */
+    public MethodHandle getKeyBlockNativeNotDistinctFrom()
+    {
+        return keyBlockNativeNotDistinctFrom;
+    }
+
+    /**
+     * Internal use by this package and io.trino.spi.block only.
+     */
+    public MethodHandle getKeyBlockNotDistinctFrom()
+    {
+        return keyBlockNotDistinctFrom;
+    }
+
     private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
             throws Throwable
     {
@@ -346,13 +371,10 @@ public class MapType
             return false;
         }
 
-        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
-        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
-
         boolean unknown = false;
-        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
             if (rightPosition == -1) {
                 return false;
             }
@@ -361,7 +383,7 @@ public class MapType
                 unknown = true;
             }
             else {
-                Boolean result = (Boolean) valueEqualOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+                Boolean result = (Boolean) valueEqualOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
                 if (result == null) {
                     unknown = true;
                 }
@@ -394,17 +416,14 @@ public class MapType
             return true;
         }
 
-        SingleMapBlock leftSingleMapLeftBlock = (SingleMapBlock) leftBlock;
-        SingleMapBlock rightSingleMapBlock = (SingleMapBlock) rightBlock;
-
-        for (int position = 0; position < leftSingleMapLeftBlock.getPositionCount(); position += 2) {
+        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact(rightSingleMapBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
             if (rightPosition == -1) {
                 return true;
             }
 
-            boolean result = (boolean) valueDistinctFromOperator.invokeExact((Block) leftSingleMapLeftBlock, leftPosition, (Block) rightSingleMapBlock, rightPosition);
+            boolean result = (boolean) valueDistinctFromOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
             if (result) {
                 return true;
             }
@@ -429,5 +448,10 @@ public class MapType
             }
         }
         return false;
+    }
+
+    private static boolean not(boolean value)
+    {
+        return !value;
     }
 }

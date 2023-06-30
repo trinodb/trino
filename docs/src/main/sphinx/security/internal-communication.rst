@@ -18,7 +18,7 @@ cluster. Use this configuration under the following conditions:
   between clients and the coordinator
 
 Set the shared secret to the same value in :ref:`config.properties
-<config_properties>` on all nodes of the cluster:
+<config-properties>` on all nodes of the cluster:
 
 .. code-block:: text
 
@@ -31,7 +31,7 @@ command:
 
     openssl rand 512 | base64
 
-.. _verify_secrets:
+.. _verify-secrets:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^

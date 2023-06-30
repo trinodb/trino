@@ -27,6 +27,8 @@
 
 ## Delta Lake connector
 
+* Rename the connector to `delta_lake`. The old name `delta-lake` is now
+  deprecated and will be removed in a future release. ({issue}`13931`)
 * Add support for creating tables with the Trino `change_data_feed_enabled`
   table property. ({issue}`16129`)
 * Improve query performance on tables that Trino has written to with `INSERT`. ({issue}`16026`)
@@ -71,3 +73,8 @@
 
 * Add support for pushing down `=`, `<>` and `IN` predicates over text columns
   if the column uses a case-sensitive collation within SQL Server. ({issue}`15714`)
+
+## Thrift connector
+
+* Rename the connector to `trino_thrift`. The old name `trino-thrift` is now
+  deprecated and will be removed in a future release. ({issue}`13931`)

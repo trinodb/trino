@@ -14,6 +14,7 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
+import io.airlift.slice.SliceOutput;
 
 import java.util.Collections;
 import java.util.List;
@@ -74,6 +75,14 @@ public interface Block
     }
 
     /**
+     * Writes a slice at {@code offset} in the value at {@code position} into the {@code output} slice output.
+     */
+    default void writeSliceTo(int position, int offset, int length, SliceOutput output)
+    {
+        throw new UnsupportedOperationException(getClass().getName());
+    }
+
+    /**
      * Gets an object in the value at {@code position}.
      */
     default <T> T getObject(int position, Class<T> clazz)
@@ -97,16 +106,6 @@ public interface Block
      * This method must be implemented if @{code getSlice} is implemented.
      */
     default int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        throw new UnsupportedOperationException(getClass().getName());
-    }
-
-    /**
-     * Appends the byte sequences at {@code offset} in the value at {@code position}
-     * to {@code blockBuilder}.
-     * This method must be implemented if @{code getSlice} is implemented.
-     */
-    default void writeBytesTo(int position, int offset, int length, BlockBuilder blockBuilder)
     {
         throw new UnsupportedOperationException(getClass().getName());
     }

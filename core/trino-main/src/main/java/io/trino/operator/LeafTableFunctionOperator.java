@@ -16,23 +16,26 @@ package io.trino.operator;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
-import io.trino.spi.ptf.TableFunctionProcessorState;
-import io.trino.spi.ptf.TableFunctionProcessorState.Blocked;
-import io.trino.spi.ptf.TableFunctionProcessorState.Processed;
-import io.trino.spi.ptf.TableFunctionSplitProcessor;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorState;
+import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
+import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
+import io.trino.split.EmptySplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
-import static io.trino.spi.ptf.TableFunctionProcessorState.Finished.FINISHED;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.util.Objects.requireNonNull;
 
 public class LeafTableFunctionOperator
@@ -89,12 +92,10 @@ public class LeafTableFunctionOperator
     private final ConnectorTableFunctionHandle functionHandle;
     private final ConnectorSession session;
 
-    private ConnectorSplit currentSplit;
-    private final List<ConnectorSplit> pendingSplits = new ArrayList<>();
+    private final Deque<ConnectorSplit> pendingSplits = new ArrayDeque<>();
     private boolean noMoreSplits;
 
     private TableFunctionSplitProcessor processor;
-    private boolean processorUsedData;
     private boolean processorFinishedSplit = true;
     private ListenableFuture<Void> processorBlocked = NOT_BLOCKED;
 
@@ -112,10 +113,9 @@ public class LeafTableFunctionOperator
         this.session = operatorContext.getSession().toConnectorSession(functionCatalog);
     }
 
-    private void resetProcessor()
+    private void resetProcessor(ConnectorSplit nextSplit)
     {
-        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle);
-        this.processorUsedData = false;
+        this.processor = tableFunctionProvider.getSplitProcessor(session, functionHandle, nextSplit);
         this.processorFinishedSplit = false;
         this.processorBlocked = NOT_BLOCKED;
     }
@@ -162,19 +162,18 @@ public class LeafTableFunctionOperator
     {
         if (processorFinishedSplit) {
             // start processing a new split
+            while (pendingSplits.peekFirst() instanceof EmptySplit) {
+                pendingSplits.remove();
+            }
             if (pendingSplits.isEmpty()) {
                 // no more splits to process at the moment
                 return null;
             }
-            currentSplit = pendingSplits.remove(0);
-            resetProcessor();
-        }
-        else {
-            // a split is being processed
-            requireNonNull(currentSplit, "currentSplit is null");
+            ConnectorSplit nextSplit = pendingSplits.remove();
+            resetProcessor(nextSplit);
         }
 
-        TableFunctionProcessorState state = processor.process(processorUsedData ? null : currentSplit);
+        TableFunctionProcessorState state = processor.process();
         if (state == FINISHED) {
             processorFinishedSplit = true;
         }
@@ -183,11 +182,9 @@ public class LeafTableFunctionOperator
         }
         if (state instanceof Processed processed) {
             if (processed.isUsedInput()) {
-                processorUsedData = true;
+                throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Invalid state, as no input has been provided: " + state);
             }
-            if (processed.getResult() != null) {
-                return processed.getResult();
-            }
+            return processed.getResult();
         }
         return null;
     }

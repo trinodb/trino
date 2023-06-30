@@ -16,8 +16,8 @@ package io.trino.parquet.writer;
 import com.google.common.collect.ImmutableList;
 import io.trino.parquet.writer.repdef.DefLevelWriterProvider;
 import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
-import io.trino.parquet.writer.repdef.RepLevelIterable;
-import io.trino.parquet.writer.repdef.RepLevelIterables;
+import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
+import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.ColumnarArray;
 
 import java.io.IOException;
@@ -53,9 +53,9 @@ public class ArrayColumnWriter
                                 .addAll(columnChunk.getDefLevelWriterProviders())
                                 .add(DefLevelWriterProviders.of(columnarArray, maxDefinitionLevel))
                                 .build(),
-                        ImmutableList.<RepLevelIterable>builder()
-                                .addAll(columnChunk.getRepLevelIterables())
-                                .add(RepLevelIterables.of(columnarArray, maxRepetitionLevel))
+                        ImmutableList.<RepLevelWriterProvider>builder()
+                                .addAll(columnChunk.getRepLevelWriterProviders())
+                                .add(RepLevelWriterProviders.of(columnarArray, maxRepetitionLevel))
                                 .build()));
     }
 

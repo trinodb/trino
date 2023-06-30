@@ -19,3 +19,5 @@ $RETRY $MAVEN_ONLINE -B -P ci,errorprone-compiler ${MAVEN_GIB} -Dgib.disable de.
 # TODO: Remove next step once https://github.com/qaware/go-offline-maven-plugin/issues/28 is fixed
 # trino-pinot overrides some common dependency versions, focus on it to make sure those overrides are downloaded as well
 $RETRY $MAVEN_ONLINE -B -P ci,errorprone-compiler ${MAVEN_GIB} -Dgib.disable de.qaware.maven:go-offline-maven-plugin:resolve-dependencies -pl ':trino-pinot'
+
+# Add more dynamic dependencies in the configuration section of the go-offline-maven-plugin in the root pom.xml

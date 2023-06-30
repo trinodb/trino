@@ -599,6 +599,13 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testFromCastOfNullPredicate()
+    {
+        assertPredicateIsAlwaysFalse(cast(nullLiteral(), BOOLEAN));
+        assertPredicateIsAlwaysFalse(not(cast(nullLiteral(), BOOLEAN)));
+    }
+
+    @Test
     public void testFromNotPredicate()
     {
         assertUnsupportedPredicate(not(and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))));
@@ -832,6 +839,16 @@ public class TestDomainTranslator
         assertPredicateTranslates(not(lessThanOrEqual(C_REAL, nanReal)), tupleDomain(C_REAL, Domain.notNull(REAL)));
         assertPredicateIsAlwaysFalse(not(notEqual(C_REAL, nanReal)));
         assertUnsupportedPredicate(not(isDistinctFrom(C_REAL, nanReal)));
+    }
+
+    @Test
+    public void testFromCoercionComparisonsWithNaN()
+    {
+        Expression nanDouble = literalEncoder.toExpression(TEST_SESSION, Double.NaN, DOUBLE);
+
+        assertPredicateIsAlwaysFalse(equal(cast(C_TINYINT, DOUBLE), nanDouble));
+        assertPredicateIsAlwaysFalse(equal(cast(C_SMALLINT, DOUBLE), nanDouble));
+        assertPredicateIsAlwaysFalse(equal(cast(C_INTEGER, DOUBLE), nanDouble));
     }
 
     @Test

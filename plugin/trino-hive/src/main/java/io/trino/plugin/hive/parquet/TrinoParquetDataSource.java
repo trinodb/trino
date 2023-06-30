@@ -34,7 +34,7 @@ public class TrinoParquetDataSource
     public TrinoParquetDataSource(TrinoInputFile file, ParquetReaderOptions options, FileFormatDataSourceStats stats)
             throws IOException
     {
-        super(new ParquetDataSourceId(file.location()), file.length(), options);
+        super(new ParquetDataSourceId(file.location().toString()), file.length(), options);
         this.stats = requireNonNull(stats, "stats is null");
         this.input = file.newInput();
     }

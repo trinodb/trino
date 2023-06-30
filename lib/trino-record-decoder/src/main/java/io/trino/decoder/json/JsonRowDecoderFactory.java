@@ -14,12 +14,11 @@
 package io.trino.decoder.json;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
 import io.trino.spi.TrinoException;
-
-import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;

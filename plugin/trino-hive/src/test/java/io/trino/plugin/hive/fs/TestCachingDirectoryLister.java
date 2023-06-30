@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.hive.fs;
 
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.apache.hadoop.fs.Path;
+import io.trino.filesystem.Location;
 import org.testng.annotations.Test;
 
 import java.util.List;
+
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
 @Test(singleThreaded = true)
@@ -27,13 +30,13 @@ public class TestCachingDirectoryLister
     @Override
     protected CachingDirectoryLister createDirectoryLister()
     {
-        return new CachingDirectoryLister(Duration.valueOf("5m"), 1_000_000L, List.of("tpch.*"));
+        return new CachingDirectoryLister(Duration.valueOf("5m"), DataSize.of(1, MEGABYTE), List.of("tpch.*"));
     }
 
     @Override
-    protected boolean isCached(CachingDirectoryLister directoryLister, Path path)
+    protected boolean isCached(CachingDirectoryLister directoryLister, Location location)
     {
-        return directoryLister.isCached(path);
+        return directoryLister.isCached(location);
     }
 
     @Test

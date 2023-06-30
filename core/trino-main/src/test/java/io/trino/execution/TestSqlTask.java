@@ -23,6 +23,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.TestingGcMonitor;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
@@ -48,6 +49,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -107,6 +109,7 @@ public class TestSqlTask
                 taskExecutor,
                 planner,
                 createTestSplitMonitor(),
+                noopTracer(),
                 new TaskManagerConfig());
     }
 
@@ -127,11 +130,13 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
@@ -140,11 +145,13 @@ public class TestSqlTask
         assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
@@ -160,10 +167,12 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
         assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
@@ -202,12 +211,14 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
 
         TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
         assertNull(taskInfo.getStats().getEndTime());
 
@@ -241,10 +252,12 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
         assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
@@ -343,12 +356,14 @@ public class TestSqlTask
         SqlTask sqlTask = createInitialTask();
         sqlTask.updateTask(
                 TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), false)),
                 PipelinedOutputBuffers.createInitial(PARTITIONED)
                         .withBuffer(OUT, 0)
                         .withNoMoreBufferIds(),
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
 
@@ -372,10 +387,12 @@ public class TestSqlTask
         OutputBuffers outputBuffers = PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds();
         sqlTask.updateTask(
                 TEST_SESSION,
+                Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT_WITH_DYNAMIC_FILTER_SOURCE),
                 ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), false)),
                 outputBuffers,
-                ImmutableMap.of());
+                ImmutableMap.of(),
+                false);
 
         assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
 
@@ -419,6 +436,7 @@ public class TestSqlTask
                 location,
                 "fake",
                 queryContext,
+                noopTracer(),
                 sqlTaskExecutionFactory,
                 taskNotificationExecutor,
                 sqlTask -> {},

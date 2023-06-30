@@ -13,7 +13,7 @@
  */
 package io.trino.tests.product.hive;
 
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HIVE_ICEBERG_REDIRECTIONS;
@@ -33,11 +32,12 @@ import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveRedirectionToIceberg
         extends ProductTest
 {
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void createAdditionalSchema()
     {
         onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS hive.nondefaultschema");
@@ -316,10 +316,10 @@ public class TestHiveRedirectionToIceberg
 
         assertThat(onTrino().executeQuery("SHOW STATS FOR " + hiveTableName))
                 .containsOnly(
-                        row("nationkey", null, null, 0d, null, "0", "24"),
-                        row("name", null, null, 0d, null, null, null),
-                        row("regionkey", null, null, 0d, null, "0", "4"),
-                        row("comment", null, null, 0d, null, null, null),
+                        row("nationkey", null, 25d, 0d, null, "0", "24"),
+                        row("name", null, 25d, 0d, null, null, null),
+                        row("regionkey", null, 5d, 0d, null, "0", "4"),
+                        row("comment", null, 25d, 0d, null, null, null),
                         row(null, null, null, null, 25d, null, null));
 
         onTrino().executeQuery("DROP TABLE " + icebergTableName);

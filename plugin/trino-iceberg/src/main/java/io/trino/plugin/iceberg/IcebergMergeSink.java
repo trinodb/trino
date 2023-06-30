@@ -48,7 +48,6 @@ import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.connector.MergePage.createDeleteAndInsertPages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -111,7 +110,7 @@ public class IcebergMergeSink
                 int index = position;
                 FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, ignored -> {
                     long fileRecordCount = BIGINT.getLong(rowIdRow.getField(2), index);
-                    int partitionSpecId = toIntExact(INTEGER.getLong(rowIdRow.getField(3), index));
+                    int partitionSpecId = INTEGER.getInt(rowIdRow.getField(3), index);
                     String partitionData = VarcharType.VARCHAR.getSlice(rowIdRow.getField(4), index).toStringUtf8();
                     return new FileDeletion(partitionSpecId, partitionData, fileRecordCount);
                 });

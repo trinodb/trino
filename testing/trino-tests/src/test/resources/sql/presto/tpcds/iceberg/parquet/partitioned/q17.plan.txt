@@ -6,26 +6,30 @@ local exchange (GATHER, SINGLE, [])
                     partial aggregation over (i_item_desc, i_item_id, s_state)
                         join (INNER, PARTITIONED):
                             remote exchange (REPARTITION, HASH, ["i_item_sk"])
-                                scan item
+                                dynamic filter (["i_item_sk"])
+                                    scan item
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["cs_item_sk"])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
-                                            scan catalog_sales
+                                            dynamic filter (["cs_bill_customer_sk", "cs_item_sk", "cs_sold_date_sk"])
+                                                scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     join (INNER, REPLICATED):
                                                         join (INNER, PARTITIONED):
                                                             remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk", "ss_ticket_number"])
                                                                 join (INNER, REPLICATED):
-                                                                    scan store_sales
+                                                                    dynamic filter (["ss_customer_sk", "ss_item_sk", "ss_sold_date_sk", "ss_store_sk", "ss_ticket_number"])
+                                                                        scan store_sales
                                                                     local exchange (GATHER, SINGLE, [])
                                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                                             scan date_dim
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["sr_customer_sk", "sr_item_sk", "sr_ticket_number"])
                                                                     join (INNER, REPLICATED):
-                                                                        scan store_returns
+                                                                        dynamic filter (["sr_returned_date_sk"])
+                                                                            scan store_returns
                                                                         local exchange (GATHER, SINGLE, [])
                                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                                 scan date_dim

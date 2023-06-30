@@ -41,5 +41,5 @@ public interface TrinoOutputFile
     OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
 
-    String location();
+    Location location();
 }

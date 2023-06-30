@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.orc.OrcTester.LocalTrinoOutputFile;
+import io.trino.filesystem.local.LocalOutputFile;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcMetadataReader;
@@ -31,7 +31,7 @@ import io.trino.orc.stream.OrcChunkLoader;
 import io.trino.orc.stream.OrcInputStream;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -67,7 +67,7 @@ public class TestOrcWriter
             List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR);
 
             OrcWriter writer = new OrcWriter(
-                    OutputStreamOrcDataSink.create(new LocalTrinoOutputFile(tempFile.getFile())),
+                    OutputStreamOrcDataSink.create(new LocalOutputFile(tempFile.getFile())),
                     ImmutableList.of("test1", "test2", "test3", "test4", "test5"),
                     types,
                     OrcType.createRootOrcType(columnNames, types),
@@ -88,17 +88,16 @@ public class TestOrcWriter
             String[] data = new String[] {"a", "bbbbb", "ccc", "dd", "eeee"};
             Block[] blocks = new Block[data.length];
             int entries = 65536;
-            BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
+            VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, entries);
             for (int i = 0; i < data.length; i++) {
                 byte[] bytes = data[i].getBytes(UTF_8);
                 for (int j = 0; j < entries; j++) {
                     // force to write different data
                     bytes[0] = (byte) ((bytes[0] + 1) % 128);
-                    blockBuilder.writeBytes(Slices.wrappedBuffer(bytes, 0, bytes.length), 0, bytes.length);
-                    blockBuilder.closeEntry();
+                    blockBuilder.writeEntry(Slices.wrappedBuffer(bytes, 0, bytes.length));
                 }
                 blocks[i] = blockBuilder.build();
-                blockBuilder = blockBuilder.newBlockBuilderLike(null);
+                blockBuilder = (VariableWidthBlockBuilder) blockBuilder.newBlockBuilderLike(null);
             }
 
             writer.write(new Page(blocks));
@@ -117,7 +116,7 @@ public class TestOrcWriter
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
                 try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
-                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
+                    StripeFooter stripeFooter = new OrcMetadataReader(new OrcReaderOptions()).readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
 
                     int size = 0;
                     boolean dataStreamStarted = false;

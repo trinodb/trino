@@ -14,7 +14,9 @@
 package io.trino.sql.rewrite;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.type.FixedWidthType;
@@ -36,8 +38,6 @@ import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.StringLiteral;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -73,9 +73,10 @@ public final class DescribeOutputRewrite
             Statement node,
             List<Expression> parameters,
             Map<NodeRef<Parameter>, Expression> parameterLookup,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, analyzerFactory, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -87,6 +88,7 @@ public final class DescribeOutputRewrite
         private final List<Expression> parameters;
         private final Map<NodeRef<Parameter>, Expression> parameterLookup;
         private final WarningCollector warningCollector;
+        private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
 
         public Visitor(
                 Session session,
@@ -94,7 +96,8 @@ public final class DescribeOutputRewrite
                 AnalyzerFactory analyzerFactory,
                 List<Expression> parameters,
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
-                WarningCollector warningCollector)
+                WarningCollector warningCollector,
+                PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.parser = requireNonNull(parser, "parser is null");
@@ -102,6 +105,7 @@ public final class DescribeOutputRewrite
             this.parameters = parameters;
             this.parameterLookup = parameterLookup;
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
         }
 
         @Override
@@ -110,7 +114,7 @@ public final class DescribeOutputRewrite
             String sqlString = session.getPreparedStatement(node.getName().getValue());
             Statement statement = parser.createStatement(sqlString, createParsingOptions(session));
 
-            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector);
+            Analyzer analyzer = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector);
             Analysis analysis = analyzer.analyze(statement, DESCRIBE);
 
             Optional<Node> limit = Optional.empty();

@@ -20,8 +20,8 @@ import com.google.common.primitives.Ints;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -39,7 +39,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.Collections;
 
 import static io.trino.block.BlockSerdeUtil.writeBlock;
-import static io.trino.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
+import static io.trino.operator.scalar.BlockSet.MAX_FUNCTION_MEMORY;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
@@ -119,9 +119,12 @@ public class TestArrayOperators
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
         writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
-        BlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 2).writeLong(1).writeLong(2).build());
-        arrayType.writeObject(expectedBlockBuilder, BIGINT.createBlockBuilder(null, 1).writeLong(3).build());
+        ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
+        expectedBlockBuilder.buildEntry(elementBuilder -> {
+            BIGINT.writeLong(elementBuilder, 1);
+            BIGINT.writeLong(elementBuilder, 2);
+        });
+        expectedBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 3));
         Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
         writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
@@ -4302,6 +4305,35 @@ public class TestArrayOperators
                 .hasType(new ArrayType(BIGINT))
                 .isEqualTo(ImmutableList.of(10L, 8L, 6L, 4L, 2L));
 
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, 0L, -9223372036854775807L));
+
+        assertThat(assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-9223372036854775808"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(9223372036854775807L, -1L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L, -1L, 9223372036854775806L));
+
+        assertThat(assertions.function("sequence", "-9223372036854775808", "-2", "9223372036854775807"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-9223372036854775808L));
+
+        // test small range with big steps
+        assertThat(assertions.function("sequence", "-5", "5", "1000"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L));
+
+        assertThat(assertions.function("sequence", "-5", "5", "7"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-5L, 2L));
+
+        assertThat(assertions.function("sequence", "-100", "5", "100"))
+                .hasType(new ArrayType(BIGINT))
+                .isEqualTo(ImmutableList.of(-100L, 0L));
+
         // failure modes
         assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "2", "-1", "1").evaluate())
                 .hasMessage("sequence stop value should be greater than or equal to start value if step is greater than zero otherwise stop should be less than or equal to start");
@@ -4313,6 +4345,40 @@ public class TestArrayOperators
                 .hasMessage("result of sequence function must not have more than 10000 entries");
 
         assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "DATE '2000-04-14'", "DATE '2030-04-12'").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        // long overflow
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "-9223372036854775808", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "9223372036854775807", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "0", "100").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-9223372036854775808", "0", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "9223372036854775807", "0", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "0", "9223372036854775807", "1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "0", "-9223372036854775808", "-1").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "-5000", "5000").evaluate())
+                .hasMessage("result of sequence function must not have more than 10000 entries");
+
+        assertTrinoExceptionThrownBy(() -> assertions.function("sequence", "5000", "-5000", "-1").evaluate())
                 .hasMessage("result of sequence function must not have more than 10000 entries");
     }
 

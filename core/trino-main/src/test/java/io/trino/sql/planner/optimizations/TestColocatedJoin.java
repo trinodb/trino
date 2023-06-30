@@ -90,7 +90,6 @@ public class TestColocatedJoin
                                 PARTITIONING_HANDLE,
                                 ImmutableList.of(new MockConnectorColumnHandle(COLUMN_A, BIGINT)))),
                         Optional.empty(),
-                        Optional.empty(),
                         ImmutableList.of()))
                 .build();
 

@@ -147,10 +147,10 @@ public class TestTimestamp
                 .hasMessage("line 1:12: TIMESTAMP precision must be in range [0, 12]: 13");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP '2020-13-01'").evaluate())
-                .hasMessage("line 1:12: '2020-13-01' is not a valid timestamp literal");
+                .hasMessage("line 1:12: '2020-13-01' is not a valid TIMESTAMP literal");
 
         assertThatThrownBy(() -> assertions.expression("TIMESTAMP 'xxx'").evaluate())
-                .hasMessage("line 1:12: 'xxx' is not a valid timestamp literal");
+                .hasMessage("line 1:12: 'xxx' is not a valid TIMESTAMP literal");
 
         // negative epoch
         assertThat(assertions.expression("TIMESTAMP '1500-05-01 12:34:56'"))

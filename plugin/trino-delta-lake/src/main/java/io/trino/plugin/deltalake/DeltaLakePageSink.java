@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.deltalake;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
 
@@ -28,18 +28,21 @@ public class DeltaLakePageSink
         extends AbstractDeltaLakePageSink
 {
     public DeltaLakePageSink(
+            TypeOperators typeOperators,
             List<DeltaLakeColumnHandle> inputColumns,
             List<String> originalPartitionColumns,
             PageIndexerFactory pageIndexerFactory,
             TrinoFileSystemFactory fileSystemFactory,
             int maxOpenWriters,
             JsonCodec<DataFileInfo> dataFileInfoCodec,
-            String tableLocation,
+            Location tableLocation,
             ConnectorSession session,
             DeltaLakeWriterStats stats,
-            String trinoVersion)
+            String trinoVersion,
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
     {
         super(
+                typeOperators,
                 inputColumns,
                 originalPartitionColumns,
                 pageIndexerFactory,
@@ -50,7 +53,8 @@ public class DeltaLakePageSink
                 tableLocation,
                 session,
                 stats,
-                trinoVersion);
+                trinoVersion,
+                parquetSchemaMapping);
     }
 
     @Override
@@ -58,15 +62,6 @@ public class DeltaLakePageSink
     {
         throw new IllegalStateException("Unexpected column type: " + column.getColumnType());
     }
-
-    @Override
-    protected void addSpecialColumns(
-            List<DeltaLakeColumnHandle> inputColumns,
-            ImmutableList.Builder<DeltaLakeColumnHandle> dataColumnHandles,
-            ImmutableList.Builder<Integer> dataColumnsInputIndex,
-            ImmutableList.Builder<String> dataColumnNames,
-            ImmutableList.Builder<Type> dataColumnTypes)
-    {}
 
     @Override
     protected String getPathPrefix()

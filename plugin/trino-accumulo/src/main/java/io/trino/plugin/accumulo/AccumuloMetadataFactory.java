@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.accumulo;
 
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

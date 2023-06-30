@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.plugin.google.sheets.ptf.Sheet;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -35,6 +35,7 @@ public class SheetsModule
         binder.bind(SheetsClient.class).in(Scopes.SINGLETON);
         binder.bind(SheetsSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(SheetsRecordSetProvider.class).in(Scopes.SINGLETON);
+        binder.bind(SheetsPageSinkProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(SheetsConfig.class);
 

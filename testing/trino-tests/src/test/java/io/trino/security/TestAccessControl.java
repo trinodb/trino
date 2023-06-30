@@ -523,6 +523,15 @@ public class TestAccessControl
     }
 
     @Test
+    public void testTableFunctionRequiredColumns()
+    {
+        assertAccessDenied(
+                "SELECT * FROM TABLE(exclude_columns(TABLE(nation), descriptor(regionkey, comment)))",
+                "Cannot select from columns \\[nationkey, name] in table .*.nation.*",
+                privilege("nation.nationkey", SELECT_COLUMN));
+    }
+
+    @Test
     public void testAnalyzeAccessControl()
     {
         assertAccessAllowed("ANALYZE nation");
@@ -788,9 +797,7 @@ public class TestAccessControl
     @Test
     public void testSetViewAuthorizationWithSecurityDefiner()
     {
-        assertQueryFails(
-                "ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user",
-                "Cannot set authorization for view mock.default.test_view_definer to USER some_other_user: this feature is disabled");
+        assertQuerySucceeds("ALTER VIEW mock.default.test_view_definer SET AUTHORIZATION some_other_user");
     }
 
     @Test

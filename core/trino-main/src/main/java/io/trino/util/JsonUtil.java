@@ -14,7 +14,6 @@
 package io.trino.util;
 
 import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -25,11 +24,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
-import io.trino.spi.block.SingleMapBlockWriter;
-import io.trino.spi.block.SingleRowBlockWriter;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -77,6 +77,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -90,10 +91,10 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.UNBOUNDED_LENGTH;
 import static io.trino.type.DateTimes.formatTimestamp;
 import static io.trino.type.JsonType.JSON;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.DateTimeUtils.printDate;
 import static io.trino.util.JsonUtil.ObjectKeyProvider.createObjectKeyProvider;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -102,16 +103,20 @@ import static java.time.ZoneOffset.UTC;
 
 public final class JsonUtil
 {
-    public static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    private JsonUtil() {}
 
     // This object mapper is constructed without .configure(ORDER_MAP_ENTRIES_BY_KEYS, true) because
     // `OBJECT_MAPPER.writeValueAsString(parser.readValueAsTree());` preserves input order.
     // Be aware. Using it arbitrarily can produce invalid json (ordered by key is required in Trino).
-    private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(JSON_FACTORY);
+    private static final ObjectMapper OBJECT_MAPPED_UNORDERED = new ObjectMapper(createJsonFactory());
 
     private static final int MAX_JSON_LENGTH_IN_ERROR_MESSAGE = 10_000;
 
-    private JsonUtil() {}
+    // Note: JsonFactory is mutable, instances cannot be shared openly.
+    public static JsonFactory createJsonFactory()
+    {
+        return jsonFactoryBuilder().disable(CANONICALIZE_FIELD_NAMES).build();
+    }
 
     public static JsonParser createJsonParser(JsonFactory factory, Slice json)
             throws IOException
@@ -212,31 +217,40 @@ public final class JsonUtil
 
         static ObjectKeyProvider createObjectKeyProvider(Type type)
         {
-            if (type instanceof UnknownType) {
+            if (type.equals(UNKNOWN)) {
                 return (block, position) -> null;
             }
-            if (type instanceof BooleanType) {
-                return (block, position) -> type.getBoolean(block, position) ? "true" : "false";
+            if (type.equals(BOOLEAN)) {
+                return (block, position) -> BOOLEAN.getBoolean(block, position) ? "true" : "false";
             }
-            if (type instanceof TinyintType || type instanceof SmallintType || type instanceof IntegerType || type instanceof BigintType) {
-                return (block, position) -> String.valueOf(type.getLong(block, position));
+            if (type.equals(TINYINT)) {
+                return (block, position) -> String.valueOf(TINYINT.getByte(block, position));
             }
-            if (type instanceof RealType) {
-                return (block, position) -> String.valueOf(intBitsToFloat(toIntExact(type.getLong(block, position))));
+            if (type.equals(SMALLINT)) {
+                return (block, position) -> String.valueOf(SMALLINT.getShort(block, position));
             }
-            if (type instanceof DoubleType) {
-                return (block, position) -> String.valueOf(type.getDouble(block, position));
+            if (type.equals(INTEGER)) {
+                return (block, position) -> String.valueOf(INTEGER.getInt(block, position));
+            }
+            if (type.equals(BIGINT)) {
+                return (block, position) -> String.valueOf(BIGINT.getLong(block, position));
+            }
+            if (type.equals(REAL)) {
+                return (block, position) -> String.valueOf(REAL.getFloat(block, position));
+            }
+            if (type.equals(DOUBLE)) {
+                return (block, position) -> String.valueOf(DOUBLE.getDouble(block, position));
             }
             if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
                     return (block, position) -> Decimals.toString(decimalType.getLong(block, position), decimalType.getScale());
                 }
                 return (block, position) -> Decimals.toString(
-                        ((Int128) type.getObject(block, position)).toBigInteger(),
+                        ((Int128) decimalType.getObject(block, position)).toBigInteger(),
                         decimalType.getScale());
             }
-            if (type instanceof VarcharType) {
-                return (block, position) -> type.getSlice(block, position).toStringUtf8();
+            if (type instanceof VarcharType varcharType) {
+                return (block, position) -> varcharType.getSlice(block, position).toStringUtf8();
             }
 
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
@@ -372,7 +386,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                float value = intBitsToFloat(toIntExact(REAL.getLong(block, position)));
+                float value = REAL.getFloat(block, position);
                 jsonGenerator.writeNumber(value);
             }
         }
@@ -533,7 +547,7 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                int value = toIntExact(DATE.getLong(block, position));
+                int value = DATE.getInt(block, position);
                 jsonGenerator.writeString(printDate(value));
             }
         }
@@ -1161,11 +1175,11 @@ public final class JsonUtil
             if (parser.getCurrentToken() != START_ARRAY) {
                 throw new JsonCastException(format("Expected a json array, but got %s", parser.getText()));
             }
-            BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-            while (parser.nextToken() != END_ARRAY) {
-                elementAppender.append(parser, entryBuilder);
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                while (parser.nextToken() != END_ARRAY) {
+                    elementAppender.append(parser, elementBuilder);
+                }
+            });
         }
     }
 
@@ -1193,18 +1207,24 @@ public final class JsonUtil
             if (parser.getCurrentToken() != START_OBJECT) {
                 throw new JsonCastException(format("Expected a json object, but got %s", parser.getText()));
             }
-            SingleMapBlockWriter entryBuilder = (SingleMapBlockWriter) blockBuilder.beginBlockEntry();
-            entryBuilder.strict();
-            while (parser.nextToken() != END_OBJECT) {
-                keyAppender.append(parser, entryBuilder);
-                parser.nextToken();
-                valueAppender.append(parser, entryBuilder);
-            }
+
+            MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) blockBuilder;
+            mapBlockBuilder.strict();
             try {
-                blockBuilder.closeEntry();
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> appendMap(parser, keyBuilder, valueBuilder));
             }
             catch (DuplicateMapKeyException e) {
                 throw new JsonCastException("Duplicate keys are not allowed");
+            }
+        }
+
+        private void appendMap(JsonParser parser, BlockBuilder keyBuilder, BlockBuilder valueBuilder)
+                throws IOException
+        {
+            while (parser.nextToken() != END_OBJECT) {
+                keyAppender.append(parser, keyBuilder);
+                parser.nextToken();
+                valueAppender.append(parser, valueBuilder);
             }
         }
     }
@@ -1234,12 +1254,7 @@ public final class JsonUtil
                 throw new JsonCastException(format("Expected a json array or object, but got %s", parser.getText()));
             }
 
-            parseJsonToSingleRowBlock(
-                    parser,
-                    (SingleRowBlockWriter) blockBuilder.beginBlockEntry(),
-                    fieldAppenders,
-                    fieldNameToIndex);
-            blockBuilder.closeEntry();
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> parseJsonToSingleRowBlock(parser, fieldBuilders, fieldAppenders, fieldNameToIndex));
         }
     }
 
@@ -1259,9 +1274,9 @@ public final class JsonUtil
     // TODO: Once CAST function supports cachedInstanceFactory or directly write to BlockBuilder,
     // JsonToRowCast::toRow can use RowBlockBuilderAppender::append to parse JSON and append to the block builder.
     // Thus there will be single call to this method, so this method can be inlined.
-    public static void parseJsonToSingleRowBlock(
+    private static void parseJsonToSingleRowBlock(
             JsonParser parser,
-            SingleRowBlockWriter singleRowBlockWriter,
+            List<BlockBuilder> fieldBuilders,
             BlockBuilderAppender[] fieldAppenders,
             Optional<Map<String, Integer>> fieldNameToIndex)
             throws IOException
@@ -1269,7 +1284,7 @@ public final class JsonUtil
         if (parser.getCurrentToken() == START_ARRAY) {
             for (int i = 0; i < fieldAppenders.length; i++) {
                 parser.nextToken();
-                fieldAppenders[i].append(parser, singleRowBlockWriter);
+                fieldAppenders[i].append(parser, fieldBuilders.get(i));
             }
             if (parser.nextToken() != JsonToken.END_ARRAY) {
                 throw new JsonCastException(format("Expected json array ending, but got %s", parser.getText()));
@@ -1296,7 +1311,7 @@ public final class JsonUtil
                     }
                     fieldWritten[fieldIndex] = true;
                     numFieldsWritten++;
-                    fieldAppenders[fieldIndex].append(parser, singleRowBlockWriter.getFieldBlockBuilder(fieldIndex));
+                    fieldAppenders[fieldIndex].append(parser, fieldBuilders.get(fieldIndex));
                 }
                 else {
                     parser.skipChildren();
@@ -1306,7 +1321,7 @@ public final class JsonUtil
             if (numFieldsWritten != fieldAppenders.length) {
                 for (int i = 0; i < fieldWritten.length; i++) {
                     if (!fieldWritten[i]) {
-                        singleRowBlockWriter.getFieldBlockBuilder(i).appendNull();
+                        fieldBuilders.get(i).appendNull();
                     }
                 }
             }

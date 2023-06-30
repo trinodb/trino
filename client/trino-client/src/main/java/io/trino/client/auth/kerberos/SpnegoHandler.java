@@ -122,7 +122,7 @@ public class SpnegoHandler
         String principal = makeServicePrincipal(servicePrincipalPattern, remoteServiceName, hostName, useCanonicalHostname);
         byte[] token = generateToken(principal);
 
-        String credential = format("%s %s", NEGOTIATE, Base64.getEncoder().encodeToString(token));
+        String credential = NEGOTIATE + " " + Base64.getEncoder().encodeToString(token);
         return request.newBuilder()
                 .header(AUTHORIZATION, credential)
                 .build();

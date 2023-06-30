@@ -28,7 +28,6 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
 import io.trino.client.FailureInfo;
-import io.trino.client.ProtocolHeaders;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
@@ -53,12 +52,12 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
 import io.trino.util.Ciphers;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.List;
@@ -124,8 +123,7 @@ class Query
     @GuardedBy("this")
     private long lastToken = -1;
 
-    @GuardedBy("this")
-    private boolean resultsConsumed;
+    private volatile boolean resultsConsumed;
 
     @GuardedBy("this")
     private List<Column> columns;
@@ -274,84 +272,36 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
-    public ProtocolHeaders getProtocolHeaders()
+    public ListenableFuture<QueryResultsResponse> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
     {
-        return session.getProtocolHeaders();
-    }
-
-    public synchronized Optional<String> getSetCatalog()
-    {
-        return setCatalog;
-    }
-
-    public synchronized Optional<String> getSetSchema()
-    {
-        return setSchema;
-    }
-
-    public synchronized Optional<String> getSetPath()
-    {
-        return setPath;
-    }
-
-    public synchronized Map<String, String> getSetSessionProperties()
-    {
-        return setSessionProperties;
-    }
-
-    public synchronized Set<String> getResetSessionProperties()
-    {
-        return resetSessionProperties;
-    }
-
-    public synchronized Map<String, SelectedRole> getSetRoles()
-    {
-        return setRoles;
-    }
-
-    public synchronized Map<String, String> getAddedPreparedStatements()
-    {
-        return addedPreparedStatements;
-    }
-
-    public synchronized Set<String> getDeallocatedPreparedStatements()
-    {
-        return deallocatedPreparedStatements;
-    }
-
-    public synchronized Optional<TransactionId> getStartedTransactionId()
-    {
-        return startedTransactionId;
-    }
-
-    public synchronized boolean isClearTransactionId()
-    {
-        return clearTransactionId;
-    }
-
-    public synchronized ListenableFuture<QueryResults> waitForResults(long token, UriInfo uriInfo, Duration wait, DataSize targetResultSize)
-    {
-        // before waiting, check if this request has already been processed and cached
-        Optional<QueryResults> cachedResult = getCachedResult(token);
-        if (cachedResult.isPresent()) {
-            return immediateFuture(cachedResult.get());
+        ListenableFuture<Void> futureStateChange;
+        synchronized (this) {
+            // before waiting, check if this request has already been processed and cached
+            Optional<QueryResults> cachedResult = getCachedResult(token);
+            if (cachedResult.isPresent()) {
+                return immediateFuture(toResultsResponse(cachedResult.get()));
+            }
+            // release the lock eagerly after acquiring the future to avoid contending with callback threads
+            futureStateChange = getFutureStateChange();
         }
 
         // wait for a results data or query to finish, up to the wait timeout
-        ListenableFuture<Void> futureStateChange = addTimeout(
-                getFutureStateChange(),
-                () -> null,
-                wait,
-                timeoutExecutor);
-
+        if (!futureStateChange.isDone()) {
+            futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
+        }
         // when state changes, fetch the next result
         return Futures.transform(futureStateChange, ignored -> getNextResult(token, uriInfo, targetResultSize), resultsProcessorExecutor);
     }
 
-    public synchronized void markResultsConsumedIfReady()
+    public void markResultsConsumedIfReady()
     {
-        if (!resultsConsumed && exchangeDataSource.isFinished()) {
-            queryManager.resultsConsumed(queryId);
+        if (resultsConsumed) {
+            return;
+        }
+        synchronized (this) {
+            if (!resultsConsumed && exchangeDataSource.isFinished()) {
+                queryManager.resultsConsumed(queryId);
+            }
         }
     }
 
@@ -443,12 +393,12 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResults getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
+    private synchronized QueryResultsResponse getNextResult(long token, UriInfo uriInfo, DataSize targetResultSize)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
         if (cachedResult.isPresent()) {
-            return cachedResult.get();
+            return toResultsResponse(cachedResult.get());
         }
 
         verify(nextToken.isPresent(), "Cannot generate next result when next token is not present");
@@ -459,10 +409,16 @@ class Query
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         queryManager.recordHeartbeat(queryId);
 
-        closeExchangeIfNecessary(queryInfo);
-
-        // fetch result data from exchange
-        QueryResultRows resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        boolean isStarted = queryInfo.getState().ordinal() > QueryState.STARTING.ordinal();
+        QueryResultRows resultRows;
+        if (isStarted) {
+            closeExchangeIfNecessary(queryInfo);
+            // fetch result data from exchange
+            resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+        }
+        else {
+            resultRows = queryResultRowsBuilder(session).build();
+        }
 
         if ((queryInfo.getUpdateType() != null) && (updateCount == null)) {
             // grab the update count for non-queries
@@ -470,7 +426,7 @@ class Query
             updateCount = updatedRowsCount.orElse(null);
         }
 
-        if (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished()) {
+        if (isStarted && (queryInfo.getOutputStage().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
             // update query since the query might have been transitioned to the FINISHED state
@@ -541,7 +497,24 @@ class Query
         lastToken = token;
         lastResult = queryResults;
 
-        return queryResults;
+        return toResultsResponse(queryResults);
+    }
+
+    private synchronized QueryResultsResponse toResultsResponse(QueryResults queryResults)
+    {
+        return new QueryResultsResponse(
+                setCatalog,
+                setSchema,
+                setPath,
+                setSessionProperties,
+                resetSessionProperties,
+                setRoles,
+                addedPreparedStatements,
+                deallocatedPreparedStatements,
+                startedTransactionId,
+                clearTransactionId,
+                session.getProtocolHeaders(),
+                queryResults);
     }
 
     private synchronized QueryResultRows removePagesFromExchange(QueryInfo queryInfo, long targetResultBytes)
@@ -586,13 +559,18 @@ class Query
         return resultBuilder.build();
     }
 
-    private synchronized void closeExchangeIfNecessary(QueryInfo queryInfo)
+    private void closeExchangeIfNecessary(QueryInfo queryInfo)
     {
+        if (queryInfo.getState() != FAILED && queryInfo.getOutputStage().isPresent()) {
+            return;
+        }
         // Close the exchange client if the query has failed, or if the query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
-        if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
-            exchangeDataSource.close();
+        synchronized (this) {
+            if (queryInfo.getState() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.getOutputStage().isEmpty())) {
+                exchangeDataSource.close();
+            }
         }
     }
 

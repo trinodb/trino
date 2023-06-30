@@ -23,8 +23,8 @@ import java.lang.invoke.MethodType;
 import java.util.Objects;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
@@ -51,8 +51,8 @@ public final class NullableValue
         this.value = value;
 
         if (type.isComparable()) {
-            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL))
-                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, NEVER_NULL, NEVER_NULL))
+                    .asType(MethodType.methodType(boolean.class, Object.class, Object.class));
             this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
                     .asType(MethodType.methodType(long.class, Object.class));
         }
@@ -147,7 +147,7 @@ public final class NullableValue
     private boolean valueEquals(Object otherValue)
     {
         try {
-            return ((Boolean) equalOperator.invokeExact(value, otherValue)) == Boolean.TRUE;
+            return (boolean) equalOperator.invokeExact(value, otherValue);
         }
         catch (Throwable throwable) {
             throw handleThrowable(throwable);

@@ -14,6 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.base.Suppliers;
+import com.google.inject.Inject;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -30,8 +31,6 @@ import io.trino.spi.type.VarcharType;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.core.operator.transform.TransformResultMetadata;
 import org.apache.pinot.spi.data.FieldSpec;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.function.Supplier;

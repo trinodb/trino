@@ -27,7 +27,7 @@ import io.trino.spi.type.StandardTypes;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -46,7 +46,7 @@ public final class ArrayContains
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") Object value)
@@ -81,7 +81,7 @@ public final class ArrayContains
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") long value)
@@ -116,7 +116,7 @@ public final class ArrayContains
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") boolean value)
@@ -151,7 +151,7 @@ public final class ArrayContains
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION_NOT_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") double value)

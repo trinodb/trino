@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -32,6 +33,7 @@ import static java.util.Objects.requireNonNull;
 public final class Input
 {
     private final String catalogName;
+    private final CatalogVersion catalogVersion;
     private final String schema;
     private final String table;
     private final List<Column> columns;
@@ -42,6 +44,7 @@ public final class Input
     @JsonCreator
     public Input(
             @JsonProperty("catalogName") String catalogName,
+            @JsonProperty("catalogVersion") CatalogVersion catalogVersion,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
             @JsonProperty("connectorInfo") Optional<Object> connectorInfo,
@@ -49,27 +52,26 @@ public final class Input
             @JsonProperty("fragmentId") PlanFragmentId fragmentId,
             @JsonProperty("planNodeId") PlanNodeId planNodeId)
     {
-        requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(schema, "schema is null");
-        requireNonNull(table, "table is null");
-        requireNonNull(connectorInfo, "connectorInfo is null");
-        requireNonNull(columns, "columns is null");
-        requireNonNull(fragmentId, "fragmentId is null");
-        requireNonNull(planNodeId, "planNodeId is null");
-
-        this.catalogName = catalogName;
-        this.schema = schema;
-        this.table = table;
-        this.connectorInfo = connectorInfo;
-        this.columns = ImmutableList.copyOf(columns);
-        this.fragmentId = fragmentId;
-        this.planNodeId = planNodeId;
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
+        this.schema = requireNonNull(schema, "schema is null");
+        this.table = requireNonNull(table, "table is null");
+        this.connectorInfo = requireNonNull(connectorInfo, "connectorInfo is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.fragmentId = requireNonNull(fragmentId, "fragmentId is null");
+        this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
     }
 
     @JsonProperty
     public String getCatalogName()
     {
         return catalogName;
+    }
+
+    @JsonProperty
+    public CatalogVersion getCatalogVersion()
+    {
+        return catalogVersion;
     }
 
     @JsonProperty
@@ -119,6 +121,7 @@ public final class Input
         }
         Input input = (Input) o;
         return Objects.equals(catalogName, input.catalogName) &&
+                Objects.equals(catalogVersion, input.catalogVersion) &&
                 Objects.equals(schema, input.schema) &&
                 Objects.equals(table, input.table) &&
                 Objects.equals(columns, input.columns) &&
@@ -130,7 +133,7 @@ public final class Input
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogName, schema, table, columns, connectorInfo, fragmentId, planNodeId);
+        return Objects.hash(catalogName, catalogVersion, schema, table, columns, connectorInfo, fragmentId, planNodeId);
     }
 
     @Override
@@ -138,6 +141,7 @@ public final class Input
     {
         return toStringHelper(this)
                 .addValue(catalogName)
+                .addValue(catalogVersion)
                 .addValue(schema)
                 .addValue(table)
                 .addValue(columns)

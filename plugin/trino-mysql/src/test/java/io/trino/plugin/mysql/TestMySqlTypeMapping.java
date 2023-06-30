@@ -1108,7 +1108,7 @@ public class TestMySqlTypeMapping
     private void assertMySqlQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> mySqlServer.execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 }

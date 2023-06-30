@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
 import io.trino.execution.StateMachine.StateChangeListener;
@@ -71,8 +72,10 @@ public class TestingRemoteTaskFactory
     @Override
     public synchronized RemoteTask createRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             InternalNode node,
+            boolean speculative,
             PlanFragment fragment,
             Multimap<PlanNodeId, Split> initialSplits,
             OutputBuffers outputBuffers,
@@ -174,6 +177,7 @@ public class TestingRemoteTaskFactory
                     state,
                     location,
                     nodeId,
+                    false,
                     failures,
                     0,
                     0,
@@ -228,6 +232,12 @@ public class TestingRemoteTaskFactory
         public synchronized void setOutputBuffers(OutputBuffers outputBuffers)
         {
             this.outputBuffers = outputBuffers;
+        }
+
+        @Override
+        public void setSpeculative(boolean speculative)
+        {
+           // ignore
         }
 
         public synchronized OutputBuffers getOutputBuffers()

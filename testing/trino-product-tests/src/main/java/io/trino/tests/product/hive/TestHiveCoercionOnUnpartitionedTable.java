@@ -24,6 +24,7 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
@@ -34,6 +35,10 @@ public class TestHiveCoercionOnUnpartitionedTable
         extends BaseTestHiveCoercion
 {
     public static final HiveTableDefinition HIVE_COERCION_ORC = tableDefinitionBuilder("ORC")
+            .setNoData()
+            .build();
+
+    public static final HiveTableDefinition HIVE_TIMESTAMP_COERCION_ORC = tableDefinitionForTimestampCoercionBuilder("ORC")
             .setNoData()
             .build();
 
@@ -70,8 +75,26 @@ public class TestHiveCoercionOnUnpartitionedTable
                             long_decimal_to_bounded_varchar    DECIMAL(20,12),
                             varchar_to_bigger_varchar          VARCHAR(3),
                             varchar_to_smaller_varchar         VARCHAR(3),
+                            char_to_bigger_char                CHAR(3),
+                            char_to_smaller_char               CHAR(3),
+                            timestamp_to_string                TIMESTAMP,
+                            timestamp_to_bounded_varchar       TIMESTAMP,
+                            timestamp_to_smaller_varchar       TIMESTAMP,
                             id                                 BIGINT)
                        STORED AS\s""" + fileFormat);
+    }
+
+    private static HiveTableDefinition.HiveTableDefinitionBuilder tableDefinitionForTimestampCoercionBuilder(String fileFormat)
+    {
+        String tableName = format("%s_hive_timestamp_coercion_unpartitioned", fileFormat.toLowerCase(ENGLISH));
+        return HiveTableDefinition.builder(tableName)
+                .setCreateTableDDLTemplate("""
+                         CREATE TABLE %NAME%(
+                             timestamp_row_to_row       STRUCT<keep: TIMESTAMP, si2i: SMALLINT>,
+                             timestamp_list_to_list     ARRAY<STRUCT<keep: TIMESTAMP, si2i: SMALLINT>>,
+                             timestamp_map_to_map       MAP<SMALLINT, STRUCT<keep: TIMESTAMP, si2i: SMALLINT>>,
+                             id                         BIGINT)
+                        STORED AS\s""" + fileFormat);
     }
 
     public static final class OrcRequirements
@@ -80,7 +103,9 @@ public class TestHiveCoercionOnUnpartitionedTable
         @Override
         public Requirement getRequirements(Configuration configuration)
         {
-            return MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build();
+            return compose(
+                    MutableTableRequirement.builder(HIVE_COERCION_ORC).withState(CREATED).build(),
+                    MutableTableRequirement.builder(HIVE_TIMESTAMP_COERCION_ORC).withState(CREATED).build());
         }
     }
 
@@ -89,6 +114,13 @@ public class TestHiveCoercionOnUnpartitionedTable
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
+    }
+
+    @Requires(OrcRequirements.class)
+    @Test(groups = {HIVE_COERCION, JDBC})
+    public void testHiveCoercionWithDifferentTimestampPrecision()
+    {
+        doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
     }
 
     @Override

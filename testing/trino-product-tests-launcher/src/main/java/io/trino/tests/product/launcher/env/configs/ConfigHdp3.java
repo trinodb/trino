@@ -13,11 +13,11 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Environment;
 
-import javax.inject.Inject;
-
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TRINO;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -56,6 +56,8 @@ public class ConfigHdp3
                         "/docker/presto-init.d/presto-init-hdp3.sh");
             }
         });
+        // When hive performs implicit coercion to/from timestamp for ORC files, it depends on timezone of the HiveServer
+        builder.configureContainer(HADOOP, container -> container.withEnv("TZ", "UTC"));
     }
 
     @Override

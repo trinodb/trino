@@ -35,6 +35,7 @@ import io.trino.json.ir.IrCeilingMethod;
 import io.trino.json.ir.IrConstantJsonSequence;
 import io.trino.json.ir.IrContextVariable;
 import io.trino.json.ir.IrDatetimeMethod;
+import io.trino.json.ir.IrDescendantMemberAccessor;
 import io.trino.json.ir.IrDoubleMethod;
 import io.trino.json.ir.IrFilter;
 import io.trino.json.ir.IrFloorMethod;
@@ -145,7 +146,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrAbsMethod(IrAbsMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -269,8 +270,8 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrArithmeticBinary(IrArithmeticBinary node, PathEvaluationContext context)
     {
-        List<Object> leftSequence = process(node.getLeft(), context);
-        List<Object> rightSequence = process(node.getRight(), context);
+        List<Object> leftSequence = process(node.left(), context);
+        List<Object> rightSequence = process(node.right(), context);
 
         if (lax) {
             leftSequence = unwrapArrays(leftSequence);
@@ -301,9 +302,9 @@ class PathEvaluationVisitor
             right = (TypedValue) rightObject;
         }
 
-        ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(node.getOperator().name()), left.getType(), right.getType());
+        ResolvedOperatorAndCoercions operators = resolver.getOperators(node, OperatorType.valueOf(node.operator().name()), left.getType(), right.getType());
         if (operators == RESOLUTION_ERROR) {
-            throw new PathEvaluationError(format("invalid operand types to %s operator (%s, %s)", node.getOperator().name(), left.getType(), right.getType()));
+            throw new PathEvaluationError(format("invalid operand types to %s operator (%s, %s)", node.operator().name(), left.getType(), right.getType()));
         }
 
         Object leftInput = left.getValueAsObject();
@@ -340,7 +341,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrArithmeticUnary(IrArithmeticUnary node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -360,7 +361,7 @@ class PathEvaluationVisitor
                     throw itemTypeError("NUMBER", type.getDisplayName());
                 }
             }
-            if (node.getSign() == PLUS) {
+            if (node.sign() == PLUS) {
                 outputSequence.add(value);
             }
             else {
@@ -441,7 +442,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrArrayAccessor(IrArrayAccessor node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
         for (Object object : sequence) {
@@ -465,7 +466,7 @@ class PathEvaluationVisitor
             }
 
             // handle wildcard accessor
-            if (node.getSubscripts().isEmpty()) {
+            if (node.subscripts().isEmpty()) {
                 outputSequence.addAll(elements);
                 continue;
             }
@@ -479,9 +480,9 @@ class PathEvaluationVisitor
             }
 
             PathEvaluationContext arrayContext = context.withLast(elements.size() - 1);
-            for (IrArrayAccessor.Subscript subscript : node.getSubscripts()) {
-                List<Object> from = process(subscript.getFrom(), arrayContext);
-                Optional<List<Object>> to = subscript.getTo().map(path -> process(path, arrayContext));
+            for (IrArrayAccessor.Subscript subscript : node.subscripts()) {
+                List<Object> from = process(subscript.from(), arrayContext);
+                Optional<List<Object>> to = subscript.to().map(path -> process(path, arrayContext));
                 if (from.size() != 1) {
                     throw new PathEvaluationError("array subscript 'from' value must be singleton numeric");
                 }
@@ -570,7 +571,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrCeilingMethod(IrCeilingMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -633,7 +634,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrConstantJsonSequence(IrConstantJsonSequence node, PathEvaluationContext context)
     {
-        return ImmutableList.copyOf(node.getSequence());
+        return ImmutableList.copyOf(node.sequence());
     }
 
     @Override
@@ -649,9 +650,40 @@ class PathEvaluationVisitor
     }
 
     @Override
+    protected List<Object> visitIrDescendantMemberAccessor(IrDescendantMemberAccessor node, PathEvaluationContext context)
+    {
+        List<Object> sequence = process(node.base(), context);
+
+        ImmutableList.Builder<Object> builder = ImmutableList.builder();
+        sequence.stream()
+                .forEach(object -> descendants(object, node.key(), builder));
+
+        return builder.build();
+    }
+
+    private void descendants(Object object, String key, ImmutableList.Builder<Object> builder)
+    {
+        if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
+            // prefix order: visit the enclosing object first
+            JsonNode boundValue = jsonNode.get(key);
+            if (boundValue != null) {
+                builder.add(boundValue);
+            }
+            // recurse into child nodes
+            ImmutableList.copyOf(jsonNode.fields()).stream()
+                    .forEach(field -> descendants(field.getValue(), key, builder));
+        }
+        if (object instanceof JsonNode jsonNode && jsonNode.isArray()) {
+            for (int index = 0; index < jsonNode.size(); index++) {
+                descendants(jsonNode.get(index), key, builder);
+            }
+        }
+    }
+
+    @Override
     protected List<Object> visitIrDoubleMethod(IrDoubleMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -712,7 +744,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrFilter(IrFilter node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -721,7 +753,7 @@ class PathEvaluationVisitor
         ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
         for (Object object : sequence) {
             PathEvaluationContext currentItemContext = context.withCurrentItem(object);
-            Boolean result = predicateVisitor.process(node.getPredicate(), currentItemContext);
+            Boolean result = predicateVisitor.process(node.predicate(), currentItemContext);
             if (Boolean.TRUE.equals(result)) {
                 outputSequence.add(object);
             }
@@ -733,7 +765,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrFloorMethod(IrFloorMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -802,7 +834,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrKeyValueMethod(IrKeyValueMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -841,13 +873,13 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrLiteral(IrLiteral node, PathEvaluationContext context)
     {
-        return ImmutableList.of(TypedValue.fromValueAsObject(node.getType().orElseThrow(), node.getValue()));
+        return ImmutableList.of(TypedValue.fromValueAsObject(node.type().orElseThrow(), node.value()));
     }
 
     @Override
     protected List<Object> visitIrMemberAccessor(IrMemberAccessor node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         if (lax) {
             sequence = unwrapArrays(sequence);
@@ -871,14 +903,14 @@ class PathEvaluationVisitor
 
             if (object instanceof JsonNode jsonNode && jsonNode.isObject()) {
                 // handle wildcard member accessor
-                if (node.getKey().isEmpty()) {
+                if (node.key().isEmpty()) {
                     outputSequence.addAll(jsonNode.elements());
                 }
                 else {
-                    JsonNode boundValue = jsonNode.get(node.getKey().get());
+                    JsonNode boundValue = jsonNode.get(node.key().get());
                     if (boundValue == null) {
                         if (!lax) {
-                            throw structuralError("missing member '%s' in JSON object", node.getKey().get());
+                            throw structuralError("missing member '%s' in JSON object", node.key().get());
                         }
                     }
                     else {
@@ -894,7 +926,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrNamedJsonVariable(IrNamedJsonVariable node, PathEvaluationContext context)
     {
-        Object value = parameters[node.getIndex()];
+        Object value = parameters[node.index()];
         checkState(value != null, "missing value for parameter");
         checkState(value instanceof JsonNode, "expected JSON, got SQL value");
 
@@ -907,7 +939,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrNamedValueVariable(IrNamedValueVariable node, PathEvaluationContext context)
     {
-        Object value = parameters[node.getIndex()];
+        Object value = parameters[node.index()];
         checkState(value != null, "missing value for parameter");
         checkState(value instanceof TypedValue || value instanceof NullNode, "expected SQL value or JSON null, got non-null JSON");
 
@@ -923,7 +955,7 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrSizeMethod(IrSizeMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
         ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
         for (Object object : sequence) {
@@ -953,9 +985,9 @@ class PathEvaluationVisitor
     @Override
     protected List<Object> visitIrTypeMethod(IrTypeMethod node, PathEvaluationContext context)
     {
-        List<Object> sequence = process(node.getBase(), context);
+        List<Object> sequence = process(node.base(), context);
 
-        Type resultType = node.getType().orElseThrow();
+        Type resultType = node.type().orElseThrow();
         ImmutableList.Builder<Object> outputSequence = ImmutableList.builder();
 
         // In case when a new type is supported in JSON path, it might be necessary to update the

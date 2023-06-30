@@ -14,11 +14,14 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetEncoding;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.OptionalInt;
 import java.util.Random;
 import java.util.stream.IntStream;
@@ -40,28 +43,44 @@ import static org.assertj.core.api.Assertions.assertThat;
 public final class TestIntValueDecoders
         extends AbstractValueDecodersTest
 {
+    private static final List<ParquetEncoding> ENCODINGS = ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED);
+
     @Override
     protected Object[][] tests()
     {
         return concat(
                 testArgs(
-                        new TestType<>(
-                                createField(INT32, OptionalInt.empty(), INTEGER),
-                                ValueDecoders::getIntDecoder,
-                                IntApacheParquetValueDecoder::new,
-                                INT_ADAPTER,
-                                (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED),
+                        createIntegerTestType(),
+                        ENCODINGS,
                         generateInputDataProviders()),
                 testArgs(
-                        new TestType<>(
-                                createField(INT32, OptionalInt.empty(), BIGINT),
-                                TransformingValueDecoders::getInt32ToLongDecoder,
-                                IntToLongApacheParquetValueDecoder::new,
-                                LONG_ADAPTER,
-                                (actual, expected) -> assertThat(actual).isEqualTo(expected)),
-                        ImmutableList.of(PLAIN, RLE_DICTIONARY, DELTA_BINARY_PACKED),
+                        createBigIntegerTestType(),
+                        ENCODINGS,
                         generateInputDataProviders()));
+    }
+
+    private static TestType<int[]> createIntegerTestType()
+    {
+        PrimitiveField field = createField(INT32, OptionalInt.empty(), INTEGER);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return new TestType<>(
+                field,
+                valueDecoders::getIntDecoder,
+                IntApacheParquetValueDecoder::new,
+                INT_ADAPTER,
+                (actual, expected) -> assertThat(actual).isEqualTo(expected));
+    }
+
+    private TestType<long[]> createBigIntegerTestType()
+    {
+        PrimitiveField field = createField(INT32, OptionalInt.empty(), BIGINT);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
+        return new TestType<>(
+                field,
+                valueDecoders::getInt32ToLongDecoder,
+                IntToLongApacheParquetValueDecoder::new,
+                LONG_ADAPTER,
+                (actual, expected) -> assertThat(actual).isEqualTo(expected));
     }
 
     private static InputDataProvider[] generateInputDataProviders()

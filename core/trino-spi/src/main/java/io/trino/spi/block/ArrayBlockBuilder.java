@@ -148,26 +148,17 @@ public class ArrayBlockBuilder
         return hasNullValue;
     }
 
-    @Override
-    public SingleArrayBlockWriter beginBlockEntry()
+    public <E extends Throwable> void buildEntry(ArrayValueBuilder<E> builder)
+            throws E
     {
         if (currentEntryOpened) {
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
+
         currentEntryOpened = true;
-        return new SingleArrayBlockWriter(values, values.getPositionCount());
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
-        if (!currentEntryOpened) {
-            throw new IllegalStateException("Expected entry to be opened but was closed");
-        }
-
+        builder.build(values);
         entryAdded(false);
         currentEntryOpened = false;
-        return this;
     }
 
     @Override

@@ -14,8 +14,8 @@
 package io.trino.tests.product.hive;
 
 import io.trino.jdbc.Row;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.query.QueryResult;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -25,6 +25,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.SMOKE;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -38,8 +39,8 @@ public class TestReadUniontype
     private static final String TABLE_NAME = "test_read_uniontype";
     private static final String TABLE_NAME_SCHEMA_EVOLUTION = "test_read_uniontype_with_schema_evolution";
 
-    @BeforeTestWithContext
-    @AfterTestWithContext
+    @BeforeMethodWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         onHive().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
@@ -133,7 +134,7 @@ public class TestReadUniontype
                         "DROP TABLE IF EXISTS " + tableUnionDereference}};
     }
 
-    @Test(dataProvider = "storage_formats", groups = SMOKE)
+    @Test(dataProvider = "storage_formats", groups = {SMOKE, AVRO})
     public void testReadUniontype(String storageFormat)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -219,7 +220,7 @@ public class TestReadUniontype
         }
     }
 
-    @Test(dataProvider = "union_dereference_test_cases", groups = SMOKE)
+    @Test(dataProvider = "union_dereference_test_cases", groups = {SMOKE, AVRO})
     public void testReadUniontypeWithDereference(String createTableSql, String insertSql, String selectSql, List<Object> expectedResult, String selectTagSql, List<Object> expectedTagResult, String dropTableSql)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2
@@ -238,7 +239,7 @@ public class TestReadUniontype
         onTrino().executeQuery(dropTableSql);
     }
 
-    @Test(dataProvider = "storage_formats", groups = SMOKE)
+    @Test(dataProvider = "storage_formats", groups = {SMOKE, AVRO})
     public void testUnionTypeSchemaEvolution(String storageFormat)
     {
         // According to testing results, the Hive INSERT queries here only work in Hive 1.2

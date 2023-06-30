@@ -14,6 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
@@ -29,8 +30,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionManager;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

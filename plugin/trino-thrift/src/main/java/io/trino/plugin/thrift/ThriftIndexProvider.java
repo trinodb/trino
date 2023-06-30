@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.thrift;
 
+import com.google.inject.Inject;
 import io.airlift.drift.client.DriftClient;
 import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.spi.connector.ColumnHandle;
@@ -21,8 +22,6 @@ import io.trino.spi.connector.ConnectorIndexHandle;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

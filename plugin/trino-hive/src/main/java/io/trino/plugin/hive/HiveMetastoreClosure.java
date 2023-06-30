@@ -152,6 +152,11 @@ public class HiveMetastoreClosure
         return delegate.getAllTables(databaseName);
     }
 
+    public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return delegate.getAllTables();
+    }
+
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
@@ -160,6 +165,11 @@ public class HiveMetastoreClosure
     public List<String> getAllViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
+    }
+
+    public Optional<List<SchemaTableName>> getAllViews()
+    {
+        return delegate.getAllViews();
     }
 
     public void createDatabase(Database database)

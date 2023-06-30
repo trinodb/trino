@@ -24,6 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hive.thrift.metastore.DataOperationType;
@@ -244,6 +245,15 @@ public class SemiTransactionalHiveMetastore
         return delegate.getAllTables(databaseName);
     }
 
+    public synchronized Optional<List<SchemaTableName>> getAllTables()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllTables();
+    }
+
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
     {
         checkReadable();
@@ -416,6 +426,15 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllViews(databaseName);
+    }
+
+    public synchronized Optional<List<SchemaTableName>> getAllViews()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getAllViews();
     }
 
     public synchronized void createDatabase(ConnectorSession session, Database database)
@@ -723,7 +742,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Table table = getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
-        if (!table.getTableType().equals(MANAGED_TABLE.toString())) {
+        if (!table.getTableType().equals(MANAGED_TABLE.name())) {
             throw new TrinoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.getPartitionColumns().isEmpty()) {
@@ -747,7 +766,7 @@ public class SemiTransactionalHiveMetastore
             ConnectorSession session,
             String databaseName,
             String tableName,
-            Path currentLocation,
+            Location currentLocation,
             List<PartitionUpdateAndMergeResults> partitionUpdateAndMergeResults,
             List<Partition> partitions)
     {
@@ -773,7 +792,7 @@ public class SemiTransactionalHiveMetastore
                             new TableAndMergeResults(
                                     table,
                                     Optional.of(principalPrivileges),
-                                    Optional.of(currentLocation),
+                                    Optional.of(new Path(currentLocation.toString())),
                                     partitionUpdateAndMergeResults,
                                     partitions),
                             hdfsContext,
@@ -1224,7 +1243,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getRequiredTableOwner(databaseName, tableName), grantee, grantor, privileges, grantOption));
     }
 
-    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Path stagingPathRoot, SchemaTableName schemaTableName)
+    public synchronized String declareIntentionToWrite(ConnectorSession session, WriteMode writeMode, Location stagingPathRoot, SchemaTableName schemaTableName)
     {
         setShared();
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
@@ -1237,7 +1256,7 @@ public class SemiTransactionalHiveMetastore
         String queryId = session.getQueryId();
         String declarationId = queryId + "_" + declaredIntentionsToWriteCounter;
         declaredIntentionsToWriteCounter++;
-        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, queryId, stagingPathRoot, schemaTableName));
+        declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(declarationId, writeMode, hdfsContext, queryId, new Path(stagingPathRoot.toString()), schemaTableName));
         return declarationId;
     }
 

@@ -595,7 +595,7 @@ public class ParquetWriteValidation
         return actual.equals(expected.stream().map(METADATA_CONVERTER::getEncoding).collect(toImmutableSet()));
     }
 
-    private static boolean areStatisticsSame(org.apache.parquet.column.statistics.Statistics actual, org.apache.parquet.format.Statistics expected)
+    private static boolean areStatisticsSame(org.apache.parquet.column.statistics.Statistics<?> actual, org.apache.parquet.format.Statistics expected)
     {
         Statistics.Builder expectedStatsBuilder = Statistics.getBuilderForReading(actual.type());
         if (expected.isSetNull_count()) {

@@ -22,6 +22,10 @@ import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -41,6 +45,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TrinoAttributes;
 import org.joda.time.DateTime;
 
 import javax.annotation.Nullable;
@@ -67,13 +72,8 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
-import static io.trino.execution.TaskState.ABORTED;
-import static io.trino.execution.TaskState.ABORTING;
-import static io.trino.execution.TaskState.CANCELED;
-import static io.trino.execution.TaskState.CANCELING;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.FAILING;
-import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.util.Failures.toFailures;
 import static java.lang.String.format;
@@ -88,9 +88,11 @@ public class SqlTask
     private final String taskInstanceId;
     private final URI location;
     private final String nodeId;
+    private final AtomicBoolean speculative = new AtomicBoolean(false);
     private final TaskStateMachine taskStateMachine;
     private final OutputBuffer outputBuffer;
     private final QueryContext queryContext;
+    private final Tracer tracer;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
     private final Executor taskNotificationExecutor;
@@ -103,6 +105,7 @@ public class SqlTask
     @GuardedBy("taskHolderLock")
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
+    private final AtomicReference<Span> taskSpan = new AtomicReference<>(Span.getInvalid());
     private final AtomicReference<String> traceToken = new AtomicReference<>();
     private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
 
@@ -111,6 +114,7 @@ public class SqlTask
             URI location,
             String nodeId,
             QueryContext queryContext,
+            Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             Consumer<SqlTask> onDone,
@@ -119,7 +123,7 @@ public class SqlTask
             ExchangeManagerRegistry exchangeManagerRegistry,
             CounterStat failedTasks)
     {
-        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
+        SqlTask sqlTask = new SqlTask(taskId, location, nodeId, queryContext, tracer, sqlTaskExecutionFactory, taskNotificationExecutor, maxBufferSize, maxBroadcastBufferSize, exchangeManagerRegistry);
         sqlTask.initialize(onDone, failedTasks);
         return sqlTask;
     }
@@ -129,6 +133,7 @@ public class SqlTask
             URI location,
             String nodeId,
             QueryContext queryContext,
+            Tracer tracer,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
             DataSize maxBufferSize,
@@ -140,6 +145,7 @@ public class SqlTask
         this.location = requireNonNull(location, "location is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
@@ -166,6 +172,9 @@ public class SqlTask
 
         AtomicBoolean outputBufferCleanedUp = new AtomicBoolean();
         taskStateMachine.addStateChangeListener(newState -> {
+            taskSpan.get().addEvent("task_state", Attributes.of(
+                    TrinoAttributes.EVENT_STATE, newState.toString()));
+
             if (newState.isTerminatingOrDone()) {
                 if (newState.isTerminating()) {
                     // This section must be synchronized to lock out any threads that might be attempting to create a SqlTaskExecution
@@ -222,6 +231,10 @@ public class SqlTask
             // notify that task state changed (apart from initial RUNNING state notification)
             if (newState != RUNNING) {
                 notifyStatusChanged();
+            }
+
+            if (newState.isDone()) {
+                taskSpan.get().end();
             }
         });
     }
@@ -364,6 +377,7 @@ public class SqlTask
                 state,
                 location,
                 nodeId,
+                speculative.get(),
                 failures,
                 queuedPartitionedDrivers,
                 runningPartitionedDrivers,
@@ -452,10 +466,12 @@ public class SqlTask
 
     public TaskInfo updateTask(
             Session session,
+            Span stageSpan,
             Optional<PlanFragment> fragment,
             List<SplitAssignment> splitAssignments,
             OutputBuffers outputBuffers,
-            Map<DynamicFilterId, Domain> dynamicFilterDomains)
+            Map<DynamicFilterId, Domain> dynamicFilterDomains,
+            boolean speculative)
     {
         try {
             // trace token must be set first to make sure failure injection for getTaskResults requests works as expected
@@ -475,13 +491,16 @@ public class SqlTask
             SqlTaskExecution taskExecution = taskHolder.getTaskExecution();
             if (taskExecution == null) {
                 checkState(fragment.isPresent(), "fragment must be present");
-                taskExecution = tryCreateSqlTaskExecution(session, fragment.get());
+                taskExecution = tryCreateSqlTaskExecution(session, stageSpan, fragment.get());
             }
             // taskExecution can still be null if the creation was skipped
             if (taskExecution != null) {
                 taskExecution.addSplitAssignments(splitAssignments);
                 taskExecution.getTaskContext().addDynamicFilter(dynamicFilterDomains);
             }
+
+            // update speculative flag
+            this.speculative.set(speculative);
         }
         catch (Error e) {
             failed(e);
@@ -495,7 +514,7 @@ public class SqlTask
     }
 
     @Nullable
-    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, PlanFragment fragment)
+    private SqlTaskExecution tryCreateSqlTaskExecution(Session session, Span stageSpan, PlanFragment fragment)
     {
         synchronized (taskHolderLock) {
             // Recheck holder for task execution after acquiring the lock
@@ -513,8 +532,16 @@ public class SqlTask
                 return null;
             }
 
+            taskSpan.set(tracer.spanBuilder("task")
+                    .setParent(Context.current().with(stageSpan))
+                    .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
+                    .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                    .setAttribute(TrinoAttributes.TASK_ID, taskId.toString())
+                    .startSpan());
+
             execution = sqlTaskExecutionFactory.create(
                     session,
+                    taskSpan.get(),
                     queryContext,
                     taskStateMachine,
                     outputBuffer,

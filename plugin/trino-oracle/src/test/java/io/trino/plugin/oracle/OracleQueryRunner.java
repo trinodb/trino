@@ -18,9 +18,11 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
@@ -41,10 +43,24 @@ public final class OracleQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createOracleQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, queryRunner -> {});
+    }
+
+    public static DistributedQueryRunner createOracleQueryRunner(
+            TestingOracleServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> coordinatorProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            Consumer<QueryRunner> moreSetup)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setCoordinatorProperties(coordinatorProperties)
+                    .setAdditionalSetup(moreSetup)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());

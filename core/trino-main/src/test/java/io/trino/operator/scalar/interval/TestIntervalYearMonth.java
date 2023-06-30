@@ -64,19 +64,19 @@ public class TestIntervalYearMonth
                 .isEqualTo(interval(32767, 32767));
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '124X' YEAR").evaluate())
-                .hasMessage("line 1:12: '124X' is not a valid interval literal");
+                .hasMessage("line 1:12: '124X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '124-30' YEAR").evaluate())
-                .hasMessage("line 1:12: '124-30' is not a valid interval literal");
+                .hasMessage("line 1:12: '124-30' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '124-X' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '124-X' is not a valid interval literal");
+                .hasMessage("line 1:12: '124-X' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '124--30' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '124--30' is not a valid interval literal");
+                .hasMessage("line 1:12: '124--30' is not a valid INTERVAL literal");
 
         assertThatThrownBy(() -> assertions.expression("INTERVAL '--124--30' YEAR TO MONTH").evaluate())
-                .hasMessage("line 1:12: '--124--30' is not a valid interval literal");
+                .hasMessage("line 1:12: '--124--30' is not a valid INTERVAL literal");
     }
 
     private static SqlIntervalYearMonth interval(int year, int month)

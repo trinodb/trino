@@ -171,7 +171,6 @@ public class TestEffectivePredicateExtractor
                             ((PredicatedTableHandle) handle.getConnectorHandle()).getPredicate(),
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty(),
                             ImmutableList.of()));
         }
     };
@@ -1237,7 +1236,7 @@ public class TestEffectivePredicateExtractor
         predicate = expressionNormalizer.normalize(predicate);
 
         // Equality inference rewrites and equality generation will always be stable across multiple runs in the same JVM
-        EqualityInference inference = EqualityInference.newInstance(metadata, predicate);
+        EqualityInference inference = new EqualityInference(metadata, predicate);
 
         Set<Symbol> scope = SymbolsExtractor.extractUnique(predicate);
         Set<Expression> rewrittenSet = EqualityInference.nonInferrableConjuncts(metadata, predicate)

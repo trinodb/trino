@@ -20,7 +20,6 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.fs.Path;
 
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,7 @@ public final class PartitionProjection
                 .collect(toImmutableList());
         return Optional.of(cartesianProduct(projectedPartitionValues)
                 .stream()
-                .map(parts -> String.join(Path.SEPARATOR, parts))
+                .map(parts -> String.join("/", parts))
                 .collect(toImmutableList()));
     }
 

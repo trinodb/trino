@@ -18,8 +18,12 @@ import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
@@ -37,33 +41,34 @@ import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
+import io.trino.tracing.TrinoAttributes;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.AsyncResponse;
+import jakarta.ws.rs.container.Suspended;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.UriBuilder;
+import jakarta.ws.rs.core.UriInfo;
 
 import javax.annotation.Nullable;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.ThreadSafe;
-import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.GET;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.container.AsyncResponse;
-import javax.ws.rs.container.Suspended;
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -72,8 +77,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.clearspring.analytics.util.Preconditions.checkState;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
@@ -88,15 +93,15 @@ import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
+import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static javax.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
-import static javax.ws.rs.core.Response.Status.FORBIDDEN;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("/v1/statement")
 public class QueuedStatementResource
@@ -108,6 +113,7 @@ public class QueuedStatementResource
 
     private final HttpRequestSessionContextFactory sessionContextFactory;
     private final DispatchManager dispatchManager;
+    private final Tracer tracer;
 
     private final QueryInfoUrlFactory queryInfoUrlFactory;
 
@@ -122,6 +128,7 @@ public class QueuedStatementResource
     public QueuedStatementResource(
             HttpRequestSessionContextFactory sessionContextFactory,
             DispatchManager dispatchManager,
+            Tracer tracer,
             DispatchExecutor executor,
             QueryInfoUrlFactory queryInfoUrlTemplate,
             ServerConfig serverConfig,
@@ -130,6 +137,7 @@ public class QueuedStatementResource
     {
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.responseExecutor = executor.getExecutor();
         this.timeoutExecutor = executor.getScheduledExecutor();
         this.queryInfoUrlFactory = requireNonNull(queryInfoUrlTemplate, "queryInfoUrlTemplate is null");
@@ -179,7 +187,7 @@ public class QueuedStatementResource
         MultivaluedMap<String, String> headers = httpHeaders.getRequestHeaders();
 
         SessionContext sessionContext = sessionContextFactory.createSessionContext(headers, alternateHeaderName, remoteAddress, identity);
-        Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory);
+        Query query = new Query(statement, sessionContext, dispatchManager, queryInfoUrlFactory, tracer);
         queryManager.registerQuery(query);
 
         // let authentication filter know that identity lifecycle has been handed off
@@ -282,6 +290,8 @@ public class QueuedStatementResource
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)
+                        .setProgressPercentage(OptionalDouble.empty())
+                        .setRunningPercentage(OptionalDouble.empty())
                         .setElapsedTimeMillis(elapsedTime.toMillis())
                         .setQueuedTimeMillis(queuedTime.toMillis())
                         .build(),
@@ -307,6 +317,7 @@ public class QueuedStatementResource
         private final DispatchManager dispatchManager;
         private final QueryId queryId;
         private final Optional<URI> queryInfoUrl;
+        private final Span querySpan;
         private final Slug slug = Slug.createNew();
         private final AtomicLong lastToken = new AtomicLong();
 
@@ -314,7 +325,7 @@ public class QueuedStatementResource
         private final AtomicReference<Boolean> submissionGate = new AtomicReference<>();
         private final SettableFuture<Void> creationFuture = SettableFuture.create();
 
-        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory)
+        public Query(String query, SessionContext sessionContext, DispatchManager dispatchManager, QueryInfoUrlFactory queryInfoUrlFactory, Tracer tracer)
         {
             this.query = requireNonNull(query, "query is null");
             this.sessionContext = requireNonNull(sessionContext, "sessionContext is null");
@@ -322,6 +333,12 @@ public class QueuedStatementResource
             this.queryId = dispatchManager.createQueryId();
             requireNonNull(queryInfoUrlFactory, "queryInfoUrlFactory is null");
             this.queryInfoUrl = queryInfoUrlFactory.getQueryInfoUrl(queryId);
+            requireNonNull(tracer, "tracer is null");
+            this.querySpan = tracer.spanBuilder("query")
+                    .addLink(Span.current().getSpanContext())
+                    .setNoParent()
+                    .setAttribute(TrinoAttributes.QUERY_ID, queryId.toString())
+                    .startSpan();
         }
 
         public QueryId getQueryId()
@@ -367,7 +384,8 @@ public class QueuedStatementResource
         private void submitIfNeeded()
         {
             if (submissionGate.compareAndSet(null, true)) {
-                creationFuture.setFuture(dispatchManager.createQuery(queryId, slug, sessionContext, query));
+                querySpan.addEvent("submit");
+                creationFuture.setFuture(dispatchManager.createQuery(queryId, querySpan, slug, sessionContext, query));
             }
         }
 
@@ -405,6 +423,7 @@ public class QueuedStatementResource
 
         public void destroy()
         {
+            querySpan.setStatus(StatusCode.ERROR).end();
             sessionContext.getIdentity().destroy();
         }
 

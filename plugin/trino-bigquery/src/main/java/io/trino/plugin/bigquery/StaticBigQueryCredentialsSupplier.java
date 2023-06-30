@@ -13,19 +13,22 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.api.client.util.Base64;
 import com.google.auth.Credentials;
+import com.google.auth.http.HttpTransportFactory;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.http.HttpTransportOptions;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
+import com.google.inject.Inject;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.util.Base64;
 import java.util.Optional;
 
 public class StaticBigQueryCredentialsSupplier
@@ -34,14 +37,17 @@ public class StaticBigQueryCredentialsSupplier
     private final Supplier<Optional<Credentials>> credentialsCreator;
 
     @Inject
-    public StaticBigQueryCredentialsSupplier(StaticCredentialsConfig config)
+    public StaticBigQueryCredentialsSupplier(StaticCredentialsConfig config, Optional<ProxyTransportFactory> proxyTransportFactory)
     {
+        Optional<HttpTransportFactory> httpTransportFactory = proxyTransportFactory
+                .map(ProxyTransportFactory::getTransportOptions)
+                .map(HttpTransportOptions::getHttpTransportFactory);
         // lazy creation, cache once it's created
         Optional<Credentials> credentialsKey = config.getCredentialsKey()
-                .map(StaticBigQueryCredentialsSupplier::createCredentialsFromKey);
+                .map(key -> createCredentialsFromKey(httpTransportFactory, key));
 
         Optional<Credentials> credentialsFile = config.getCredentialsFile()
-                .map(StaticBigQueryCredentialsSupplier::createCredentialsFromFile);
+                .map(keyFile -> createCredentialsFromFile(httpTransportFactory, keyFile));
 
         this.credentialsCreator = Suppliers.memoize(() -> credentialsKey.or(() -> credentialsFile));
     }
@@ -52,23 +58,31 @@ public class StaticBigQueryCredentialsSupplier
         return credentialsCreator.get();
     }
 
-    private static Credentials createCredentialsFromKey(String key)
+    private static Credentials createCredentialsFromKey(Optional<HttpTransportFactory> httpTransportFactory, String key)
+    {
+        return createCredentialsFromStream(httpTransportFactory, new ByteArrayInputStream(Base64.getDecoder().decode(key)));
+    }
+
+    private static Credentials createCredentialsFromFile(Optional<HttpTransportFactory> httpTransportFactory, String file)
     {
         try {
-            return GoogleCredentials.fromStream(new ByteArrayInputStream(Base64.decodeBase64(key)));
+            return createCredentialsFromStream(httpTransportFactory, new FileInputStream(file));
         }
-        catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from key", e);
+        catch (FileNotFoundException e) {
+            throw new UncheckedIOException("Failed to create Credentials from file", e);
         }
     }
 
-    private static Credentials createCredentialsFromFile(String file)
+    private static Credentials createCredentialsFromStream(Optional<HttpTransportFactory> httpTransportFactory, InputStream inputStream)
     {
         try {
-            return GoogleCredentials.fromStream(new FileInputStream(file));
+            if (httpTransportFactory.isPresent()) {
+                return GoogleCredentials.fromStream(inputStream, httpTransportFactory.get());
+            }
+            return GoogleCredentials.fromStream(inputStream);
         }
         catch (IOException e) {
-            throw new UncheckedIOException("Failed to create Credentials from file", e);
+            throw new UncheckedIOException("Failed to create Credentials from stream", e);
         }
     }
 }

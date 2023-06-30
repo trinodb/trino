@@ -168,7 +168,13 @@ public class TestKafkaConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_DEREFERENCE_PUSHDOWN:
                 return false;
 
             case SUPPORTS_CREATE_SCHEMA:
@@ -185,6 +191,10 @@ public class TestKafkaConnectorTest
 
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             default:

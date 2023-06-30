@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.prometheus;
 
-import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -28,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
 import static java.util.Collections.singletonList;
 
@@ -46,7 +46,7 @@ public class PrometheusQueryResponseParse
     {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
-        JsonParser parser = new JsonFactory().createParser(response);
+        JsonParser parser = jsonFactory().createParser(response);
         while (!parser.isClosed()) {
             JsonToken jsonToken = parser.nextToken();
             if (JsonToken.FIELD_NAME.equals(jsonToken)) {

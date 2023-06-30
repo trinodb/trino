@@ -21,6 +21,7 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
@@ -60,6 +61,7 @@ import static java.util.Objects.requireNonNull;
 public final class Session
 {
     private final QueryId queryId;
+    private final Span querySpan;
     private final Optional<TransactionId> transactionId;
     private final boolean clientTransactionSupport;
     private final Identity identity;
@@ -87,6 +89,7 @@ public final class Session
 
     public Session(
             QueryId queryId,
+            Span querySpan,
             Optional<TransactionId> transactionId,
             boolean clientTransactionSupport,
             Identity identity,
@@ -112,6 +115,7 @@ public final class Session
             Optional<Slice> exchangeEncryptionKey)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
+        this.querySpan = requireNonNull(querySpan, "querySpan is null");
         this.transactionId = requireNonNull(transactionId, "transactionId is null");
         this.clientTransactionSupport = clientTransactionSupport;
         this.identity = requireNonNull(identity, "identity is null");
@@ -148,6 +152,11 @@ public final class Session
     public QueryId getQueryId()
     {
         return queryId;
+    }
+
+    public Span getQuerySpan()
+    {
+        return querySpan;
     }
 
     public String getUser()
@@ -332,6 +341,7 @@ public final class Session
 
         return new Session(
                 queryId,
+                querySpan,
                 Optional.of(transactionId),
                 clientTransactionSupport,
                 Identity.from(identity)
@@ -381,6 +391,7 @@ public final class Session
 
         return new Session(
                 queryId,
+                querySpan,
                 transactionId,
                 clientTransactionSupport,
                 identity,
@@ -411,6 +422,7 @@ public final class Session
         checkState(exchangeEncryptionKey.isEmpty(), "exchangeEncryptionKey is already present");
         return new Session(
                 queryId,
+                querySpan,
                 transactionId,
                 clientTransactionSupport,
                 identity,
@@ -459,6 +471,7 @@ public final class Session
     {
         return new SessionRepresentation(
                 queryId.toString(),
+                querySpan,
                 transactionId,
                 clientTransactionSupport,
                 identity.getUser(),
@@ -491,6 +504,7 @@ public final class Session
     {
         return toStringHelper(this)
                 .add("queryId", queryId)
+                .add("querySpan", querySpanString().orElse(null))
                 .add("transactionId", transactionId)
                 .add("user", getUser())
                 .add("principal", getIdentity().getPrincipal().orElse(null))
@@ -510,6 +524,16 @@ public final class Session
                 .add("start", start)
                 .omitNullValues()
                 .toString();
+    }
+
+    private Optional<String> querySpanString()
+    {
+        return Optional.of(querySpan)
+                .filter(span -> span.getSpanContext().isValid())
+                .map(span -> toStringHelper("Span")
+                        .add("spanId", span.getSpanContext().getSpanId())
+                        .add("traceId", span.getSpanContext().getTraceId())
+                        .toString());
     }
 
     private void validateCatalogProperties(
@@ -560,6 +584,7 @@ public final class Session
     public static class SessionBuilder
     {
         private QueryId queryId;
+        private Span querySpan = Span.getInvalid();
         private TransactionId transactionId;
         private boolean clientTransactionSupport;
         private Identity identity;
@@ -621,6 +646,13 @@ public final class Session
         public SessionBuilder setQueryId(QueryId queryId)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
+            return this;
+        }
+
+        @CanIgnoreReturnValue
+        public SessionBuilder setQuerySpan(Span querySpan)
+        {
+            this.querySpan = requireNonNull(querySpan, "querySpan is null");
             return this;
         }
 
@@ -853,6 +885,7 @@ public final class Session
         {
             return new Session(
                     queryId,
+                    querySpan,
                     Optional.ofNullable(transactionId),
                     clientTransactionSupport,
                     identity,

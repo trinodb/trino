@@ -63,6 +63,7 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "experimental.spill-order-by",
         "spill-window-operator",
         "experimental.spill-window-operator",
+        "legacy.allow-set-view-authorization",
 })
 public class FeaturesConfig
 {
@@ -100,7 +101,6 @@ public class FeaturesConfig
 
     private boolean legacyCatalogRoles;
     private boolean incrementalHashArrayLoadFactorEnabled = true;
-    private boolean allowSetViewAuthorization;
 
     private boolean legacyMaterializedViewGracePeriod;
     private boolean hideInaccessibleColumns;
@@ -471,20 +471,6 @@ public class FeaturesConfig
     public FeaturesConfig setHideInaccessibleColumns(boolean hideInaccessibleColumns)
     {
         this.hideInaccessibleColumns = hideInaccessibleColumns;
-        return this;
-    }
-
-    public boolean isAllowSetViewAuthorization()
-    {
-        return allowSetViewAuthorization;
-    }
-
-    @Config("legacy.allow-set-view-authorization")
-    @ConfigDescription("For security reasons ALTER VIEW SET AUTHORIZATION is disabled for SECURITY DEFINER; " +
-            "setting this option to true will re-enable this functionality")
-    public FeaturesConfig setAllowSetViewAuthorization(boolean allowSetViewAuthorization)
-    {
-        this.allowSetViewAuthorization = allowSetViewAuthorization;
         return this;
     }
 

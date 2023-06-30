@@ -28,7 +28,8 @@ public final class StaticHostProvider
 {
     public interface Resolver
     {
-        InetAddress[] getAllByName(String name) throws UnknownHostException;
+        InetAddress[] getAllByName(String name)
+                throws UnknownHostException;
     }
 
     private final List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(5);

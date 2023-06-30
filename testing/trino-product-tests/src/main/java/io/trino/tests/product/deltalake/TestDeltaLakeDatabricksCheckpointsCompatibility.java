@@ -19,7 +19,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
@@ -33,7 +33,6 @@ import java.util.function.Consumer;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_73;
@@ -63,7 +62,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
     private AmazonS3 s3;
     private DatabricksVersion databricksRuntimeVersion;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -262,7 +261,7 @@ public class TestDeltaLakeDatabricksCheckpointsCompatibility
 
     private String getDatabricksTablePropertiesWithCheckpointInterval()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_113_RUNTIME_VERSION)) {
+        if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.checkpointInterval' = '3',\n" +
                     "  'delta.minReaderVersion' = '1',\n" +

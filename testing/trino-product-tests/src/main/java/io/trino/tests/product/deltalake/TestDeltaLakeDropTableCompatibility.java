@@ -17,7 +17,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.Engine;
 import org.testng.annotations.DataProvider;
@@ -48,7 +48,7 @@ public class TestDeltaLakeDropTableCompatibility
 
     private AmazonS3 s3;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         super.setUp();
@@ -87,40 +87,34 @@ public class TestDeltaLakeDropTableCompatibility
                 : Optional.empty();
 
         switch (creator) {
-            case TRINO:
-                onTrino().executeQuery(format("CREATE SCHEMA delta.%s WITH (location = '%s')", schemaName, schemaLocation));
-                break;
-            case DELTA:
-                onDelta().executeQuery(format("CREATE SCHEMA %s LOCATION \"%s\"", schemaName, schemaLocation));
-                break;
-            default:
-                throw new UnsupportedOperationException("Unsupported engine: " + creator);
+            case TRINO -> onTrino().executeQuery(format("CREATE SCHEMA delta.%s WITH (location = '%s')", schemaName, schemaLocation));
+            case DELTA -> onDelta().executeQuery(format("CREATE SCHEMA %s LOCATION \"%s\"", schemaName, schemaLocation));
+            default -> throw new UnsupportedOperationException("Unsupported engine: " + creator);
         }
         try {
             onTrino().executeQuery("USE delta." + schemaName);
             switch (creator) {
-                case TRINO:
-                    onTrino().executeQuery(format(
-                            "CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)",
-                            schemaName,
-                            tableName,
-                            tableLocation.map(location -> "WITH (location = '" + location + "')").orElse("")));
-                    break;
-                case DELTA:
-                    onDelta().executeQuery(format(
-                            "CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)",
-                            schemaName,
-                            tableName,
-                            tableLocation.map(location -> "LOCATION \"" + location + "\"").orElse("")));
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unsupported engine: " + creator);
+                case TRINO -> onTrino().executeQuery(format(
+                        "CREATE TABLE %s.%s (a, b) %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                        schemaName,
+                        tableName,
+                        tableLocation.map(location -> "WITH (location = '" + location + "')").orElse("")));
+                case DELTA -> onDelta().executeQuery(format(
+                        "CREATE TABLE %s.%s USING DELTA %s AS VALUES (1, 2), (2, 3), (3, 4)",
+                        schemaName,
+                        tableName,
+                        tableLocation.map(location -> "LOCATION \"" + location + "\"").orElse("")));
+                default -> throw new UnsupportedOperationException("Unsupported engine: " + creator);
             }
 
             ObjectListing tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             assertThat(tableFiles.getObjectSummaries()).isNotEmpty();
 
-            dropper.queryExecutor().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+            switch (dropper) {
+                case DELTA -> dropDeltaTableWithRetry(schemaName + "." + tableName);
+                case TRINO -> onTrino().executeQuery("DROP TABLE " + schemaName + "." + tableName);
+                default -> throw new UnsupportedOperationException("Unsupported engine: " + dropper);
+            }
             tableFiles = s3.listObjects(bucketName, "databricks-compatibility-test-" + schemaName + "/" + tableName);
             if (explicitLocation) {
                 assertThat(tableFiles.getObjectSummaries()).isNotEmpty();

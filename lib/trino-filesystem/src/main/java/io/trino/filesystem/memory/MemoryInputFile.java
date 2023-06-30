@@ -14,64 +14,83 @@
 package io.trino.filesystem.memory;
 
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 public class MemoryInputFile
         implements TrinoInputFile
 {
-    private final String location;
-    private final Slice data;
+    private final Location location;
+    private final Supplier<MemoryBlob> dataSupplier;
+    private OptionalLong length;
+    private Optional<Instant> lastModified = Optional.empty();
 
-    public MemoryInputFile(String location, Slice data)
+    public MemoryInputFile(Location location, Slice data)
+    {
+        this(location, () -> new MemoryBlob(data), OptionalLong.of(data.length()));
+    }
+
+    public MemoryInputFile(Location location, Supplier<MemoryBlob> dataSupplier, OptionalLong length)
     {
         this.location = requireNonNull(location, "location is null");
-        this.data = requireNonNull(data, "data is null");
+        this.dataSupplier = requireNonNull(dataSupplier, "dataSupplier is null");
+        this.length = requireNonNull(length, "length is null");
     }
 
     @Override
     public TrinoInput newInput()
             throws IOException
     {
-        return new MemoryInput(location, data);
+        return new MemoryInput(location, getBlobRequired().data());
     }
 
     @Override
     public TrinoInputStream newStream()
             throws IOException
     {
-        return new MemoryTrinoInputStream(data);
+        return new MemoryInputStream(location, getBlobRequired().data());
     }
 
     @Override
     public long length()
             throws IOException
     {
-        return data.length();
+        if (length.isEmpty()) {
+            length = OptionalLong.of(getBlobRequired().data().length());
+        }
+        return length.getAsLong();
     }
 
     @Override
     public Instant lastModified()
             throws IOException
     {
-        return Instant.EPOCH;
+        if (lastModified.isEmpty()) {
+            lastModified = Optional.of(getBlobRequired().lastModified());
+        }
+        return lastModified.get();
     }
 
     @Override
     public boolean exists()
             throws IOException
     {
-        return true;
+        return dataSupplier.get() != null;
     }
 
     @Override
-    public String location()
+    public Location location()
     {
         return location;
     }
@@ -79,6 +98,16 @@ public class MemoryInputFile
     @Override
     public String toString()
     {
-        return location();
+        return location.toString();
+    }
+
+    private MemoryBlob getBlobRequired()
+            throws FileNotFoundException
+    {
+        MemoryBlob data = dataSupplier.get();
+        if (data == null) {
+            throw new FileNotFoundException(toString());
+        }
+        return data;
     }
 }

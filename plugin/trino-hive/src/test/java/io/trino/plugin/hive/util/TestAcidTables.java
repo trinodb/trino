@@ -14,18 +14,19 @@
 package io.trino.plugin.hive.util;
 
 import io.trino.filesystem.FileEntry;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.util.AcidTables.AcidState;
 import io.trino.plugin.hive.util.AcidTables.ParsedBase;
 import io.trino.plugin.hive.util.AcidTables.ParsedDelta;
 import io.trino.plugin.hive.util.FileSystemTesting.MockFile;
 import io.trino.plugin.hive.util.FileSystemTesting.MockFileSystem;
-import io.trino.plugin.hive.util.FileSystemTesting.MockPath;
 import io.trino.spi.security.ConnectorIdentity;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -117,10 +118,12 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/000002_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/random", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/_done", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/abc/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).isEmpty();
@@ -128,13 +131,13 @@ public class TestAcidTables
 
         List<FileEntry> files = state.originalFiles();
         assertEquals(files.size(), 7);
-        assertEquals(files.get(0).location(), "mock:/tbl/part1/000000_0");
-        assertEquals(files.get(1).location(), "mock:/tbl/part1/000000_0_copy_1");
-        assertEquals(files.get(2).location(), "mock:/tbl/part1/000000_0_copy_2");
-        assertEquals(files.get(3).location(), "mock:/tbl/part1/000001_1");
-        assertEquals(files.get(4).location(), "mock:/tbl/part1/000002_0");
-        assertEquals(files.get(5).location(), "mock:/tbl/part1/random");
-        assertEquals(files.get(6).location(), "mock:/tbl/part1/subdir/000000_0");
+        assertEquals(files.get(0).location(), Location.of("mock:///tbl/part1/000000_0"));
+        assertEquals(files.get(1).location(), Location.of("mock:///tbl/part1/000000_0_copy_1"));
+        assertEquals(files.get(2).location(), Location.of("mock:///tbl/part1/000000_0_copy_2"));
+        assertEquals(files.get(3).location(), Location.of("mock:///tbl/part1/000001_1"));
+        assertEquals(files.get(4).location(), Location.of("mock:///tbl/part1/000002_0"));
+        assertEquals(files.get(5).location(), Location.of("mock:///tbl/part1/random"));
+        assertEquals(files.get(6).location(), Location.of("mock:///tbl/part1/subdir/000000_0"));
     }
 
     @Test
@@ -147,6 +150,8 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/000002_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/random", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/_done", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/000000_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/delta_025_025/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/subdir/000000_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_025_025/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/delta_029_029/bucket_0", 0, FAKE_DATA),
@@ -155,27 +160,27 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delta_101_101/bucket_0", 0, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         assertThat(state.baseDirectory()).isEmpty();
 
         List<FileEntry> files = state.originalFiles();
         assertEquals(files.size(), 5);
-        assertEquals(files.get(0).location(), "mock:/tbl/part1/000000_0");
-        assertEquals(files.get(1).location(), "mock:/tbl/part1/000001_1");
-        assertEquals(files.get(2).location(), "mock:/tbl/part1/000002_0");
-        assertEquals(files.get(3).location(), "mock:/tbl/part1/random");
-        assertEquals(files.get(4).location(), "mock:/tbl/part1/subdir/000000_0");
+        assertEquals(files.get(0).location(), Location.of("mock:///tbl/part1/000000_0"));
+        assertEquals(files.get(1).location(), Location.of("mock:///tbl/part1/000001_1"));
+        assertEquals(files.get(2).location(), Location.of("mock:///tbl/part1/000002_0"));
+        assertEquals(files.get(3).location(), Location.of("mock:///tbl/part1/random"));
+        assertEquals(files.get(4).location(), Location.of("mock:///tbl/part1/subdir/000000_0"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
         ParsedDelta delta = deltas.get(0);
-        assertEquals(delta.path(), "mock:/tbl/part1/delta_025_030");
+        assertEquals(delta.path(), "mock:///tbl/part1/delta_025_030");
         assertEquals(delta.min(), 25);
         assertEquals(delta.max(), 30);
         delta = deltas.get(1);
-        assertEquals(delta.path(), "mock:/tbl/part1/delta_050_100");
+        assertEquals(delta.path(), "mock:///tbl/part1/delta_050_100");
         assertEquals(delta.min(), 50);
         assertEquals(delta.max(), 100);
     }
@@ -185,6 +190,8 @@ public class TestAcidTables
             throws Exception
     {
         MockFileSystem fs = new MockFileSystem(newEmptyConfiguration(),
+                new MockFile("mock:/tbl/part1/_tmp/bucket_0", 0, FAKE_DATA),
+                new MockFile("mock:/tbl/part1/_tmp/base_5/bucket_0", 0, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, FAKE_DATA),
                 new MockFile("mock:/tbl/part1/base_49/bucket_0", 500, FAKE_DATA),
@@ -195,16 +202,16 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delta_90_120/bucket_0", 0, FAKE_DATA));
         AcidState dir = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(dir.baseDirectory()).contains("mock:/tbl/part1/base_49");
+        assertThat(dir.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_49"));
         assertEquals(dir.originalFiles().size(), 0);
 
         List<ParsedDelta> deltas = dir.deltas();
         assertEquals(deltas.size(), 1);
         ParsedDelta delta = deltas.get(0);
-        assertEquals(delta.path(), "mock:/tbl/part1/delta_050_105");
+        assertEquals(delta.path(), "mock:///tbl/part1/delta_050_105");
         assertEquals(delta.min(), 50);
         assertEquals(delta.max(), 105);
     }
@@ -220,10 +227,10 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/000001_1", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:150:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_10");
+        assertThat(state.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_10"));
     }
 
     @Test
@@ -240,17 +247,17 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/base_50/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
+        assertThat(state.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 4);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_40_60");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_00061_61");
-        assertEquals(deltas.get(2).path(), "mock:/tbl/part1/delta_000062_62");
-        assertEquals(deltas.get(3).path(), "mock:/tbl/part1/delta_0000063_63");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_40_60");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_00061_61");
+        assertEquals(deltas.get(2).path(), "mock:///tbl/part1/delta_000062_62");
+        assertEquals(deltas.get(3).path(), "mock:///tbl/part1/delta_0000063_63");
     }
 
     @Test
@@ -271,18 +278,18 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/base_50/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
+        assertThat(state.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 5);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_40_60");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_00061_61_0");
-        assertEquals(deltas.get(2).path(), "mock:/tbl/part1/delta_000062_62_0");
-        assertEquals(deltas.get(3).path(), "mock:/tbl/part1/delta_000062_62_3");
-        assertEquals(deltas.get(4).path(), "mock:/tbl/part1/delta_0000063_63_0");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_40_60");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_00061_61_0");
+        assertEquals(deltas.get(2).path(), "mock:///tbl/part1/delta_000062_62_0");
+        assertEquals(deltas.get(3).path(), "mock:///tbl/part1/delta_000062_62_3");
+        assertEquals(deltas.get(4).path(), "mock:///tbl/part1/delta_0000063_63_0");
     }
 
     @Test
@@ -294,13 +301,13 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_1_1");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_2_5");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_1_1");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_2_5");
     }
 
     @Test
@@ -315,13 +322,13 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delta_101_101_1/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_1_1");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_2_5");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_1_1");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_2_5");
     }
 
     @Test
@@ -342,16 +349,16 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delete_delta_110_110/bucket_0", 0, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_49");
+        assertThat(state.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_49"));
         assertThat(state.originalFiles()).isEmpty();
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 2);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delete_delta_050_105");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_050_105");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delete_delta_050_105");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_050_105");
         // The delete_delta_110_110 should not be read because it is greater than the high watermark.
     }
 
@@ -372,19 +379,19 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/base_50/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
-        assertThat(state.baseDirectory()).contains("mock:/tbl/part1/base_50");
+        assertThat(state.baseDirectory()).contains(Location.of("mock:///tbl/part1/base_50"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 6);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delete_delta_40_60");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delta_40_60");
-        assertEquals(deltas.get(2).path(), "mock:/tbl/part1/delta_00061_61");
-        assertEquals(deltas.get(3).path(), "mock:/tbl/part1/delta_000062_62");
-        assertEquals(deltas.get(4).path(), "mock:/tbl/part1/delta_0000063_63");
-        assertEquals(deltas.get(5).path(), "mock:/tbl/part1/delete_delta_00064_64");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delete_delta_40_60");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delta_40_60");
+        assertEquals(deltas.get(2).path(), "mock:///tbl/part1/delta_00061_61");
+        assertEquals(deltas.get(3).path(), "mock:///tbl/part1/delta_000062_62");
+        assertEquals(deltas.get(4).path(), "mock:///tbl/part1/delta_0000063_63");
+        assertEquals(deltas.get(5).path(), "mock:///tbl/part1/delete_delta_00064_64");
     }
 
     @Test
@@ -398,12 +405,12 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delete_delta_50_50/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:%d:".formatted(Long.MAX_VALUE)));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 1);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_40_60");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_40_60");
     }
 
     @Test
@@ -420,14 +427,14 @@ public class TestAcidTables
                 new MockFile("mock:/tbl/part1/delta_101_101_1/bucket_0", 500, FAKE_DATA));
         AcidState state = getAcidState(
                 testingTrinoFileSystem(fs),
-                new MockPath(fs, "mock:/tbl/part1").toString(),
+                Location.of("mock:///tbl/part1"),
                 new ValidWriteIdList("tbl:100:4:4"));
 
         List<ParsedDelta> deltas = state.deltas();
         assertEquals(deltas.size(), 3);
-        assertEquals(deltas.get(0).path(), "mock:/tbl/part1/delta_1_1");
-        assertEquals(deltas.get(1).path(), "mock:/tbl/part1/delete_delta_2_5");
-        assertEquals(deltas.get(2).path(), "mock:/tbl/part1/delta_2_5");
+        assertEquals(deltas.get(0).path(), "mock:///tbl/part1/delta_1_1");
+        assertEquals(deltas.get(1).path(), "mock:///tbl/part1/delete_delta_2_5");
+        assertEquals(deltas.get(2).path(), "mock:///tbl/part1/delta_2_5");
         // Note that delete_delta_3_3 should not be read, when a minor compacted
         // [delete_]delta_2_5 is present.
     }
@@ -453,6 +460,6 @@ public class TestAcidTables
         };
 
         ConnectorIdentity identity = ConnectorIdentity.forUser("test").build();
-        return new HdfsFileSystemFactory(environment).create(identity);
+        return new HdfsFileSystemFactory(environment, new TrinoHdfsFileSystemStats()).create(identity);
     }
 }

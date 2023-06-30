@@ -14,8 +14,10 @@
 package io.trino.parquet.reader.decoders;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.reader.SimpleSliceInputStream;
 import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.block.Fixed12Block;
 import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.ValuesWriter;
 
@@ -28,8 +30,7 @@ import static io.trino.parquet.ParquetEncoding.PLAIN;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.reader.TestingColumnReader.encodeInt96Timestamp;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.INT96_ADAPTER;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.parquet.reader.flat.Fixed12ColumnAdapter.FIXED12_ADAPTER;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
@@ -43,16 +44,15 @@ public final class TestInt96ValueDecoder
     @Override
     protected Object[][] tests()
     {
+        PrimitiveField field = createField(INT96, OptionalInt.empty(), TIMESTAMP_NANOS);
+        ValueDecoders valueDecoders = new ValueDecoders(field);
         return testArgs(
                 new TestType<>(
-                        createField(INT96, OptionalInt.empty(), TIMESTAMP_NANOS),
-                        ValueDecoders::getInt96Decoder,
+                        field,
+                        valueDecoders::getInt96TimestampDecoder,
                         Int96ApacheParquetValueDecoder::new,
-                        INT96_ADAPTER,
-                        (actual, expected) -> {
-                            assertThat(actual.longs).isEqualTo(expected.longs);
-                            assertThat(actual.ints).isEqualTo(expected.ints);
-                        }),
+                        FIXED12_ADAPTER,
+                        (actual, expected) -> assertThat(actual).isEqualTo(expected)),
                 ImmutableList.of(PLAIN, RLE_DICTIONARY),
                 TimestampInputProvider.values());
     }
@@ -125,7 +125,7 @@ public final class TestInt96ValueDecoder
     }
 
     public static final class Int96ApacheParquetValueDecoder
-            implements ValueDecoder<Int96Buffer>
+            implements ValueDecoder<int[]>
     {
         private final ValuesReader delegate;
 
@@ -141,13 +141,16 @@ public final class TestInt96ValueDecoder
         }
 
         @Override
-        public void read(Int96Buffer values, int offset, int length)
+        public void read(int[] values, int offset, int length)
         {
             int endOffset = offset + length;
             for (int i = offset; i < endOffset; i++) {
                 DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(delegate.readBytes());
-                values.longs[i] = decodedTimestamp.epochSeconds();
-                values.ints[i] = decodedTimestamp.nanosOfSecond();
+                Fixed12Block.encodeFixed12(
+                        decodedTimestamp.epochSeconds(),
+                        decodedTimestamp.nanosOfSecond(),
+                        values,
+                        i);
             }
         }
 

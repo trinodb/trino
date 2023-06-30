@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.decoders;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.util.function.Supplier;
 
@@ -31,7 +32,7 @@ public class VarcharDecoder
         }
         else {
             Slice slice = Slices.utf8Slice(value.toString());
-            output.writeBytes(slice, 0, slice.length()).closeEntry();
+            ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
     }
 }

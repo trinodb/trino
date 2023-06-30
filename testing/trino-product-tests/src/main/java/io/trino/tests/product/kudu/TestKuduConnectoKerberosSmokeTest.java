@@ -19,16 +19,17 @@ import org.testng.annotations.Test;
 import java.util.UUID;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.KUDU;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestKuduConnectoKerberosSmokeTest
 {
     @Test(groups = {KUDU, PROFILE_SPECIFIC_TESTS})
-    public void kerberosAuthTicketExpiryTest() throws InterruptedException
+    public void kerberosAuthTicketExpiryTest()
+            throws InterruptedException
     {
         String kuduTable = "kudu.default.nation_" + UUID.randomUUID().toString().replace("-", "");
         String table = "tpch.tiny.nation";

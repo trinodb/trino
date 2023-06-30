@@ -259,26 +259,19 @@ public final class OrcWriter
             validationBuilder.addPage(page);
         }
 
-        while (page != null) {
+        int writeOffset = 0;
+        while (writeOffset < page.getPositionCount()) {
             // align page to row group boundaries
-            int chunkRows = min(page.getPositionCount(), min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount));
-            Page chunk = page.getRegion(0, chunkRows);
+            Page chunk = page.getRegion(writeOffset, min(page.getPositionCount() - writeOffset, min(rowGroupMaxRowCount - rowGroupRowCount, stripeMaxRowCount - stripeRowCount)));
 
             // avoid chunk with huge logical size
-            while (chunkRows > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
-                chunkRows /= 2;
-                chunk = chunk.getRegion(0, chunkRows);
+            while (chunk.getPositionCount() > 1 && chunk.getLogicalSizeInBytes() > chunkMaxLogicalBytes) {
+                chunk = chunk.getRegion(writeOffset, chunk.getPositionCount() / 2);
             }
 
-            if (chunkRows < page.getPositionCount()) {
-                page = page.getRegion(chunkRows, page.getPositionCount() - chunkRows);
-            }
-            else {
-                page = null;
-            }
-
+            writeOffset += chunk.getPositionCount();
             writeChunk(chunk);
-            fileRowCount += chunkRows;
+            fileRowCount += chunk.getPositionCount();
         }
 
         long recordedSizeInBytes = getRetainedBytes();

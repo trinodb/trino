@@ -44,6 +44,7 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -57,6 +58,7 @@ public class TestQueryStateInfoResource
 {
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = jsonCodec(QueryResults.class);
+    private static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = tracingJsonCodecFactory().listJsonCodec(BasicQueryInfo.class);
 
     private TestingTrinoServer server;
     private HttpClient client;
@@ -94,7 +96,7 @@ public class TestQueryStateInfoResource
                             .setUri(uriBuilderFrom(server.getBaseUrl()).replacePath("/v1/query").build())
                             .setHeader(TRINO_HEADERS.requestUser(), "unknown")
                             .build(),
-                    createJsonResponseHandler(listJsonCodec(BasicQueryInfo.class)));
+                    createJsonResponseHandler(BASIC_QUERY_INFO_CODEC));
             if (queryInfos.size() == 2) {
                 if (queryInfos.stream().allMatch(info -> info.getState() == RUNNING)) {
                     break;

@@ -15,6 +15,7 @@ package io.trino.plugin.hive.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -33,8 +34,6 @@ import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -156,7 +155,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, TrinoPrincipal principal)
     {
-        if (!isDatabaseOwner(context, schemaName)) {
+        if (!isAdmin(context)) {
             denySetSchemaAuthorization(schemaName, principal);
         }
     }
@@ -308,7 +307,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, TrinoPrincipal principal)
     {
-        if (!isTableOwner(context, tableName)) {
+        if (!isAdmin(context)) {
             denySetTableAuthorization(tableName.toString(), principal);
         }
     }
@@ -373,7 +372,7 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
     {
-        if (!isTableOwner(context, viewName)) {
+        if (!isAdmin(context)) {
             denySetViewAuthorization(viewName.toString(), principal);
         }
     }

@@ -30,10 +30,12 @@ import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.Table;
 import io.trino.hive.thrift.metastore.TxnToWriteId;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -90,10 +92,24 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getAllTables());
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
             throws TException
     {
         return runWithHandle(() -> delegate.getAllViews(databaseName));
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getAllViews());
     }
 
     @Override

@@ -52,6 +52,7 @@ public class TaskStatus
     private final TaskState state;
     private final URI self;
     private final String nodeId;
+    private final boolean speculative;
 
     private final int queuedPartitionedDrivers;
     private final long queuedPartitionedSplitsWeight;
@@ -80,6 +81,7 @@ public class TaskStatus
             @JsonProperty("state") TaskState state,
             @JsonProperty("self") URI self,
             @JsonProperty("nodeId") String nodeId,
+            @JsonProperty("speculative") boolean speculative,
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
@@ -104,6 +106,7 @@ public class TaskStatus
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
+        this.speculative = speculative;
 
         checkArgument(queuedPartitionedDrivers >= 0, "queuedPartitionedDrivers must be positive");
         this.queuedPartitionedDrivers = queuedPartitionedDrivers;
@@ -167,6 +170,12 @@ public class TaskStatus
     public String getNodeId()
     {
         return nodeId;
+    }
+
+    @JsonProperty
+    public boolean isSpeculative()
+    {
+        return speculative;
     }
 
     @JsonProperty
@@ -268,7 +277,7 @@ public class TaskStatus
                 .toString();
     }
 
-    public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId)
+    public static TaskStatus initialTaskStatus(TaskId taskId, URI location, String nodeId, boolean speculative)
     {
         return new TaskStatus(
                 taskId,
@@ -277,6 +286,7 @@ public class TaskStatus
                 PLANNED,
                 location,
                 nodeId,
+                speculative,
                 ImmutableList.of(),
                 0,
                 0,
@@ -303,6 +313,7 @@ public class TaskStatus
                 state,
                 taskStatus.getSelf(),
                 taskStatus.getNodeId(),
+                false,
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),

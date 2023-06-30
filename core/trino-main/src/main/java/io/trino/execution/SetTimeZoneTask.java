@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.security.AccessControl;
@@ -30,8 +31,6 @@ import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.SetTimeZone;
 import io.trino.type.IntervalDayTimeType;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
@@ -125,14 +124,14 @@ public class SetTimeZoneTask
             timeZoneKey = getTimeZoneKeyForOffset(getZoneOffsetMinutes((Long) timeZoneValue));
         }
         else {
-            throw new IllegalStateException(format("Time Zone expression '%s' not supported", expression));
+            throw new IllegalStateException(format("TIME ZONE expression '%s' not supported", expression));
         }
         return timeZoneKey.getId();
     }
 
     private static long getZoneOffsetMinutes(long interval)
     {
-        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid time zone offset interval: interval contains seconds");
+        checkCondition((interval % 60_000L) == 0L, INVALID_LITERAL, "Invalid TIME ZONE offset interval: interval contains seconds");
         return interval / 60_000L;
     }
 }

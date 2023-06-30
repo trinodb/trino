@@ -16,7 +16,7 @@ package io.trino.tests.product.jdbc;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.jdbc.TestingRedirectHandlerInjector;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tests.product.TpchTableResults;
 import okhttp3.JavaNetCookieJar;
@@ -44,12 +44,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryResult.forResultSet;
 import static io.trino.tests.product.TestGroups.OAUTH2_REFRESH;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExternalAuthorizerOAuth2RefreshToken
         extends ProductTest
@@ -68,7 +68,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
 
     private OkHttpClient httpClient;
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
             throws Exception
     {

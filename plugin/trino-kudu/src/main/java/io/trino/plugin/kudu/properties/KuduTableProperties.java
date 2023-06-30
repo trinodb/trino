@@ -15,6 +15,7 @@ package io.trino.plugin.kudu.properties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -28,8 +29,6 @@ import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.math.BigDecimal;

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.security;
 
+import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveTransactionManager;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -20,8 +21,6 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.security.RoleGrant;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;

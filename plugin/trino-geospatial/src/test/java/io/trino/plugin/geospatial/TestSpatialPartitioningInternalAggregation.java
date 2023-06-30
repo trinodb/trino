@@ -87,7 +87,7 @@ public class TestSpatialPartitioningInternalAggregation
         assertEquals(aggregation, expectedValue);
 
         GroupedAggregator groupedAggregator = aggregatorFactory.createGroupedAggregator();
-        groupedAggregator.processPage(createGroupByIdBlock(0, page.getPositionCount()), page);
+        groupedAggregator.processPage(0, createGroupByIdBlock(0, page.getPositionCount()), page);
         String groupValue = (String) getGroupValue(function.getFinalType(), groupedAggregator, 0);
         assertEquals(groupValue, expectedValue);
     }

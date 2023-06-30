@@ -32,10 +32,10 @@ import java.util.Objects;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.product.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
@@ -44,6 +44,7 @@ import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MA
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveTableStatistics
         extends HiveProductTest
@@ -1456,6 +1457,43 @@ public class TestHiveTableStatistics
                     row(null, null, null, null, 7.0, null, null));
         }
         finally {
+            onHive().executeQuery("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testEmptyPartitionedHiveStatistics()
+    {
+        String tableName = "test_empty_partitioned_hive_" + randomNameSuffix();
+        try {
+            onHive().executeQuery(format("CREATE TABLE %s (a INT) PARTITIONED BY (p INT)", tableName));
+
+            // disable computation of statistics
+            onHive().executeQuery("set hive.stats.autogather=false");
+
+            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=1) VALUES (11),(12),(13),(14)", tableName));
+            onHive().executeQuery(format("INSERT INTO TABLE %s PARTITION (p=2) VALUES (21),(22),(23)", tableName));
+
+            String showStatsPartitionOne = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 1)", tableName);
+            String showStatsPartitionTwo = format("SHOW STATS FOR (SELECT * FROM %s WHERE p = 2)", tableName);
+            String showStatsWholeTable = format("SHOW STATS FOR %s", tableName);
+
+            assertThat(onTrino().executeQuery(showStatsPartitionOne)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "1", "1"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(onTrino().executeQuery(showStatsPartitionTwo)).containsOnly(
+                    row("p", null, 1.0, 0.0, null, "2", "2"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+            assertThat(onTrino().executeQuery(showStatsWholeTable)).containsOnly(
+                    row("p", null, 2.0, 0.0, null, "1", "2"),
+                    row("a", null, null, null, null, null, null),
+                    row(null, null, null, null, null, null, null));
+        }
+        finally {
+            // enable computation of statistics
+            onHive().executeQuery("set hive.stats.autogather=true");
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }

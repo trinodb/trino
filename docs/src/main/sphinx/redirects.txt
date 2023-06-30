@@ -1,0 +1,1 @@
+connector/memsql.rst connector/singlestore.rst

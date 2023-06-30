@@ -16,18 +16,21 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import com.google.common.net.HostAndPort;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
+import io.trino.hdfs.HdfsNamenodeStats;
+import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
@@ -35,6 +38,7 @@ import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -102,7 +106,9 @@ import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
+import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
@@ -198,14 +204,14 @@ public abstract class AbstractTestHiveFileSystem
                                 .build()),
                 getBasePath(),
                 hdfsEnvironment);
-        locationService = new HiveLocationService(hdfsEnvironment);
+        locationService = new HiveLocationService(hdfsEnvironment, config);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
                 config,
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new HdfsFileSystemFactory(hdfsEnvironment),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
                 hivePartitionManager,
                 newDirectExecutorService(),
@@ -222,14 +228,15 @@ public abstract class AbstractTestHiveFileSystem
                 new DefaultHiveMaterializedViewMetadataFactory(),
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
+                new TransactionScopeCachingDirectoryListerFactory(config),
                 new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
                 true);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment),
-                new NamenodeStats(),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                new HdfsNamenodeStats(),
                 hdfsEnvironment,
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
@@ -247,7 +254,7 @@ public abstract class AbstractTestHiveFileSystem
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment),
+                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
@@ -445,6 +452,7 @@ public abstract class AbstractTestHiveFileSystem
         //      base-path-file.txt
         Path basePath = new Path(getBasePath(), "test-file-iterator-listing");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+        TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
         fs.mkdirs(basePath);
 
         // create file in hidden folder
@@ -469,26 +477,30 @@ public abstract class AbstractTestHiveFileSystem
         // List recursively through hive file iterator
         HiveFileIterator recursiveIterator = new HiveFileIterator(
                 fakeTable,
-                basePath,
-                fs,
+                Location.of(basePath.toString()),
+                trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new NamenodeStats(),
-                HiveFileIterator.NestedDirectoryPolicy.RECURSE,
-                false); // ignoreAbsentPartitions
+                new HdfsNamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
-        List<Path> recursiveListing = Lists.newArrayList(Iterators.transform(recursiveIterator, TrinoFileStatus::getPath));
+        List<Path> recursiveListing = Streams.stream(recursiveIterator)
+                .map(TrinoFileStatus::getPath)
+                .map(Path::new)
+                .toList();
         // Should not include directories, or files underneath hidden directories
         assertEqualsIgnoreOrder(recursiveListing, ImmutableList.of(nestedFile, baseFile));
 
         HiveFileIterator shallowIterator = new HiveFileIterator(
                 fakeTable,
-                basePath,
-                fs,
+                Location.of(basePath.toString()),
+                trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new NamenodeStats(),
-                HiveFileIterator.NestedDirectoryPolicy.IGNORED,
-                false); // ignoreAbsentPartitions
-        List<Path> shallowListing = Lists.newArrayList(Iterators.transform(shallowIterator, TrinoFileStatus::getPath));
+                new HdfsNamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.IGNORED);
+        List<Path> shallowListing = Streams.stream(shallowIterator)
+                .map(TrinoFileStatus::getPath)
+                .map(Path::new)
+                .toList();
         // Should not include any hidden files, folders, or nested files
         assertEqualsIgnoreOrder(shallowListing, ImmutableList.of(baseFile));
     }
@@ -567,10 +579,8 @@ public abstract class AbstractTestHiveFileSystem
             // table, which fails without explicit configuration for file system.
             // We work around that by using a dummy location when creating the
             // table and update it here to the correct location.
-            metastoreClient.updateTableLocation(
-                    database,
-                    tableName.getTableName(),
-                    locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle(), false).getTargetPath().toString());
+            Location location = locationService.getTableWriteInfo(((HiveOutputTableHandle) outputHandle).getLocationHandle(), false).targetPath();
+            metastoreClient.updateTableLocation(database, tableName.getTableName(), location.toString());
         }
 
         try (Transaction transaction = newTransaction()) {

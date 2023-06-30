@@ -22,24 +22,23 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.Goog
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.CredentialFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.HttpTransportFactory;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.util.RetryHttpInitializer;
+import com.google.inject.Inject;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.plugin.hive.gcs.HiveGcsConfig;
+import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
-import javax.annotation.Nullable;
-import javax.inject.Inject;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.trino.plugin.hive.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
+import static io.trino.hdfs.gcs.GcsConfigurationProvider.GCS_OAUTH_KEY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -50,7 +49,6 @@ public class GcsStorageFactory
 
     private final HdfsEnvironment hdfsEnvironment;
     private final boolean useGcsAccessToken;
-    @Nullable
     private final Optional<GoogleCredential> jsonGoogleCredential;
 
     @Inject
@@ -58,9 +56,16 @@ public class GcsStorageFactory
             throws IOException
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        hiveGcsConfig.validate();
         this.useGcsAccessToken = hiveGcsConfig.isUseGcsAccessToken();
+        String jsonKey = hiveGcsConfig.getJsonKey();
         String jsonKeyFilePath = hiveGcsConfig.getJsonKeyFilePath();
-        if (jsonKeyFilePath != null) {
+        if (jsonKey != null) {
+            try (InputStream inputStream = new ByteArrayInputStream(jsonKey.getBytes(UTF_8))) {
+                jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(CredentialFactory.DEFAULT_SCOPES));
+            }
+        }
+        else if (jsonKeyFilePath != null) {
             try (FileInputStream inputStream = new FileInputStream(jsonKeyFilePath)) {
                 jsonGoogleCredential = Optional.of(GoogleCredential.fromStream(inputStream).createScoped(CredentialFactory.DEFAULT_SCOPES));
             }
@@ -70,10 +75,10 @@ public class GcsStorageFactory
         }
     }
 
-    public Storage create(ConnectorSession session, Path path)
+    public Storage create(ConnectorSession session, String path)
     {
         try {
-            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), path)).build();
+            GoogleCloudStorageOptions gcsOptions = TrinoGoogleHadoopFileSystemConfiguration.getGcsOptionsBuilder(hdfsEnvironment.getConfiguration(new HdfsContext(session), new Path(path))).build();
             HttpTransport httpTransport = HttpTransportFactory.createHttpTransport(
                     gcsOptions.getTransportType(),
                     gcsOptions.getProxyAddress(),
@@ -88,7 +93,7 @@ public class GcsStorageFactory
                 }
             }
             else {
-                credential = jsonGoogleCredential.get();
+                credential = jsonGoogleCredential.orElseThrow(() -> new IllegalStateException("GCS credentials not configured"));
             }
             return new Storage.Builder(httpTransport, JacksonFactory.getDefaultInstance(), new RetryHttpInitializer(credential, APPLICATION_NAME))
                     .setApplicationName(APPLICATION_NAME)

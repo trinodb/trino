@@ -13,7 +13,10 @@
  */
 package io.trino.filesystem.hdfs;
 
+import io.airlift.stats.TimeStat;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.hdfs.CallStats;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.MemoryAwareFileSystem;
@@ -31,15 +34,17 @@ import static java.util.Objects.requireNonNull;
 class HdfsOutputFile
         implements TrinoOutputFile
 {
-    private final String path;
+    private final Location location;
     private final HdfsEnvironment environment;
     private final HdfsContext context;
+    private final CallStats createFileCallStat;
 
-    public HdfsOutputFile(String path, HdfsEnvironment environment, HdfsContext context)
+    public HdfsOutputFile(Location location, HdfsEnvironment environment, HdfsContext context, CallStats createFileCallStat)
     {
-        this.path = requireNonNull(path, "path is null");
+        this.location = requireNonNull(location, "location is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
+        this.createFileCallStat = requireNonNull(createFileCallStat, "createFileCallStat is null");
     }
 
     @Override
@@ -59,24 +64,31 @@ class HdfsOutputFile
     private OutputStream create(boolean overwrite, AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        Path file = hadoopPath(path);
+        createFileCallStat.newCall();
+        Path file = hadoopPath(location);
         FileSystem fileSystem = environment.getFileSystem(context, file);
         FileSystem rawFileSystem = getRawFileSystem(fileSystem);
-        if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
-            return environment.doAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
+        try (TimeStat.BlockTimer ignored = createFileCallStat.time()) {
+            if (rawFileSystem instanceof MemoryAwareFileSystem memoryAwareFileSystem) {
+                return environment.doAs(context.getIdentity(), () -> memoryAwareFileSystem.create(file, memoryContext));
+            }
+            return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
         }
-        return environment.doAs(context.getIdentity(), () -> fileSystem.create(file, overwrite));
+        catch (IOException e) {
+            createFileCallStat.recordException(e);
+            throw e;
+        }
     }
 
     @Override
-    public String location()
+    public Location location()
     {
-        return path;
+        return location;
     }
 
     @Override
     public String toString()
     {
-        return location();
+        return location().toString();
     }
 }

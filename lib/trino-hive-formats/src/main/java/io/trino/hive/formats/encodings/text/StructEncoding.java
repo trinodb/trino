@@ -18,6 +18,7 @@ import io.airlift.slice.SliceOutput;
 import io.trino.hive.formats.FileCorruptionException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -67,37 +68,40 @@ public class StructEncoding
             throws FileCorruptionException
     {
         int end = offset + length;
-
-        BlockBuilder structBuilder = builder.beginBlockEntry();
-        int elementOffset = offset;
-        int fieldIndex = 0;
-        while (offset < end) {
-            byte currentByte = slice.getByte(offset);
-            if (currentByte == separator) {
-                decodeElementValueInto(fieldIndex, structBuilder, slice, elementOffset, offset - elementOffset);
-                elementOffset = offset + 1;
-                fieldIndex++;
-                if (lastColumnTakesRest && fieldIndex == structFields.size() - 1) {
-                    // no need to process the remaining bytes as they are all assigned to the last column
-                    break;
+        ((RowBlockBuilder) builder).buildEntry(fieldBuilders -> {
+            int currentOffset = offset;
+            int elementOffset = currentOffset;
+            int fieldIndex = 0;
+            while (currentOffset < end) {
+                byte currentByte = slice.getByte(currentOffset);
+                if (currentByte == separator) {
+                    decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, currentOffset - elementOffset);
+                    elementOffset = currentOffset + 1;
+                    fieldIndex++;
+                    if (lastColumnTakesRest && fieldIndex == structFields.size() - 1) {
+                        // no need to process the remaining bytes as they are all assigned to the last column
+                        break;
+                    }
+                    if (fieldIndex == structFields.size()) {
+                        // this was the last field, so there is no more data to process
+                        return;
+                    }
                 }
+                else if (isEscapeByte(currentByte)) {
+                    // ignore the char after escape_char
+                    currentOffset++;
+                }
+                currentOffset++;
             }
-            else if (isEscapeByte(currentByte)) {
-                // ignore the char after escape_char
-                offset++;
-            }
-            offset++;
-        }
-        decodeElementValueInto(fieldIndex, structBuilder, slice, elementOffset, end - elementOffset);
-        fieldIndex++;
-
-        // missing fields are null
-        while (fieldIndex < structFields.size()) {
-            structBuilder.appendNull();
+            decodeElementValueInto(fieldIndex, fieldBuilders.get(fieldIndex), slice, elementOffset, end - elementOffset);
             fieldIndex++;
-        }
 
-        builder.closeEntry();
+            // missing fields are null
+            while (fieldIndex < structFields.size()) {
+                fieldBuilders.get(fieldIndex).appendNull();
+                fieldIndex++;
+            }
+        });
     }
 
     private void decodeElementValueInto(int fieldIndex, BlockBuilder builder, Slice slice, int offset, int length)

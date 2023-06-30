@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 import io.trino.operator.index.PageRecordSet;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -242,16 +243,16 @@ public class TestReadWrite
     private static void generateBigintArray(Random random, BlockBuilder parentBuilder)
     {
         int numberOfElements = random.nextInt(MAX_ARRAY_GENERATED_LENGTH);
-        BlockBuilder builder = parentBuilder.beginBlockEntry();
-        for (int i = 0; i < numberOfElements; i++) {
-            if (random.nextDouble() < NULL_FRACTION) {
-                builder.appendNull();
+        ((ArrayBlockBuilder) parentBuilder).buildEntry(elementBuilder -> {
+            for (int i = 0; i < numberOfElements; i++) {
+                if (random.nextDouble() < NULL_FRACTION) {
+                    elementBuilder.appendNull();
+                }
+                else {
+                    BIGINT.writeLong(elementBuilder, random.nextLong());
+                }
             }
-            else {
-                builder.writeLong(random.nextLong());
-            }
-        }
-        parentBuilder.closeEntry();
+        });
     }
 
     private abstract static class ColumnDefinition
@@ -284,7 +285,7 @@ public class TestReadWrite
         @Override
         Object extractValue(Block block, int position)
         {
-            return INTEGER.getLong(block, position);
+            return INTEGER.getInt(block, position);
         }
 
         @Override
@@ -392,7 +393,7 @@ public class TestReadWrite
         @Override
         Object extractValue(Block block, int position)
         {
-            return DATE.getLong(block, position);
+            return DATE.getInt(block, position);
         }
 
         @Override

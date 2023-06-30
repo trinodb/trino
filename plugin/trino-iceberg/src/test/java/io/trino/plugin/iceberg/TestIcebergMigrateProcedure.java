@@ -41,8 +41,8 @@ public class TestIcebergMigrateProcedure
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
-        dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        dataDirectory = Files.createTempDirectory("_test_hidden");
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
         queryRunner.installPlugin(new TestingHivePlugin());
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                         .put("hive.metastore", "file")
@@ -63,6 +63,9 @@ public class TestIcebergMigrateProcedure
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
+                .contains("format = '%s'".formatted(fileFormat));
 
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES 1");
         assertQuery("SELECT count(*) FROM " + icebergTableName, "VALUES 1");
@@ -236,6 +239,26 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
+    public void testMigrateUnsupportedComplexColumnType()
+    {
+        // TODO https://github.com/trinodb/trino/issues/17583 Add support for these complex types
+        String tableName = "test_migrate_unsupported_complex_column_type_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT array[1] x", 1);
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "\\QMigrating array(integer) type is not supported");
+        assertUpdate("DROP TABLE " + hiveTableName);
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT map(array['key'], array[2]) x", 1);
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "\\QMigrating map(varchar(3), integer) type is not supported");
+        assertUpdate("DROP TABLE " + hiveTableName);
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " AS SELECT CAST(row(1) AS row(y integer)) x", 1);
+        assertQueryFails("CALL iceberg.system.migrate('tpch', '" + tableName + "')", "\\QMigrating row(y integer) type is not supported");
+        assertUpdate("DROP TABLE " + hiveTableName);
+    }
+
+    @Test
     public void testMigrateUnsupportedTableFormat()
     {
         String tableName = "test_migrate_unsupported_table_format_" + randomNameSuffix();
@@ -282,7 +305,7 @@ public class TestIcebergMigrateProcedure
 
         assertQueryFails(
                 "CALL iceberg.system.migrate('tpch', '" + viewName + "')",
-                "The procedure supports migrating only managed tables: .*");
+                "The procedure doesn't support migrating VIRTUAL_VIEW table type");
 
         assertQuery("SELECT * FROM " + trinoViewInHive, "VALUES 1");
         assertQuery("SELECT * FROM " + trinoViewInIceberg, "VALUES 1");

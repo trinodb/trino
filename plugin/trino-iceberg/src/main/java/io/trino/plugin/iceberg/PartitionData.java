@@ -28,6 +28,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 
+import static io.trino.plugin.base.util.JsonUtils.jsonFactory;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.String.format;
@@ -37,7 +38,7 @@ public class PartitionData
         implements StructLike
 {
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
-    private static final JsonFactory FACTORY = new JsonFactory();
+    private static final JsonFactory FACTORY = jsonFactory();
     private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY)
             .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
 

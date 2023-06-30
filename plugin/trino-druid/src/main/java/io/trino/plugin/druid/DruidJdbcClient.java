@@ -14,6 +14,7 @@
 package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -30,6 +31,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.plugin.jdbc.mapping.IdentifierMapping;
 import io.trino.spi.TrinoException;
@@ -38,14 +40,13 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-
-import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -153,7 +154,7 @@ public class DruidJdbcClient
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
-        super(config, "\"", connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
     }
 
     @Override
@@ -168,23 +169,27 @@ public class DruidJdbcClient
     {
         String jdbcSchemaName = schemaTableName.getSchemaName();
         String jdbcTableName = schemaTableName.getTableName();
-        try (Connection connection = connectionFactory.openConnection(session);
-                ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
-            List<JdbcTableHandle> tableHandles = new ArrayList<>();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
-                String tableName = resultSet.getString("TABLE_NAME");
-                if (Objects.equals(schemaName, jdbcSchemaName) && Objects.equals(tableName, jdbcTableName)) {
-                    tableHandles.add(new JdbcTableHandle(
-                            schemaTableName,
-                            new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
-                            Optional.empty()));
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            ConnectorIdentity identity = session.getIdentity();
+            String remoteSchema = getIdentifierMapping().toRemoteSchemaName(identity, connection, jdbcSchemaName);
+            String remoteTable = getIdentifierMapping().toRemoteTableName(identity, connection, remoteSchema, jdbcTableName);
+            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
+                List<JdbcTableHandle> tableHandles = new ArrayList<>();
+                while (resultSet.next()) {
+                    String schemaName = resultSet.getString("TABLE_SCHEM");
+                    String tableName = resultSet.getString("TABLE_NAME");
+                    if (Objects.equals(schemaName, remoteSchema) && Objects.equals(tableName, remoteTable)) {
+                        tableHandles.add(new JdbcTableHandle(
+                                schemaTableName,
+                                new RemoteTableName(Optional.of(DRUID_CATALOG), Optional.ofNullable(schemaName), tableName),
+                                Optional.empty()));
+                    }
                 }
+                if (tableHandles.isEmpty()) {
+                    return Optional.empty();
+                }
+                return Optional.of(getOnlyElement(tableHandles));
             }
-            if (tableHandles.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(getOnlyElement(tableHandles));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -371,7 +376,14 @@ public class DruidJdbcClient
     }
 
     @Override
-    protected PreparedQuery prepareQuery(ConnectorSession session, Connection connection, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions, Optional<JdbcSplit> split)
+    protected PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, ParameterizedExpression> columnExpressions,
+            Optional<JdbcSplit> split)
     {
         return super.prepareQuery(session, connection, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions, split);
     }

@@ -18,10 +18,10 @@ import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedRowValueBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -108,28 +108,21 @@ public final class BingTileFunctions
     {
         private static final RowType BING_TILE_COORDINATES_ROW_TYPE = RowType.anonymous(ImmutableList.of(INTEGER, INTEGER));
 
-        private final PageBuilder pageBuilder;
+        private final BufferedRowValueBuilder rowValueBuilder;
 
         public BingTileCoordinatesFunction()
         {
-            pageBuilder = new PageBuilder(ImmutableList.of(BING_TILE_COORDINATES_ROW_TYPE));
+            rowValueBuilder = BufferedRowValueBuilder.createBuffered(BING_TILE_COORDINATES_ROW_TYPE);
         }
 
         @SqlType("row(x integer,y integer)")
         public Block bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
         {
-            if (pageBuilder.isFull()) {
-                pageBuilder.reset();
-            }
-            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
             BingTile tile = BingTile.decode(input);
-            BlockBuilder tileBlockBuilder = blockBuilder.beginBlockEntry();
-            INTEGER.writeLong(tileBlockBuilder, tile.getX());
-            INTEGER.writeLong(tileBlockBuilder, tile.getY());
-            blockBuilder.closeEntry();
-            pageBuilder.declarePosition();
-
-            return BING_TILE_COORDINATES_ROW_TYPE.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+            return rowValueBuilder.build(fields -> {
+                INTEGER.writeLong(fields.get(0), tile.getX());
+                INTEGER.writeLong(fields.get(1), tile.getY());
+            });
         }
     }
 

@@ -55,6 +55,8 @@ properties files.
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: query-comment-format.fragment
+
 .. |default_domain_compaction_threshold| replace:: ``32``
 .. include:: jdbc-domain-compaction-threshold.fragment
 
@@ -134,7 +136,7 @@ processed in Druid. This can be useful for accessing native features which are
 not available in Trino or for improving query performance in situations where
 running a query natively may be faster.
 
-.. include:: polymorphic-table-function-ordering.fragment
+.. include:: query-passthrough-warning.fragment
 
 As an example, query the ``example`` catalog and use ``STRING_TO_MV`` and
 ``MV_LENGTH`` from `Druid SQL's multi-value string functions
@@ -154,3 +156,4 @@ to split and then count the number of comma-separated values in a column::
         )
       );
 
+.. include:: query-table-function-ordering.fragment

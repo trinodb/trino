@@ -37,8 +37,8 @@ import java.util.stream.Stream;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.DEFAULT_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
@@ -451,7 +451,7 @@ public class EquatableValueSet
             if (block.getPositionCount() != 1) {
                 throw new IllegalArgumentException("Block should only have one position");
             }
-            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(DEFAULT_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
             this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         }
 
@@ -502,14 +502,14 @@ public class EquatableValueSet
                 return false;
             }
 
-            Boolean result;
+            boolean result;
             try {
-                result = (Boolean) equalOperator.invokeExact(this.block, 0, other.block, 0);
+                result = (boolean) equalOperator.invokeExact(this.block, 0, other.block, 0);
             }
             catch (Throwable throwable) {
                 throw handleThrowable(throwable);
             }
-            return Boolean.TRUE.equals(result);
+            return result;
         }
 
         public long getRetainedSizeInBytes()

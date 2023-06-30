@@ -17,13 +17,13 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;

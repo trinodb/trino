@@ -14,6 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.FullConnectorSession;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.dispatcher.DispatchManager;
@@ -24,8 +25,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.NoSuchElementException;

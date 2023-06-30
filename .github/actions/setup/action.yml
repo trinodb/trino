@@ -5,7 +5,7 @@ inputs:
     description: "Java version to setup"
     default: 17
   cache:
-    description: "Cache Maven repo"
+    description: "Cache Maven repo (true/false/restore)"
     default: true
   download_dependencies:
     description: "Download all Maven dependencies so Maven can work in offline mode"
@@ -36,12 +36,21 @@ runs:
       - uses: actions/setup-java@v3
         if: ${{ inputs.java-version != '' }}
         with:
-          distribution: 'zulu'
+          distribution: 'temurin' # use same JDK distro as in Trino docker images
           java-version: ${{ inputs.java-version }}
-      - name: Cache local Maven repo
+      - name: Cache and Restore local Maven repo
         id: cache
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Restore local Maven repo
+        id: cache_restore
+        if: ${{ format('{0}', inputs.cache) == 'restore' }}
+        uses: actions/cache/restore@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}

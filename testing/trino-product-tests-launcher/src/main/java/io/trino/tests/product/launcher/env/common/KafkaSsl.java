@@ -15,10 +15,9 @@
 package io.trino.tests.product.launcher.env.common;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.env.Environment;
 import org.testcontainers.containers.BindMode;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 import java.util.List;

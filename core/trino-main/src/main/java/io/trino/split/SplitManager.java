@@ -13,6 +13,10 @@
  */
 package io.trino.split;
 
+import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.QueryManagerConfig;
@@ -24,8 +28,9 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.tracing.TrinoAttributes;
 
-import javax.inject.Inject;
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static java.util.Objects.requireNonNull;
@@ -33,17 +38,20 @@ import static java.util.Objects.requireNonNull;
 public class SplitManager
 {
     private final CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider;
+    private final Tracer tracer;
     private final int minScheduleSplitBatchSize;
 
     @Inject
-    public SplitManager(CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider, QueryManagerConfig config)
+    public SplitManager(CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider, Tracer tracer, QueryManagerConfig config)
     {
         this.splitManagerProvider = requireNonNull(splitManagerProvider, "splitManagerProvider is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
     }
 
     public SplitSource getSplits(
             Session session,
+            Span parentSpan,
             TableHandle table,
             DynamicFilter dynamicFilter,
             Constraint constraint)
@@ -64,13 +72,22 @@ public class SplitManager
                 constraint);
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
+
+        Span span = splitSourceSpan(parentSpan, catalogHandle);
+
         if (minScheduleSplitBatchSize > 1) {
+            splitSource = new TracingSplitSource(splitSource, tracer, Optional.empty(), "split-batch");
             splitSource = new BufferingSplitSource(splitSource, minScheduleSplitBatchSize);
+            splitSource = new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
         }
+        else {
+            splitSource = new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-batch");
+        }
+
         return splitSource;
     }
 
-    public SplitSource getSplits(Session session, TableFunctionHandle function)
+    public SplitSource getSplits(Session session, Span parentSpan, TableFunctionHandle function)
     {
         CatalogHandle catalogHandle = function.getCatalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
@@ -78,9 +95,19 @@ public class SplitManager
         ConnectorSplitSource source = splitManager.getSplits(
                 function.getTransactionHandle(),
                 session.toConnectorSession(catalogHandle),
-                function.getSchemaFunctionName(),
                 function.getFunctionHandle());
 
-        return new ConnectorAwareSplitSource(catalogHandle, source);
+        SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
+
+        Span span = splitSourceSpan(parentSpan, catalogHandle);
+        return new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
+    }
+
+    private Span splitSourceSpan(Span querySpan, CatalogHandle catalogHandle)
+    {
+        return tracer.spanBuilder("split-source")
+                .setParent(Context.current().with(querySpan))
+                .setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName())
+                .startSpan();
     }
 }

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.bigquery;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
@@ -21,7 +20,6 @@ import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.AssertTrue;
 
-import java.io.IOException;
 import java.util.Optional;
 
 public class StaticCredentialsConfig
@@ -29,23 +27,11 @@ public class StaticCredentialsConfig
     private Optional<String> credentialsKey = Optional.empty();
     private Optional<String> credentialsFile = Optional.empty();
 
-    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
+    @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified")
     public boolean isCredentialsConfigurationValid()
     {
         // only one of them (at most) should be present
-        if (credentialsKey.isPresent() && credentialsFile.isPresent()) {
-            return false;
-        }
-        // if no credentials were supplied, let's check if we can create the default ones
-        if (credentialsKey.isEmpty() && credentialsFile.isEmpty()) {
-            try {
-                GoogleCredentials.getApplicationDefault();
-            }
-            catch (IOException e) {
-                return false;
-            }
-        }
-        return true;
+        return credentialsKey.isEmpty() || credentialsFile.isEmpty();
     }
 
     public Optional<String> getCredentialsKey()

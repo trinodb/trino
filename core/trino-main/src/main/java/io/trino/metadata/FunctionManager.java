@@ -15,8 +15,9 @@ package io.trino.metadata;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
@@ -32,14 +33,11 @@ import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
-import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.WindowFunctionSupplier;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
@@ -50,9 +48,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.primitives.Primitives.wrap;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.client.NodeVersion.UNKNOWN;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
@@ -153,7 +151,6 @@ public class FunctionManager
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(TableFunctionHandle tableFunctionHandle)
     {
         CatalogHandle catalogHandle = tableFunctionHandle.getCatalogHandle();
-        SchemaFunctionName functionName = tableFunctionHandle.getSchemaFunctionName();
 
         FunctionProvider provider;
         if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
@@ -161,10 +158,10 @@ public class FunctionManager
         }
         else {
             provider = functionProviders.getService(catalogHandle);
-            checkArgument(provider != null, "No function provider for catalog: '%s' (function '%s')", catalogHandle, functionName);
+            checkArgument(provider != null, "No function provider for catalog: '%s'", catalogHandle);
         }
 
-        return provider.getTableFunctionProcessorProvider(functionName);
+        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.getFunctionHandle());
     }
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)
@@ -235,9 +232,10 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
                             "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
                     break;
+                case BLOCK_POSITION_NOT_NULL:
                 case BLOCK_POSITION:
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected BLOCK_POSITION argument types to be Block and int");
+                            "Expected %s argument types to be Block and int".formatted(argumentConvention));
                     break;
                 case IN_OUT:
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");

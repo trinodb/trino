@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc.mapping;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
@@ -25,8 +26,6 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
-
-import javax.inject.Qualifier;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -61,6 +60,7 @@ public final class IdentifierMappingModule
         // CachingIdentifierMapping instance is bind only when case insensitive name matching is enabled.
         // As it's required for cache flush procedure we provide Optional binding by default.
         newOptionalBinder(binder, CachingIdentifierMapping.class);
+        newOptionalBinder(binder, RemoteIdentifierSupplier.class).setDefault().to(DatabaseMetaDataRemoteIdentifierSupplier.class).in(SINGLETON);
         if (config.isCaseInsensitiveNameMatching()) {
             Provider<JdbcClient> baseJdbcClientProvider = binder.getProvider(Key.get(JdbcClient.class, ForBaseJdbc.class));
             binder.bind(BaseJdbcClient.class).toProvider(() -> (BaseJdbcClient) baseJdbcClientProvider.get());
@@ -127,11 +127,11 @@ public final class IdentifierMappingModule
 
     @Retention(RUNTIME)
     @Target({FIELD, PARAMETER, METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface ForCachingIdentifierMapping {}
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-    @Qualifier
+    @BindingAnnotation
     public @interface ForRuleBasedIdentifierMapping {}
 }

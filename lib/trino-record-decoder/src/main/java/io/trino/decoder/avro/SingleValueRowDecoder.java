@@ -38,7 +38,13 @@ class SingleValueRowDecoder
     @Override
     public Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
     {
-        Object avroValue = deserializer.deserialize(data);
+        Object avroValue;
+        try {
+            avroValue = deserializer.deserialize(data);
+        }
+        catch (RuntimeException e) {
+            return Optional.empty();
+        }
         return Optional.of(ImmutableMap.of(column, new AvroColumnDecoder.ObjectValueProvider(avroValue, column.getType(), column.getName())));
     }
 }

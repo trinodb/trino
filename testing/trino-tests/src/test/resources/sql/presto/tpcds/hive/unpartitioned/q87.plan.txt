@@ -12,7 +12,8 @@ final aggregation over ()
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        scan store_sales
+                                                        dynamic filter (["ss_customer_sk", "ss_sold_date_sk"])
+                                                            scan store_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
@@ -27,7 +28,8 @@ final aggregation over ()
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk"])
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        scan catalog_sales
+                                                        dynamic filter (["cs_bill_customer_sk", "cs_sold_date_sk"])
+                                                            scan catalog_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim
@@ -42,7 +44,8 @@ final aggregation over ()
                                             join (INNER, PARTITIONED, can skip output duplicates):
                                                 remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
                                                     join (INNER, REPLICATED, can skip output duplicates):
-                                                        scan web_sales
+                                                        dynamic filter (["ws_bill_customer_sk", "ws_sold_date_sk"])
+                                                            scan web_sales
                                                         local exchange (GATHER, SINGLE, [])
                                                             remote exchange (REPLICATE, BROADCAST, [])
                                                                 scan date_dim

@@ -16,10 +16,10 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import org.apache.hadoop.hive.ql.io.AcidOutputFormat;
@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 import java.io.File;
 
 import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -42,7 +41,7 @@ public class TestOrcDeleteDeltaPageSource
             throws Exception
     {
         File deleteDeltaFile = new File(Resources.getResource("fullacid_delete_delta_test/delete_delta_0000004_0000004_0000/bucket_00000").toURI());
-        TrinoInputFile inputFile = HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser("test")).newInputFile(deleteDeltaFile.toURI().toString());
+        TrinoInputFile inputFile = new LocalInputFile(deleteDeltaFile);
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
                 new OrcReaderOptions(),
                 new FileFormatDataSourceStats());

@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.deltalake.expression;
 
+import static io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator.BITWISE_AND;
+import static io.trino.plugin.deltalake.expression.ArithmeticBinaryExpression.Operator.BITWISE_XOR;
+
 public final class SparkExpressionConverter
 {
     private SparkExpressionConverter() {}
@@ -38,9 +41,31 @@ public final class SparkExpressionConverter
         }
 
         @Override
+        protected String visitArithmeticBinary(ArithmeticBinaryExpression node, Void context)
+        {
+            if (node.getOperator() == BITWISE_AND) {
+                return "(bitwise_and(%s, %s))".formatted(process(node.getLeft(), context), process(node.getRight(), context));
+            }
+            if (node.getOperator() == BITWISE_XOR) {
+                return "(bitwise_xor(%s, %s))".formatted(process(node.getLeft(), context), process(node.getRight(), context));
+            }
+            return "(%s %s %s)".formatted(process(node.getLeft(), context), node.getOperator().getValue(), process(node.getRight(), context));
+        }
+
+        @Override
         protected String visitLogicalExpression(LogicalExpression node, Void context)
         {
             return "(%s %s %s)".formatted(process(node.getLeft(), context), node.getOperator().toString(), process(node.getRight(), context));
+        }
+
+        @Override
+        protected String visitBetweenExpression(BetweenPredicate node, Void context)
+        {
+            return "(%s %s %s AND %s)".formatted(
+                    process(node.getValue(), context),
+                    node.getOperator().getValue(),
+                    process(node.getMin(), context),
+                    process(node.getMax(), context));
         }
 
         @Override
@@ -65,6 +90,12 @@ public final class SparkExpressionConverter
         protected String visitStringLiteral(StringLiteral node, Void context)
         {
             return "'" + node.getValue().replace("'", "''") + "'";
+        }
+
+        @Override
+        protected String visitNullLiteral(NullLiteral node, Void context)
+        {
+            return "NULL";
         }
     }
 }

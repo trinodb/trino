@@ -13,6 +13,7 @@
  */
 package io.trino.type;
 
+import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.type.Type;
@@ -20,8 +21,6 @@ import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
-
-import javax.inject.Inject;
 
 public final class InternalTypeManager
         implements TypeManager

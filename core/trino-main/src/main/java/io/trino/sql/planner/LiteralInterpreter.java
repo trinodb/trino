@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
-import io.trino.collect.cache.CacheUtils;
+import io.trino.cache.CacheUtils;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Decimals;
@@ -50,7 +50,7 @@ import io.trino.sql.tree.TimestampLiteral;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -114,7 +114,7 @@ public final class LiteralInterpreter
         @Override
         protected Long visitLongLiteral(LongLiteral node, Void context)
         {
-            return node.getValue();
+            return node.getParsedValue();
         }
 
         @Override

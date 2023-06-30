@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BufferedArrayValueBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -31,13 +30,13 @@ import static com.google.common.base.Verify.verify;
 @Description("Construct an array of entries from a given map")
 public class MapEntriesFunction
 {
-    private final PageBuilder pageBuilder;
+    private final BufferedArrayValueBuilder arrayValueBuilder;
 
     @TypeParameter("K")
     @TypeParameter("V")
     public MapEntriesFunction(@TypeParameter("array(row(K,V))") Type arrayType)
     {
-        pageBuilder = new PageBuilder(ImmutableList.of(arrayType));
+        arrayValueBuilder = BufferedArrayValueBuilder.createBuffered((ArrayType) arrayType);
     }
 
     @TypeParameter("K")
@@ -52,24 +51,16 @@ public class MapEntriesFunction
 
         Type keyType = rowType.getTypeParameters().get(0);
         Type valueType = rowType.getTypeParameters().get(1);
-        ArrayType arrayType = new ArrayType(rowType);
-
-        if (pageBuilder.isFull()) {
-            pageBuilder.reset();
-        }
 
         int entryCount = block.getPositionCount() / 2;
-        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
-        BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-        for (int i = 0; i < entryCount; i++) {
-            BlockBuilder rowBuilder = entryBuilder.beginBlockEntry();
-            keyType.appendTo(block, 2 * i, rowBuilder);
-            valueType.appendTo(block, 2 * i + 1, rowBuilder);
-            entryBuilder.closeEntry();
-        }
-
-        blockBuilder.closeEntry();
-        pageBuilder.declarePosition();
-        return arrayType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
+        return arrayValueBuilder.build(entryCount, valueBuilder -> {
+            for (int i = 0; i < entryCount; i++) {
+                int position = 2 * i;
+                ((RowBlockBuilder) valueBuilder).buildEntry(fieldBuilders -> {
+                    keyType.appendTo(block, position, fieldBuilders.get(0));
+                    valueType.appendTo(block, position + 1, fieldBuilders.get(1));
+                });
+            }
+        });
     }
 }

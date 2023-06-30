@@ -30,10 +30,15 @@ public class TestHiveFileIterator
         String root = new Path("file:///root-path").toUri().getPath();
         assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(root, ".hidden/child"), root));
         assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(root, "_hidden.txt"), root));
+        String rootWithSlash = new Path("file:///root-path/").toUri().getPath();
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(rootWithSlash, ".hidden/child"), rootWithSlash));
+        assertTrue(isHiddenOrWithinHiddenParentDirectory(new Path(rootWithSlash, "_hidden.txt"), rootWithSlash));
         String rootWithinHidden = new Path("file:///root/.hidden/listing-root").toUri().getPath();
         assertFalse(isHiddenOrWithinHiddenParentDirectory(new Path(rootWithinHidden, "file.txt"), rootWithinHidden));
         String rootHiddenEnding = new Path("file:///root/hidden-ending_").toUri().getPath();
         assertFalse(isHiddenOrWithinHiddenParentDirectory(new Path(rootHiddenEnding, "file.txt"), rootHiddenEnding));
+        String insideNonAlphanumericPrefix = new Path("file:///root/With spaces and | pipes/.hidden").toUri().getPath();
+        assertFalse(isHiddenOrWithinHiddenParentDirectory(new Path(insideNonAlphanumericPrefix, "file.txt"), insideNonAlphanumericPrefix));
     }
 
     @Test

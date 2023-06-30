@@ -13,6 +13,8 @@
  */
 package io.trino.connector;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -31,6 +33,8 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorContextInstance
         implements ConnectorContext
 {
+    private final OpenTelemetry openTelemetry;
+    private final Tracer tracer;
     private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder;
     private final TypeManager typeManager;
@@ -43,6 +47,8 @@ public class ConnectorContextInstance
 
     public ConnectorContextInstance(
             CatalogHandle catalogHandle,
+            OpenTelemetry openTelemetry,
+            Tracer tracer,
             NodeManager nodeManager,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager,
@@ -51,6 +57,8 @@ public class ConnectorContextInstance
             PageIndexerFactory pageIndexerFactory,
             Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
+        this.openTelemetry = requireNonNull(openTelemetry, "openTelemetry is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -59,6 +67,18 @@ public class ConnectorContextInstance
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.duplicatePluginClassLoaderFactory = requireNonNull(duplicatePluginClassLoaderFactory, "duplicatePluginClassLoaderFactory is null");
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
+    }
+
+    @Override
+    public OpenTelemetry getOpenTelemetry()
+    {
+        return openTelemetry;
+    }
+
+    @Override
+    public Tracer getTracer()
+    {
+        return tracer;
     }
 
     @Override

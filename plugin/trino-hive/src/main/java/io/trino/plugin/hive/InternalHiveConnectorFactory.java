@@ -23,9 +23,16 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventModule;
 import io.airlift.json.JsonModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
+import io.trino.hdfs.azure.HiveAzureModule;
+import io.trino.hdfs.cos.HiveCosModule;
+import io.trino.hdfs.gcs.HiveGcsModule;
+import io.trino.hdfs.rubix.RubixEnabledConfig;
+import io.trino.hdfs.rubix.RubixModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.TypeDeserializerModule;
@@ -39,17 +46,11 @@ import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
-import io.trino.plugin.hive.azure.HiveAzureModule;
-import io.trino.plugin.hive.cos.HiveCosModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
 import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.gcs.HiveGcsModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreModule;
 import io.trino.plugin.hive.procedure.HiveProcedureModule;
-import io.trino.plugin.hive.rubix.RubixEnabledConfig;
-import io.trino.plugin.hive.rubix.RubixModule;
-import io.trino.plugin.hive.s3.HiveS3Module;
 import io.trino.plugin.hive.security.HiveSecurityModule;
 import io.trino.plugin.hive.security.SystemTableAwareAccessControl;
 import io.trino.spi.NodeManager;
@@ -111,7 +112,6 @@ public final class InternalHiveConnectorFactory
                     new PartitionProjectionModule(),
                     new CachingDirectoryListerModule(directoryLister),
                     new HdfsModule(),
-                    new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
                     new HiveCosModule(),
@@ -119,10 +119,12 @@ public final class InternalHiveConnectorFactory
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
                     new HdfsAuthenticationModule(),
-                    new HdfsFileSystemModule(),
+                    new FileSystemModule(),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),
                     binder -> {
+                        binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
+                        binder.bind(Tracer.class).toInstance(context.getTracer());
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                         binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder());

@@ -15,22 +15,28 @@ package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ColumnSchema;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.ConnectorTableSchema;
+import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableFunctionApplicationResult;
-import io.trino.spi.ptf.ConnectorTableFunctionHandle;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.statistics.ComputedStatistics;
 
-import javax.inject.Inject;
-
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,6 +46,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.google.sheets.SheetsConnectorTableHandle.tableNotFound;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static io.trino.plugin.google.sheets.ptf.Sheet.SheetFunctionHandle;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class SheetsMetadata
@@ -134,6 +143,12 @@ public class SheetsMetadata
     }
 
     @Override
+    public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return new ConnectorTableProperties();
+    }
+
+    @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         String schema = schemaName.orElseGet(() -> getOnlyElement(SCHEMAS));
@@ -153,6 +168,33 @@ public class SheetsMetadata
     }
 
     @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
+    {
+        if (retryMode != NO_RETRIES) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support query retries");
+        }
+
+        if (!(tableHandle instanceof SheetsNamedTableHandle namedTableHandle)) {
+            throw new TrinoException(NOT_SUPPORTED, format("Can only insert into named tables. Found table handle type: %s", tableHandle));
+        }
+
+        SheetsTable table = sheetsClient.getTable(namedTableHandle.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(namedTableHandle.getSchemaTableName()));
+
+        List<SheetsColumnHandle> columnHandles = new ArrayList<>(table.getColumnsMetadata().size());
+        for (int id = 0; id < table.getColumnsMetadata().size(); id++) {
+            columnHandles.add(new SheetsColumnHandle(table.getColumnsMetadata().get(id).getName(), table.getColumnsMetadata().get(id).getType(), id));
+        }
+        return new SheetsConnectorInsertTableHandle(namedTableHandle.getTableName(), columnHandles);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
+    }
+
+    @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         if (!(handle instanceof SheetFunctionHandle)) {
@@ -160,13 +202,7 @@ public class SheetsMetadata
         }
 
         ConnectorTableHandle tableHandle = ((SheetFunctionHandle) handle).getTableHandle();
-        ConnectorTableSchema tableSchema = getTableSchema(session, tableHandle);
-        Map<String, ColumnHandle> columnHandlesByName = getColumnHandles(session, tableHandle);
-        List<ColumnHandle> columnHandles = tableSchema.getColumns().stream()
-                .map(ColumnSchema::getName)
-                .map(columnHandlesByName::get)
-                .collect(toImmutableList());
-
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
 

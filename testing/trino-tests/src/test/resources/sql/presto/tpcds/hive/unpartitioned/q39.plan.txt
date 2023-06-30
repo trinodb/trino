@@ -10,16 +10,19 @@ remote exchange (GATHER, SINGLE, [])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                scan inventory
+                                                dynamic filter (["inv_date_sk", "inv_item_sk", "inv_item_sk", "inv_warehouse_sk", "inv_warehouse_sk"])
+                                                    scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
-                                                    scan item
+                                                    dynamic filter (["i_item_sk"])
+                                                        scan item
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
-                                                scan warehouse
+                                                dynamic filter (["w_warehouse_sk"])
+                                                    scan warehouse
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["inv_item_sk_12", "inv_warehouse_sk_13"])
                         final aggregation over (d_moy_68, inv_item_sk_12, inv_warehouse_sk_13, w_warehouse_name_45)
@@ -29,7 +32,8 @@ remote exchange (GATHER, SINGLE, [])
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
-                                                    scan inventory
+                                                    dynamic filter (["inv_date_sk_11", "inv_item_sk_12", "inv_warehouse_sk_13"])
+                                                        scan inventory
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
                                                             scan date_dim

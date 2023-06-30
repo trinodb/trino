@@ -50,6 +50,7 @@ public class ScaledWriterScheduler
     private final long writerMinSizeBytes;
     private final Set<InternalNode> scheduledNodes = new HashSet<>();
     private final AtomicBoolean done = new AtomicBoolean();
+    private final int maxWriterNodeCount;
     private volatile SettableFuture<Void> future = SettableFuture.create();
 
     public ScaledWriterScheduler(
@@ -58,7 +59,8 @@ public class ScaledWriterScheduler
             Supplier<Collection<TaskStatus>> writerTasksProvider,
             NodeSelector nodeSelector,
             ScheduledExecutorService executor,
-            DataSize writerMinSize)
+            DataSize writerMinSize,
+            int maxWriterNodeCount)
     {
         this.stage = requireNonNull(stage, "stage is null");
         this.sourceTasksProvider = requireNonNull(sourceTasksProvider, "sourceTasksProvider is null");
@@ -66,6 +68,7 @@ public class ScaledWriterScheduler
         this.nodeSelector = requireNonNull(nodeSelector, "nodeSelector is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.writerMinSizeBytes = writerMinSize.toBytes();
+        this.maxWriterNodeCount = maxWriterNodeCount;
     }
 
     public void finish()
@@ -99,6 +102,24 @@ public class ScaledWriterScheduler
             return 0;
         }
 
+        // When there is a big data skewness, there could be a bottleneck due to the skewed workers even if most of the workers are not over-utilized.
+        // Check both, weighted output buffer over-utilization rate and average output buffer over-utilization rate, in case when there are many over-utilized small tasks
+        // due to fewer not-over-utilized big skewed tasks.
+        if (isSourceTasksBufferFull() && isWriteThroughputSufficient() && scheduledNodes.size() < maxWriterNodeCount) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    private boolean isSourceTasksBufferFull()
+    {
+        return isAverageBufferFull() || isWeightedBufferFull();
+    }
+
+    private boolean isWriteThroughputSufficient()
+    {
+        Collection<TaskStatus> writerTasks = writerTasksProvider.get();
         long writtenBytes = writerTasks.stream()
                 .map(TaskStatus::getPhysicalWrittenDataSize)
                 .mapToLong(DataSize::toBytes)
@@ -109,15 +130,7 @@ public class ScaledWriterScheduler
                 .map(Optional::get)
                 .mapToLong(writerCount -> writerMinSizeBytes * writerCount)
                 .sum();
-
-        // When there is a big data skewness, there could be a bottleneck due to the skewed workers even if most of the workers are not over-utilized.
-        // Check both, weighted output buffer over-utilization rate and average output buffer over-utilization rate, in case when there are many over-utilized small tasks
-        // due to fewer not-over-utilized big skewed tasks.
-        if ((isWeightedBufferFull() || isAverageBufferFull()) && (writtenBytes >= minWrittenBytesToScaleUp)) {
-            return 1;
-        }
-
-        return 0;
+        return writtenBytes >= minWrittenBytesToScaleUp;
     }
 
     private boolean isWeightedBufferFull()

@@ -20,6 +20,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.net.MediaType;
+import io.trino.hdfs.s3.TrinoS3FileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -290,6 +291,34 @@ public abstract class BaseTestTrinoS3FileSystemObjectStorage
             throws Exception
     {
         String prefix = "test-delete-recursively-path-multiple-objects-plain-" + randomNameSuffix();
+        String prefixPath = "s3://%s/%s".formatted(getBucketName(), prefix);
+
+        try (TrinoS3FileSystem fs = createFileSystem()) {
+            try {
+                String filename1 = "file1.txt";
+                String filename2 = "file2.txt";
+                fs.createNewFile(new Path(prefixPath, filename1));
+                fs.createNewFile(new Path(prefixPath, filename2));
+                List<String> paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
+                assertThat(paths).containsOnly(
+                        "%s/%s".formatted(prefix, filename1),
+                        "%s/%s".formatted(prefix, filename2));
+
+                assertTrue(fs.delete(new Path(prefixPath), true));
+
+                assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
+            }
+            finally {
+                fs.delete(new Path(prefixPath), true);
+            }
+        }
+    }
+
+    @Test
+    public void testDeleteRecursivelyPrefixWithSpecialCharacters()
+            throws Exception
+    {
+        String prefix = "test-delete-recursively-path-with-special characters |" + randomNameSuffix();
         String prefixPath = "s3://%s/%s".formatted(getBucketName(), prefix);
 
         try (TrinoS3FileSystem fs = createFileSystem()) {

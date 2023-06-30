@@ -62,6 +62,7 @@ public interface QueryDao
             "  waiting_time_millis BIGINT NOT NULL,\n" +
             "  analysis_time_millis BIGINT NOT NULL,\n" +
             "  planning_time_millis BIGINT NOT NULL,\n" +
+            "  planning_cpu_time_millis BIGINT NOT NULL,\n" +
             "  execution_time_millis BIGINT NOT NULL,\n" +
             "  input_blocked_time_millis BIGINT NOT NULL,\n" +
             "  failed_input_blocked_time_millis BIGINT NOT NULL,\n" +
@@ -133,6 +134,7 @@ public interface QueryDao
             "  waiting_time_millis,\n" +
             "  analysis_time_millis,\n" +
             "  planning_time_millis,\n" +
+            "  planning_cpu_time_millis,\n" +
             "  execution_time_millis,\n" +
             "  input_blocked_time_millis,\n" +
             "  failed_input_blocked_time_millis,\n" +
@@ -201,6 +203,7 @@ public interface QueryDao
             " :waitingTimeMillis,\n" +
             " :analysisTimeMillis,\n" +
             " :planningTimeMillis,\n" +
+            " :planningCpuTimeMillis,\n" +
             " :executionTimeMillis,\n" +
             " :inputBlockedTimeMillis,\n" +
             " :failedInputBlockedTimeMillis,\n" +

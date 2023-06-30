@@ -24,10 +24,10 @@ import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.MapHashTables;
-import io.trino.spi.block.SingleRowBlockWriter;
 import io.trino.spi.block.TestingBlockEncodingSerde;
-import org.testng.annotations.Test;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -56,7 +56,6 @@ import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public abstract class AbstractTestBlock
 {
     private static final BlockEncodingSerde BLOCK_ENCODING_SERDE = new TestingBlockEncodingSerde(TESTING_TYPE_MANAGER::getType);
@@ -127,9 +126,6 @@ public abstract class AbstractTestBlock
                 else if (type == SliceOutput.class) {
                     retainedSize += ((SliceOutput) field.get(block)).getRetainedSize();
                 }
-                else if (type == SingleRowBlockWriter.class) {
-                    retainedSize += SingleRowBlockWriter.INSTANCE_SIZE;
-                }
                 else if (type == int[].class) {
                     retainedSize += sizeOf((int[]) field.get(block));
                 }
@@ -151,11 +147,18 @@ public abstract class AbstractTestBlock
                 else if (type == MapHashTables.class) {
                     retainedSize += ((MapHashTables) field.get(block)).getRetainedSizeInBytes();
                 }
+                else if (type.getEnclosingClass() == MapBlockBuilder.class) {
+                    // ignore nested enum
+                }
                 else if (type == MethodHandle.class) {
                     // MethodHandles are only used in MapBlock/MapBlockBuilder,
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
+                }
+                else if (field.getName().equals("fieldBlockBuildersList")) {
+                    // RowBlockBuilder fieldBlockBuildersList is a simple wrapper around the
+                    // array already accounted for in the instance
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));
@@ -346,9 +349,8 @@ public abstract class AbstractTestBlock
             assertTrue(block.equals(position, offset, expectedBlock, 0, offset, 3));
             assertEquals(block.compareTo(position, offset, 3, expectedBlock, 0, offset, 3), 0);
 
-            BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
-            block.writeBytesTo(position, offset, 3, blockBuilder);
-            blockBuilder.closeEntry();
+            VariableWidthBlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 1);
+            blockBuilder.writeEntry(block.getSlice(position, offset, 3));
             Block segment = blockBuilder.build();
 
             assertTrue(block.equals(position, offset, segment, 0, 0, 3));

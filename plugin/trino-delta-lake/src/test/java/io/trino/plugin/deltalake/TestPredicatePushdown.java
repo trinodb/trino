@@ -39,10 +39,10 @@ import static org.testng.Assert.assertEquals;
 public class TestPredicatePushdown
         extends AbstractTestQueryFramework
 {
-    private static final String BUCKET_NAME = "delta-test-pushdown";
     private static final Path RESOURCE_PATH = Path.of("databricks/pushdown/");
     private static final String TEST_SCHEMA = "default";
 
+    private final String bucketName = "delta-test-pushdown-" + randomNameSuffix();
     /**
      * This single-file Parquet table has known row groups. See the test
      * resource {@code pushdown/custkey_15rowgroups/README.md} for details.
@@ -55,7 +55,7 @@ public class TestPredicatePushdown
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
         return createS3DeltaLakeQueryRunner(
                 DELTA_CATALOG,
@@ -231,7 +231,7 @@ public class TestPredicatePushdown
             hiveMinioDataLake.copyResources(RESOURCE_PATH.resolve(resourcePath).toString(), name);
             getQueryRunner().execute(format(
                     "CALL system.register_table(CURRENT_SCHEMA, '%2$s', 's3://%1$s/%2$s')",
-                    BUCKET_NAME,
+                    bucketName,
                     name));
             return name;
         }

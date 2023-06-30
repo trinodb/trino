@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.blackhole;
 
+import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
@@ -26,9 +27,10 @@ import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 
 public class BlackHoleNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
@@ -49,14 +51,22 @@ public class BlackHoleNodePartitioningProvider
             int bucketCount)
     {
         List<MethodHandle> hashCodeInvokers = partitionChannelTypes.stream()
-                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)))
                 .collect(toImmutableList());
 
         return (page, position) -> {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
+                Block block = page.getBlock(i);
                 try {
-                    hash = 31 * hash + (long) hashCodeInvokers.get(i).invokeExact(page.getBlock(i), 0);
+                    long valueHash;
+                    if (block.isNull(position)) {
+                        valueHash = NULL_HASH_CODE;
+                    }
+                    else {
+                        valueHash = (long) hashCodeInvokers.get(i).invokeExact(block, position);
+                    }
+                    hash = 31 * hash + valueHash;
                 }
                 catch (Throwable throwable) {
                     throwIfUnchecked(throwable);

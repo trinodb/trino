@@ -55,7 +55,11 @@ public class TestSqlServerConnectorTest
             throws Exception
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSqlServerQueryRunner(
+                sqlServer,
+                ImmutableMap.of(),
+                ImmutableMap.of("sqlserver.experimental.stored-procedure-table-function-enabled", "true"),
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override
@@ -279,8 +283,8 @@ public class TestSqlServerConnectorTest
                 .add("a\"quote")
                 .add("an'apostrophe")
                 .add("a`backtick`")
-                .add("a/slash`")
-                .add("a\\backslash`")
+                .add("a/slash")
+                .add("a\\backslash")
                 .add("adigit0")
                 .add("0startwithdigit")
                 .add("[brackets]")

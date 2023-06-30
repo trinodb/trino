@@ -23,10 +23,6 @@ public enum BenchmarkFileFormat
     TRINO_ORC(StandardFileFormats.TRINO_ORC),
     TRINO_PARQUET(StandardFileFormats.TRINO_PARQUET),
     TRINO_OPTIMIZED_PARQUET(StandardFileFormats.TRINO_PARQUET),
-    HIVE_RCBINARY(StandardFileFormats.HIVE_RCBINARY),
-    HIVE_RCTEXT(StandardFileFormats.HIVE_RCTEXT),
-    HIVE_ORC(StandardFileFormats.HIVE_ORC),
-    HIVE_PARQUET(StandardFileFormats.HIVE_PARQUET),
     /**/;
 
     private final FileFormat format;

@@ -64,7 +64,6 @@ public class TestFeaturesConfig
                 .setIncrementalHashArrayLoadFactorEnabled(true)
                 .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
-                .setAllowSetViewAuthorization(false)
                 .setForceSpillingJoin(false)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
@@ -100,7 +99,6 @@ public class TestFeaturesConfig
                 .put("incremental-hash-array-load-factor.enabled", "false")
                 .put("legacy.materialized-view-grace-period", "true")
                 .put("hide-inaccessible-columns", "true")
-                .put("legacy.allow-set-view-authorization", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
                 .buildOrThrow();
@@ -133,7 +131,6 @@ public class TestFeaturesConfig
                 .setIncrementalHashArrayLoadFactorEnabled(false)
                 .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
-                .setAllowSetViewAuthorization(true)
                 .setForceSpillingJoin(true)
                 .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);

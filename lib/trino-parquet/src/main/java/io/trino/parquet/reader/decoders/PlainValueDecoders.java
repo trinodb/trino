@@ -31,7 +31,7 @@ import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.parquet.ParquetTypeUtils.checkBytesFitInShortDecimal;
 import static io.trino.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static io.trino.parquet.reader.flat.BitPackingUtils.unpack;
-import static io.trino.parquet.reader.flat.Int96ColumnAdapter.Int96Buffer;
+import static io.trino.spi.block.Fixed12Block.encodeFixed12;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotation;
@@ -341,8 +341,8 @@ public final class PlainValueDecoders
         }
     }
 
-    public static final class Int96PlainValueDecoder
-            implements ValueDecoder<Int96Buffer>
+    public static final class Int96TimestampPlainValueDecoder
+            implements ValueDecoder<int[]>
     {
         private static final int LENGTH = SIZE_OF_LONG + SIZE_OF_INT;
 
@@ -355,14 +355,12 @@ public final class PlainValueDecoders
         }
 
         @Override
-        public void read(Int96Buffer values, int offset, int length)
+        public void read(int[] values, int offset, int length)
         {
             input.ensureBytesAvailable(length * LENGTH);
             for (int i = offset; i < offset + length; i++) {
                 DecodedTimestamp timestamp = decodeInt96Timestamp(input.readLongUnsafe(), input.readIntUnsafe());
-
-                values.longs[i] = timestamp.epochSeconds();
-                values.ints[i] = timestamp.nanosOfSecond();
+                encodeFixed12(timestamp.epochSeconds(), timestamp.nanosOfSecond(), values, i);
             }
         }
 

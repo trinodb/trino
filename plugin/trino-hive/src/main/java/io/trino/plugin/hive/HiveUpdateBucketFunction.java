@@ -34,7 +34,7 @@ public class HiveUpdateBucketFunction
     public int getBucket(Page page, int position)
     {
         Block bucketBlock = page.getBlock(0).getObject(position, Block.class);
-        long value = INTEGER.getLong(bucketBlock, BUCKET_CHANNEL);
+        long value = INTEGER.getInt(bucketBlock, BUCKET_CHANNEL);
         return (int) (value & Integer.MAX_VALUE) % bucketCount;
     }
 }

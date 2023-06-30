@@ -1917,7 +1917,7 @@ public class TestPostgreSqlTypeMapping
     private void assertPostgreSqlQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> postgreSqlServer.execute(sql))
-                .getCause()
+                .cause()
                 .hasMessageContaining(expectedMessage);
     }
 }

@@ -13,11 +13,10 @@
  */
 package io.trino.plugin.password.file;
 
+import com.google.inject.Inject;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.PasswordAuthenticator;
-
-import javax.inject.Inject;
 
 import java.io.File;
 import java.security.Principal;

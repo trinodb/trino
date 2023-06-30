@@ -15,6 +15,8 @@ package io.trino.plugin.hive.s3select;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveRecordCursorProvider;
@@ -27,8 +29,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -66,7 +66,7 @@ public class S3SelectRecordCursorProvider
     public Optional<ReaderRecordCursorWithProjections> createRecordCursor(
             Configuration configuration,
             ConnectorSession session,
-            Path path,
+            Location location,
             long start,
             long length,
             long fileSize,
@@ -80,6 +80,7 @@ public class S3SelectRecordCursorProvider
             return Optional.empty();
         }
 
+        Path path = new Path(location.toString());
         try {
             this.hdfsEnvironment.getFileSystem(session.getIdentity(), path, configuration);
         }

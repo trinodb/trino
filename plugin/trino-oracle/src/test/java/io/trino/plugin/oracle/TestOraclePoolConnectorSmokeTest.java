@@ -41,7 +41,6 @@ public class TestOraclePoolConnectorSmokeTest
                         .put("connection-user", TEST_USER)
                         .put("connection-password", TEST_PASS)
                         .put("oracle.connection-pool.enabled", "true")
-                        .put("oracle.remarks-reporting.enabled", "false")
                         .buildOrThrow(),
                 REQUIRED_TPCH_TABLES);
     }

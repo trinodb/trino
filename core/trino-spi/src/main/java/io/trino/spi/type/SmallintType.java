@@ -153,12 +153,17 @@ public final class SmallintType
             blockBuilder.appendNull();
         }
         else {
-            blockBuilder.writeShort(block.getShort(position, 0)).closeEntry();
+            ((ShortArrayBlockBuilder) blockBuilder).writeShort(block.getShort(position, 0));
         }
     }
 
     @Override
     public long getLong(Block block, int position)
+    {
+        return getShort(block, position);
+    }
+
+    public short getShort(Block block, int position)
     {
         return block.getShort(position, 0);
     }
@@ -167,7 +172,12 @@ public final class SmallintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         checkValueValid(value);
-        blockBuilder.writeShort((int) value).closeEntry();
+        writeShort(blockBuilder, (short) value);
+    }
+
+    public void writeShort(BlockBuilder blockBuilder, short value)
+    {
+        ((ShortArrayBlockBuilder) blockBuilder).writeShort(value);
     }
 
     private void checkValueValid(long value)

@@ -58,7 +58,6 @@ public class IntArrayBlockBuilder
         updateDataSize();
     }
 
-    @Override
     public BlockBuilder writeInt(int value)
     {
         if (values.length <= positionCount) {
@@ -72,12 +71,6 @@ public class IntArrayBlockBuilder
         if (blockBuilderStatus != null) {
             blockBuilderStatus.addBytes(IntArrayBlock.SIZE_IN_BYTES_PER_POSITION);
         }
-        return this;
-    }
-
-    @Override
-    public BlockBuilder closeEntry()
-    {
         return this;
     }
 

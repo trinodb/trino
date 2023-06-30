@@ -13,7 +13,7 @@
  */
 package io.trino.testng.services;
 
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -65,7 +65,7 @@ public class TestReportPrivateMethods
     private static class PackagePrivateTest
     {
         // using @Test would make the class a test, and fail the build
-        @BeforeTest
+        @BeforeMethod
         void testPackagePrivate() {}
     }
 
@@ -84,7 +84,7 @@ public class TestReportPrivateMethods
     private static class BasePackagePrivateTest
     {
         // using @Test would make the class a test, and fail the build
-        @BeforeTest
+        @BeforeMethod
         void testPackagePrivateInBase() {}
     }
 
@@ -92,14 +92,14 @@ public class TestReportPrivateMethods
             extends BasePackagePrivateTest
     {
         // using @Test would make the class a test, and fail the build
-        @BeforeTest
+        @BeforeMethod
         public void testPublic() {}
     }
 
     private static class PackagePrivateSuppressedTest
     {
         // using @Test would make the class a test, and fail the build
-        @BeforeTest
+        @BeforeMethod
         @ReportPrivateMethods.Suppress
         void testPackagePrivate() {}
     }

@@ -22,8 +22,11 @@ import io.trino.client.StatementStats;
 import io.trino.client.Warning;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -51,6 +54,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -82,6 +87,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public class MaterializedResult
@@ -101,7 +107,12 @@ public class MaterializedResult
 
     public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, ImmutableList.of(), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(rows, types, Optional.empty());
+    }
+
+    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames)
+    {
+        this(rows, types, columnNames.orElse(ImmutableList.of()), ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
@@ -221,6 +232,53 @@ public class MaterializedResult
                 .toString();
     }
 
+    public MaterializedResult exceptColumns(String... columnNamesToExclude)
+    {
+        validateIfColumnsPresent(columnNamesToExclude);
+        checkArgument(columnNamesToExclude.length > 0, "At least one column must be excluded");
+        checkArgument(columnNamesToExclude.length < getColumnNames().size(), "All columns cannot be excluded");
+        return projected(((Predicate<String>) Set.of(columnNamesToExclude)::contains).negate());
+    }
+
+    public MaterializedResult project(String... columnNamesToInclude)
+    {
+        validateIfColumnsPresent(columnNamesToInclude);
+        checkArgument(columnNamesToInclude.length > 0, "At least one column must be projected");
+        return projected(Set.of(columnNamesToInclude)::contains);
+    }
+
+    private void validateIfColumnsPresent(String... columns)
+    {
+        Set<String> columnNames = ImmutableSet.copyOf(getColumnNames());
+        for (String column : columns) {
+            checkArgument(columnNames.contains(column), "[%s] column is not present in %s".formatted(column, columnNames));
+        }
+    }
+
+    private MaterializedResult projected(Predicate<String> columnFilter)
+    {
+        List<String> columnNames = getColumnNames();
+        Map<Integer, String> columnsIndexToNameMap = new HashMap<>();
+        for (int i = 0; i < columnNames.size(); i++) {
+            String columnName = columnNames.get(i);
+            if (columnFilter.test(columnName)) {
+                columnsIndexToNameMap.put(i, columnName);
+            }
+        }
+
+        return new MaterializedResult(
+                getMaterializedRows().stream()
+                        .map(row -> new MaterializedRow(
+                                row.getPrecision(),
+                                columnsIndexToNameMap.keySet().stream()
+                                        .map(row::getField)
+                                        .collect(toList()))) // values are nullable
+                        .collect(toImmutableList()),
+                columnsIndexToNameMap.keySet().stream()
+                        .map(getTypes()::get)
+                        .collect(toImmutableList()));
+    }
+
     public Stream<Object> getOnlyColumn()
     {
         checkState(types.size() == 1, "result set must have exactly one column");
@@ -330,31 +388,31 @@ public class MaterializedResult
         else if (type instanceof ArrayType) {
             List<?> list = (List<?>) value;
             Type elementType = ((ArrayType) type).getElementType();
-            BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Object element : list) {
-                writeValue(elementType, arrayBlockBuilder, element);
-            }
-            blockBuilder.closeEntry();
+            ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                for (Object element : list) {
+                    writeValue(elementType, elementBuilder, element);
+                }
+            });
         }
         else if (type instanceof MapType) {
             Map<?, ?> map = (Map<?, ?>) value;
             Type keyType = ((MapType) type).getKeyType();
             Type valueType = ((MapType) type).getValueType();
-            BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-            for (Entry<?, ?> entry : map.entrySet()) {
-                writeValue(keyType, mapBlockBuilder, entry.getKey());
-                writeValue(valueType, mapBlockBuilder, entry.getValue());
-            }
-            blockBuilder.closeEntry();
+            ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                for (Entry<?, ?> entry : map.entrySet()) {
+                    writeValue(keyType, keyBuilder, entry.getKey());
+                    writeValue(valueType, valueBuilder, entry.getValue());
+                }
+            });
         }
         else if (type instanceof RowType) {
             List<?> row = (List<?>) value;
             List<Type> fieldTypes = type.getTypeParameters();
-            BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-            for (int field = 0; field < row.size(); field++) {
-                writeValue(fieldTypes.get(field), rowBlockBuilder, row.get(field));
-            }
-            blockBuilder.closeEntry();
+            ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                for (int field = 0; field < row.size(); field++) {
+                    writeValue(fieldTypes.get(field), fieldBuilders.get(field), row.get(field));
+                }
+            });
         }
         else {
             throw new IllegalArgumentException("Unsupported type " + type);
@@ -457,6 +515,7 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
+        private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
         {
@@ -512,9 +571,15 @@ public class MaterializedResult
             return this;
         }
 
+        public synchronized Builder columnNames(List<String> columnNames)
+        {
+            this.columnNames = Optional.of(ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null")));
+            return this;
+        }
+
         public synchronized MaterializedResult build()
         {
-            return new MaterializedResult(rows.build(), types);
+            return new MaterializedResult(rows.build(), types, columnNames);
         }
     }
 }

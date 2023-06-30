@@ -576,7 +576,7 @@ public class EffectivePredicateExtractor
 
         private Expression pullExpressionThroughSymbols(Expression expression, Collection<Symbol> symbols)
         {
-            EqualityInference equalityInference = EqualityInference.newInstance(metadata, expression);
+            EqualityInference equalityInference = new EqualityInference(metadata, expression);
 
             ImmutableList.Builder<Expression> effectiveConjuncts = ImmutableList.builder();
             Set<Symbol> scope = ImmutableSet.copyOf(symbols);

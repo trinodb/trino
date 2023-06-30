@@ -27,6 +27,7 @@ import io.trino.orc.metadata.CompressionKind;
 import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -272,6 +273,11 @@ public class OrcPageSource
             return new SourceColumn(index);
         }
 
+        static ColumnAdaptation coercedColumn(int index, TypeCoercer<?, ?> typeCoercer)
+        {
+            return new CoercedColumn(sourceColumn(index), typeCoercer);
+        }
+
         static ColumnAdaptation constantColumn(Block singleValueBlock)
         {
             return new ConstantAdaptation(singleValueBlock);
@@ -336,8 +342,7 @@ public class OrcPageSource
         @Override
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
         {
-            Block block = sourcePage.getBlock(index);
-            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, block));
+            return new LazyBlock(maskDeletedRowsFunction.getPositionCount(), new MaskingBlockLoader(maskDeletedRowsFunction, sourcePage.getBlock(index)));
         }
 
         @Override
@@ -372,6 +377,36 @@ public class OrcPageSource
 
                 return resultBlock;
             }
+        }
+    }
+
+    private static class CoercedColumn
+            implements ColumnAdaptation
+    {
+        private final ColumnAdaptation delegate;
+        private final TypeCoercer<?, ?> typeCoercer;
+
+        public CoercedColumn(ColumnAdaptation delegate, TypeCoercer<?, ?> typeCoercer)
+        {
+            this.delegate = requireNonNull(delegate, "delegate is null");
+            this.typeCoercer = requireNonNull(typeCoercer, "typeCoercer is null");
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            Block block = delegate.block(sourcePage, maskDeletedRowsFunction, filePosition, startRowId);
+            return new LazyBlock(block.getPositionCount(), () -> typeCoercer.apply(block.getLoadedBlock()));
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("delegate", delegate)
+                    .add("fromType", typeCoercer.getFromType())
+                    .add("toType", typeCoercer.getToType())
+                    .toString();
         }
     }
 

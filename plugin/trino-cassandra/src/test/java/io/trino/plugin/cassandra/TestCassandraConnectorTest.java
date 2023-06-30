@@ -91,6 +91,14 @@ public class TestCassandraConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_UPDATE:
+            case SUPPORTS_MERGE:
+                return false;
+
+            case SUPPORTS_DELETE:
+            case SUPPORTS_TRUNCATE:
+                return true;
+
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
@@ -112,14 +120,11 @@ public class TestCassandraConnectorTest
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
             case SUPPORTS_NOT_NULL_CONSTRAINT:
                 return false;
-
-            case SUPPORTS_DELETE:
-            case SUPPORTS_TRUNCATE:
-                return true;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:
@@ -1391,31 +1396,55 @@ public class TestCassandraConnectorTest
     }
 
     @Test
+    public void testNativeQueryColumnAlias()
+    {
+        assertThat(query("SELECT region_name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region WHERE regionkey = 0 ALLOW FILTERING'))"))
+                .matches("VALUES CAST('AFRICA' AS VARCHAR)");
+    }
+
+    @Test
+    public void testNativeQueryColumnAliasNotFound()
+    {
+        assertQueryFails(
+                "SELECT name FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'name' cannot be resolved");
+        assertQueryFails(
+                "SELECT column_not_found FROM TABLE(system.query(query => 'SELECT name AS region_name FROM tpch.region'))",
+                ".* Column 'column_not_found' cannot be resolved");
+    }
+
+    @Test
     public void testNativeQuerySelectFromTestTable()
     {
-        String tableName = "tpch.test_select" + randomNameSuffix();
-        onCassandra("CREATE TABLE " + tableName + "(col BIGINT PRIMARY KEY)");
+        String tableName = "test_select" + randomNameSuffix();
+        onCassandra("CREATE TABLE tpch." + tableName + "(col BIGINT PRIMARY KEY)");
+        onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
-        onCassandra("INSERT INTO " + tableName + "(col) VALUES (1)");
         assertQuery(
-                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
                 "VALUES 1");
 
-        onCassandra("DROP TABLE " + tableName);
+        onCassandra("DROP TABLE tpch." + tableName);
     }
 
     @Test
     public void testNativeQueryCaseSensitivity()
     {
-        String tableName = "tpch.test_case" + randomNameSuffix();
-        onCassandra("CREATE TABLE " + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
+        String tableName = "test_case" + randomNameSuffix();
+        onCassandra("CREATE TABLE tpch." + tableName + "(col_case BIGINT PRIMARY KEY, \"COL_CASE\" BIGINT)");
+        onCassandra("INSERT INTO tpch." + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
-        onCassandra("INSERT INTO " + tableName + "(col_case, \"COL_CASE\") VALUES (1, 2)");
         assertQuery(
-                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM " + tableName + "'))",
+                "SELECT * FROM TABLE(cassandra.system.query(query => 'SELECT * FROM tpch." + tableName + "'))",
                 "VALUES (1, 2)");
 
-        onCassandra("DROP TABLE " + tableName);
+        onCassandra("DROP TABLE tpch." + tableName);
     }
 
     @Test
@@ -1443,6 +1472,9 @@ public class TestCassandraConnectorTest
         String tableName = "test_unsupported_statement" + randomNameSuffix();
         onCassandra("CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)");
         onCassandra("INSERT INTO tpch." + tableName + "(col) VALUES (1)");
+        assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
 
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
                 .hasMessage("Handle doesn't have columns info");
@@ -1559,7 +1591,7 @@ public class TestCassandraConnectorTest
         }
     }
 
-    private MaterializedResult execute(String sql)
+    private MaterializedResult execute(@Language("SQL") String sql)
     {
         return getQueryRunner().execute(SESSION, sql);
     }

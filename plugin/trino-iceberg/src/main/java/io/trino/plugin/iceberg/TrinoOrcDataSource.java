@@ -34,7 +34,7 @@ public class TrinoOrcDataSource
     public TrinoOrcDataSource(TrinoInputFile file, OrcReaderOptions options, FileFormatDataSourceStats stats)
             throws IOException
     {
-        super(new OrcDataSourceId(file.location()), file.length(), options);
+        super(new OrcDataSourceId(file.location().toString()), file.length(), options);
         this.stats = requireNonNull(stats, "stats is null");
         this.input = file.newInput();
     }

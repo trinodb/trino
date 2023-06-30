@@ -80,7 +80,8 @@ public class TestFileSystemCache
     }
 
     @Test
-    public void testFileSystemCacheException() throws IOException
+    public void testFileSystemCacheException()
+            throws IOException
     {
         HdfsEnvironment environment = new HdfsEnvironment(
                 new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig()), ImmutableSet.of()),
@@ -99,7 +100,8 @@ public class TestFileSystemCache
     }
 
     @Test
-    public void testFileSystemCacheConcurrency() throws InterruptedException, ExecutionException, IOException
+    public void testFileSystemCacheConcurrency()
+            throws InterruptedException, ExecutionException, IOException
     {
         int numThreads = 20;
         List<Callable<Void>> callableTasks = new ArrayList<>();
@@ -128,7 +130,8 @@ public class TestFileSystemCache
     @FunctionalInterface
     public interface FileSystemConsumer
     {
-        void consume(FileSystem fileSystem) throws IOException;
+        void consume(FileSystem fileSystem)
+                throws IOException;
     }
 
     private static class FileSystemCloser
@@ -136,7 +139,8 @@ public class TestFileSystemCache
     {
         @Override
         @SuppressModernizer
-        public void consume(FileSystem fileSystem) throws IOException
+        public void consume(FileSystem fileSystem)
+                throws IOException
         {
             fileSystem.close();  /* triggers fscache.remove() */
         }
@@ -164,7 +168,8 @@ public class TestFileSystemCache
         }
 
         @Override
-        public Void call() throws IOException
+        public Void call()
+                throws IOException
         {
             for (int i = 0; i < getCallsPerInvocation; i++) {
                 FileSystem fs = getFileSystem(environment, ConnectorIdentity.ofUser("user" + random.nextInt(userCount)));

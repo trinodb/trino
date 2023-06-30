@@ -54,8 +54,8 @@ public class DeltaLakeConnectorFactory
             Class<?> moduleClass = classLoader.loadClass(Module.class.getName());
             Object moduleInstance = classLoader.loadClass(module.getName()).getConstructor().newInstance();
             return (Connector) classLoader.loadClass(InternalDeltaLakeConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, moduleClass)
-                    .invoke(null, catalogName, config, context, Optional.empty(), moduleInstance);
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, Optional.class, moduleClass)
+                    .invoke(null, catalogName, config, context, Optional.empty(), Optional.empty(), moduleInstance);
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();

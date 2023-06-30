@@ -200,19 +200,6 @@ public final class Partitioning
         return isPartitionedOn(ImmutableSet.of(), knownConstants);
     }
 
-    public boolean isRepartitionEffective(Collection<Symbol> keys, Set<Symbol> knownConstants)
-    {
-        Set<Symbol> keysWithoutConstants = keys.stream()
-                .filter(symbol -> !knownConstants.contains(symbol))
-                .collect(toImmutableSet());
-        Set<Symbol> nonConstantArgs = arguments.stream()
-                .filter(ArgumentBinding::isVariable)
-                .map(ArgumentBinding::getColumn)
-                .filter(symbol -> !knownConstants.contains(symbol))
-                .collect(toImmutableSet());
-        return !nonConstantArgs.equals(keysWithoutConstants);
-    }
-
     public Partitioning translate(Function<Symbol, Symbol> translator)
     {
         return new Partitioning(handle, arguments.stream()

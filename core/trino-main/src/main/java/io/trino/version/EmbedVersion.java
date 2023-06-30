@@ -14,14 +14,13 @@
 package io.trino.version;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.trino.client.NodeVersion;
 import io.trino.spi.VersionEmbedder;
-
-import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.concurrent.Callable;

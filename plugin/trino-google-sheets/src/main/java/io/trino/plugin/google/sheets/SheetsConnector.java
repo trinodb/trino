@@ -14,17 +14,17 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.ptf.ConnectorTableFunction;
+import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.transaction.IsolationLevel;
-
-import javax.inject.Inject;
 
 import java.util.Set;
 
@@ -38,6 +38,7 @@ public class SheetsConnector
     private final SheetsMetadata metadata;
     private final SheetsSplitManager splitManager;
     private final SheetsRecordSetProvider recordSetProvider;
+    private final SheetsPageSinkProvider pageSinkProvider;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
 
     @Inject
@@ -46,12 +47,14 @@ public class SheetsConnector
             SheetsMetadata metadata,
             SheetsSplitManager splitManager,
             SheetsRecordSetProvider recordSetProvider,
+            SheetsPageSinkProvider pageSinkProvider,
             Set<ConnectorTableFunction> connectorTableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
     }
 
@@ -80,9 +83,21 @@ public class SheetsConnector
     }
 
     @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
+    }
+
+    @Override
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return connectorTableFunctions;
+    }
+
+    @Override
+    public boolean isSingleStatementWritesOnly()
+    {
+        return true;
     }
 
     @Override

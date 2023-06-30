@@ -272,3 +272,13 @@ increases concurrency on large clusters where multiple small queries are running
 The estimated value will always be between ``min_hash_partition_count`` and
 ``max_hash_partition_count`` session property.
 A value of ``0`` disables this optimization.
+
+``optimizer.use-cost-based-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** :ref:`prop-type-boolean`
+* **Default value:** ``true``
+* **Session property:** ``use_cost_based_partitioning``
+
+When enabled the cost based optimizer is used to determine if repartitioning the output of an
+already partitioned stage is necessary.

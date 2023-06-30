@@ -137,6 +137,7 @@ public final class ViewReaderUtil
 
     public static boolean isPrestoView(Map<String, String> tableParameters)
     {
+        // TODO isPrestoView should not return true for materialized views
         return "true".equals(tableParameters.get(PRESTO_VIEW_FLAG));
     }
 
@@ -147,18 +148,26 @@ public final class ViewReaderUtil
 
     public static boolean isHiveOrPrestoView(String tableType)
     {
+        // TODO isHiveOrPrestoView should not return true for materialized views
         return tableType.equals(VIRTUAL_VIEW.name());
+    }
+
+    public static boolean isTrinoMaterializedView(Table table)
+    {
+        return isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static boolean isTrinoMaterializedView(String tableType, Map<String, String> tableParameters)
     {
+        // TODO isHiveOrPrestoView should not return true for materialized views
         return isHiveOrPrestoView(tableType) && isPrestoView(tableParameters) && tableParameters.get(TABLE_COMMENT).equalsIgnoreCase(ICEBERG_MATERIALIZED_VIEW_COMMENT);
     }
 
     public static boolean canDecodeView(Table table)
     {
         // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
+        return table.getTableType().equals(VIRTUAL_VIEW.name()) &&
+                !isTrinoMaterializedView(table.getTableType(), table.getParameters());
     }
 
     public static String encodeViewData(ConnectorViewDefinition definition)
@@ -234,7 +243,7 @@ public final class ViewReaderUtil
                         Optional.empty(), // will be filled in later by HiveMetadata
                         hiveViewsRunAsInvoker);
             }
-            catch (RuntimeException e) {
+            catch (Throwable e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),

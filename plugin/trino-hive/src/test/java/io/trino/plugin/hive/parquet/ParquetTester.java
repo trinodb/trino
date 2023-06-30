@@ -22,8 +22,7 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
@@ -44,8 +43,11 @@ import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -114,7 +116,6 @@ import static io.trino.plugin.hive.AbstractTestHiveFileFormats.getFieldFromCurso
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITE_VALIDATION_FAILED;
 import static io.trino.plugin.hive.HiveSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -357,6 +358,41 @@ public class ParquetTester
             ParquetSchemaOptions schemaOptions)
             throws Exception
     {
+        assertRoundTripWithHiveWriter(objectInspectors, writeValues, readValues, columnNames, columnTypes, parquetSchema, schemaOptions);
+
+        // write Trino parquet
+        for (CompressionCodec compressionCodec : writerCompressions) {
+            for (ConnectorSession session : sessions) {
+                try (TempFile tempFile = new TempFile("test", "parquet")) {
+                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
+                    checkState(min.isPresent());
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
+                    assertFileContents(
+                            session,
+                            tempFile.getFile(),
+                            getIterators(readValues),
+                            columnNames,
+                            columnTypes);
+                }
+            }
+        }
+    }
+
+    // Certain tests need the ability to specify a parquet schema which the writer wouldn't choose by itself based on the engine type.
+    // Explicitly provided parquetSchema is supported only by the hive writer.
+    // This method should be used when we need to assert that an exception should be thrown when reading from a file written with the specified
+    // parquetSchema to avoid getting misled due to an exception thrown when from reading the file produced by trino parquet writer which may not
+    // be following the specified parquetSchema.
+    void assertRoundTripWithHiveWriter(
+            List<ObjectInspector> objectInspectors,
+            Iterable<?>[] writeValues,
+            Iterable<?>[] readValues,
+            List<String> columnNames,
+            List<Type> columnTypes,
+            Optional<MessageType> parquetSchema,
+            ParquetSchemaOptions schemaOptions)
+            throws Exception
+    {
         for (WriterVersion version : versions) {
             for (CompressionCodec compressionCodec : compressions) {
                 for (ConnectorSession session : sessions) {
@@ -382,23 +418,6 @@ public class ParquetTester
                                 columnNames,
                                 columnTypes);
                     }
-                }
-            }
-        }
-
-        // write Trino parquet
-        for (CompressionCodec compressionCodec : writerCompressions) {
-            for (ConnectorSession session : sessions) {
-                try (TempFile tempFile = new TempFile("test", "parquet")) {
-                    OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
-                    checkState(min.isPresent());
-                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodec, schemaOptions);
-                    assertFileContents(
-                            session,
-                            tempFile.getFile(),
-                            getIterators(readValues),
-                            columnNames,
-                            columnTypes);
                 }
             }
         }
@@ -793,10 +812,8 @@ public class ParquetTester
         pageBuilder.declarePositions(size);
         writer.write(pageBuilder.build());
         writer.close();
-        TrinoFileSystem fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(SESSION);
         try {
-            TrinoInputFile inputFile = fileSystem.newInputFile(outputFile.getPath());
-            writer.validate(new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()));
+            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), new ParquetReaderOptions(), new FileFormatDataSourceStats()));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
@@ -858,32 +875,32 @@ public class ParquetTester
                 if (type instanceof ArrayType) {
                     List<?> array = (List<?>) value;
                     Type elementType = type.getTypeParameters().get(0);
-                    BlockBuilder arrayBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Object elementValue : array) {
-                        writeValue(elementType, arrayBlockBuilder, elementValue);
-                    }
-                    blockBuilder.closeEntry();
+                    ((ArrayBlockBuilder) blockBuilder).buildEntry(elementBuilder -> {
+                        for (Object elementValue : array) {
+                            writeValue(elementType, elementBuilder, elementValue);
+                        }
+                    });
                 }
                 else if (type instanceof MapType) {
                     Map<?, ?> map = (Map<?, ?>) value;
                     Type keyType = type.getTypeParameters().get(0);
                     Type valueType = type.getTypeParameters().get(1);
-                    BlockBuilder mapBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (Map.Entry<?, ?> entry : map.entrySet()) {
-                        writeValue(keyType, mapBlockBuilder, entry.getKey());
-                        writeValue(valueType, mapBlockBuilder, entry.getValue());
-                    }
-                    blockBuilder.closeEntry();
+                    ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
+                        for (Map.Entry<?, ?> entry : map.entrySet()) {
+                            writeValue(keyType, keyBuilder, entry.getKey());
+                            writeValue(valueType, valueBuilder, entry.getValue());
+                        }
+                    });
                 }
                 else if (type instanceof RowType) {
                     List<?> array = (List<?>) value;
                     List<Type> fieldTypes = type.getTypeParameters();
-                    BlockBuilder rowBlockBuilder = blockBuilder.beginBlockEntry();
-                    for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
-                        Type fieldType = fieldTypes.get(fieldId);
-                        writeValue(fieldType, rowBlockBuilder, array.get(fieldId));
-                    }
-                    blockBuilder.closeEntry();
+                    ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+                        for (int fieldId = 0; fieldId < fieldTypes.size(); fieldId++) {
+                            Type fieldType = fieldTypes.get(fieldId);
+                            writeValue(fieldType, fieldBuilders.get(fieldId), array.get(fieldId));
+                        }
+                    });
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported type " + type);

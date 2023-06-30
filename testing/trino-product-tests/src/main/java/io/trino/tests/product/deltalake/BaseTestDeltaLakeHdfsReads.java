@@ -15,7 +15,7 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.reflect.ClassPath;
 import com.google.inject.Inject;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
@@ -27,12 +27,12 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_HDFS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseTestDeltaLakeHdfsReads
         extends ProductTest
@@ -46,7 +46,7 @@ public abstract class BaseTestDeltaLakeHdfsReads
         this.regionResourcePath = requireNonNull(regionResourcePath, "regionResourcePath is null");
     }
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setUp()
             throws IOException
     {

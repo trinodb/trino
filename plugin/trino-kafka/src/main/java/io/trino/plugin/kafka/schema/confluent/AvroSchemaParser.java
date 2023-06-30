@@ -14,6 +14,7 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
@@ -23,8 +24,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.Schema;
-
-import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;

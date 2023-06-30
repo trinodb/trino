@@ -33,6 +33,10 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.execution.DynamicFiltersCollector;
 import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
@@ -64,6 +68,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.TrinoAttributes;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -128,12 +133,16 @@ public final class HttpRemoteTask
     private final TaskId taskId;
 
     private final Session session;
+    private final Span stageSpan;
     private final String nodeId;
+    private final AtomicBoolean speculative;
     private final PlanFragment planFragment;
 
     private final AtomicLong nextSplitId = new AtomicLong();
 
     private final RemoteTaskStats stats;
+    private final Tracer tracer;
+    private final Span span;
     private final TaskInfoFetcher taskInfoFetcher;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
     private final DynamicFiltersFetcher dynamicFiltersFetcher;
@@ -196,8 +205,10 @@ public final class HttpRemoteTask
 
     public HttpRemoteTask(
             Session session,
+            Span stageSpan,
             TaskId taskId,
             String nodeId,
+            boolean speculative,
             URI location,
             PlanFragment planFragment,
             Multimap<PlanNodeId, Split> initialSplits,
@@ -217,12 +228,14 @@ public final class HttpRemoteTask
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             JsonCodec<FailTaskRequest> failTaskRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
+            Tracer tracer,
             RemoteTaskStats stats,
             DynamicFilterService dynamicFilterService,
             Set<DynamicFilterId> outboundDynamicFilterIds,
             Optional<DataSize> estimatedMemory)
     {
         requireNonNull(session, "session is null");
+        requireNonNull(stageSpan, "stageSpan is null");
         requireNonNull(taskId, "taskId is null");
         requireNonNull(nodeId, "nodeId is null");
         requireNonNull(location, "location is null");
@@ -241,7 +254,9 @@ public final class HttpRemoteTask
         try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
             this.taskId = taskId;
             this.session = session;
+            this.stageSpan = stageSpan;
             this.nodeId = nodeId;
+            this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
             this.httpClient = httpClient;
@@ -255,6 +270,8 @@ public final class HttpRemoteTask
             this.failTaskRequestCodec = failTaskRequestCodec;
             this.updateErrorTracker = new RequestErrorTracker(taskId, location, maxErrorDuration, errorScheduledExecutor, "updating task");
             this.partitionedSplitCountTracker = requireNonNull(partitionedSplitCountTracker, "partitionedSplitCountTracker is null");
+            this.tracer = requireNonNull(tracer, "tracer is null");
+            this.span = createSpanBuilder("remote-task", stageSpan).startSpan();
             this.stats = stats;
 
             for (Entry<PlanNodeId, Split> entry : initialSplits.entries()) {
@@ -297,7 +314,7 @@ public final class HttpRemoteTask
                                 .collect(toImmutableList()));
             }
 
-            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, pipelinedBufferStates, new TaskStats(DateTime.now(), null));
+            TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
 
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,
@@ -307,6 +324,7 @@ public final class HttpRemoteTask
                     dynamicFilterDomainsCodec,
                     executor,
                     httpClient,
+                    () -> createSpanBuilder("task-dynamic-filters", span),
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
@@ -320,6 +338,7 @@ public final class HttpRemoteTask
                     dynamicFiltersFetcher,
                     executor,
                     httpClient,
+                    () -> createSpanBuilder("task-status", span),
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats);
@@ -329,6 +348,7 @@ public final class HttpRemoteTask
                     taskStatusFetcher,
                     initialTask,
                     httpClient,
+                    () -> createSpanBuilder("task-info", span),
                     taskInfoUpdateInterval,
                     taskInfoCodec,
                     maxErrorDuration,
@@ -348,6 +368,9 @@ public final class HttpRemoteTask
                 else {
                     partitionedSplitCountTracker.setPartitionedSplits(getPartitionedSplitsInfo());
                     updateSplitQueueSpace();
+                }
+                if (state.isDone()) {
+                    span.end();
                 }
             });
 
@@ -469,6 +492,16 @@ public final class HttpRemoteTask
         }).getVersion();
 
         if (newOutputBuffers.getVersion() > previousVersion) {
+            triggerUpdate();
+        }
+    }
+
+    @Override
+    public void setSpeculative(boolean speculative)
+    {
+        checkArgument(!speculative, "we can only move task from speculative to non-speculative");
+        if (this.speculative.compareAndSet(true, speculative)) {
+            // versioning should be not needed here as we can only migrate task from speculative to non-speculative; so out of order requests do not matter
             triggerUpdate();
         }
     }
@@ -709,11 +742,13 @@ public final class HttpRemoteTask
         TaskUpdateRequest updateRequest = new TaskUpdateRequest(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
+                stageSpan,
                 fragment,
                 splitAssignments,
                 outputBuffers.get(),
                 dynamicFilterDomains.getDynamicFilterDomains(),
-                session.getExchangeEncryptionKey());
+                session.getExchangeEncryptionKey(),
+                speculative.get());
         byte[] taskUpdateRequestJson = taskUpdateRequestCodec.toJsonBytes(updateRequest);
 
         // try to adjust batch size to meet expected request size
@@ -734,6 +769,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(createStaticBodyGenerator(taskUpdateRequestJson))
+                .setSpanBuilder(createSpanBuilder("task-update", span))
                 .build();
 
         updateErrorTracker.startRequest();
@@ -895,6 +931,7 @@ public final class HttpRemoteTask
         HttpUriBuilder uriBuilder = getHttpUriBuilder(getTaskStatus()).addParameter("abort", "" + abort);
         return prepareDelete()
                 .setUri(uriBuilder.build())
+                .setSpanBuilder(createSpanBuilder("task-delete", span))
                 .build();
     }
 
@@ -906,6 +943,7 @@ public final class HttpRemoteTask
                 .setUri(uriBuilder.build())
                 .setHeader(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
                 .setBodyGenerator(createStaticBodyGenerator(failTaskRequestCodec.toJsonBytes(failTaskRequest)))
+                .setSpanBuilder(createSpanBuilder("task-fail", span))
                 .build();
     }
 
@@ -1050,6 +1088,15 @@ public final class HttpRemoteTask
             uriBuilder.addParameter("summarize");
         }
         return uriBuilder;
+    }
+
+    private SpanBuilder createSpanBuilder(String name, Span parent)
+    {
+        return tracer.spanBuilder(name)
+                .setParent(Context.current().with(parent))
+                .setAttribute(TrinoAttributes.QUERY_ID, taskId.getQueryId().toString())
+                .setAttribute(TrinoAttributes.STAGE_ID, taskId.getStageId().toString())
+                .setAttribute(TrinoAttributes.TASK_ID, taskId.toString());
     }
 
     @Override

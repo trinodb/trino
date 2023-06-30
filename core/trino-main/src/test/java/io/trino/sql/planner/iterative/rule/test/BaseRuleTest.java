@@ -18,14 +18,12 @@ import io.trino.spi.Plugin;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 
-@Test
 public abstract class BaseRuleTest
 {
     private RuleTester tester;

@@ -13,10 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.inject.Inject;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ConnectorSession;
-
-import javax.inject.Inject;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;

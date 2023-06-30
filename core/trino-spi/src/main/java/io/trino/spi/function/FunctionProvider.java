@@ -14,7 +14,8 @@
 package io.trino.spi.function;
 
 import io.trino.spi.Experimental;
-import io.trino.spi.ptf.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
 
 @Experimental(eta = "2023-03-31")
 public interface FunctionProvider
@@ -38,7 +39,7 @@ public interface FunctionProvider
         throw new UnsupportedOperationException("%s does not provide window functions".formatted(getClass().getName()));
     }
 
-    default TableFunctionProcessorProvider getTableFunctionProcessorProvider(SchemaFunctionName name)
+    default TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
         throw new UnsupportedOperationException("%s does not provide table functions".formatted(getClass().getName()));
     }

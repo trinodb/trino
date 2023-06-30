@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.units.DataSize;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.SortingFileWriter;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -38,7 +39,7 @@ public class IcebergSortingFileWriter
 
     public IcebergSortingFileWriter(
             TrinoFileSystem fileSystem,
-            String tempFilePrefix,
+            Location tempFilePrefix,
             IcebergFileWriter outputWriter,
             DataSize maxMemory,
             int maxOpenTempFiles,

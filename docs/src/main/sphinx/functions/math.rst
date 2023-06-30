@@ -2,7 +2,7 @@
 Mathematical functions and operators
 ====================================
 
-.. _mathematical_operators:
+.. _mathematical-operators:
 
 Mathematical operators
 ----------------------

@@ -65,7 +65,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
-    public static final int MAX_BATCH_SIZE = 8196;
+    public static final int MAX_BATCH_SIZE = 8 * 1024;
     public static final int INITIAL_BATCH_SIZE = 1;
     public static final int BATCH_SIZE_GROWTH_FACTOR = 2;
 
@@ -126,7 +126,7 @@ public class OrcReader
     {
         this.options = requireNonNull(options, "options is null");
         this.orcDataSource = orcDataSource;
-        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader());
+        this.metadataReader = new ExceptionWrappingMetadataReader(orcDataSource.getId(), new OrcMetadataReader(options));
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
 

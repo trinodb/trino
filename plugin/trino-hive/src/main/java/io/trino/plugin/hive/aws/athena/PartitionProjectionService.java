@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.aws.athena.projection.Projection;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionFactory;
@@ -28,8 +29,6 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -100,7 +99,7 @@ public final class PartitionProjectionService
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 
-    public Map<String, Object> getPartitionProjectionTrinoColumnProperties(Table table, String columnName)
+    public static Map<String, Object> getPartitionProjectionTrinoColumnProperties(Table table, String columnName)
     {
         Map<String, String> metastoreTableProperties = table.getParameters();
         return rewriteColumnProjectionProperties(metastoreTableProperties, columnName);
@@ -294,7 +293,7 @@ public final class PartitionProjectionService
         return new PartitionProjection(projectionEnabledProperty.orElse(false), storageLocationTemplate, columnProjections);
     }
 
-    private Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
+    private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
     {
         ImmutableMap.Builder<String, Object> trinoTablePropertiesBuilder = ImmutableMap.builder();
         rewriteProperty(
@@ -308,13 +307,13 @@ public final class PartitionProjectionService
                 trinoTablePropertiesBuilder,
                 getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX),
                 COLUMN_PROJECTION_VALUES,
-                this::splitCommaSeparatedString);
+                PartitionProjectionService::splitCommaSeparatedString);
         rewriteProperty(
                 metastoreTableProperties,
                 trinoTablePropertiesBuilder,
                 getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX),
                 COLUMN_PROJECTION_RANGE,
-                this::splitCommaSeparatedString);
+                PartitionProjectionService::splitCommaSeparatedString);
         rewriteProperty(
                 metastoreTableProperties,
                 trinoTablePropertiesBuilder,
@@ -356,7 +355,7 @@ public final class PartitionProjectionService
         return projectionFactory.create(columnName, columnType, columnProperties);
     }
 
-    private <I, V> void rewriteProperty(
+    private static <I, V> void rewriteProperty(
             Map<String, I> sourceProperties,
             ImmutableMap.Builder<String, V> targetPropertiesBuilder,
             String sourcePropertyKey,
@@ -372,7 +371,7 @@ public final class PartitionProjectionService
         return new TrinoException(INVALID_COLUMN_PROPERTY, message);
     }
 
-    private List<String> splitCommaSeparatedString(String value)
+    private static List<String> splitCommaSeparatedString(String value)
     {
         return Splitter.on(',')
                 .trimResults()

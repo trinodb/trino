@@ -97,7 +97,7 @@ public class TimeFunctions
             case "hour":
                 return time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
     }
 
@@ -127,7 +127,7 @@ public class TimeFunctions
                 delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
                 break;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
 
         long result = TimeOperators.add(time, delta);
@@ -147,7 +147,6 @@ public class TimeFunctions
     public static long dateDiff(@SqlType("varchar(x)") Slice unit, @SqlType("time(p)") long time1, @SqlType("time(p)") long time2)
     {
         long delta = time2 - time1;
-
         String unitString = unit.toStringUtf8().toLowerCase(ENGLISH);
         switch (unitString) {
             case "millisecond":
@@ -159,7 +158,7 @@ public class TimeFunctions
             case "hour":
                 return delta / PICOSECONDS_PER_HOUR;
             default:
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid TIME field");
         }
     }
 }

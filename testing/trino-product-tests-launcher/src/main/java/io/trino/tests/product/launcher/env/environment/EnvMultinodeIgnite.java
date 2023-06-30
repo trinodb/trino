@@ -13,6 +13,7 @@
  */
 package io.trino.tests.product.launcher.env.environment;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -22,8 +23,6 @@ import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-
-import javax.inject.Inject;
 
 import java.time.Duration;
 
@@ -69,7 +68,7 @@ public final class EnvMultinodeIgnite
 
     private DockerContainer createIgnite(int number)
     {
-        return new DockerContainer("apacheignite/ignite:2.8.0", logicalName(number))
+        return new DockerContainer("apacheignite/ignite:2.9.0", logicalName(number))
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .withStartupTimeout(Duration.ofMinutes(5));
     }

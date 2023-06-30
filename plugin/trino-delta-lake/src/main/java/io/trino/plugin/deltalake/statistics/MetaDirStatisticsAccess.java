@@ -15,18 +15,21 @@ package io.trino.plugin.deltalake.statistics;
 
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
+import io.trino.spi.connector.SchemaTableName;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Optional;
 
+import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
@@ -56,23 +59,24 @@ public class MetaDirStatisticsAccess
     @Override
     public Optional<ExtendedStatistics> readExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation)
     {
-        return readExtendedStatistics(session, tableLocation, STATISTICS_META_DIR, STATISTICS_FILE)
-                .or(() -> readExtendedStatistics(session, tableLocation, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
+        Location location = Location.of(tableLocation);
+        return readExtendedStatistics(session, location, STATISTICS_META_DIR, STATISTICS_FILE)
+                .or(() -> readExtendedStatistics(session, location, STARBURST_META_DIR, STARBURST_STATISTICS_FILE));
     }
 
-    private Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, String tableLocation, String statisticsDirectory, String statisticsFile)
+    private Optional<ExtendedStatistics> readExtendedStatistics(ConnectorSession session, Location tableLocation, String statisticsDirectory, String statisticsFile)
     {
         try {
-            Path statisticsPath = new Path(new Path(tableLocation, statisticsDirectory), statisticsFile);
-            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(statisticsPath.toString());
-            if (!inputFile.exists()) {
-                return Optional.empty();
-            }
-
+            Location statisticsPath = tableLocation.appendPath(statisticsDirectory).appendPath(statisticsFile);
+            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(statisticsPath);
             try (InputStream inputStream = inputFile.newStream()) {
                 return Optional.of(statisticsCodec.fromJson(inputStream.readAllBytes()));
+            }
+            catch (FileNotFoundException e) {
+                return Optional.empty();
             }
         }
         catch (IOException e) {
@@ -83,41 +87,41 @@ public class MetaDirStatisticsAccess
     @Override
     public void updateExtendedStatistics(
             ConnectorSession session,
+            SchemaTableName schemaTableName,
             String tableLocation,
             ExtendedStatistics statistics)
     {
-        Path metaPath = new Path(tableLocation, STATISTICS_META_DIR);
         try {
-            Path statisticsPath = new Path(metaPath, STATISTICS_FILE);
+            Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            try (OutputStream outputStream = fileSystem.newOutputFile(statisticsPath.toString()).createOrOverwrite()) {
+            try (OutputStream outputStream = fileSystem.newOutputFile(statisticsPath).createOrOverwrite()) {
                 outputStream.write(statisticsCodec.toJsonBytes(statistics));
             }
 
             // Remove outdated Starburst stats file, if it exists.
-            String starburstStatisticsPath = new Path(new Path(tableLocation, STARBURST_META_DIR), STARBURST_STATISTICS_FILE).toString();
+            Location starburstStatisticsPath = Location.of(tableLocation).appendPath(STARBURST_META_DIR).appendPath(STARBURST_STATISTICS_FILE);
             if (fileSystem.newInputFile(starburstStatisticsPath).exists()) {
-                fileSystem.deleteFile(new Path(new Path(tableLocation, STARBURST_META_DIR), STARBURST_STATISTICS_FILE).toString());
+                fileSystem.deleteFile(starburstStatisticsPath);
             }
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("failed to store statistics with table location %s", tableLocation), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to store statistics with table location: " + tableLocation, e);
         }
     }
 
     @Override
-    public void deleteExtendedStatistics(ConnectorSession session, String tableLocation)
+    public void deleteExtendedStatistics(ConnectorSession session, SchemaTableName schemaTableName, String tableLocation)
     {
-        Path statisticsPath = new Path(new Path(tableLocation, STATISTICS_META_DIR), STATISTICS_FILE);
+        Location statisticsPath = Location.of(tableLocation).appendPath(STATISTICS_META_DIR).appendPath(STATISTICS_FILE);
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            if (fileSystem.newInputFile(statisticsPath.toString()).exists()) {
-                fileSystem.deleteFile(statisticsPath.toString());
+            if (fileSystem.newInputFile(statisticsPath).exists()) {
+                fileSystem.deleteFile(statisticsPath);
             }
         }
         catch (IOException e) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Error deleting statistics file %s", statisticsPath), e);
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error deleting statistics file: " + statisticsPath, e);
         }
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.DefaultWarningCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
@@ -96,13 +97,14 @@ public class TestPlannerWarnings
                 .setSchema(queryRunner.getDefaultSession().getSchema());
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig());
+        PlanOptimizersStatsCollector planOptimizersStatsCollector = new PlanOptimizersStatsCollector(5);
         try {
             queryRunner.inTransaction(sessionBuilder.build(), transactionSession -> {
                 if (rules.isPresent()) {
-                    createPlan(queryRunner, transactionSession, sql, warningCollector, rules.get());
+                    createPlan(queryRunner, transactionSession, sql, warningCollector, planOptimizersStatsCollector, rules.get());
                 }
                 else {
-                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, warningCollector);
+                    queryRunner.createPlan(transactionSession, sql, OPTIMIZED, false, warningCollector, planOptimizersStatsCollector);
                 }
                 return null;
             });
@@ -120,7 +122,7 @@ public class TestPlannerWarnings
         }
     }
 
-    private static Plan createPlan(LocalQueryRunner queryRunner, Session session, String sql, WarningCollector warningCollector, List<Rule<?>> rules)
+    private static Plan createPlan(LocalQueryRunner queryRunner, Session session, String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, List<Rule<?>> rules)
     {
         // Warnings from testing rules will be added
         PlanOptimizer optimizer = new IterativeOptimizer(
@@ -130,7 +132,7 @@ public class TestPlannerWarnings
                 queryRunner.getCostCalculator(),
                 ImmutableSet.copyOf(rules));
 
-        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, warningCollector);
+        return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED, warningCollector, planOptimizersStatsCollector);
     }
 
     public static List<TrinoWarning> createTestWarnings(int numberOfWarnings)

@@ -14,6 +14,7 @@
 
 package io.trino.tests.product.launcher.env.common;
 
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.DockerContainer;
@@ -22,9 +23,6 @@ import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.utility.MountableFile;
 
-import javax.inject.Inject;
-
-import java.io.File;
 import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
@@ -32,15 +30,13 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoC
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
-import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class Kafka
         implements EnvironmentExtender
 {
-    private static final String CONFLUENT_VERSION = "5.5.2";
+    private static final String CONFLUENT_VERSION = "7.3.1";
     private static final int SCHEMA_REGISTRY_PORT = 8081;
-    private static final File KAFKA_PROTOBUF_PROVIDER = new File("testing/trino-product-tests-launcher/target/kafka-protobuf-provider-5.5.2.jar");
     static final String KAFKA = "kafka";
     static final String SCHEMA_REGISTRY = "schema-registry";
     static final String ZOOKEEPER = "zookeeper";
@@ -68,9 +64,7 @@ public class Kafka
             if (isTrinoContainer(container.getLogicalName())) {
                 MountableFile logConfigFile = forHostPath(configDir.getPath("log.properties"));
                 container
-                        .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties")
-                        .withCopyFileToContainer(forHostPath(KAFKA_PROTOBUF_PROVIDER.getAbsolutePath()), "/docker/kafka-protobuf-provider/kafka-protobuf-provider.jar")
-                        .withCopyFileToContainer(forClasspathResource("install-kafka-protobuf-provider.sh", 0755), "/docker/presto-init.d/install-kafka-protobuf-provider.sh");
+                        .withCopyFileToContainer(logConfigFile, CONTAINER_TRINO_ETC + "/log.properties");
             }
         });
 

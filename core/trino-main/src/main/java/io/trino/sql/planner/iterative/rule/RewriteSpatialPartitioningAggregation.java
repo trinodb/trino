@@ -37,7 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getFaultTolerantExecutionPartitionCount;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
 import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -127,7 +127,7 @@ public class RewriteSpatialPartitioningAggregation
 
         int partitionCount;
         if (getRetryPolicy(context.getSession()) == RetryPolicy.TASK) {
-            partitionCount = getFaultTolerantExecutionPartitionCount(context.getSession());
+            partitionCount = getFaultTolerantExecutionMaxPartitionCount(context.getSession());
         }
         else {
             partitionCount = getMaxHashPartitionCount(context.getSession());

@@ -58,7 +58,7 @@ import static java.util.stream.Collectors.toSet;
 public class DynamicFilterSourceOperator
         implements Operator
 {
-    private static final int EXPECTED_BLOCK_BUILDER_SIZE = 8;
+    private static final int EXPECTED_BLOCK_BUILDER_SIZE = 64;
 
     public static class Channel
     {
@@ -418,7 +418,7 @@ public class DynamicFilterSourceOperator
                     blockTypeOperators.getEqualOperator(type),
                     blockTypeOperators.getHashCodeOperator(type),
                     blockBuilder,
-                    EXPECTED_BLOCK_BUILDER_SIZE,
+                    Math.min(maxDistinctValues, 2048),
                     format("DynamicFilterSourceOperator_%s_%d", planNodeId, channel.index));
         }
 

@@ -13,24 +13,28 @@
  */
 package io.trino.plugin.bigquery;
 
-import javax.inject.Inject;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.inject.Inject;
 
+import static io.trino.plugin.bigquery.BigQueryConnectorModule.ForBigQuery;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultBigQueryMetadataFactory
         implements BigQueryMetadataFactory
 {
     private final BigQueryClientFactory bigQueryClient;
+    private final ListeningExecutorService executorService;
 
     @Inject
-    public DefaultBigQueryMetadataFactory(BigQueryClientFactory bigQueryClient)
+    public DefaultBigQueryMetadataFactory(BigQueryClientFactory bigQueryClient, @ForBigQuery ListeningExecutorService executorService)
     {
         this.bigQueryClient = requireNonNull(bigQueryClient, "bigQueryClient is null");
+        this.executorService = requireNonNull(executorService, "executorService is null");
     }
 
     @Override
     public BigQueryMetadata create(BigQueryTransactionHandle transaction)
     {
-        return new BigQueryMetadata(bigQueryClient);
+        return new BigQueryMetadata(bigQueryClient, executorService);
     }
 }

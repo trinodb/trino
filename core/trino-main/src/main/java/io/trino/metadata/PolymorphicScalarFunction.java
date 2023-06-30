@@ -171,13 +171,10 @@ class PolymorphicScalarFunction
 
     private static Class<?> getNullAwareContainerType(Class<?> clazz, InvocationReturnConvention returnConvention)
     {
-        switch (returnConvention) {
-            case NULLABLE_RETURN:
-                return Primitives.wrap(clazz);
-            case FAIL_ON_NULL:
-                return clazz;
-        }
-        throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
+        return switch (returnConvention) {
+            case NULLABLE_RETURN -> Primitives.wrap(clazz);
+            case DEFAULT_ON_NULL, FAIL_ON_NULL -> clazz;
+        };
     }
 
     static final class PolymorphicScalarFunctionChoice

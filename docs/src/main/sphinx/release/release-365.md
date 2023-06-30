@@ -6,7 +6,7 @@
 * Add support for aggregate functions in row pattern recognition context. ({issue}`8738`)
 * Add support for time travel queries. ({issue}`8773`)
 * Add support for spilling aggregations containing `ORDER BY` or `DISTINCT` clauses. ({issue}`9723`)
-* Add [`contains`](ip_address_contains) function to check whether a CIDR contains an IP address. ({issue}`9654`)
+* Add [`contains`](ip-address-contains) function to check whether a CIDR contains an IP address. ({issue}`9654`)
 * Report connector metrics in `EXPLAIN ANALYZE VERBOSE`. ({issue}`9858`)
 * Report operator input row count distribution in `EXPLAIN ANALYZE VERBOSE`. ({issue}`10133`)
 * Allow executing `INSERT` or `DELETE` statements on tables restricted with a row filter. ({issue}`8856`)

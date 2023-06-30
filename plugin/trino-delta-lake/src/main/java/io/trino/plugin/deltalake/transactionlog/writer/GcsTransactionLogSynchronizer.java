@@ -17,15 +17,13 @@ import com.google.cloud.hadoop.repackaged.gcs.com.google.api.client.http.ByteArr
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.Storage;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.api.services.storage.model.StorageObject;
 import com.google.cloud.hadoop.repackaged.gcs.com.google.cloud.hadoop.gcsio.StorageResourceId;
+import com.google.inject.Inject;
+import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.GcsStorageFactory;
 import io.trino.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 
 import static java.util.Objects.requireNonNull;
 
@@ -47,11 +45,11 @@ public class GcsTransactionLogSynchronizer
     // in order to avoid leaked output streams in case of I/O exceptions occurring while uploading
     // the blob content.
     @Override
-    public void write(ConnectorSession session, String clusterId, Path newLogEntryPath, byte[] entryContents)
+    public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
-        Storage storage = gcsStorageFactory.create(session, newLogEntryPath);
+        Storage storage = gcsStorageFactory.create(session, newLogEntryPath.toString());
         try {
-            createStorageObjectExclusively(newLogEntryPath.toUri(), entryContents, storage);
+            createStorageObjectExclusively(newLogEntryPath.toString(), entryContents, storage);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -72,10 +70,10 @@ public class GcsTransactionLogSynchronizer
      * `org.apache.hadoop.fs.FileSystem#create(org.apache.hadoop.fs.Path)` and the intricacies of handling
      * exceptions which may occur while writing the content to the output stream.
      */
-    private static void createStorageObjectExclusively(URI blobPath, byte[] content, Storage storage)
+    private static void createStorageObjectExclusively(String blobPath, byte[] content, Storage storage)
             throws IOException
     {
-        StorageResourceId storageResourceId = StorageResourceId.fromUriPath(blobPath, false);
+        StorageResourceId storageResourceId = StorageResourceId.fromStringPath(blobPath);
         Storage.Objects.Insert insert = storage.objects().insert(
                 storageResourceId.getBucketName(),
                 new StorageObject()

@@ -8,7 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["i_brand", "i_product_name"])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        scan inventory
+                                        dynamic filter (["inv_date_sk", "inv_item_sk"])
+                                            scan inventory
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim

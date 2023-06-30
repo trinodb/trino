@@ -5,17 +5,20 @@ local exchange (GATHER, SINGLE, [])
                 remote exchange (REPARTITION, HASH, ["i_brand", "i_brand_id", "i_manufact", "i_manufact_id"])
                     partial aggregation over (i_brand, i_brand_id, i_manufact, i_manufact_id)
                         join (INNER, REPLICATED):
-                            scan customer_address
+                            dynamic filter (["ca_address_sk"])
+                                scan customer_address
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPLICATE, BROADCAST, [])
                                     join (INNER, REPLICATED):
-                                        scan customer
+                                        dynamic filter (["c_customer_sk"])
+                                            scan customer
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):
-                                                            scan store_sales
+                                                            dynamic filter (["ss_item_sk", "ss_sold_date_sk", "ss_store_sk"])
+                                                                scan store_sales
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                                     scan date_dim

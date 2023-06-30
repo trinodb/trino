@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
@@ -29,7 +30,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -53,7 +53,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.trino.plugin.hive.util.AcidTables.bucketFileName;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe
@@ -222,7 +221,7 @@ public class OrcDeletedRows
             }
             else {
                 originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                int encodedBucketValue = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
+                int encodedBucketValue = INTEGER.getInt(sourcePage.getBlock(BUCKET_ID_INDEX), position);
                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                 bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                 statementId = bucketCodec.decodeStatementId(encodedBucketValue);
@@ -296,7 +295,7 @@ public class OrcDeletedRows
         @Nullable
         private ConnectorPageSource currentPageSource;
         @Nullable
-        private Path currentPath;
+        private Location currentPath;
         @Nullable
         private Page currentPage;
         private int currentPagePosition;
@@ -314,7 +313,7 @@ public class OrcDeletedRows
                     if (currentPageSource == null) {
                         String deleteDeltaDirectory = deleteDeltaDirectories.next();
                         currentPath = createPath(acidInfo, deleteDeltaDirectory, sourceFileName);
-                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath.toString());
+                        TrinoInputFile inputFile = fileSystem.newInputFile(currentPath);
                         if (inputFile.exists()) {
                             currentPageSource = pageSourceFactory.createPageSource(inputFile).orElseGet(EmptyPageSource::new);
                         }
@@ -333,7 +332,7 @@ public class OrcDeletedRows
 
                             while (currentPagePosition < currentPage.getPositionCount()) {
                                 long originalTransaction = BIGINT.getLong(currentPage.getBlock(ORIGINAL_TRANSACTION_INDEX), currentPagePosition);
-                                int encodedBucketValue = toIntExact(INTEGER.getLong(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition));
+                                int encodedBucketValue = INTEGER.getInt(currentPage.getBlock(BUCKET_ID_INDEX), currentPagePosition);
                                 AcidBucketCodec bucketCodec = AcidBucketCodec.forBucket(encodedBucketValue);
                                 int bucket = bucketCodec.decodeWriterId(encodedBucketValue);
                                 int statement = bucketCodec.decodeStatementId(encodedBucketValue);
@@ -389,21 +388,21 @@ public class OrcDeletedRows
         return sizeOfObjectArray(rowCount) + ((long) rowCount * RowId.INSTANCE_SIZE) + pageSize;
     }
 
-    private static Path createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
+    private static Location createPath(AcidInfo acidInfo, String deleteDeltaDirectory, String fileName)
     {
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaDirectory);
+        Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
         if (hasAttemptId(fileName)) {
-            return new Path(directory, fileName.substring(0, fileName.lastIndexOf('_')));
+            return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
         }
 
         if (!acidInfo.getOriginalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
             return bucketFileName(directory, acidInfo.getBucketId());
         }
-        return new Path(directory, fileName);
+        return directory.appendPath(fileName);
     }
 
     private static class RowId

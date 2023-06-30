@@ -161,7 +161,7 @@ public class ReadSessionCreator
             // get it from the view
             return client.getCachedTable(viewExpiration, remoteTable, requiredColumns);
         }
-        // not regular table or a view
+        // Storage API doesn't support reading other table types (materialized views, external)
         throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
                 tableType, remoteTable.getTableId().getDataset(), remoteTable.getTableId().getTable()));
     }

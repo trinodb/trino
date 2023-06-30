@@ -19,7 +19,6 @@ import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -29,6 +28,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDelta
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeDatabricksPartitioningCompatibility
         extends BaseTestDeltaLakeS3Storage
@@ -380,6 +380,40 @@ public class TestDeltaLakeDatabricksPartitioningCompatibility
 
             // This 2nd SELECT query caused NPE when the connector had cache for partitions and the column was changed remotely
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testPartitionedByNonLowercaseColumn()
+    {
+        String tableName = "test_dl_partitioned_by_non_lowercase_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        onDelta().executeQuery(format("CREATE TABLE default.%s " +
+                        "USING DELTA " +
+                        "PARTITIONED BY (`PART`) LOCATION 's3://%s/%s' AS " +
+                        "SELECT 1 AS data, 2 AS `PART`",
+                tableName,
+                bucketName,
+                tableDirectory));
+        try {
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (3, 4)");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2), row(3, 4));
+
+            onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE data = 3");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 2));
+
+            onTrino().executeQuery("UPDATE delta.default." + tableName + " SET part = 20");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(row(1, 20));
+
+            onTrino().executeQuery("MERGE INTO delta.default." + tableName + " USING (SELECT 1 a) input ON true WHEN MATCHED THEN DELETE");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).hasNoRows();
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);

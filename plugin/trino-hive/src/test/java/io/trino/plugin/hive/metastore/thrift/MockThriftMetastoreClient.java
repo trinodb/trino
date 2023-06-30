@@ -47,6 +47,7 @@ import org.apache.thrift.TException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -83,6 +84,7 @@ public class MockThriftMetastoreClient
     private final Map<SchemaTableName, Map<String, Map<String, ColumnStatisticsObj>>> databaseTablePartitionColumnStatistics = new HashMap<>();
 
     private boolean throwException;
+    private boolean returnTable = true;
 
     public MockThriftMetastoreClient()
     {
@@ -130,19 +132,14 @@ public class MockThriftMetastoreClient
         return data;
     }
 
-    private static ColumnStatisticsObj createTestStats()
-    {
-        ColumnStatisticsObj stats = new ColumnStatisticsObj();
-        ColumnStatisticsData data = new ColumnStatisticsData();
-        data.setLongStats(new LongColumnStatsData());
-        stats.setStatsData(data);
-        stats.setColName(TEST_COLUMN);
-        return stats;
-    }
-
     public void setThrowException(boolean throwException)
     {
         this.throwException = throwException;
+    }
+
+    public void setReturnTable(boolean returnTable)
+    {
+        this.returnTable = returnTable;
     }
 
     public int getAccessCount()
@@ -174,7 +171,24 @@ public class MockThriftMetastoreClient
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getAllTables()
+            throws TException
+    {
+        accessCount.incrementAndGet();
+        if (throwException) {
+            throw new RuntimeException();
+        }
+        return Optional.of(ImmutableList.of(new SchemaTableName(TEST_DATABASE, TEST_TABLE)));
+    }
+
+    @Override
     public List<String> getAllViews(String databaseName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<List<SchemaTableName>> getAllViews()
     {
         throw new UnsupportedOperationException();
     }
@@ -207,7 +221,7 @@ public class MockThriftMetastoreClient
         if (throwException) {
             throw new RuntimeException();
         }
-        if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
+        if (!returnTable || !dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
             throw new NoSuchObjectException();
         }
         return new Table(
@@ -219,7 +233,7 @@ public class MockThriftMetastoreClient
                 0,
                 DEFAULT_STORAGE_DESCRIPTOR,
                 ImmutableList.of(new FieldSchema("key", "string", null)),
-                ImmutableMap.of(),
+                ImmutableMap.of("numRows", "2398040535435"),
                 "",
                 "",
                 TableType.MANAGED_TABLE.name());
@@ -339,7 +353,7 @@ public class MockThriftMetastoreClient
                 !ImmutableSet.of(TEST_PARTITION_VALUES1, TEST_PARTITION_VALUES2, TEST_PARTITION_VALUES3).contains(partitionValues)) {
             throw new NoSuchObjectException();
         }
-        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of());
+        return new Partition(partitionValues, TEST_DATABASE, TEST_TABLE, 0, 0, DEFAULT_STORAGE_DESCRIPTOR, ImmutableMap.of("numRows", "2398040535435"));
     }
 
     @Override
@@ -378,13 +392,13 @@ public class MockThriftMetastoreClient
     @Override
     public void createDatabase(Database database)
     {
-        throw new UnsupportedOperationException();
+        // No-op, make sure the cache invalidation logic in CachingHiveMetastore will be passed through
     }
 
     @Override
     public void dropDatabase(String databaseName, boolean deleteData, boolean cascade)
     {
-        throw new UnsupportedOperationException();
+        // No-op, make sure the cache invalidation logic in CachingHiveMetastore will be passed through
     }
 
     @Override
@@ -396,7 +410,7 @@ public class MockThriftMetastoreClient
     @Override
     public void createTable(Table table)
     {
-        throw new UnsupportedOperationException();
+        // No-op, make sure the cache invalidation logic in CachingHiveMetastore will be passed through
     }
 
     @Override

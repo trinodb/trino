@@ -3,10 +3,10 @@ Set Digest functions
 ====================
 
 Trino offers several functions that deal with the
-`MinHash <https://en.wikipedia.org/wiki/MinHash>`_ technique.
+`MinHash <https://wikipedia.org/wiki/MinHash>`_ technique.
 
 MinHash is used to quickly estimate the
-`Jaccard similarity coefficient <https://en.wikipedia.org/wiki/Jaccard_index>`_
+`Jaccard similarity coefficient <https://wikipedia.org/wiki/Jaccard_index>`_
 between two sets.
 
 It is commonly used in data mining to detect near-duplicate web pages at scale.
@@ -16,7 +16,7 @@ within the search results two pages that are nearly identical.
 The following example showcases how the Set Digest functions can be
 used to naively estimate the similarity between texts. The input texts
 are split by using the function :func:`ngrams` to
-`4-shingles <https://en.wikipedia.org/wiki/W-shingling>`_ which are
+`4-shingles <https://wikipedia.org/wiki/W-shingling>`_ which are
 used as input for creating a set digest of each initial text.
 The set digests are compared to each other to get an
 approximation of the similarity of their corresponding
@@ -85,8 +85,8 @@ Data structures
 
 Trino implements Set Digest data sketches by encapsulating the following components:
 
-- `HyperLogLog <https://en.wikipedia.org/wiki/HyperLogLog>`_
-- `MinHash with a single hash function <http://en.wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
+- `HyperLogLog <https://wikipedia.org/wiki/HyperLogLog>`_
+- `MinHash with a single hash function <http://wikipedia.org/wiki/MinHash#Variant_with_a_single_hash_function>`_
 
 The HyperLogLog structure is used for the approximation of the distinct elements
 in the original set.
@@ -152,7 +152,7 @@ Functions
 
 .. function:: jaccard_index(x, y) -> double
 
-    Returns the estimation of `Jaccard index <https://en.wikipedia.org/wiki/Jaccard_index>`_ for
+    Returns the estimation of `Jaccard index <https://wikipedia.org/wiki/Jaccard_index>`_ for
     the two set digests.
 
     ``x`` and ``y`` must be of type  ``setdigest``.
@@ -165,7 +165,7 @@ Functions
 
 .. function:: hash_counts(x) -> map(bigint, smallint)
 
-    Returns a map containing the `Murmur3Hash128 <https://en.wikipedia.org/wiki/MurmurHash#MurmurHash3>`_
+    Returns a map containing the `Murmur3Hash128 <https://wikipedia.org/wiki/MurmurHash#MurmurHash3>`_
     hashed values and the count of their occurences within
     the internal ``MinHash`` structure belonging to ``x``.
 

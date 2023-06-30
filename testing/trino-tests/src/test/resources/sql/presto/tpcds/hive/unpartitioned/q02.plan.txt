@@ -3,42 +3,43 @@ remote exchange (GATHER, SINGLE, [])
         remote exchange (REPARTITION, ROUND_ROBIN, [])
             join (INNER, PARTITIONED):
                 join (INNER, PARTITIONED):
-                    final aggregation over (d_week_seq)
-                        local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["d_week_seq"])
-                                partial aggregation over (d_week_seq)
-                                    final aggregation over (d_day_name, d_week_seq)
-                                        local exchange (GATHER, SINGLE, [])
-                                            remote exchange (REPARTITION, HASH, ["d_day_name", "d_week_seq"])
-                                                partial aggregation over (d_day_name, d_week_seq)
-                                                    join (INNER, REPLICATED):
-                                                        remote exchange (REPARTITION, ROUND_ROBIN, [])
-                                                            scan web_sales
-                                                            scan catalog_sales
-                                                        local exchange (GATHER, SINGLE, [])
-                                                            remote exchange (REPLICATE, BROADCAST, [])
-                                                                scan date_dim
+                    single aggregation over (d_week_seq)
+                        final aggregation over (d_day_name, d_week_seq)
+                            local exchange (GATHER, SINGLE, [])
+                                remote exchange (REPARTITION, HASH, ["d_week_seq"])
+                                    partial aggregation over (d_day_name, d_week_seq)
+                                        join (INNER, REPLICATED):
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                dynamic filter (["ws_sold_date_sk"])
+                                                    scan web_sales
+                                                dynamic filter (["cs_sold_date_sk"])
+                                                    scan catalog_sales
+                                            local exchange (GATHER, SINGLE, [])
+                                                remote exchange (REPLICATE, BROADCAST, [])
+                                                    dynamic filter (["d_week_seq", "d_week_seq"])
+                                                        scan date_dim
                     local exchange (GATHER, SINGLE, [])
                         remote exchange (REPARTITION, HASH, ["d_week_seq_22"])
-                            scan date_dim
+                            dynamic filter (["d_week_seq_22"])
+                                scan date_dim
                 local exchange (GATHER, SINGLE, [])
                     remote exchange (REPARTITION, HASH, ["expr_226"])
                         join (INNER, PARTITIONED):
-                            final aggregation over (d_week_seq_129)
-                                local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["d_week_seq_129"])
-                                        partial aggregation over (d_week_seq_129)
-                                            final aggregation over (d_day_name_139, d_week_seq_129)
-                                                local exchange (GATHER, SINGLE, [])
-                                                    remote exchange (REPARTITION, HASH, ["d_day_name_139", "d_week_seq_129"])
-                                                        partial aggregation over (d_day_name_139, d_week_seq_129)
-                                                            join (INNER, REPLICATED):
-                                                                remote exchange (REPARTITION, ROUND_ROBIN, [])
-                                                                    scan web_sales
-                                                                    scan catalog_sales
-                                                                local exchange (GATHER, SINGLE, [])
-                                                                    remote exchange (REPLICATE, BROADCAST, [])
-                                                                        scan date_dim
+                            single aggregation over (d_week_seq_129)
+                                final aggregation over (d_day_name_139, d_week_seq_129)
+                                    local exchange (GATHER, SINGLE, [])
+                                        remote exchange (REPARTITION, HASH, ["d_week_seq_129"])
+                                            partial aggregation over (d_day_name_139, d_week_seq_129)
+                                                join (INNER, REPLICATED):
+                                                    local exchange (REPARTITION, ROUND_ROBIN, [])
+                                                        dynamic filter (["ws_sold_date_sk_51"])
+                                                            scan web_sales
+                                                        dynamic filter (["cs_sold_date_sk_88"])
+                                                            scan catalog_sales
+                                                    local exchange (GATHER, SINGLE, [])
+                                                        remote exchange (REPLICATE, BROADCAST, [])
+                                                            dynamic filter (["d_week_seq_129"])
+                                                                scan date_dim
                             local exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, ["d_week_seq_175"])
                                     scan date_dim

@@ -19,6 +19,7 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.plugin.jdbc.QueryParameter;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 
@@ -41,7 +42,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 
 public class RewriteIn
-        implements ConnectorExpressionRule<Call, String>
+        implements ConnectorExpressionRule<Call, ParameterizedExpression>
 {
     private static final Capture<ConnectorExpression> VALUE = newCapture();
     private static final Capture<List<ConnectorExpression>> EXPRESSIONS = newCapture();
@@ -60,9 +61,9 @@ public class RewriteIn
     }
 
     @Override
-    public Optional<String> rewrite(Call call, Captures captures, RewriteContext<String> context)
+    public Optional<ParameterizedExpression> rewrite(Call call, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
-        Optional<String> value = context.defaultRewrite(captures.get(VALUE));
+        Optional<ParameterizedExpression> value = context.defaultRewrite(captures.get(VALUE));
         if (value.isEmpty()) {
             return Optional.empty();
         }
@@ -73,17 +74,22 @@ public class RewriteIn
             return Optional.empty();
         }
 
+        ImmutableList.Builder<QueryParameter> parameters = ImmutableList.builder();
+        parameters.addAll(value.get().parameters());
         ImmutableList.Builder<String> rewrittenValues = ImmutableList.builderWithExpectedSize(expressions.size());
         for (ConnectorExpression expression : expressions) {
-            Optional<String> rewrittenExpression = context.defaultRewrite(expression);
-            if (rewrittenExpression.isEmpty()) {
+            Optional<ParameterizedExpression> rewritten = context.defaultRewrite(expression);
+            if (rewritten.isEmpty()) {
                 return Optional.empty();
             }
-            rewrittenValues.add(rewrittenExpression.get());
+            rewrittenValues.add(rewritten.get().expression());
+            parameters.addAll(rewritten.get().parameters());
         }
 
         List<String> values = rewrittenValues.build();
         verify(!values.isEmpty(), "Empty values");
-        return Optional.of(format("(%s) IN (%s)", value.get(), Joiner.on(", ").join(values)));
+        return Optional.of(new ParameterizedExpression(
+                format("(%s) IN (%s)", value.get().expression(), Joiner.on(", ").join(values)),
+                parameters.build()));
     }
 }

@@ -15,11 +15,10 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
-
-import javax.inject.Inject;
 
 import java.util.List;
 

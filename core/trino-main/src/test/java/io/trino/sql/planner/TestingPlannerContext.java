@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -144,7 +145,8 @@ public final class TestingPlannerContext
                     typeOperators,
                     blockEncodingSerde,
                     typeManager,
-                    functionManager);
+                    functionManager,
+                    noopTracer());
         }
     }
 }

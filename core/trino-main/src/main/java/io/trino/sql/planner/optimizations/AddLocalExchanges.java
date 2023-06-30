@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.cost.TableStatsProvider;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
@@ -125,7 +126,15 @@ public class AddLocalExchanges
     }
 
     @Override
-    public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(
+            PlanNode plan,
+            Session session,
+            TypeProvider types,
+            SymbolAllocator symbolAllocator,
+            PlanNodeIdAllocator idAllocator,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            TableStatsProvider tableStatsProvider)
     {
         PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session), any());
         return result.getNode();
@@ -548,7 +557,6 @@ public class AddLocalExchanges
             TableFunctionProcessorNode result = new TableFunctionProcessorNode(
                     node.getId(),
                     node.getName(),
-                    node.getFunctionCatalog(),
                     node.getProperOutputs(),
                     Optional.of(child.getNode()),
                     node.isPruneWhenEmpty(),
@@ -681,7 +689,6 @@ public class AddLocalExchanges
             return visitTableWriter(
                     node,
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
                     node.getTarget());
@@ -693,7 +700,6 @@ public class AddLocalExchanges
             return visitTableWriter(
                     node,
                     node.getPartitioningScheme(),
-                    node.getPreferredPartitioningScheme(),
                     node.getSource(),
                     parentPreferences,
                     node.getTarget());
@@ -702,7 +708,6 @@ public class AddLocalExchanges
         private PlanWithProperties visitTableWriter(
                 PlanNode node,
                 Optional<PartitioningScheme> partitioningScheme,
-                Optional<PartitioningScheme> preferredPartitionScheme,
                 PlanNode source,
                 StreamPreferredProperties parentPreferences,
                 WriterTarget writerTarget)
@@ -710,8 +715,8 @@ public class AddLocalExchanges
             if (isTaskScaleWritersEnabled(session)
                     && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)
                     && writerTarget.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session)
-                    && (partitioningScheme.isPresent() || preferredPartitionScheme.isPresent())) {
-                return visitScalePartitionedWriter(node, partitioningScheme.orElseGet(preferredPartitionScheme::get), source);
+                    && partitioningScheme.isPresent()) {
+                return visitScalePartitionedWriter(node, partitioningScheme.get(), source);
             }
 
             return partitioningScheme
@@ -822,7 +827,7 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            return visitTableWriter(node, node.getPartitioningScheme(), Optional.empty(), node.getSource(), parentPreferences, node.getTarget());
+            return visitTableWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences, node.getTarget());
         }
 
         //

@@ -20,7 +20,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.ORDERS;
 import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;

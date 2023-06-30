@@ -23,7 +23,8 @@ import com.google.inject.TypeLiteral;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.json.JsonModule;
-import io.trino.filesystem.hdfs.HdfsFileSystemModule;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -118,15 +119,14 @@ public class TestDeltaLakeGlueMetastore
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     binder.bind(NodeVersion.class).toInstance(new NodeVersion("test_version"));
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
-                binder -> {
-                    binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT);
-                    binder.install(new HdfsFileSystemModule());
-                });
+                binder -> binder.bind(HdfsEnvironment.class).toInstance(HDFS_ENVIRONMENT),
+                new FileSystemModule());
 
         Injector injector = app
                 .doNotInitializeLogging()

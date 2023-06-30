@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
@@ -21,7 +22,7 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryLister;
+import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -30,8 +31,6 @@ import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.Set;
@@ -76,7 +75,7 @@ public class HiveMetadataFactory
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final ScheduledExecutorService heartbeatService;
     private final DirectoryLister directoryLister;
-    private final long perTransactionFileStatusCacheMaximumSize;
+    private final TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory;
     private final PartitionProjectionService partitionProjectionService;
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
@@ -102,6 +101,7 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
+            TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
             PartitionProjectionService partitionProjectionService,
             @AllowHiveTableRename boolean allowTableRename)
     {
@@ -137,7 +137,7 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory,
                 accessControlMetadataFactory,
                 directoryLister,
-                hiveConfig.getPerTransactionFileStatusCacheMaximumSize(),
+                transactionScopeCachingDirectoryListerFactory,
                 partitionProjectionService,
                 allowTableRename,
                 hiveConfig.getTimestampPrecision());
@@ -175,7 +175,7 @@ public class HiveMetadataFactory
             HiveMaterializedViewMetadataFactory hiveMaterializedViewMetadataFactory,
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
-            long perTransactionFileStatusCacheMaximumSize,
+            TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
             PartitionProjectionService partitionProjectionService,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
@@ -218,7 +218,7 @@ public class HiveMetadataFactory
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
-        this.perTransactionFileStatusCacheMaximumSize = perTransactionFileStatusCacheMaximumSize;
+        this.transactionScopeCachingDirectoryListerFactory = requireNonNull(transactionScopeCachingDirectoryListerFactory, "transactionScopeCachingDirectoryListerFactory is null");
         this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
@@ -230,8 +230,7 @@ public class HiveMetadataFactory
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(
                 memoizeMetastore(metastoreFactory.createMetastore(Optional.of(identity)), perTransactionCacheMaximumSize)); // per-transaction cache
 
-        DirectoryLister directoryLister = new TransactionScopeCachingDirectoryLister(this.directoryLister, perTransactionFileStatusCacheMaximumSize);
-
+        DirectoryLister directoryLister = transactionScopeCachingDirectoryListerFactory.get(this.directoryLister);
         SemiTransactionalHiveMetastore metastore = new SemiTransactionalHiveMetastore(
                 hdfsEnvironment,
                 hiveMetastoreClosure,

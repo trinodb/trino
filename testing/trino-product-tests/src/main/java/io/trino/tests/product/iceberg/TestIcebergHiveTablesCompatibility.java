@@ -14,23 +14,25 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
+import io.trino.tests.product.hudi.TestHudiHiveTablesCompatibility;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests interactions between Iceberg and Hive connectors, when one tries to read a table created by the other.
  *
  * @see TestIcebergRedirectionToHive
  * @see TestIcebergHiveViewsCompatibility
+ * @see TestHudiHiveTablesCompatibility
  */
 public class TestIcebergHiveTablesCompatibility
         extends ProductTest
@@ -45,7 +47,7 @@ public class TestIcebergHiveTablesCompatibility
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$data\""))
-                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Not an Iceberg table: default." + tableName);
+                .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'iceberg.default." + tableName + "$data' does not exist");
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM iceberg.default.\"" + tableName + "$files\""))
                 .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:15: Table 'iceberg.default." + tableName + "$files' does not exist");

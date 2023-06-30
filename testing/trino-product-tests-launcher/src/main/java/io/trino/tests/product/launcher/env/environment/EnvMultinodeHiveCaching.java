@@ -15,18 +15,17 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.trino.tests.product.launcher.docker.DockerFiles;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.ServerPackage;
-import io.trino.tests.product.launcher.env.SupportedTrinoJdk;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
-
-import javax.inject.Inject;
+import io.trino.tests.product.launcher.env.jdk.JdkProvider;
 
 import java.io.File;
 
@@ -50,7 +49,7 @@ public final class EnvMultinodeHiveCaching
     private final DockerFiles.ResourceProvider configDir;
 
     private final String imagesVersion;
-    private final SupportedTrinoJdk jdkVersion;
+    private final JdkProvider jdkProvider;
     private final File serverPackage;
     private final boolean debug;
 
@@ -61,14 +60,14 @@ public final class EnvMultinodeHiveCaching
             Hadoop hadoop,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
-            SupportedTrinoJdk jdkVersion,
+            JdkProvider jdkProvider,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment");
         this.imagesVersion = environmentConfig.getImagesVersion();
-        this.jdkVersion = requireNonNull(jdkVersion, "jdkVersion is null");
+        this.jdkProvider = requireNonNull(jdkProvider, "jdkProvider is null");
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
         this.debug = debug;
     }
@@ -90,7 +89,7 @@ public final class EnvMultinodeHiveCaching
     @SuppressWarnings("resource")
     private void createTrinoWorker(Environment.Builder builder, int workerNumber)
     {
-        builder.addContainer(createTrinoContainer(dockerFiles, serverPackage, jdkVersion, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, worker(workerNumber))
+        builder.addContainer(createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, "ghcr.io/trinodb/testing/centos7-oj17:" + imagesVersion, worker(workerNumber))
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode/multinode-worker-jvm.config")), CONTAINER_TRINO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard-multinode/multinode-worker-config.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_TRINO_HIVE_NON_CACHED_PROPERTIES)

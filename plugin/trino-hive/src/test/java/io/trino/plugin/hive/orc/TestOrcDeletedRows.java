@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.filesystem.Location;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -22,7 +23,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.security.ConnectorIdentity;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,6 +31,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.io.Resources.getResource;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -41,20 +42,22 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeletedRows
 {
-    private Path partitionDirectory;
+    private Location partitionDirectory;
     private Block rowIdBlock;
     private Block bucketBlock;
 
     @BeforeClass
     public void setUp()
     {
-        partitionDirectory = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("fullacid_delete_delta_test") + "/");
-        rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
-                .writeLong(0)
-                .build();
-        bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-                .writeInt(536870912)
-                .build();
+        partitionDirectory = Location.of(getResource("fullacid_delete_delta_test").toString());
+
+        BlockBuilder rowIdBlockBuilder = BIGINT.createFixedSizeBlockBuilder(1);
+        BIGINT.writeLong(rowIdBlockBuilder, 0);
+        rowIdBlock = rowIdBlockBuilder.build();
+
+        BlockBuilder bucketBlockBuilder = INTEGER.createFixedSizeBlockBuilder(1);
+        INTEGER.writeInt(bucketBlockBuilder, 536870912);
+        bucketBlock = bucketBlockBuilder.build();
     }
 
     @Test
@@ -86,12 +89,12 @@ public class TestOrcDeletedRows
     @Test
     public void testDeletedLocationsOriginalFiles()
     {
-        Path path = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("dummy_id_data_orc") + "/");
+        Location path = Location.of(getResource("dummy_id_data_orc").toString());
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         addDeleteDelta(acidInfoBuilder, 10000001L, 10000001L, OptionalInt.of(0), path);
 
-        acidInfoBuilder.addOriginalFile(new Path(path, "000000_0"), 743, 0);
-        acidInfoBuilder.addOriginalFile(new Path(path, "000001_0"), 730, 0);
+        acidInfoBuilder.addOriginalFile(path.appendPath("000000_0"), 743, 0);
+        acidInfoBuilder.addOriginalFile(path.appendPath("000001_0"), 730, 0);
 
         OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.buildWithRequiredOriginalFiles(0), "000000_0");
 
@@ -137,16 +140,13 @@ public class TestOrcDeletedRows
         assertEquals(block.getPositionCount(), 10);
     }
 
-    private void addDeleteDelta(AcidInfo.Builder acidInfoBuilder, long minWriteId, long maxWriteId, OptionalInt statementId, Path path)
+    private static void addDeleteDelta(AcidInfo.Builder acidInfoBuilder, long minWriteId, long maxWriteId, OptionalInt statementId, Location path)
     {
-        Path deleteDeltaPath;
-        if (statementId.isPresent()) {
-            deleteDeltaPath = new Path(path, AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId, statementId.getAsInt()));
-        }
-        else {
-            deleteDeltaPath = new Path(path, AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId));
-        }
-        acidInfoBuilder.addDeleteDelta(deleteDeltaPath);
+        String subdir = statementId.stream()
+                .mapToObj(id -> AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId, id))
+                .findFirst()
+                .orElseGet(() -> AcidUtils.deleteDeltaSubdir(minWriteId, maxWriteId));
+        acidInfoBuilder.addDeleteDelta(path.appendPath(subdir));
     }
 
     private static OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo, String sourceFileName)
@@ -177,7 +177,7 @@ public class TestOrcDeletedRows
         int size = originalTransactionEnd - originalTransactionStart;
         BlockBuilder originalTransaction = BIGINT.createFixedSizeBlockBuilder(size);
         for (long i = originalTransactionStart; i < originalTransactionEnd; i++) {
-            originalTransaction.writeLong(i);
+            BIGINT.writeLong(originalTransaction, i);
         }
 
         return new Page(

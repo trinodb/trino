@@ -37,10 +37,10 @@ public class TestRowBlockEncoding
     @Override
     protected void write(BlockBuilder blockBuilder, Object[] value)
     {
-        BlockBuilder row = blockBuilder.beginBlockEntry();
-        BIGINT.writeLong(row, (long) value[0]);
-        VARCHAR.writeSlice(row, utf8Slice((String) value[1]));
-        blockBuilder.closeEntry();
+        ((RowBlockBuilder) blockBuilder).buildEntry(fieldBuilders -> {
+            BIGINT.writeLong(fieldBuilders.get(0), (long) value[0]);
+            VARCHAR.writeSlice(fieldBuilders.get(1), utf8Slice((String) value[1]));
+        });
     }
 
     @Override

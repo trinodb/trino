@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.Experimental;
 
 import javax.annotation.Nullable;
 
@@ -231,5 +232,17 @@ public class IntArrayBlock
     Slice getValuesSlice()
     {
         return Slices.wrappedIntArray(values, arrayOffset, positionCount);
+    }
+
+    @Experimental(eta = "2023-12-31")
+    public int[] getRawValues()
+    {
+        return values;
+    }
+
+    @Experimental(eta = "2023-12-31")
+    public int getRawValuesOffset()
+    {
+        return arrayOffset;
     }
 }

@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
@@ -34,8 +35,6 @@ import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 import io.trino.type.BlockTypeOperators;
-
-import javax.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.Collection;

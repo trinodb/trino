@@ -8,7 +8,8 @@ final aggregation over ()
                             remote exchange (REPARTITION, HASH, ["ss_customer_sk", "ss_item_sk"])
                                 partial aggregation over (ss_customer_sk, ss_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        scan store_sales
+                                        dynamic filter (["ss_sold_date_sk"])
+                                            scan store_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim
@@ -17,7 +18,8 @@ final aggregation over ()
                             remote exchange (REPARTITION, HASH, ["cs_bill_customer_sk", "cs_item_sk"])
                                 partial aggregation over (cs_bill_customer_sk, cs_item_sk)
                                     join (INNER, REPLICATED, can skip output duplicates):
-                                        scan catalog_sales
+                                        dynamic filter (["cs_sold_date_sk"])
+                                            scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim

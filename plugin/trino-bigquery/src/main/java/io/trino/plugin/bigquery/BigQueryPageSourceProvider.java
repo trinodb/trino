@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -23,15 +24,11 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 
-import javax.inject.Inject;
-
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.createDisposition;
-import static io.trino.plugin.bigquery.BigQuerySessionProperties.isQueryResultsCacheEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class BigQueryPageSourceProvider
@@ -112,12 +109,11 @@ public class BigQueryPageSourceProvider
     private ConnectorPageSource createQueryPageSource(ConnectorSession session, BigQueryTableHandle table, List<BigQueryColumnHandle> columnHandles, Optional<String> filter)
     {
         return new BigQueryQueryPageSource(
+                session,
                 bigQueryClientFactory.create(session),
                 table,
                 columnHandles.stream().map(BigQueryColumnHandle::getName).collect(toImmutableList()),
                 columnHandles.stream().map(BigQueryColumnHandle::getTrinoType).collect(toImmutableList()),
-                filter,
-                isQueryResultsCacheEnabled(session),
-                createDisposition(session));
+                filter);
     }
 }

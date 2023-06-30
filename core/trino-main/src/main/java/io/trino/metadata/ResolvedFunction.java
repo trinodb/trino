@@ -25,7 +25,7 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
@@ -51,7 +51,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base32Hex;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteBuffer.allocate;
 import static java.util.Locale.ENGLISH;
@@ -76,7 +76,7 @@ public class ResolvedFunction
             @JsonProperty("id") FunctionId functionId,
             @JsonProperty("functionKind") FunctionKind functionKind,
             @JsonProperty("deterministic") boolean deterministic,
-            @JsonProperty("nullability") FunctionNullability functionNullability,
+            @JsonProperty("functionNullability") FunctionNullability functionNullability,
             @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
             @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
@@ -85,7 +85,7 @@ public class ResolvedFunction
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.functionKind = requireNonNull(functionKind, "functionKind is null");
         this.deterministic = deterministic;
-        this.functionNullability = requireNonNull(functionNullability, "nullability is null");
+        this.functionNullability = requireNonNull(functionNullability, "functionNullability is null");
         this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
         this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
         checkArgument(functionNullability.getArgumentNullable().size() == signature.getArgumentTypes().size(), "signature and functionNullability must have same argument count");

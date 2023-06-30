@@ -15,7 +15,6 @@ package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.FieldValueList;
-import com.google.cloud.bigquery.JobInfo.CreateDisposition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.common.collect.ImmutableList;
@@ -24,9 +23,12 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -80,13 +82,12 @@ public class BigQueryQueryPageSource
     private boolean finished;
 
     public BigQueryQueryPageSource(
+            ConnectorSession session,
             BigQueryClient client,
             BigQueryTableHandle table,
             List<String> columnNames,
             List<Type> columnTypes,
-            Optional<String> filter,
-            boolean useQueryResultsCache,
-            CreateDisposition createDisposition)
+            Optional<String> filter)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
@@ -97,7 +98,7 @@ public class BigQueryQueryPageSource
         this.columnTypes = ImmutableList.copyOf(columnTypes);
         this.pageBuilder = new PageBuilder(columnTypes);
         String sql = buildSql(table, client.getProjectId(), ImmutableList.copyOf(columnNames), filter);
-        this.tableResult = client.query(sql, useQueryResultsCache, createDisposition);
+        this.tableResult = client.executeQuery(session, sql);
     }
 
     private static String buildSql(BigQueryTableHandle table, String projectId, List<String> columnNames, Optional<String> filter)
@@ -235,23 +236,20 @@ public class BigQueryQueryPageSource
     private void writeBlock(BlockBuilder output, Type type, FieldValue value)
     {
         if (type instanceof ArrayType) {
-            BlockBuilder builder = output.beginBlockEntry();
-
-            for (FieldValue element : value.getRepeatedValue()) {
-                appendTo(type.getTypeParameters().get(0), element, builder);
-            }
-
-            output.closeEntry();
+            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
+                for (FieldValue element : value.getRepeatedValue()) {
+                    appendTo(type.getTypeParameters().get(0), element, elementBuilder);
+                }
+            });
             return;
         }
         if (type instanceof RowType) {
             FieldValueList record = value.getRecordValue();
-            BlockBuilder builder = output.beginBlockEntry();
-
-            for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                appendTo(type.getTypeParameters().get(index), record.get(index), builder);
-            }
-            output.closeEntry();
+            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
+                for (int index = 0; index < type.getTypeParameters().size(); index++) {
+                    appendTo(type.getTypeParameters().get(index), record.get(index), fieldBuilders.get(index));
+                }
+            });
             return;
         }
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());

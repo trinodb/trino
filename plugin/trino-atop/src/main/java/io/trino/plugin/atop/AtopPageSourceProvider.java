@@ -14,6 +14,7 @@
 package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.plugin.atop.AtopTable.AtopColumn;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -25,8 +26,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-
-import javax.inject.Inject;
 
 import java.time.ZonedDateTime;
 import java.util.List;

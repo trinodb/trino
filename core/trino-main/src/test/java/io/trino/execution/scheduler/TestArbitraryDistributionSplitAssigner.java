@@ -447,6 +447,151 @@ public class TestArbitraryDistributionSplitAssigner
         }
     }
 
+    @Test
+    public void testAdaptiveTaskSizing()
+    {
+        Set<PlanNodeId> partitionedSources = ImmutableSet.of(PARTITIONED_1);
+        List<SplitBatch> batches = ImmutableList.of(
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(1), createSplit(2), createSplit(3)), false),
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(4), createSplit(5), createSplit(6)), false),
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(7), createSplit(8), createSplit(9)), true));
+        SplitAssigner splitAssigner = new ArbitraryDistributionSplitAssigner(
+                Optional.of(TEST_CATALOG_HANDLE),
+                partitionedSources,
+                ImmutableSet.of(),
+                1,
+                1.2,
+                1,
+                4,
+                STANDARD_SPLIT_SIZE_IN_BYTES,
+                5);
+        SplitAssignerTester tester = new SplitAssignerTester();
+        for (SplitBatch batch : batches) {
+            PlanNodeId planNodeId = batch.getPlanNodeId();
+            List<Split> splits = batch.getSplits();
+            boolean noMoreSplits = batch.isNoMoreSplits();
+            tester.update(splitAssigner.assign(planNodeId, createSplitsMultimap(splits), noMoreSplits));
+            tester.checkContainsSplits(planNodeId, splits, false);
+        }
+        tester.update(splitAssigner.finish());
+        List<TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow();
+        assertThat(taskDescriptors).hasSize(4);
+
+        TaskDescriptor taskDescriptor0 = taskDescriptors.get(0);
+        assertTaskDescriptor(
+                taskDescriptor0,
+                taskDescriptor0.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(1))
+                        .build());
+        TaskDescriptor taskDescriptor1 = taskDescriptors.get(1);
+        assertTaskDescriptor(
+                taskDescriptor1,
+                taskDescriptor1.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(2))
+                        .put(PARTITIONED_1, createSplit(3))
+                        .build());
+        TaskDescriptor taskDescriptor2 = taskDescriptors.get(2);
+        assertTaskDescriptor(
+                taskDescriptor2,
+                taskDescriptor2.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(4))
+                        .put(PARTITIONED_1, createSplit(5))
+                        .put(PARTITIONED_1, createSplit(6))
+                        .build());
+        TaskDescriptor taskDescriptor3 = taskDescriptors.get(3);
+        assertTaskDescriptor(
+                taskDescriptor3,
+                taskDescriptor3.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(7))
+                        .put(PARTITIONED_1, createSplit(8))
+                        .put(PARTITIONED_1, createSplit(9))
+                        .build());
+    }
+
+    @Test
+    public void testAdaptiveTaskSizingRounding()
+    {
+        Set<PlanNodeId> partitionedSources = ImmutableSet.of(PARTITIONED_1);
+        List<SplitBatch> batches = ImmutableList.of(
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(1), createSplit(2), createSplit(3)), false),
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(4), createSplit(5), createSplit(6)), false),
+                new SplitBatch(PARTITIONED_1, ImmutableList.of(createSplit(7), createSplit(8), createSplit(9)), true));
+        SplitAssigner splitAssigner = new ArbitraryDistributionSplitAssigner(
+                Optional.of(TEST_CATALOG_HANDLE),
+                partitionedSources,
+                ImmutableSet.of(),
+                1,
+                1.3,
+                100,
+                400,
+                100,
+                5);
+        SplitAssignerTester tester = new SplitAssignerTester();
+        for (SplitBatch batch : batches) {
+            PlanNodeId planNodeId = batch.getPlanNodeId();
+            List<Split> splits = batch.getSplits();
+            boolean noMoreSplits = batch.isNoMoreSplits();
+            tester.update(splitAssigner.assign(planNodeId, createSplitsMultimap(splits), noMoreSplits));
+            tester.checkContainsSplits(planNodeId, splits, false);
+        }
+        tester.update(splitAssigner.finish());
+        List<TaskDescriptor> taskDescriptors = tester.getTaskDescriptors().orElseThrow();
+        assertThat(taskDescriptors).hasSize(5);
+
+        // target size 100, round to 100
+        TaskDescriptor taskDescriptor0 = taskDescriptors.get(0);
+        assertTaskDescriptor(
+                taskDescriptor0,
+                taskDescriptor0.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(1))
+                        .build());
+
+        // target size 130, round to 100
+        TaskDescriptor taskDescriptor1 = taskDescriptors.get(1);
+        assertTaskDescriptor(
+                taskDescriptor1,
+                taskDescriptor1.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(2))
+                        .build());
+
+        // target size 169, round to 200
+        TaskDescriptor taskDescriptor2 = taskDescriptors.get(2);
+        assertTaskDescriptor(
+                taskDescriptor2,
+                taskDescriptor2.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(3))
+                        .put(PARTITIONED_1, createSplit(4))
+                        .build());
+
+        // target size 220, round to 200
+        TaskDescriptor taskDescriptor3 = taskDescriptors.get(3);
+        assertTaskDescriptor(
+                taskDescriptor3,
+                taskDescriptor3.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(5))
+                        .put(PARTITIONED_1, createSplit(6))
+                        .build());
+
+        // target size 286, round to 300
+        TaskDescriptor taskDescriptor4 = taskDescriptors.get(4);
+        assertTaskDescriptor(
+                taskDescriptor4,
+                taskDescriptor4.getPartitionId(),
+                ImmutableListMultimap.<PlanNodeId, Split>builder()
+                        .put(PARTITIONED_1, createSplit(7))
+                        .put(PARTITIONED_1, createSplit(8))
+                        .put(PARTITIONED_1, createSplit(9))
+                        .build());
+    }
+
     private void fuzzTesting(boolean withHostRequirements)
     {
         Set<PlanNodeId> partitionedSources = new HashSet<>();
@@ -667,6 +812,9 @@ public class TestArbitraryDistributionSplitAssigner
                 Optional.of(TEST_CATALOG_HANDLE),
                 partitionedSources,
                 replicatedSources,
+                Integer.MAX_VALUE,
+                1.0,
+                targetPartitionSizeInBytes,
                 targetPartitionSizeInBytes,
                 STANDARD_SPLIT_SIZE_IN_BYTES,
                 maxTaskSplitCount);

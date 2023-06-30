@@ -17,20 +17,19 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.collect.cache.EvictableCacheBuilder;
+import io.trino.cache.EvictableCacheBuilder;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
 import org.weakref.jmx.Managed;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,7 +39,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CachingDirectoryLister
@@ -48,20 +51,20 @@ public class CachingDirectoryLister
 {
     //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
     // to deal more efficiently with cache invalidation scenarios for partitioned tables.
-    private final Cache<DirectoryListingCacheKey, ValueHolder> cache;
+    private final Cache<Location, ValueHolder> cache;
     private final List<SchemaTablePrefix> tablePrefixes;
 
     @Inject
     public CachingDirectoryLister(HiveConfig hiveClientConfig)
     {
-        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxSize(), hiveClientConfig.getFileStatusCacheTables());
+        this(hiveClientConfig.getFileStatusCacheExpireAfterWrite(), hiveClientConfig.getFileStatusCacheMaxRetainedSize(), hiveClientConfig.getFileStatusCacheTables());
     }
 
-    public CachingDirectoryLister(Duration expireAfterWrite, long maxSize, List<String> tables)
+    public CachingDirectoryLister(Duration expireAfterWrite, DataSize maxSize, List<String> tables)
     {
         this.cache = EvictableCacheBuilder.newBuilder()
-                .maximumWeight(maxSize)
-                .weigher((Weigher<DirectoryListingCacheKey, ValueHolder>) (key, value) -> value.files.map(List::size).orElse(1))
+                .maximumWeight(maxSize.toBytes())
+                .weigher((Weigher<Location, ValueHolder>) (key, value) -> toIntExact(estimatedSizeOf(key.toString()) + value.getRetainedSizeInBytes()))
                 .expireAfterWrite(expireAfterWrite.toMillis(), TimeUnit.MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .recordStats()
@@ -87,45 +90,31 @@ public class CachingDirectoryLister
     }
 
     @Override
-    public RemoteIterator<TrinoFileStatus> list(FileSystem fs, Table table, Path path)
+    public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
         if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(path));
+            return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
         }
 
-        return listInternal(fs, new DirectoryListingCacheKey(path, false));
+        return listInternal(fs, location);
     }
 
-    @Override
-    public RemoteIterator<TrinoFileStatus> listFilesRecursively(FileSystem fs, Table table, Path path)
+    private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Location location)
             throws IOException
     {
-        if (!isCacheEnabledFor(table.getSchemaTableName())) {
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(path, true));
-        }
-
-        return listInternal(fs, new DirectoryListingCacheKey(path, true));
-    }
-
-    private RemoteIterator<TrinoFileStatus> listInternal(FileSystem fs, DirectoryListingCacheKey cacheKey)
-            throws IOException
-    {
-        ValueHolder cachedValueHolder = uncheckedCacheGet(cache, cacheKey, ValueHolder::new);
+        ValueHolder cachedValueHolder = uncheckedCacheGet(cache, location, ValueHolder::new);
         if (cachedValueHolder.getFiles().isPresent()) {
             return new SimpleRemoteIterator(cachedValueHolder.getFiles().get().iterator());
         }
 
-        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, cacheKey), cacheKey);
+        return cachingRemoteIterator(cachedValueHolder, createListingRemoteIterator(fs, location), location);
     }
 
-    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(FileSystem fs, DirectoryListingCacheKey cacheKey)
+    private static RemoteIterator<TrinoFileStatus> createListingRemoteIterator(TrinoFileSystem fs, Location location)
             throws IOException
     {
-        if (cacheKey.isRecursiveFilesOnly()) {
-            return new TrinoFileStatusRemoteIterator(fs.listFiles(cacheKey.getPath(), true));
-        }
-        return new TrinoFileStatusRemoteIterator(fs.listLocatedStatus(cacheKey.getPath()));
+        return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
     }
 
     @Override
@@ -133,7 +122,7 @@ public class CachingDirectoryLister
     {
         if (isCacheEnabledFor(table.getSchemaTableName()) && isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(table.getStorage().getLocation())));
+                cache.invalidate(Location.of(table.getStorage().getLocation()));
             }
             else {
                 // a partitioned table can have multiple paths in cache
@@ -146,11 +135,11 @@ public class CachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isCacheEnabledFor(partition.getSchemaTableName()) && isLocationPresent(partition.getStorage())) {
-            cache.invalidateAll(DirectoryListingCacheKey.allKeysWithPath(new Path(partition.getStorage().getLocation())));
+            cache.invalidate(Location.of(partition.getStorage().getLocation()));
         }
     }
 
-    private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<TrinoFileStatus> iterator, DirectoryListingCacheKey key)
+    private RemoteIterator<TrinoFileStatus> cachingRemoteIterator(ValueHolder cachedValueHolder, RemoteIterator<TrinoFileStatus> iterator, Location location)
     {
         return new RemoteIterator<>()
         {
@@ -164,7 +153,7 @@ public class CachingDirectoryLister
                 if (!hasNext) {
                     // The cachedValueHolder acts as an invalidation guard. If a cache invalidation happens while this iterator goes over
                     // the files from the specified path, the eventually outdated file listing will not be added anymore to the cache.
-                    cache.asMap().replace(key, cachedValueHolder, new ValueHolder(files));
+                    cache.asMap().replace(location, cachedValueHolder, new ValueHolder(files));
                 }
                 return hasNext;
             }
@@ -217,15 +206,9 @@ public class CachingDirectoryLister
     }
 
     @VisibleForTesting
-    boolean isCached(Path path)
+    boolean isCached(Location location)
     {
-        return isCached(new DirectoryListingCacheKey(path, false));
-    }
-
-    @VisibleForTesting
-    boolean isCached(DirectoryListingCacheKey cacheKey)
-    {
-        ValueHolder cached = cache.getIfPresent(cacheKey);
+        ValueHolder cached = cache.getIfPresent(location);
         return cached != null && cached.getFiles().isPresent();
     }
 
@@ -247,6 +230,8 @@ public class CachingDirectoryLister
      */
     private static class ValueHolder
     {
+        private static final long INSTANCE_SIZE = instanceSize(ValueHolder.class);
+
         private final Optional<List<TrinoFileStatus>> files;
 
         public ValueHolder()
@@ -262,6 +247,11 @@ public class CachingDirectoryLister
         public Optional<List<TrinoFileStatus>> getFiles()
         {
             return files;
+        }
+
+        public long getRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(files, value -> estimatedSizeOf(value, TrinoFileStatus::getRetainedSizeInBytes));
         }
     }
 }

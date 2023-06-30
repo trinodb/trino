@@ -1,0 +1,132 @@
+{
+  "format-version" : 2,
+  "table-uuid" : "6df31576-c7be-447f-8d2a-bfa390449c1f",
+  "location" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/web_page",
+  "last-sequence-number" : 1,
+  "last-updated-ms" : 1678866196085,
+  "last-column-id" : 14,
+  "current-schema-id" : 0,
+  "schemas" : [ {
+    "type" : "struct",
+    "schema-id" : 0,
+    "fields" : [ {
+      "id" : 1,
+      "name" : "wp_web_page_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 2,
+      "name" : "wp_web_page_id",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 3,
+      "name" : "wp_rec_start_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 4,
+      "name" : "wp_rec_end_date",
+      "required" : false,
+      "type" : "date"
+    }, {
+      "id" : 5,
+      "name" : "wp_creation_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 6,
+      "name" : "wp_access_date_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 7,
+      "name" : "wp_autogen_flag",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 8,
+      "name" : "wp_customer_sk",
+      "required" : false,
+      "type" : "long"
+    }, {
+      "id" : 9,
+      "name" : "wp_url",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 10,
+      "name" : "wp_type",
+      "required" : false,
+      "type" : "string"
+    }, {
+      "id" : 11,
+      "name" : "wp_char_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 12,
+      "name" : "wp_link_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 13,
+      "name" : "wp_image_count",
+      "required" : false,
+      "type" : "int"
+    }, {
+      "id" : 14,
+      "name" : "wp_max_ad_count",
+      "required" : false,
+      "type" : "int"
+    } ]
+  } ],
+  "default-spec-id" : 0,
+  "partition-specs" : [ {
+    "spec-id" : 0,
+    "fields" : [ ]
+  } ],
+  "last-partition-id" : 999,
+  "default-sort-order-id" : 0,
+  "sort-orders" : [ {
+    "order-id" : 0,
+    "fields" : [ ]
+  } ],
+  "properties" : {
+    "write.format.default" : "PARQUET"
+  },
+  "current-snapshot-id" : 7514041884394119007,
+  "refs" : {
+    "main" : {
+      "snapshot-id" : 7514041884394119007,
+      "type" : "branch"
+    }
+  },
+  "snapshots" : [ {
+    "sequence-number" : 1,
+    "snapshot-id" : 7514041884394119007,
+    "timestamp-ms" : 1678866196085,
+    "summary" : {
+      "operation" : "append",
+      "trino_query_id" : "20230315_074315_00067_9f4mz",
+      "added-data-files" : "1",
+      "added-records" : "3000",
+      "added-files-size" : "36685",
+      "changed-partition-count" : "1",
+      "total-records" : "3000",
+      "total-files-size" : "36685",
+      "total-data-files" : "1",
+      "total-delete-files" : "0",
+      "total-position-deletes" : "0",
+      "total-equality-deletes" : "0"
+    },
+    "manifest-list" : "s3://starburst-benchmarks-data/iceberg-50MB-files-tpcds-sf1000-PARQUET/web_page/metadata/snap-7514041884394119007-1-26683bd4-edf3-4581-a9fa-7644a32ae331.avro",
+    "schema-id" : 0
+  } ],
+  "statistics" : [ ],
+  "snapshot-log" : [ {
+    "timestamp-ms" : 1678866196085,
+    "snapshot-id" : 7514041884394119007
+  } ],
+  "metadata-log" : [ ]
+}

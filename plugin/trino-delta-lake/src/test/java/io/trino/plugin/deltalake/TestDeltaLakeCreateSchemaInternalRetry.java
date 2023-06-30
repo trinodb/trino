@@ -88,7 +88,7 @@ public class TestDeltaLakeCreateSchemaInternalRetry
             }
         };
 
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), EMPTY_MODULE));
+        queryRunner.installPlugin(new TestingDeltaLakePlugin(Optional.of(new TestingDeltaLakeMetastoreModule(metastore)), Optional.empty(), EMPTY_MODULE));
         queryRunner.createCatalog(CATALOG_NAME, CONNECTOR_NAME, Map.of());
         return queryRunner;
     }

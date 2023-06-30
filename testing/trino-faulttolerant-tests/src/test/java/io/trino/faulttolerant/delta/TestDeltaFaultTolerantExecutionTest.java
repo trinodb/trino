@@ -33,7 +33,8 @@ public class TestDeltaFaultTolerantExecutionTest
         extends BaseFaultTolerantExecutionTest
 {
     private static final String SCHEMA = "fte_preferred_write_partitioning";
-    private static final String BUCKET_NAME = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
+
+    private final String bucketName = "test-fte-preferred-write-partitioning-" + randomNameSuffix();
 
     public TestDeltaFaultTolerantExecutionTest()
     {
@@ -44,9 +45,9 @@ public class TestDeltaFaultTolerantExecutionTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(BUCKET_NAME));
+        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
         hiveMinioDataLake.start();
-        MinioStorage minioStorage = closeAfterClass(new MinioStorage(BUCKET_NAME));
+        MinioStorage minioStorage = closeAfterClass(new MinioStorage(bucketName));
         minioStorage.start();
 
         DistributedQueryRunner runner = createS3DeltaLakeQueryRunner(
@@ -61,7 +62,7 @@ public class TestDeltaFaultTolerantExecutionTest
                     instance.installPlugin(new FileSystemExchangePlugin());
                     instance.loadExchangeManager("filesystem", getExchangeManagerProperties(minioStorage));
                 });
-        runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, BUCKET_NAME, SCHEMA));
+        runner.execute(format("CREATE SCHEMA %s WITH (location = 's3://%s/%s')", SCHEMA, bucketName, SCHEMA));
         return runner;
     }
 

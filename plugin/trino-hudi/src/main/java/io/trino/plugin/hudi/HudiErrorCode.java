@@ -22,13 +22,18 @@ import static io.trino.spi.ErrorType.EXTERNAL;
 public enum HudiErrorCode
         implements ErrorCodeSupplier
 {
-    HUDI_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
+    // HUDI_UNKNOWN_TABLE_TYPE(0, EXTERNAL),
     HUDI_INVALID_PARTITION_VALUE(1, EXTERNAL),
     HUDI_BAD_DATA(2, EXTERNAL),
     // HUDI_MISSING_DATA(3, EXTERNAL) is deprecated
     HUDI_CANNOT_OPEN_SPLIT(4, EXTERNAL),
     HUDI_UNSUPPORTED_FILE_FORMAT(5, EXTERNAL),
-    HUDI_CURSOR_ERROR(6, EXTERNAL);
+    HUDI_CURSOR_ERROR(6, EXTERNAL),
+    HUDI_FILESYSTEM_ERROR(7, EXTERNAL),
+    HUDI_PARTITION_NOT_FOUND(8, EXTERNAL),
+    // HUDI_UNSUPPORTED_TABLE_TYPE(9, EXTERNAL), // Unused. Could be mistaken with HUDI_UNKNOWN_TABLE_TYPE.
+
+    /**/;
 
     private final ErrorCode errorCode;
 

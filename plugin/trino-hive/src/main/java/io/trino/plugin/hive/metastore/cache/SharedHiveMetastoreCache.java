@@ -20,6 +20,7 @@ import com.google.common.cache.CacheStats;
 import com.google.common.cache.LoadingCache;
 import com.google.common.math.LongMath;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -28,13 +29,11 @@ import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.CachingHiveMeta
 import io.trino.spi.NodeManager;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
-
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -43,7 +42,7 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -78,8 +77,14 @@ public class SharedHiveMetastoreCache
         // Disable caching on workers, because there currently is no way to invalidate such a cache.
         // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
         // configuration can remain identical for all nodes, making cluster configuration easier.
-        boolean metadataCacheEnabled = config.getMetastoreCacheTtl().toMillis() > 0;
-        boolean statsCacheEnabled = config.getStatsCacheTtl().toMillis() > 0;
+        Duration metastoreCacheTtl = config.getMetastoreCacheTtl();
+        Duration statsCacheTtl = config.getStatsCacheTtl();
+        if (metastoreCacheTtl.compareTo(statsCacheTtl) > 0) {
+            statsCacheTtl = metastoreCacheTtl;
+        }
+
+        boolean metadataCacheEnabled = metastoreCacheTtl.toMillis() > 0;
+        boolean statsCacheEnabled = statsCacheTtl.toMillis() > 0;
         enabled = (metadataCacheEnabled || statsCacheEnabled) &&
                 nodeManager.getCurrentNode().isCoordinator() &&
                 config.getMetastoreCacheMaximumSize() > 0;
@@ -87,10 +92,11 @@ public class SharedHiveMetastoreCache
         cachingMetastoreBuilder = CachingHiveMetastore.builder()
                 .metadataCacheEnabled(metadataCacheEnabled)
                 .statsCacheEnabled(statsCacheEnabled)
-                .cacheTtl(config.getMetastoreCacheTtl())
-                .statsCacheTtl(config.getStatsCacheTtl())
+                .cacheTtl(metastoreCacheTtl)
+                .statsCacheTtl(statsCacheTtl)
                 .refreshInterval(config.getMetastoreRefreshInterval())
                 .maximumSize(config.getMetastoreCacheMaximumSize())
+                .cacheMissing(config.isCacheMissing())
                 .partitionCacheEnabled(config.isPartitionCacheEnabled());
     }
 
@@ -250,6 +256,13 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
+        public AggregateCacheStatsMBean getAllTableNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTableNamesCache);
+        }
+
+        @Managed
+        @Nested
         public AggregateCacheStatsMBean getTableWithParameterStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);
@@ -274,6 +287,13 @@ public class SharedHiveMetastoreCache
         public AggregateCacheStatsMBean getViewNamesStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getViewNamesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getAllViewNamesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllViewNamesCache);
         }
 
         @Managed

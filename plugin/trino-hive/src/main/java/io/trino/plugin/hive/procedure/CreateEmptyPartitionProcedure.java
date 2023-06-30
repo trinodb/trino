@@ -14,6 +14,8 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -35,9 +37,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
 import io.trino.spi.type.ArrayType;
-
-import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -138,8 +137,8 @@ public class CreateEmptyPartitionProcedure
                         new PartitionUpdate(
                                 partitionName,
                                 UpdateMode.NEW,
-                                writeInfo.getWritePath(),
-                                writeInfo.getTargetPath(),
+                                writeInfo.writePath().toString(),
+                                writeInfo.targetPath().toString(),
                                 ImmutableList.of(),
                                 0,
                                 0,

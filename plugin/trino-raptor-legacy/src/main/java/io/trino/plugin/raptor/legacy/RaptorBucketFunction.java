@@ -83,7 +83,7 @@ public class RaptorBucketFunction
 
     private static HashFunction intHashFunction()
     {
-        return (block, position) -> XxHash64.hash(INTEGER.getLong(block, position));
+        return (block, position) -> XxHash64.hash(INTEGER.getInt(block, position));
     }
 
     private static HashFunction varcharHashFunction()

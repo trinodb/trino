@@ -14,8 +14,6 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Shorts;
-import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -63,7 +61,6 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -196,7 +193,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(toIntExact(INTEGER.getLong(block, position)));
+            value.set(INTEGER.getInt(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -214,7 +211,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Shorts.checkedCast(SMALLINT.getLong(block, position)));
+            value.set(SMALLINT.getShort(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -232,7 +229,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
+            value.set(TINYINT.getByte(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -268,7 +265,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(intBitsToFloat((int) REAL.getLong(block, position)));
+            value.set(REAL.getFloat(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -345,7 +342,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(toIntExact(DATE.getLong(block, position)));
+            value.set(DATE.getInt(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }

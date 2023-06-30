@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.trino.tempto.AfterTestWithContext;
-import io.trino.tempto.BeforeTestWithContext;
+import io.trino.tempto.AfterMethodWithContext;
+import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
@@ -29,7 +29,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
-import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
 import static io.trino.tests.product.TestGroups.AUTHORIZATION;
@@ -38,6 +37,7 @@ import static io.trino.tests.product.utils.QueryExecutors.connectToTrino;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGrantRevoke
         extends ProductTest
@@ -65,7 +65,7 @@ public class TestGrantRevoke
      *     (all other values of the connection are same as that of the default "presto" connection).
      */
 
-    @BeforeTestWithContext
+    @BeforeMethodWithContext
     public void setup()
     {
         tableName = "alice_owned_table";
@@ -82,7 +82,7 @@ public class TestGrantRevoke
         assertAccessDeniedOnAllOperationsOnTable(bobExecutor, tableName);
     }
 
-    @AfterTestWithContext
+    @AfterMethodWithContext
     public void cleanup()
     {
         aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));

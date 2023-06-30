@@ -21,7 +21,11 @@ import io.airlift.stats.CounterStat;
 import io.airlift.stats.CpuTimer;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.execution.SplitRunner;
+import io.trino.tracing.TrinoAttributes;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -29,11 +33,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public class PrioritizedSplitRunner
+public final class PrioritizedSplitRunner
         implements Comparable<PrioritizedSplitRunner>
 {
     private static final AtomicLong NEXT_WORKER_ID = new AtomicLong();
@@ -50,15 +55,17 @@ public class PrioritizedSplitRunner
     private final long workerId;
     private final SplitRunner split;
 
+    private final Span splitSpan;
+
+    private final Tracer tracer;
     private final Ticker ticker;
 
     private final SettableFuture<Void> finishedFuture = SettableFuture.create();
 
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
-    protected final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
+    private final AtomicReference<Priority> priority = new AtomicReference<>(new Priority(0, 0));
 
-    protected final AtomicLong lastRun = new AtomicLong();
     private final AtomicLong lastReady = new AtomicLong();
     private final AtomicLong start = new AtomicLong();
 
@@ -75,7 +82,10 @@ public class PrioritizedSplitRunner
 
     PrioritizedSplitRunner(
             TaskHandle taskHandle,
+            int splitId,
             SplitRunner split,
+            Span splitSpan,
+            Tracer tracer,
             Ticker ticker,
             CounterStat globalCpuTimeMicros,
             CounterStat globalScheduledTimeMicros,
@@ -83,8 +93,10 @@ public class PrioritizedSplitRunner
             TimeStat unblockedQuantaWallTime)
     {
         this.taskHandle = requireNonNull(taskHandle, "taskHandle is null");
-        this.splitId = taskHandle.getNextSplitId();
+        this.splitId = splitId;
         this.split = requireNonNull(split, "split is null");
+        this.splitSpan = requireNonNull(splitSpan, "splitSpan is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.ticker = requireNonNull(ticker, "ticker is null");
         this.workerId = NEXT_WORKER_ID.getAndIncrement();
         this.globalCpuTimeMicros = requireNonNull(globalCpuTimeMicros, "globalCpuTimeMicros is null");
@@ -92,7 +104,7 @@ public class PrioritizedSplitRunner
         this.blockedQuantaWallTime = requireNonNull(blockedQuantaWallTime, "blockedQuantaWallTime is null");
         this.unblockedQuantaWallTime = requireNonNull(unblockedQuantaWallTime, "unblockedQuantaWallTime is null");
 
-        this.updateLevelPriority();
+        updateLevelPriority();
     }
 
     public TaskHandle getTaskHandle()
@@ -118,6 +130,12 @@ public class PrioritizedSplitRunner
         }
         catch (RuntimeException e) {
             log.error(e, "Error closing split for task %s", taskHandle.getTaskId());
+        }
+        finally {
+            splitSpan.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, getScheduledNanos());
+            splitSpan.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, getCpuTimeNanos());
+            splitSpan.setAttribute(TrinoAttributes.SPLIT_WAIT_TIME_NANOS, getWaitNanos());
+            splitSpan.end();
         }
     }
 
@@ -152,7 +170,11 @@ public class PrioritizedSplitRunner
 
     public ListenableFuture<Void> process()
     {
-        try {
+        Span span = tracer.spanBuilder("process")
+                .setParent(Context.current().with(splitSpan))
+                .startSpan();
+
+        try (var ignored = scopedSpan(span)) {
             long startNanos = ticker.read();
             start.compareAndSet(0, startNanos);
             lastReady.compareAndSet(0, startNanos);
@@ -165,12 +187,10 @@ public class PrioritizedSplitRunner
             ListenableFuture<Void> blocked = split.processFor(SPLIT_RUN_QUANTA);
             CpuTimer.CpuDuration elapsed = timer.elapsedTime();
 
-            long endNanos = ticker.read();
-            long quantaScheduledNanos = endNanos - startNanos;
+            long quantaScheduledNanos = elapsed.getWall().roundTo(NANOSECONDS);
             scheduledNanos.addAndGet(quantaScheduledNanos);
 
             priority.set(taskHandle.addScheduledNanos(quantaScheduledNanos));
-            lastRun.set(endNanos);
 
             if (blocked == NOT_BLOCKED) {
                 unblockedQuantaWallTime.add(elapsed.getWall());
@@ -184,6 +204,10 @@ public class PrioritizedSplitRunner
 
             globalCpuTimeMicros.update(quantaCpuNanos / 1000);
             globalScheduledTimeMicros.update(quantaScheduledNanos / 1000);
+
+            span.setAttribute(TrinoAttributes.SPLIT_CPU_TIME_NANOS, quantaCpuNanos);
+            span.setAttribute(TrinoAttributes.SPLIT_SCHEDULED_TIME_NANOS, quantaScheduledNanos);
+            span.setAttribute(TrinoAttributes.SPLIT_BLOCKED, blocked != NOT_BLOCKED);
 
             return blocked;
         }

@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -188,7 +189,7 @@ public class JsonRowEncoder
     @Override
     protected void appendByteBuffer(ByteBuffer value)
     {
-        node.put(currentColumnMapping(), value.array());
+        node.put(currentColumnMapping(), getWrappedBytes(value));
     }
 
     @Override

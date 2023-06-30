@@ -47,6 +47,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
@@ -65,6 +66,9 @@ import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
+import io.trino.sql.tree.JsonTable;
+import io.trino.sql.tree.JsonTableColumnDefinition;
+import io.trino.sql.tree.JsonTableDefaultPlan;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
@@ -74,15 +78,21 @@ import io.trino.sql.tree.MergeDelete;
 import io.trino.sql.tree.MergeInsert;
 import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
+import io.trino.sql.tree.NestedColumns;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.OrdinalityColumn;
 import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.tree.PlanLeaf;
+import io.trino.sql.tree.PlanParentChild;
+import io.trino.sql.tree.PlanSiblings;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.PrincipalSpecification;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.QueryColumn;
 import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -137,6 +147,7 @@ import io.trino.sql.tree.Union;
 import io.trino.sql.tree.Unnest;
 import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
+import io.trino.sql.tree.ValueColumn;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WithQuery;
 
@@ -149,12 +160,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
+import static io.trino.sql.ExpressionFormatter.formatJsonPathInvocation;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
 import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
 import static io.trino.sql.RowPatternFormatter.formatPattern;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -187,13 +198,6 @@ public final class SqlFormatter
     {
         return ExpressionFormatter.formatExpression(expression);
     }
-
-    /**
-     * @deprecated Use {@link #formatName(Identifier)} instead.
-     */
-    @Deprecated
-    @SuppressWarnings("unused")
-    private static void formatExpression(Identifier identifier) {}
 
     private static class Formatter
             extends AstVisitor<Void, Integer>
@@ -262,6 +266,174 @@ public final class SqlFormatter
             if (node.isWithOrdinality()) {
                 builder.append(" WITH ORDINALITY");
             }
+            return null;
+        }
+
+        @Override
+        protected Void visitJsonTable(JsonTable node, Integer indent)
+        {
+            builder.append("JSON_TABLE (")
+                    .append(formatJsonPathInvocation(node.getJsonPathInvocation()))
+                    .append("\n");
+            appendJsonTableColumns(node.getColumns(), indent + 1);
+            node.getPlan().ifPresent(plan -> {
+                builder.append("\n");
+                if (plan instanceof JsonTableDefaultPlan) {
+                    append(indent + 1, "PLAN DEFAULT (");
+                }
+                else {
+                    append(indent + 1, "PLAN (");
+                }
+                process(plan, indent + 1);
+                builder.append(")");
+            });
+            node.getErrorBehavior().ifPresent(behavior -> {
+                builder.append("\n");
+                append(indent + 1, behavior + " ON ERROR");
+            });
+            builder.append(")\n");
+            return null;
+        }
+
+        private void appendJsonTableColumns(List<JsonTableColumnDefinition> columns, int indent)
+        {
+            append(indent, "COLUMNS (\n");
+            for (int i = 0; i < columns.size() - 1; i++) {
+                process(columns.get(i), indent + 1);
+                builder.append(",\n");
+            }
+            process(columns.get(columns.size() - 1), indent + 1);
+            builder.append(")");
+        }
+
+        @Override
+        protected Void visitOrdinalityColumn(OrdinalityColumn node, Integer indent)
+        {
+            append(indent, formatName(node.getName()) + " FOR ORDINALITY");
+            return null;
+        }
+
+        @Override
+        protected Void visitValueColumn(ValueColumn node, Integer indent)
+        {
+            append(indent, formatName(node.getName()))
+                    .append(" ")
+                    .append(formatExpression(node.getType()));
+            node.getJsonPath().ifPresent(path ->
+                    builder.append(" PATH ")
+                            .append(formatExpression(path)));
+            builder.append(" ")
+                    .append(node.getEmptyBehavior().name())
+                    .append(node.getEmptyDefault().map(expression -> " " + formatExpression(expression)).orElse(""))
+                    .append(" ON EMPTY");
+            node.getErrorBehavior().ifPresent(behavior ->
+                    builder.append(" ")
+                            .append(behavior.name())
+                            .append(node.getErrorDefault().map(expression -> " " + formatExpression(expression)).orElse(""))
+                            .append(" ON ERROR"));
+            return null;
+        }
+
+        @Override
+        protected Void visitQueryColumn(QueryColumn node, Integer indent)
+        {
+            append(indent, formatName(node.getName()))
+                    .append(" ")
+                    .append(formatExpression(node.getType()))
+                    .append(" FORMAT ")
+                    .append(node.getFormat().name());
+            node.getJsonPath().ifPresent(path ->
+                    builder.append(" PATH ")
+                            .append(formatExpression(path)));
+            switch (node.getWrapperBehavior()) {
+                case WITHOUT:
+                    builder.append(" WITHOUT ARRAY WRAPPER");
+                    break;
+                case CONDITIONAL:
+                    builder.append(" WITH CONDITIONAL ARRAY WRAPPER");
+                    break;
+                case UNCONDITIONAL:
+                    builder.append((" WITH UNCONDITIONAL ARRAY WRAPPER"));
+                    break;
+                default:
+                    throw new IllegalStateException("unexpected array wrapper behavior: " + node.getWrapperBehavior());
+            }
+            if (node.getQuotesBehavior().isPresent()) {
+                switch (node.getQuotesBehavior().get()) {
+                    case KEEP:
+                        builder.append(" KEEP QUOTES ON SCALAR STRING");
+                        break;
+                    case OMIT:
+                        builder.append(" OMIT QUOTES ON SCALAR STRING");
+                        break;
+                    default:
+                        throw new IllegalStateException("unexpected quotes behavior: " + node.getQuotesBehavior());
+                }
+            }
+            builder.append(" ")
+                    .append(node.getEmptyBehavior().toString())
+                    .append(" ON EMPTY");
+            node.getErrorBehavior().ifPresent(behavior ->
+                    builder.append(" ")
+                            .append(behavior.toString())
+                            .append(" ON ERROR"));
+            return null;
+        }
+
+        @Override
+        protected Void visitNestedColumns(NestedColumns node, Integer indent)
+        {
+            append(indent, "NESTED PATH ")
+                    .append(formatExpression(node.getJsonPath()));
+            node.getPathName().ifPresent(name ->
+                    builder.append(" AS ")
+                            .append(formatName(name)));
+            builder.append("\n");
+            appendJsonTableColumns(node.getColumns(), indent + 1);
+            return null;
+        }
+
+        @Override
+        protected Void visitJsonTableDefaultPlan(JsonTableDefaultPlan node, Integer indent)
+        {
+            builder.append(node.getParentChild().name())
+                    .append(", ")
+                    .append(node.getSiblings().name());
+            return null;
+        }
+
+        @Override
+        protected Void visitPlanParentChild(PlanParentChild node, Integer indent)
+        {
+            process(node.getParent());
+            builder.append(" ")
+                    .append(node.getType().name())
+                    .append(" (");
+            process(node.getChild());
+            builder.append(")");
+            return null;
+        }
+
+        @Override
+        protected Void visitPlanSiblings(PlanSiblings node, Integer context)
+        {
+            for (int i = 0; i < node.getSiblings().size() - 1; i++) {
+                builder.append("(");
+                process(node.getSiblings().get(i));
+                builder.append(") ")
+                        .append(node.getType().name())
+                        .append(" ");
+            }
+            builder.append("(");
+            process(node.getSiblings().get(node.getSiblings().size() - 1));
+            builder.append(")");
+            return null;
+        }
+
+        @Override
+        protected Void visitPlanLeaf(PlanLeaf node, Integer context)
+        {
+            builder.append(formatName(node.getName()));
             return null;
         }
 
@@ -409,6 +581,21 @@ public final class SqlFormatter
             List<Expression> parameters = node.getParameters();
             if (!parameters.isEmpty()) {
                 builder.append(" USING ");
+                builder.append(parameters.stream()
+                        .map(SqlFormatter::formatExpression)
+                        .collect(joining(", ")));
+            }
+            return null;
+        }
+
+        @Override
+        protected Void visitExecuteImmediate(ExecuteImmediate node, Integer indent)
+        {
+            append(indent, "EXECUTE IMMEDIATE\n")
+                    .append(formatStringLiteral(node.getStatement().getValue()));
+            List<Expression> parameters = node.getParameters();
+            if (!parameters.isEmpty()) {
+                builder.append("\nUSING ");
                 builder.append(parameters.stream()
                         .map(SqlFormatter::formatExpression)
                         .collect(joining(", ")));
@@ -1343,10 +1530,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
 
             node.getColumnAliases().ifPresent(columnAliases -> {
-                String columnList = columnAliases.stream()
+                builder.append(columnAliases.stream()
                         .map(SqlFormatter::formatName)
-                        .collect(joining(", "));
-                builder.append(format("( %s )", columnList));
+                        .collect(joining(", ", "( ", " )")));
             });
 
             node.getComment().ifPresent(comment -> builder
@@ -1469,7 +1655,7 @@ public final class SqlFormatter
                     return principal.getName().toString();
                 case USER:
                 case ROLE:
-                    return format("%s %s", type.name(), principal.getName());
+                    return type.name() + " " + principal.getName();
             }
             throw new IllegalArgumentException("Unsupported principal type: " + type);
         }

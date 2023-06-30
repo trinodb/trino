@@ -14,6 +14,7 @@
 package io.trino.plugin.exchange.filesystem;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
 import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeContext;
@@ -21,8 +22,6 @@ import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.exchange.ExchangeSink;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSource;
-
-import javax.inject.Inject;
 
 import java.net.URI;
 import java.util.List;
@@ -121,5 +120,11 @@ public class FileSystemExchangeManager
                 maxPageStorageSizeInBytes,
                 exchangeSourceConcurrentReaders,
                 exchangeSourceMaxFilesPerReader);
+    }
+
+    @Override
+    public boolean supportsConcurrentReadAndWrite()
+    {
+        return false;
     }
 }

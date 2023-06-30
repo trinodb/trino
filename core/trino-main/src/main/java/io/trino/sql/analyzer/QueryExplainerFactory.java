@@ -13,14 +13,13 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.inject.Inject;
 import io.trino.client.NodeVersion;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanOptimizersFactory;
-
-import javax.inject.Inject;
 
 import static java.util.Objects.requireNonNull;
 

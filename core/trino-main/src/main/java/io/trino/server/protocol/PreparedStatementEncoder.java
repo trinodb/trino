@@ -13,11 +13,10 @@
  */
 package io.trino.server.protocol;
 
+import com.google.inject.Inject;
 import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.trino.server.ProtocolConfig;
-
-import javax.inject.Inject;
 
 import static com.google.common.io.BaseEncoding.base64Url;
 import static java.lang.Math.toIntExact;

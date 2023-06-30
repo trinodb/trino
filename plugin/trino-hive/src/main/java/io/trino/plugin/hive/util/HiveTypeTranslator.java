@@ -45,6 +45,7 @@ import java.util.Locale;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.UnionToRowCoercionUtils.rowTypeSignatureForUnionOfTypes;
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.HIVE_BINARY;
 import static io.trino.plugin.hive.HiveType.HIVE_BOOLEAN;
@@ -79,7 +80,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeSignature.rowType;
-import static io.trino.spi.type.TypeSignatureParameter.namedField;
 import static io.trino.spi.type.TypeSignatureParameter.typeParameter;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
@@ -90,10 +90,6 @@ import static java.util.Objects.requireNonNull;
 public final class HiveTypeTranslator
 {
     private HiveTypeTranslator() {}
-
-    public static final String UNION_FIELD_TAG_NAME = "tag";
-    public static final String UNION_FIELD_FIELD_PREFIX = "field";
-    public static final Type UNION_FIELD_TAG_TYPE = TINYINT;
 
     public static TypeInfo toTypeInfo(Type type)
     {
@@ -212,13 +208,9 @@ public final class HiveTypeTranslator
                 // Use a row type to represent a union type in Hive for reading
                 UnionTypeInfo unionTypeInfo = (UnionTypeInfo) typeInfo;
                 List<TypeInfo> unionObjectTypes = unionTypeInfo.getAllUnionObjectTypeInfos();
-                ImmutableList.Builder<TypeSignatureParameter> typeSignatures = ImmutableList.builder();
-                typeSignatures.add(namedField(UNION_FIELD_TAG_NAME, UNION_FIELD_TAG_TYPE.getTypeSignature()));
-                for (int i = 0; i < unionObjectTypes.size(); i++) {
-                    TypeInfo unionObjectType = unionObjectTypes.get(i);
-                    typeSignatures.add(namedField(UNION_FIELD_FIELD_PREFIX + i, toTypeSignature(unionObjectType, timestampPrecision)));
-                }
-                return rowType(typeSignatures.build());
+                return rowTypeSignatureForUnionOfTypes(unionObjectTypes.stream()
+                        .map(unionObjectType -> toTypeSignature(unionObjectType, timestampPrecision))
+                        .collect(toImmutableList()));
         }
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }

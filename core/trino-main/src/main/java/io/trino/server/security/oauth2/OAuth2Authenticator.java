@@ -14,6 +14,7 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.server.security.AbstractBearerAuthenticator;
 import io.trino.server.security.AuthenticationException;
@@ -22,9 +23,7 @@ import io.trino.server.security.UserMappingException;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
-
-import javax.inject.Inject;
-import javax.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestContext;
 
 import java.net.URI;
 import java.sql.Date;
@@ -72,10 +71,10 @@ public class OAuth2Authenticator
         }
 
         TokenPair tokenPair = deserializeToken.get();
-        if (tokenPair.getExpiration().before(Date.from(Instant.now()))) {
+        if (tokenPair.expiration().before(Date.from(Instant.now()))) {
             return Optional.empty();
         }
-        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.getAccessToken());
+        Optional<Map<String, Object>> claims = client.getClaims(tokenPair.accessToken());
         if (claims.isEmpty()) {
             return Optional.empty();
         }

@@ -23,9 +23,7 @@ import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
 import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.PrimitiveField;
-import io.trino.parquet.reader.decoders.RleBitPackingHybridDecoder;
 import io.trino.parquet.reader.decoders.ValueDecoder;
-import io.trino.parquet.reader.decoders.ValueDecoder.EmptyValueDecoder;
 import io.trino.parquet.reader.flat.ColumnAdapter;
 import io.trino.parquet.reader.flat.DictionaryDecoder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -39,10 +37,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetReaderUtils.castToByte;
+import static io.trino.parquet.reader.decoders.ValueDecoder.LevelsDecoderProvider;
 import static io.trino.parquet.reader.decoders.ValueDecoder.ValueDecodersProvider;
+import static io.trino.parquet.reader.flat.DictionaryDecoder.DictionaryDecoderProvider;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
 
 /**
  * This class works similarly to FlatColumnReader. The difference is that the resulting number
@@ -90,6 +89,7 @@ public class NestedColumnReader<BufferType>
 {
     private static final Logger log = Logger.get(NestedColumnReader.class);
 
+    private final LevelsDecoderProvider levelsDecoderProvider;
     private final LocalMemoryContext memoryContext;
 
     private ValueDecoder<int[]> definitionLevelDecoder;
@@ -110,10 +110,13 @@ public class NestedColumnReader<BufferType>
     public NestedColumnReader(
             PrimitiveField field,
             ValueDecodersProvider<BufferType> decodersProvider,
+            LevelsDecoderProvider levelsDecoderProvider,
+            DictionaryDecoderProvider<BufferType> dictionaryDecoderProvider,
             ColumnAdapter<BufferType> columnAdapter,
             LocalMemoryContext memoryContext)
     {
-        super(field, decodersProvider, columnAdapter);
+        super(field, decodersProvider, dictionaryDecoderProvider, columnAdapter);
+        this.levelsDecoderProvider = requireNonNull(levelsDecoderProvider, "levelsDecoderProvider is null");
         this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
     }
 
@@ -507,23 +510,18 @@ public class NestedColumnReader<BufferType>
         checkArgument(maxDefinitionLevel == 0 || definitionEncoding == RLE, "Invalid definition level encoding: " + definitionEncoding);
         checkArgument(maxRepetitionLevel == 0 || repetitionEncoding == RLE, "Invalid repetition level encoding: " + definitionEncoding);
 
+        repetitionLevelDecoder = levelsDecoderProvider.create(maxRepetitionLevel);
         if (maxRepetitionLevel > 0) {
             int bufferSize = buffer.getInt(0); //  We need to read the size even if there is no repetition data
-            repetitionLevelDecoder = new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxRepetitionLevel));
             repetitionLevelDecoder.init(new SimpleSliceInputStream(buffer.slice(Integer.BYTES, bufferSize)));
             buffer = buffer.slice(bufferSize + Integer.BYTES, buffer.length() - bufferSize - Integer.BYTES);
         }
-        else {
-            repetitionLevelDecoder = new EmptyValueDecoder<>();
-        }
+
+        definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
         if (maxDefinitionLevel > 0) {
             int bufferSize = buffer.getInt(0); // We need to read the size even if there is no definition
-            definitionLevelDecoder = new RleBitPackingHybridDecoder(getWidthFromMaxInt(field.getDefinitionLevel()));
             definitionLevelDecoder.init(new SimpleSliceInputStream(buffer.slice(Integer.BYTES, bufferSize)));
             buffer = buffer.slice(bufferSize + Integer.BYTES, buffer.length() - bufferSize - Integer.BYTES);
-        }
-        else {
-            definitionLevelDecoder = new EmptyValueDecoder<>();
         }
 
         valueDecoder = createValueDecoder(decodersProvider, page.getValueEncoding(), buffer);
@@ -534,20 +532,11 @@ public class NestedColumnReader<BufferType>
         int maxDefinitionLevel = field.getDefinitionLevel();
         int maxRepetitionLevel = field.getRepetitionLevel();
 
-        if (maxDefinitionLevel == 0) {
-            definitionLevelDecoder = new EmptyValueDecoder<>();
-        }
-        else {
-            definitionLevelDecoder = new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxDefinitionLevel));
-            definitionLevelDecoder.init(new SimpleSliceInputStream(page.getDefinitionLevels()));
-        }
-        if (maxRepetitionLevel == 0) {
-            repetitionLevelDecoder = new EmptyValueDecoder<>();
-        }
-        else {
-            repetitionLevelDecoder = new RleBitPackingHybridDecoder(getWidthFromMaxInt(maxRepetitionLevel));
-            repetitionLevelDecoder.init(new SimpleSliceInputStream(page.getRepetitionLevels()));
-        }
+        definitionLevelDecoder = levelsDecoderProvider.create(maxDefinitionLevel);
+        definitionLevelDecoder.init(new SimpleSliceInputStream(page.getDefinitionLevels()));
+
+        repetitionLevelDecoder = levelsDecoderProvider.create(maxRepetitionLevel);
+        repetitionLevelDecoder.init(new SimpleSliceInputStream(page.getRepetitionLevels()));
 
         valueDecoder = createValueDecoder(decodersProvider, page.getDataEncoding(), page.getSlice());
     }

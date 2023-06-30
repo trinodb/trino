@@ -13,6 +13,9 @@
  */
 package io.trino.testing;
 
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.connector.ConnectorAwareNodeManager;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.GroupByHashPageIndexerFactory;
@@ -47,6 +50,18 @@ public final class TestingConnectorContext
         TypeOperators typeOperators = new TypeOperators();
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
         nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", TEST_CATALOG_HANDLE, true);
+    }
+
+    @Override
+    public OpenTelemetry getOpenTelemetry()
+    {
+        return OpenTelemetry.noop();
+    }
+
+    @Override
+    public Tracer getTracer()
+    {
+        return Tracing.noopTracer();
     }
 
     @Override

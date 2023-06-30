@@ -20,5 +20,6 @@ public enum CatalogType
     GLUE,
     REST,
     JDBC,
+    NESSIE,
     /**/;
 }

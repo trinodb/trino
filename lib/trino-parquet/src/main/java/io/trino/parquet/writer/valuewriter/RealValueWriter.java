@@ -18,8 +18,6 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
 import static io.trino.spi.type.RealType.REAL;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class RealValueWriter
@@ -38,7 +36,7 @@ public class RealValueWriter
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
-                float value = intBitsToFloat(toIntExact(REAL.getLong(block, i)));
+                float value = REAL.getFloat(block, i);
                 valuesWriter.writeFloat(value);
                 getStatistics().updateStats(value);
             }

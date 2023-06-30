@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.io.Resources;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -28,7 +29,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.apache.hadoop.fs.Path;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -115,22 +115,23 @@ public class TestTimestampMicros
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
                         newEmptyConfiguration(),
-                session,
-                new Path(parquetFile.toURI()),
-                0,
-                parquetFile.length(),
-                parquetFile.length(),
-                schema,
-                List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
-                TupleDomain.all(),
-                Optional.empty(),
-                OptionalInt.empty(),
-                false,
-                AcidTransaction.NO_ACID_TRANSACTION)
+                        session,
+                        Location.of(parquetFile.getPath()),
+                        0,
+                        parquetFile.length(),
+                        parquetFile.length(),
+                        schema,
+                        List.of(createBaseColumn(columnName, 0, columnHiveType, columnType, REGULAR, Optional.empty())),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        OptionalInt.empty(),
+                        false,
+                        AcidTransaction.NO_ACID_TRANSACTION)
                 .orElseThrow();
 
-        pageSourceWithProjections.getReaderColumns()
-                .ifPresent(projections -> { throw new IllegalStateException("Unexpected projections: " + projections); });
+        pageSourceWithProjections.getReaderColumns().ifPresent(projections -> {
+            throw new IllegalStateException("Unexpected projections: " + projections);
+        });
 
         return pageSourceWithProjections.get();
     }

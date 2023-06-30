@@ -10,7 +10,8 @@ remote exchange (GATHER, SINGLE, [])
                                     partial aggregation over (custkey)
                                         join (RIGHT, PARTITIONED):
                                             remote exchange (REPARTITION, HASH, ["custkey_0"])
-                                                scan orders
+                                                dynamic filter (["custkey_0"])
+                                                    scan orders
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["custkey"])
                                                     scan customer

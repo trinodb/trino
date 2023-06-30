@@ -43,7 +43,7 @@ public class TestDeltaLakeConfig
                 .setDataFileCacheTtl(new Duration(30, MINUTES))
                 .setMetadataCacheTtl(new Duration(5, TimeUnit.MINUTES))
                 .setMetadataCacheMaxSize(1000)
-                .setDomainCompactionThreshold(100)
+                .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
                 .setMaxInitialSplits(200)
@@ -67,7 +67,8 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(1, GIGABYTE))
                 .setUniqueTableLocation(true)
                 .setLegacyCreateTableWithExistingLocationEnabled(false)
-                .setRegisterTableProcedureEnabled(false));
+                .setRegisterTableProcedureEnabled(false)
+                .setProjectionPushdownEnabled(true));
     }
 
     @Test
@@ -103,6 +104,7 @@ public class TestDeltaLakeConfig
                 .put("delta.unique-table-location", "false")
                 .put("delta.legacy-create-table-with-existing-location.enabled", "true")
                 .put("delta.register-table-procedure.enabled", "true")
+                .put("delta.projection-pushdown-enabled", "false")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -134,7 +136,8 @@ public class TestDeltaLakeConfig
                 .setTargetMaxFileSize(DataSize.of(2, GIGABYTE))
                 .setUniqueTableLocation(false)
                 .setLegacyCreateTableWithExistingLocationEnabled(true)
-                .setRegisterTableProcedureEnabled(true);
+                .setRegisterTableProcedureEnabled(true)
+                .setProjectionPushdownEnabled(false);
 
         assertFullMapping(properties, expected);
     }

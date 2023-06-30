@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class UpdateAssignment
@@ -90,6 +89,6 @@ public class UpdateAssignment
     @Override
     public String toString()
     {
-        return format("%s = %s", name, value);
+        return name + " = " + value;
     }
 }

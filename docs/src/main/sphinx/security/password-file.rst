@@ -90,7 +90,7 @@ Add or update the password for the user ``test``:
 
     htpasswd -B -C 10 password.db test
 
-.. _verify_authentication:
+.. _verify-authentication:
 
 Verify configuration
 ^^^^^^^^^^^^^^^^^^^^

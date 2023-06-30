@@ -29,8 +29,7 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJmxStats
 {
@@ -44,14 +43,14 @@ public class TestJmxStats
         MBeanServer mbeanServer = getPlatformMBeanServer();
         Set<ObjectName> objectNames = mbeanServer.queryNames(new ObjectName("io.trino.plugin.jdbc:*"), null);
 
-        assertTrue(objectNames.containsAll(
+        assertThat(objectNames.containsAll(
                 ImmutableSet.of(
                         new ObjectName("io.trino.plugin.jdbc:type=ConnectionFactory,name=test"),
-                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test"))));
+                        new ObjectName("io.trino.plugin.jdbc:type=JdbcClient,name=test")))).isTrue();
 
         for (ObjectName objectName : objectNames) {
             MBeanInfo mbeanInfo = mbeanServer.getMBeanInfo(objectName);
-            assertNotEquals(mbeanInfo.getAttributes().length, 0, format("Object %s doesn't expose JMX stats", objectName.getCanonicalName()));
+            assertThat(mbeanInfo.getAttributes().length).withFailMessage(format("Object %s doesn't expose JMX stats", objectName.getCanonicalName())).isNotEqualTo(0);
         }
     }
 }

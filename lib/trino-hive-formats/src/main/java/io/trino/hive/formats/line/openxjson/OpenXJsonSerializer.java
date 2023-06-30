@@ -57,7 +57,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static java.lang.Float.intBitsToFloat;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
 import static java.time.temporal.ChronoField.HOUR_OF_DAY;
 import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
@@ -141,13 +140,13 @@ public class OpenXJsonSerializer
             return BIGINT.getLong(block, position);
         }
         else if (INTEGER.equals(type)) {
-            return INTEGER.getLong(block, position);
+            return INTEGER.getInt(block, position);
         }
         else if (SMALLINT.equals(type)) {
-            return SMALLINT.getLong(block, position);
+            return SMALLINT.getShort(block, position);
         }
         else if (TINYINT.equals(type)) {
-            return TINYINT.getLong(block, position);
+            return TINYINT.getByte(block, position);
         }
         else if (type instanceof DecimalType) {
             // decimal type is read-only in Hive, but we support it
@@ -155,7 +154,7 @@ public class OpenXJsonSerializer
             return value.toBigDecimal().toString();
         }
         else if (REAL.equals(type)) {
-            return intBitsToFloat((int) REAL.getLong(block, position));
+            return REAL.getFloat(block, position);
         }
         else if (DOUBLE.equals(type)) {
             return DOUBLE.getDouble(block, position);

@@ -68,6 +68,7 @@ import static io.trino.sql.planner.PathNodes.ceiling;
 import static io.trino.sql.planner.PathNodes.conjunction;
 import static io.trino.sql.planner.PathNodes.contextVariable;
 import static io.trino.sql.planner.PathNodes.currentItem;
+import static io.trino.sql.planner.PathNodes.descendantMemberAccessor;
 import static io.trino.sql.planner.PathNodes.disjunction;
 import static io.trino.sql.planner.PathNodes.divide;
 import static io.trino.sql.planner.PathNodes.emptySequence;
@@ -514,6 +515,77 @@ public class TestJsonPathEvaluator
                 path(true, ceiling(jsonVariable("null_parameter")))))
                 .isInstanceOf(PathEvaluationError.class)
                 .hasMessage("path evaluation failed: invalid item type. Expected: NUMBER, actual: NULL");
+    }
+
+    @Test
+    public void testDescendantMemberAccessor()
+    {
+        // non-structural value
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
+
+        // array
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(BooleanNode.TRUE, TextNode.valueOf("foo"))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
+
+        // object
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "second"))))
+                .isEqualTo(singletonSequence(IntNode.valueOf(42)));
+
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("first", BooleanNode.TRUE, "second", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "third"))))
+                .isEqualTo(emptySequence());
+
+        // deep nesting array(object(array(object)))
+        assertThat(pathResult(
+                new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                        BooleanNode.TRUE,
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key1", IntNode.valueOf(42),
+                                "key2", new ArrayNode(JsonNodeFactory.instance, ImmutableList.of(
+                                        NullNode.instance,
+                                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                                "key3", TextNode.valueOf("foo"),
+                                                "key1", BooleanNode.FALSE)))))))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(sequence(
+                        IntNode.valueOf(42),
+                        BooleanNode.FALSE));
+
+        // preorder: member from top-level object first
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "key1", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key2", BooleanNode.FALSE)),
+                        "key2", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "key2"))))
+                .isEqualTo(sequence(
+                        IntNode.valueOf(42),
+                        BooleanNode.FALSE));
+
+        // matching a structural value
+        assertThat(pathResult(
+                new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                        "key1", new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of(
+                                "key1", BooleanNode.FALSE)),
+                        "key2", IntNode.valueOf(42))),
+                path(true, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(sequence(
+                        new ObjectNode(JsonNodeFactory.instance, ImmutableMap.of("key1", BooleanNode.FALSE)),
+                        BooleanNode.FALSE));
+
+        // strict mode
+        assertThat(pathResult(
+                BooleanNode.TRUE,
+                path(false, descendantMemberAccessor(contextVariable(), "key1"))))
+                .isEqualTo(emptySequence());
     }
 
     @Test

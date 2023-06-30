@@ -467,7 +467,8 @@ public class BenchmarkPartitionedOutputOperator
                     POSITIONS_APPENDER_FACTORY,
                     Optional.empty(),
                     newSimpleAggregatedMemoryContext(),
-                    0);
+                    0,
+                    Optional.empty());
             return (PartitionedOutputOperator) operatorFactory
                     .createOutputOperator(0, new PlanNodeId("plan-node-0"), types, Function.identity(), serdeFactory)
                     .createOperator(createDriverContext());

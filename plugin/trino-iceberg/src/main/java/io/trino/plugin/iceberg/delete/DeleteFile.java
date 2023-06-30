@@ -32,6 +32,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static java.util.Objects.requireNonNull;
 
 public final class DeleteFile
@@ -50,9 +51,9 @@ public final class DeleteFile
     public static DeleteFile fromIceberg(org.apache.iceberg.DeleteFile deleteFile)
     {
         Map<Integer, byte[]> lowerBounds = firstNonNull(deleteFile.lowerBounds(), ImmutableMap.<Integer, ByteBuffer>of())
-                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
+                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> getWrappedBytes(entry.getValue()).clone()));
         Map<Integer, byte[]> upperBounds = firstNonNull(deleteFile.upperBounds(), ImmutableMap.<Integer, ByteBuffer>of())
-                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().array().clone()));
+                .entrySet().stream().collect(toImmutableMap(Map.Entry::getKey, entry -> getWrappedBytes(entry.getValue()).clone()));
 
         return new DeleteFile(
                 deleteFile.content(),

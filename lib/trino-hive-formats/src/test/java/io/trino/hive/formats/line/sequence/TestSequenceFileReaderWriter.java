@@ -132,7 +132,7 @@ public class TestSequenceFileReaderWriter
     {
         LineBuffer lineBuffer = createLineBuffer(values);
         try (SequenceFileReader reader = createSequenceFileReader(inputFile)) {
-            assertEquals(reader.getFileLocation(), inputFile.getAbsolutePath());
+            assertEquals(reader.getFileLocation().toString(), inputFile.toURI().toString());
 
             assertSyncPoint(reader, inputFile);
             assertEquals(reader.getKeyClassName(), BytesWritable.class.getName());

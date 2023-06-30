@@ -57,6 +57,8 @@ Property name                                      Required   Description
 
 .. include:: jdbc-common-configurations.fragment
 
+.. include:: query-comment-format.fragment
+
 .. |default_domain_compaction_threshold| replace:: ``5000``
 .. include:: jdbc-domain-compaction-threshold.fragment
 
@@ -285,6 +287,7 @@ statements, the connector supports the following features:
 
 * :doc:`/sql/insert`
 * :doc:`/sql/delete`
+* :doc:`/sql/merge`
 * :doc:`/sql/create-table`
 * :doc:`/sql/create-table-as`
 * :doc:`/sql/drop-table`

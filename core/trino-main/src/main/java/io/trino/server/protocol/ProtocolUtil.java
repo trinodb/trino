@@ -179,6 +179,8 @@ public final class ProtocolUtil
                 .setState(queryInfo.getState().toString())
                 .setQueued(queryInfo.getState() == QueryState.QUEUED)
                 .setScheduled(queryInfo.isScheduled())
+                .setProgressPercentage(queryInfo.getProgressPercentage())
+                .setRunningPercentage(queryInfo.getRunningPercentage())
                 .setNodes(globalUniqueNodes.size())
                 .setTotalSplits(queryStats.getTotalDrivers())
                 .setQueuedSplits(queryStats.getQueuedDrivers())

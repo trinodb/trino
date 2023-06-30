@@ -26,7 +26,7 @@ import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public record FileEntry(String location, long length, Instant lastModified, Optional<List<Block>> blocks)
+public record FileEntry(Location location, long length, Instant lastModified, Optional<List<Block>> blocks)
 {
     public FileEntry
     {

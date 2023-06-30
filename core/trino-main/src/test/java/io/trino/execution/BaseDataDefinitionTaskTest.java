@@ -58,7 +58,6 @@ import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -77,6 +76,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
@@ -89,7 +89,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-@Test
 public abstract class BaseDataDefinitionTaskTest
 {
     public static final String SCHEMA = "schema";
@@ -134,7 +133,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
-    @AfterMethod
+    @AfterMethod(alwaysRun = true)
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -229,6 +228,7 @@ public abstract class BaseDataDefinitionTaskTest
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
                 new NodeVersion("test"));
@@ -327,9 +327,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column)
+        public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
+            SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size() + 1);
@@ -339,14 +339,27 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+        public void dropColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle columnHandle)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
+            SchemaTableName tableName = table.getSchemaTableName();
             ConnectorTableMetadata metadata = tables.get(tableName);
             String columnName = ((TestingColumnHandle) columnHandle).getName();
 
             List<ColumnMetadata> columns = metadata.getColumns().stream()
                     .filter(column -> !column.getName().equals(columnName))
+                    .collect(toImmutableList());
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+        }
+
+        @Override
+        public void renameColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnHandle source, String target)
+        {
+            SchemaTableName tableName = table.getSchemaTableName();
+            ConnectorTableMetadata metadata = tables.get(tableName);
+            String columnName = ((TestingColumnHandle) source).getName();
+
+            List<ColumnMetadata> columns = metadata.getColumns().stream()
+                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setName(target).build() : column)
                     .collect(toImmutableList());
             tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
         }

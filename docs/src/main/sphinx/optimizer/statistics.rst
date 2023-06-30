@@ -31,5 +31,5 @@ Hive connector does not currently provide statistics on data size.
 
 Table statistics can be displayed via the Trino SQL interface using the
 :doc:`/sql/show-stats` command. For the Hive connector, refer to the
-:ref:`Hive connector <hive_analyze>` documentation to learn how to update table
+:ref:`Hive connector <hive-analyze>` documentation to learn how to update table
 statistics.

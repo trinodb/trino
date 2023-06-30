@@ -81,6 +81,8 @@ public interface TrinoCatalog
 
     void dropTable(ConnectorSession session, SchemaTableName schemaTableName);
 
+    void dropCorruptedTable(ConnectorSession session, SchemaTableName schemaTableName);
+
     void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to);
 
     /**

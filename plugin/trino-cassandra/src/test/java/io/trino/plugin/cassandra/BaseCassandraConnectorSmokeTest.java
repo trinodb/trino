@@ -51,10 +51,15 @@ public abstract class BaseCassandraConnectorSmokeTest
                 return false;
 
             case SUPPORTS_CREATE_VIEW:
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
                 return false;
 
+            case SUPPORTS_UPDATE:
+                return false;
             case SUPPORTS_DELETE:
                 return true;
+            case SUPPORTS_MERGE:
+                return false;
 
             case SUPPORTS_ARRAY:
                 return false;

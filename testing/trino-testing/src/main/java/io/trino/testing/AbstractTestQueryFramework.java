@@ -13,7 +13,6 @@
  */
 package io.trino.testing;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -32,12 +31,12 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.operator.OperatorStats;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
@@ -75,6 +74,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.execution.StageInfo.getAllStages;
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
@@ -85,7 +85,6 @@ import static java.util.Collections.emptyList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
@@ -500,11 +499,11 @@ public abstract class AbstractTestQueryFramework
     protected void assertTableColumnNames(String tableName, String... columnNames)
     {
         MaterializedResult result = computeActual("DESCRIBE " + tableName);
-        List<String> expected = ImmutableList.copyOf(columnNames);
         List<String> actual = result.getMaterializedRows().stream()
                 .map(row -> (String) row.getField(0))
                 .collect(toImmutableList());
-        assertEquals(actual, expected);
+        assertThat(actual).as("Columns of table %s", tableName)
+                .isEqualTo(List.of(columnNames));
     }
 
     protected void assertExplain(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
@@ -562,6 +561,15 @@ public abstract class AbstractTestQueryFramework
         resultAssertion.accept(resultWithQueryId.getResult());
     }
 
+    protected void assertNoDataRead(@Language("SQL") String sql)
+    {
+        assertQueryStats(
+                getSession(),
+                sql,
+                queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
+                results -> assertThat(results.getRowCount()).isEqualTo(0));
+    }
+
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)
     {
         return h2QueryRunner.execute(getSession(), sql, resultTypes);
@@ -594,7 +602,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getPlan(transactionSession, SQL_PARSER.createStatement(query, createParsingOptions(transactionSession)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -604,7 +612,7 @@ public abstract class AbstractTestQueryFramework
         return newTransaction()
                 .singleStatement()
                 .execute(queryRunner.getDefaultSession(), session -> {
-                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP);
+                    return explainer.getGraphvizPlan(session, SQL_PARSER.createStatement(query, createParsingOptions(session)), planType, emptyList(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 });
     }
 
@@ -664,8 +672,8 @@ public abstract class AbstractTestQueryFramework
                     if (!(filterNode.getSource() instanceof TableScanNode tableScanNode)) {
                         return false;
                     }
-                    TableMetadata tableMetadata = getTableMetadata(tableScanNode.getTable());
-                    return tableMetadata.getQualifiedName().equals(catalogSchemaTableName);
+                    CatalogSchemaTableName tableName = getTableName(tableScanNode.getTable());
+                    return tableName.equals(catalogSchemaTableName.asCatalogSchemaTableName());
                 })
                 .findOnlyElement()
                 .getId();
@@ -698,12 +706,12 @@ public abstract class AbstractTestQueryFramework
                 tableName);
     }
 
-    private TableMetadata getTableMetadata(TableHandle tableHandle)
+    private CatalogSchemaTableName getTableName(TableHandle tableHandle)
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
-            return getQueryRunner().getMetadata().getTableMetadata(transactionSession, tableHandle);
+            return getQueryRunner().getMetadata().getTableName(transactionSession, tableHandle);
         });
     }
 
