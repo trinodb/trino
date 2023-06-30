@@ -104,25 +104,18 @@ The following configuration properties are available:
        Defaults to the value of ``http-server.authentication.oauth2.issuer``.
    * - ``http-server.authentication.oauth2.auth-url``
      - The authorization URL. The URL a user's browser will be redirected to in
-       order to begin the OAuth 2.0 authorization process. Providing this value
-       while OIDC discovery is enabled overrides the value from the OpenID
-       provider metadata document.
+       order to begin the OAuth 2.0 authorization process.
    * - ``http-server.authentication.oauth2.token-url``
      - The URL of the endpoint on the authorization server which Trino uses to
-       obtain an access token. Providing this value while OIDC discovery is
-       enabled overrides the value from the OpenID provider metadata document.
+       obtain an access token.
    * - ``http-server.authentication.oauth2.jwks-url``
      - The URL of the JSON Web Key Set (JWKS) endpoint on the authorization
        server. It provides Trino the set of keys containing the public key
        to verify any JSON Web Token (JWT) from the authorization server.
-       Providing this value while OIDC discovery is enabled overrides the value
-       from the OpenID provider metadata document.
    * - ``http-server.authentication.oauth2.userinfo-url``
      - The URL of the IdPs ``/userinfo`` endpoint. If supplied then this URL is
        used to validate the OAuth access token and retrieve any associated
-       claims. This is required if the IdP issues opaque tokens. Providing this
-       value while OIDC discovery is enabled overrides the value from the OpenID
-       provider metadata document.
+       claims. This is required if the IdP issues opaque tokens.
    * - ``http-server.authentication.oauth2.client-id``
      - The public identifier of the Trino client.
    * - ``http-server.authentication.oauth2.client-secret``

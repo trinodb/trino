@@ -32,12 +32,7 @@ public class TestOidcDiscoveryConfig
     {
         assertRecordedDefaults(recordDefaults(OidcDiscoveryConfig.class)
                 .setDiscoveryTimeout(new Duration(30, SECONDS))
-                .setUserinfoEndpointEnabled(true)
-                .setAccessTokenIssuer(null)
-                .setAuthUrl(null)
-                .setTokenUrl(null)
-                .setJwksUrl(null)
-                .setUserinfoUrl(null));
+                .setUserinfoEndpointEnabled(true));
     }
 
     @Test
@@ -46,21 +41,11 @@ public class TestOidcDiscoveryConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("http-server.authentication.oauth2.oidc.discovery.timeout", "1m")
                 .put("http-server.authentication.oauth2.oidc.use-userinfo-endpoint", "false")
-                .put("http-server.authentication.oauth2.access-token-issuer", "https://issuer.com/at")
-                .put("http-server.authentication.oauth2.auth-url", "https://issuer.com/auth")
-                .put("http-server.authentication.oauth2.token-url", "https://issuer.com/token")
-                .put("http-server.authentication.oauth2.jwks-url", "https://issuer.com/jwks.json")
-                .put("http-server.authentication.oauth2.userinfo-url", "https://issuer.com/user")
                 .buildOrThrow();
 
         OidcDiscoveryConfig expected = new OidcDiscoveryConfig()
                 .setDiscoveryTimeout(new Duration(1, MINUTES))
-                .setUserinfoEndpointEnabled(false)
-                .setAccessTokenIssuer("https://issuer.com/at")
-                .setAuthUrl("https://issuer.com/auth")
-                .setTokenUrl("https://issuer.com/token")
-                .setJwksUrl("https://issuer.com/jwks.json")
-                .setUserinfoUrl("https://issuer.com/user");
+                .setUserinfoEndpointEnabled(false);
 
         assertFullMapping(properties, expected);
     }

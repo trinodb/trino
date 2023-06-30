@@ -22,31 +22,15 @@ import java.util.Optional;
 
 public class StaticOAuth2ServerConfiguration
 {
-    public static final String ACCESS_TOKEN_ISSUER = "http-server.authentication.oauth2.access-token-issuer";
     public static final String AUTH_URL = "http-server.authentication.oauth2.auth-url";
     public static final String TOKEN_URL = "http-server.authentication.oauth2.token-url";
     public static final String JWKS_URL = "http-server.authentication.oauth2.jwks-url";
     public static final String USERINFO_URL = "http-server.authentication.oauth2.userinfo-url";
 
-    private Optional<String> accessTokenIssuer = Optional.empty();
     private String authUrl;
     private String tokenUrl;
     private String jwksUrl;
     private Optional<String> userinfoUrl = Optional.empty();
-
-    @NotNull
-    public Optional<String> getAccessTokenIssuer()
-    {
-        return accessTokenIssuer;
-    }
-
-    @Config(ACCESS_TOKEN_ISSUER)
-    @ConfigDescription("The required issuer for access tokens")
-    public StaticOAuth2ServerConfiguration setAccessTokenIssuer(String accessTokenIssuer)
-    {
-        this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
-        return this;
-    }
 
     @NotNull
     public String getAuthUrl()

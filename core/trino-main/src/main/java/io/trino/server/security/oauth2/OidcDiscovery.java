@@ -35,11 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.HttpStatus.REQUEST_TIMEOUT;
 import static io.airlift.http.client.HttpStatus.TOO_MANY_REQUESTS;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.ACCESS_TOKEN_ISSUER;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.AUTH_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.JWKS_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.TOKEN_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.USERINFO_URL;
+import static io.trino.server.security.oauth2.OAuth2Config.ACCESS_TOKEN_ISSUER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -53,10 +49,6 @@ public class OidcDiscovery
     private final Duration discoveryTimeout;
     private final boolean userinfoEndpointEnabled;
     private final Optional<String> accessTokenIssuer;
-    private final Optional<String> authUrl;
-    private final Optional<String> tokenUrl;
-    private final Optional<String> jwksUrl;
-    private final Optional<String> userinfoUrl;
     private final NimbusHttpClient httpClient;
 
     @Inject
@@ -65,11 +57,7 @@ public class OidcDiscovery
         issuer = new Issuer(requireNonNull(oauthConfig.getIssuer(), "issuer is null"));
         userinfoEndpointEnabled = oidcConfig.isUserinfoEndpointEnabled();
         discoveryTimeout = Duration.ofMillis(requireNonNull(oidcConfig.getDiscoveryTimeout(), "discoveryTimeout is null").toMillis());
-        accessTokenIssuer = requireNonNull(oidcConfig.getAccessTokenIssuer(), "accessTokenIssuer is null");
-        authUrl = requireNonNull(oidcConfig.getAuthUrl(), "authUrl is null");
-        tokenUrl = requireNonNull(oidcConfig.getTokenUrl(), "tokenUrl is null");
-        jwksUrl = requireNonNull(oidcConfig.getJwksUrl(), "jwksUrl is null");
-        userinfoUrl = requireNonNull(oidcConfig.getUserinfoUrl(), "userinfoUrl is null");
+        accessTokenIssuer = requireNonNull(oauthConfig.getAccessTokenIssuer(), "accessTokenIssuer is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
     }
 
@@ -109,7 +97,7 @@ public class OidcDiscovery
             JsonNode metadataJson = OBJECT_MAPPER.readTree(body);
             Optional<String> userinfoEndpoint;
             if (userinfoEndpointEnabled) {
-                userinfoEndpoint = getOptionalField("userinfo_endpoint", Optional.ofNullable(metadata.getUserInfoEndpointURI()).map(URI::toString), USERINFO_URL, userinfoUrl);
+                userinfoEndpoint = Optional.ofNullable(metadata.getUserInfoEndpointURI()).map(URI::toString);
             }
             else {
                 userinfoEndpoint = Optional.empty();
@@ -118,10 +106,10 @@ public class OidcDiscovery
                     // AD FS server can include "access_token_issuer" field in OpenID Provider Metadata.
                     // It's not a part of the OIDC standard thus have to be handled separately.
                     // see: https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-oidce/f629647a-4825-465b-80bb-32c7e9cec2c8
-                    getOptionalField("access_token_issuer", Optional.ofNullable(metadataJson.get("access_token_issuer")).map(JsonNode::textValue), ACCESS_TOKEN_ISSUER, accessTokenIssuer),
-                    getRequiredField("authorization_endpoint", metadata.getAuthorizationEndpointURI(), AUTH_URL, authUrl),
-                    getRequiredField("token_endpoint", metadata.getTokenEndpointURI(), TOKEN_URL, tokenUrl),
-                    getRequiredField("jwks_uri", metadata.getJWKSetURI(), JWKS_URL, jwksUrl),
+                    getAccessTokenIssuer(metadataJson),
+                    metadata.getAuthorizationEndpointURI(),
+                    metadata.getTokenEndpointURI(),
+                    metadata.getJWKSetURI(),
                     userinfoEndpoint.map(URI::create));
         }
         catch (JsonProcessingException e) {
@@ -129,32 +117,27 @@ public class OidcDiscovery
         }
     }
 
-    private static URI getRequiredField(String metadataField, URI metadataValue, String configurationField, Optional<String> configurationValue)
+    private Optional<String> getAccessTokenIssuer(JsonNode metadata)
     {
-        Optional<String> uri = getOptionalField(metadataField, Optional.ofNullable(metadataValue).map(URI::toString), configurationField, configurationValue);
-        checkMetadataState(uri.isPresent(), "Missing required \"%s\" property.", metadataField);
-        return URI.create(uri.get());
-    }
-
-    private static Optional<String> getOptionalField(String metadataField, Optional<String> metadataValue, String configurationField, Optional<String> configurationValue)
-    {
-        if (configurationValue.isEmpty()) {
+        String metadataField = "access_token_issuer";
+        Optional<String> metadataValue = Optional.ofNullable(metadata.get(metadataField)).map(JsonNode::textValue);
+        if (accessTokenIssuer.isEmpty()) {
             return metadataValue;
         }
 
         if (metadataValue.isEmpty()) {
-            return configurationValue;
+            return accessTokenIssuer;
         }
 
-        if (!configurationValue.equals(metadataValue)) {
+        if (!accessTokenIssuer.equals(metadataValue)) {
             LOG.warn("Overriding \"%s=%s\" from OpenID metadata document with value \"%s=%s\" defined in configuration",
-                    metadataField, metadataValue.orElse(""), configurationField, configurationValue.orElse(""));
+                    metadataField, metadataValue.orElse(""), ACCESS_TOKEN_ISSUER, accessTokenIssuer.orElse(""));
         }
         else {
             LOG.warn("Provided redundant configuration property \"%s\" with the same value as \"%s\" field in OpenID metadata document",
-                    configurationField, metadataField);
+                    accessTokenIssuer, metadataField);
         }
-        return configurationValue;
+        return accessTokenIssuer;
     }
 
     private static void checkMetadataState(boolean expression, String additionalMessage, String... additionalMessageArgs)

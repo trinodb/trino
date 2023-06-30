@@ -49,7 +49,8 @@ public class TestOAuth2Config
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null)
                 .setEnableRefreshTokens(false)
-                .setEnableDiscovery(true));
+                .setEnableDiscovery(true)
+                .setAccessTokenIssuer(null));
     }
 
     @Test
@@ -72,6 +73,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
                 .put("http-server.authentication.oauth2.refresh-tokens", "true")
                 .put("http-server.authentication.oauth2.oidc.discovery", "false")
+                .put("http-server.authentication.oauth2.access-token-issuer", "https://issuer.com/at")
                 .buildOrThrow();
 
         OAuth2Config expected = new OAuth2Config()
@@ -88,7 +90,8 @@ public class TestOAuth2Config
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile())
                 .setEnableRefreshTokens(true)
-                .setEnableDiscovery(false);
+                .setEnableDiscovery(false)
+                .setAccessTokenIssuer("https://issuer.com/at");
 
         assertFullMapping(properties, expected);
     }

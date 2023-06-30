@@ -23,14 +23,14 @@ public class StaticConfigurationProvider
     private final OAuth2ServerConfig config;
 
     @Inject
-    StaticConfigurationProvider(StaticOAuth2ServerConfiguration config)
+    StaticConfigurationProvider(OAuth2Config config, StaticOAuth2ServerConfiguration staticConfig)
     {
         this.config = new OAuth2ServerConfig(
                 config.getAccessTokenIssuer(),
-                URI.create(config.getAuthUrl()),
-                URI.create(config.getTokenUrl()),
-                URI.create(config.getJwksUrl()),
-                config.getUserinfoUrl().map(URI::create));
+                URI.create(staticConfig.getAuthUrl()),
+                URI.create(staticConfig.getTokenUrl()),
+                URI.create(staticConfig.getJwksUrl()),
+                staticConfig.getUserinfoUrl().map(URI::create));
     }
 
     @Override

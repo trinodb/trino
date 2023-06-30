@@ -38,6 +38,8 @@ import static io.trino.server.security.oauth2.OAuth2Service.OPENID_SCOPE;
 
 public class OAuth2Config
 {
+    public static final String ACCESS_TOKEN_ISSUER = "http-server.authentication.oauth2.access-token-issuer";
+
     private Optional<String> stateKey = Optional.empty();
     private String issuer;
     private String clientId;
@@ -52,6 +54,7 @@ public class OAuth2Config
     private Optional<File> userMappingFile = Optional.empty();
     private boolean enableRefreshTokens;
     private boolean enableDiscovery = true;
+    private Optional<String> accessTokenIssuer = Optional.empty();
 
     public Optional<String> getStateKey()
     {
@@ -244,6 +247,20 @@ public class OAuth2Config
     public OAuth2Config setEnableDiscovery(boolean enableDiscovery)
     {
         this.enableDiscovery = enableDiscovery;
+        return this;
+    }
+
+    @NotNull
+    public Optional<String> getAccessTokenIssuer()
+    {
+        return accessTokenIssuer;
+    }
+
+    @Config(ACCESS_TOKEN_ISSUER)
+    @ConfigDescription("The required issuer for access tokens")
+    public OAuth2Config setAccessTokenIssuer(String accessTokenIssuer)
+    {
+        this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
         return this;
     }
 }

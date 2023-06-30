@@ -209,7 +209,7 @@ public class TestOidcDiscovery
     }
 
     @Test
-    public void testBackwardCompatibility()
+    public void testAccessTokenIssuer()
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(
@@ -218,28 +218,15 @@ public class TestOidcDiscovery
                         .put("/jwks.json", "jwk/jwk-public.json")
                         .buildOrThrow())) {
             URI issuer = metadataServer.getBaseUrl();
-            URI authUrl = issuer.resolve("/custom-authorize");
-            URI tokenUrl = issuer.resolve("/custom-token");
-            URI jwksUrl = issuer.resolve("/custom-jwks.json");
             String accessTokenIssuer = issuer.resolve("/custom-access-token-issuer").toString();
-            URI userinfoUrl = issuer.resolve("/custom-userinfo-url");
             try (TestingTrinoServer server = createServer(
                     ImmutableMap.<String, String>builder()
                             .put("http-server.authentication.oauth2.issuer", issuer.toString())
                             .put("http-server.authentication.oauth2.oidc.discovery", "true")
-                            .put("http-server.authentication.oauth2.auth-url", authUrl.toString())
-                            .put("http-server.authentication.oauth2.token-url", tokenUrl.toString())
-                            .put("http-server.authentication.oauth2.jwks-url", jwksUrl.toString())
                             .put("http-server.authentication.oauth2.access-token-issuer", accessTokenIssuer)
-                            .put("http-server.authentication.oauth2.userinfo-url", userinfoUrl.toString())
                             .buildOrThrow())) {
                 assertComponents(server);
-                OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-                assertThat(config.getAccessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
-                assertThat(config.getAuthUrl()).isEqualTo(authUrl);
-                assertThat(config.getTokenUrl()).isEqualTo(tokenUrl);
-                assertThat(config.getJwksUrl()).isEqualTo(jwksUrl);
-                assertThat(config.getUserinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
+                assertConfiguration(server, issuer, Optional.of(issuer.resolve("/custom-access-token-issuer")), Optional.of(issuer.resolve("/connect/userinfo")));
             }
         }
     }

@@ -19,26 +19,12 @@ import io.airlift.units.Duration;
 
 import javax.validation.constraints.NotNull;
 
-import java.util.Optional;
-
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.ACCESS_TOKEN_ISSUER;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.AUTH_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.JWKS_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.TOKEN_URL;
-import static io.trino.server.security.oauth2.StaticOAuth2ServerConfiguration.USERINFO_URL;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class OidcDiscoveryConfig
 {
     private Duration discoveryTimeout = new Duration(30, SECONDS);
     private boolean userinfoEndpointEnabled = true;
-
-    //TODO Left for backward compatibility, remove after the next release/a couple of releases
-    private Optional<String> accessTokenIssuer = Optional.empty();
-    private Optional<String> authUrl = Optional.empty();
-    private Optional<String> tokenUrl = Optional.empty();
-    private Optional<String> jwksUrl = Optional.empty();
-    private Optional<String> userinfoUrl = Optional.empty();
 
     @NotNull
     public Duration getDiscoveryTimeout()
@@ -64,76 +50,6 @@ public class OidcDiscoveryConfig
     public OidcDiscoveryConfig setUserinfoEndpointEnabled(boolean userinfoEndpointEnabled)
     {
         this.userinfoEndpointEnabled = userinfoEndpointEnabled;
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getAccessTokenIssuer()
-    {
-        return accessTokenIssuer;
-    }
-
-    @Config(ACCESS_TOKEN_ISSUER)
-    @ConfigDescription("The required issuer for access tokens")
-    public OidcDiscoveryConfig setAccessTokenIssuer(String accessTokenIssuer)
-    {
-        this.accessTokenIssuer = Optional.ofNullable(accessTokenIssuer);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getAuthUrl()
-    {
-        return authUrl;
-    }
-
-    @Config(AUTH_URL)
-    @ConfigDescription("URL of the authorization server's authorization endpoint")
-    public OidcDiscoveryConfig setAuthUrl(String authUrl)
-    {
-        this.authUrl = Optional.ofNullable(authUrl);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getTokenUrl()
-    {
-        return tokenUrl;
-    }
-
-    @Config(TOKEN_URL)
-    @ConfigDescription("URL of the authorization server's token endpoint")
-    public OidcDiscoveryConfig setTokenUrl(String tokenUrl)
-    {
-        this.tokenUrl = Optional.ofNullable(tokenUrl);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getJwksUrl()
-    {
-        return jwksUrl;
-    }
-
-    @Config(JWKS_URL)
-    @ConfigDescription("URL of the authorization server's JWKS (JSON Web Key Set) endpoint")
-    public OidcDiscoveryConfig setJwksUrl(String jwksUrl)
-    {
-        this.jwksUrl = Optional.ofNullable(jwksUrl);
-        return this;
-    }
-
-    @NotNull
-    public Optional<String> getUserinfoUrl()
-    {
-        return userinfoUrl;
-    }
-
-    @Config(USERINFO_URL)
-    @ConfigDescription("URL of the userinfo endpoint")
-    public OidcDiscoveryConfig setUserinfoUrl(String userinfoUrl)
-    {
-        this.userinfoUrl = Optional.ofNullable(userinfoUrl);
         return this;
     }
 }
