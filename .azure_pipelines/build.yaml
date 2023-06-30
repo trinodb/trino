@@ -1,0 +1,50 @@
+trigger: none
+pr: none
+pool: "AWS-2XL"
+
+parameters:
+    - name: artifactName
+      type: string
+      default: "truers-trino_plugin"
+    - name: trinoVersion
+      type: string
+      default: "406"
+
+
+stages:
+    - stage: build_code_and_publish_artifact
+      dependsOn: []
+      jobs:
+        - job: build_code_and_publish_artifact_job
+          pool:
+              name: AWS-2XL
+          steps:
+              - task: JavaToolInstaller@0
+                inputs:
+                    versionSpec: '8'
+                    jdkArchitectureOption: 'x64'
+                    jdkSourceOption: 'PreInstalled'
+              - task: Maven@3
+                inputs:
+                    mavenPomFile: "pom.xml"
+                    goals: clean package
+                    options: -DskipTests -Dair.check.skip-all=true
+                    publishJUnitResults: false
+                    javaHomeOption: "JDKVersion"
+                    jdkVersionOption: "1.7"
+                    jdkArchitectureOption: 'x64'
+                    mavenVersionOption: "Default"
+                    mavenAuthenticateFeed: false
+                    effectivePomSkip: false
+                    sonarQubeRunAnalysis: false
+                    mavenOptions: "-Xmx4096m"
+              - bash: |
+                    az artifacts universal publish
+                        --organization https://dev.azure.com/ailens-io/
+                        --project="truera"
+                        --scope project
+                        --feed trino-plugin
+                        --name ${{ parameters.artifactName }}
+                        --version 0.0.1
+                        --description "Trino plugin"
+                        --path plugin/trino/truera/trino-truera-${{ parameters.trinoVersion }}-SNAPSHOT.zip
