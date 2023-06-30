@@ -110,6 +110,30 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
+    public void testMigrateBucketedTable()
+    {
+        String tableName = "test_migrate_bucketed_table_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket'], bucket_count = 10) AS SELECT 1 bucket, 'part1' part", 1);
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        // Make sure partition column is preserved, but it's migrated as a non-bucketed table
+        assertThat(query("SELECT partition FROM iceberg.tpch.\"" + tableName + "$partitions\""))
+                .skippingTypesCheck()
+                .matches("SELECT CAST(row('part1') AS row(part_col varchar))");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + icebergTableName))
+                .contains("partitioning = ARRAY['part']");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'part2')", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1'), (2, 'part2')");
+
+        assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
     public void testMigrateTableWithRecursiveDirectory()
             throws Exception
     {
@@ -271,24 +295,6 @@ public class TestIcebergMigrateProcedure
                 .hasStackTraceContaining("Unsupported storage format: RCBINARY");
 
         assertQuery("SELECT * FROM " + hiveTableName, "VALUES 1");
-        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
-
-        assertUpdate("DROP TABLE " + hiveTableName);
-    }
-
-    @Test
-    public void testMigrateUnsupportedBucketedTable()
-    {
-        String tableName = "test_migrate_unsupported_bucketed_table_" + randomNameSuffix();
-        String hiveTableName = "hive.tpch." + tableName;
-        String icebergTableName = "iceberg.tpch." + tableName;
-
-        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket'], bucket_count = 10) AS SELECT 1 bucket, 'test' part", 1);
-
-        assertThatThrownBy(() -> query("CALL iceberg.system.migrate('tpch', '" + tableName + "')"))
-                .hasStackTraceContaining("Cannot migrate bucketed table: [bucket]");
-
-        assertQuery("SELECT * FROM " + hiveTableName, "VALUES (1, 'test')");
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("DROP TABLE " + hiveTableName);

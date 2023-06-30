@@ -387,10 +387,6 @@ public class MigrateProcedure
     {
         ImmutableList.Builder<String> fields = ImmutableList.builder();
         fields.addAll(getPartitionColumnNames(table));
-        table.getStorage().getBucketProperty()
-                .ifPresent(bucket -> {
-                    throw new TrinoException(NOT_SUPPORTED, "Cannot migrate bucketed table: " + bucket.getBucketedBy());
-                });
         return fields.build();
     }
 
