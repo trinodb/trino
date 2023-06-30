@@ -590,8 +590,9 @@ Iceberg.
 
 Use the procedure ``system.migrate`` to move a table from the Hive format to the
 Iceberg format, loaded with the source’s data files. Table schema, partitioning,
-properties, and location are copied from the source table. The data files in the
-Hive table must use the Parquet, ORC, or Avro file format.
+properties, and location are copied from the source table. A bucketed Hive table
+will be migrated as a non-bucketed Iceberg table. The data files in the Hive table
+must use the Parquet, ORC, or Avro file format.
 
 The procedure must be called for a specific catalog ``example`` with the
 relevant schema and table names supplied with the required parameters
