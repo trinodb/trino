@@ -37,7 +37,7 @@ public class ConfluentSessionProperties
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
                 .add(enumProperty(
                         EMPTY_FIELD_STRATEGY,
-                        "Strategy for handling struct types with no fields: IGNORE (default), FAIL, and ADD_DUMMY to add a boolean field named 'dummy'",
+                        "Strategy for handling struct types with no fields: IGNORE (default), FAIL, and MARK to add a boolean field named '$empty_field_marker'",
                         EmptyFieldStrategy.class,
                         config.getEmptyFieldStrategy(),
                         false))
