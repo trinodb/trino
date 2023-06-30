@@ -86,21 +86,24 @@ public class TestIcebergProcedureCalls
         String tableName = "test_migrate_bucketed_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
+        String sparkTableName = "iceberg_test.default." + tableName;
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
         onTrino().executeQuery("" +
                 "CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket'], bucket_count = 10)" +
                 "AS SELECT 1 bucket, 'test' part");
 
-        assertThatThrownBy(() -> onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')"))
-                .hasStackTraceContaining("Cannot migrate bucketed table");
+        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
 
-        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + icebergTableName))
-                .hasMessageContaining("Not an Iceberg table: default." + tableName);
-        assertThat(onTrino().executeQuery("SELECT * FROM " + hiveTableName))
+        assertThat(onTrino().executeQuery("SELECT * FROM " + icebergTableName))
+                .containsOnly(row(1, "test"));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, "test"));
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
+                .contains("partitioning = ARRAY['part']");
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -109,21 +112,24 @@ public class TestIcebergProcedureCalls
         String tableName = "test_migrate_bucketed_" + randomNameSuffix();
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
+        String sparkTableName = "iceberg_test.default." + tableName;
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
         onTrino().executeQuery("" +
                 "CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part'], bucketed_by = ARRAY['bucket', 'another_bucket'], bucket_count = 10)" +
                 "AS SELECT 1 bucket, 'a' another_bucket, 'test' part");
 
-        assertThatThrownBy(() -> onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')"))
-                .hasStackTraceContaining("Cannot migrate bucketed table");
+        onTrino().executeQuery("CALL iceberg.system.migrate('default', '" + tableName + "')");
 
-        assertThatThrownBy(() -> onTrino().executeQuery("SELECT * FROM " + icebergTableName))
-                .hasMessageContaining("Not an Iceberg table: default." + tableName);
-        assertThat(onTrino().executeQuery("SELECT * FROM " + hiveTableName))
+        assertThat(onTrino().executeQuery("SELECT * FROM " + icebergTableName))
+                .containsOnly(row(1, "a", "test"));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, "a", "test"));
 
-        onTrino().executeQuery("DROP TABLE IF EXISTS " + hiveTableName);
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
+                .contains("partitioning = ARRAY['part']");
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
