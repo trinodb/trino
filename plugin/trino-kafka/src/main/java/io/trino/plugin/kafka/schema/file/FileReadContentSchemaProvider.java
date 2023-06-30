@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka.schema.file;
 
 import com.google.common.io.CharStreams;
-import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
+import io.trino.plugin.kafka.schema.AbstractContentSchemaProvider;
 import io.trino.spi.TrinoException;
 
 import java.io.FileInputStream;
@@ -31,8 +31,8 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
-public class FileContentSchemaReader
-        extends AbstractContentSchemaReader
+public class FileReadContentSchemaProvider
+        extends AbstractContentSchemaProvider
 {
     @Override
     protected Optional<String> readSchema(Optional<String> dataSchemaLocation, Optional<String> subject)

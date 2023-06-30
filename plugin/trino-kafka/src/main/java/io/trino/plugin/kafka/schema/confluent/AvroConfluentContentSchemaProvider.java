@@ -18,7 +18,7 @@ import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
+import io.trino.plugin.kafka.schema.AbstractContentSchemaProvider;
 import io.trino.spi.TrinoException;
 
 import java.io.IOException;
@@ -29,13 +29,13 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class AvroConfluentContentSchemaReader
-        extends AbstractContentSchemaReader
+public class AvroConfluentContentSchemaProvider
+        extends AbstractContentSchemaProvider
 {
     private final SchemaRegistryClient schemaRegistryClient;
 
     @Inject
-    public AvroConfluentContentSchemaReader(SchemaRegistryClient schemaRegistryClient)
+    public AvroConfluentContentSchemaProvider(SchemaRegistryClient schemaRegistryClient)
     {
         this.schemaRegistryClient = requireNonNull(schemaRegistryClient, "schemaRegistryClient is null");
     }
