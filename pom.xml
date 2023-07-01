@@ -2094,7 +2094,7 @@
                 <plugin>
                     <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
                     <artifactId>provisio-maven-plugin</artifactId>
-                    <version>1.0.18</version>
+                    <version>1.0.20</version>
                 </plugin>
 
                 <plugin>
@@ -2168,6 +2168,12 @@
                     <configuration>
                         <dynamicDependencies>
                             <DynamicDependency>
+                                <groupId>ca.vanzyl.provisio.maven.plugins</groupId>
+                                <artifactId>provisio-maven-plugin</artifactId>
+                                <version>1.0.20</version>
+                                <repositoryType>PLUGIN</repositoryType>
+                            </DynamicDependency>
+                            <DynamicDependency>
                                 <groupId>org.apache.maven.plugins</groupId>
                                 <artifactId>maven-javadoc-plugin</artifactId>
                                 <version>3.2.0</version>
@@ -2183,6 +2189,12 @@
                                 <groupId>io.airlift.drift</groupId>
                                 <artifactId>drift-javadoc</artifactId>
                                 <version>${dep.drift.version}</version>
+                                <repositoryType>PLUGIN</repositoryType>
+                            </DynamicDependency>
+                            <DynamicDependency>
+                                <groupId>io.takari.maven.plugins</groupId>
+                                <artifactId>takari-lifecycle-plugin</artifactId>
+                                <version>2.1.1</version>
                                 <repositoryType>PLUGIN</repositoryType>
                             </DynamicDependency>
                             <DynamicDependency>
