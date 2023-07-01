@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
@@ -53,6 +54,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.isEnableForcedExchangeBelowGroupId;
 import static io.trino.SystemSessionProperties.isEnableStatsCalculator;
+import static io.trino.SystemSessionProperties.isUseHighestCardinalityColumnForForcedExchangeBelowGroupId;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.matching.Pattern.nonEmpty;
 import static io.trino.matching.Pattern.typeOf;
@@ -148,8 +150,20 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
     public Set<Rule<?>> rules()
     {
         return ImmutableSet.of(
-                new AddExchangesBelowProjectionPartialAggregationGroupId(),
-                new AddExchangesBelowExchangePartialAggregationGroupId());
+                belowProjectionRule(),
+                belowExchangeRule());
+    }
+
+    @VisibleForTesting
+    AddExchangesBelowExchangePartialAggregationGroupId belowExchangeRule()
+    {
+        return new AddExchangesBelowExchangePartialAggregationGroupId();
+    }
+
+    @VisibleForTesting
+    AddExchangesBelowProjectionPartialAggregationGroupId belowProjectionRule()
+    {
+        return new AddExchangesBelowProjectionPartialAggregationGroupId();
     }
 
     private class AddExchangesBelowProjectionPartialAggregationGroupId
@@ -177,7 +191,8 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
         }
     }
 
-    private class AddExchangesBelowExchangePartialAggregationGroupId
+    @VisibleForTesting
+    class AddExchangesBelowExchangePartialAggregationGroupId
             extends BaseAddExchangesBelowExchangePartialAggregationGroupId
     {
         @Override
@@ -250,6 +265,25 @@ public class AddExchangesBelowPartialAggregationOverGroupIdRuleSet
                     // Transform to symbols before GroupId
                     .map(groupId.getGroupingColumns()::get)
                     .collect(toImmutableList());
+
+            if (isUseHighestCardinalityColumnForForcedExchangeBelowGroupId(context.getSession())) {
+                // use only the symbol with the highest cardinality.
+                // this makes partial aggregation more efficient in case of low correlation between symbols
+                // that are in every grouping set vs additional symbols
+                PlanNodeStatsEstimate sourceStats = context.getStatsProvider().getStats(groupId.getSource());
+                Symbol maxNdvSymbol = null;
+                double maxNdv = Double.MIN_VALUE;
+                for (Symbol desiredHashSymbol : desiredHashSymbols) {
+                    double distinctValuesCount = sourceStats.getSymbolStatistics(desiredHashSymbol).getDistinctValuesCount();
+                    if (!Double.isNaN(distinctValuesCount) && (maxNdvSymbol == null || distinctValuesCount > maxNdv)) {
+                        maxNdvSymbol = desiredHashSymbol;
+                        maxNdv = distinctValuesCount;
+                    }
+                }
+                if (maxNdvSymbol != null) {
+                    desiredHashSymbols = ImmutableList.of(maxNdvSymbol);
+                }
+            }
 
             StreamPreferredProperties requiredProperties = fixedParallelism().withPartitioning(desiredHashSymbols);
             StreamProperties sourceProperties = derivePropertiesRecursively(groupId.getSource(), context);

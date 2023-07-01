@@ -8,8 +8,8 @@ local exchange (GATHER, SINGLE, [])
                             local exchange (REPARTITION, HASH, ["d_moy$gid", "d_qoy$gid", "d_year$gid", "groupid", "i_brand$gid", "i_category$gid", "i_class$gid", "i_product_name$gid", "s_store_id$gid"])
                                 remote exchange (REPARTITION, HASH, ["d_moy$gid", "d_qoy$gid", "d_year$gid", "groupid", "i_brand$gid", "i_category$gid", "i_class$gid", "i_product_name$gid", "s_store_id$gid"])
                                     partial aggregation over (d_moy$gid, d_qoy$gid, d_year$gid, groupid, i_brand$gid, i_category$gid, i_class$gid, i_product_name$gid, s_store_id$gid)
-                                        local exchange (REPARTITION, HASH, ["i_brand", "i_category", "i_class", "i_product_name"])
-                                            remote exchange (REPARTITION, HASH, ["i_brand", "i_category", "i_class", "i_product_name"])
+                                        local exchange (REPARTITION, HASH, ["i_product_name"])
+                                            remote exchange (REPARTITION, HASH, ["i_product_name"])
                                                 join (INNER, REPLICATED):
                                                     join (INNER, REPLICATED):
                                                         join (INNER, REPLICATED):

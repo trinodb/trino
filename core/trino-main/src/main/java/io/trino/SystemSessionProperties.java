@@ -106,6 +106,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_DISTINCT_AGGREGATIONS = "optimize_mixed_distinct_aggregations";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
+    public static final String USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID = "use_highest_cardinality_column_for_repartitioning_below_group_id";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
@@ -507,6 +508,11 @@ public final class SystemSessionProperties
                         ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID,
                         "Enable a stats-based rule adding exchanges below GroupId",
                         optimizerConfig.isEnableForcedExchangeBelowGroupId(),
+                        true),
+                booleanProperty(
+                        USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID,
+                        "Use only highest cardinality column for partitioning when adding remote exchanges below GroupId",
+                        optimizerConfig.isUseHighestCardinalityColumnForForcedExchangeBelowGroupId(),
                         true),
                 booleanProperty(
                         EXCHANGE_COMPRESSION,
@@ -1350,6 +1356,11 @@ public final class SystemSessionProperties
     public static boolean isEnableForcedExchangeBelowGroupId(Session session)
     {
         return session.getSystemProperty(ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID, Boolean.class);
+    }
+
+    public static boolean isUseHighestCardinalityColumnForForcedExchangeBelowGroupId(Session session)
+    {
+        return session.getSystemProperty(USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID, Boolean.class);
     }
 
     public static boolean isExchangeCompressionEnabled(Session session)

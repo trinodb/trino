@@ -73,6 +73,7 @@ public class OptimizerConfig
     private boolean preAggregateCaseAggregationsEnabled = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean enableForcedExchangeBelowGroupId = true;
+    private boolean useHighestCardinalityColumnForForcedExchangeBelowGroupId = true;
     private boolean optimizeTopNRanking = true;
     private boolean skipRedundantSort = true;
     private boolean complexExpressionPushdownEnabled = true;
@@ -519,6 +520,18 @@ public class OptimizerConfig
     public OptimizerConfig setEnableForcedExchangeBelowGroupId(boolean enableForcedExchangeBelowGroupId)
     {
         this.enableForcedExchangeBelowGroupId = enableForcedExchangeBelowGroupId;
+        return this;
+    }
+
+    public boolean isUseHighestCardinalityColumnForForcedExchangeBelowGroupId()
+    {
+        return useHighestCardinalityColumnForForcedExchangeBelowGroupId;
+    }
+
+    @Config("use-highest-cardinality-column-for-forced-exchange-below-group-id")
+    public OptimizerConfig setUseHighestCardinalityColumnForForcedExchangeBelowGroupId(boolean useHighestCardinalityColumnForForcedExchangeBelowGroupId)
+    {
+        this.useHighestCardinalityColumnForForcedExchangeBelowGroupId = useHighestCardinalityColumnForForcedExchangeBelowGroupId;
         return this;
     }
 
