@@ -51,6 +51,13 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>takari-lifecycle-plugin</artifactId>
+                <configuration>
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
