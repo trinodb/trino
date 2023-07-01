@@ -81,7 +81,7 @@
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-collect</artifactId>
+            <artifactId>trino-cache</artifactId>
             <scope>provided</scope>
         </dependency>
 

@@ -12,13 +12,13 @@ package com.starburstdata.trino.plugins.dynamicfiltering;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.collect.cache.NonEvictableLoadingCache;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.spi.type.Type;
 
 import java.lang.reflect.Constructor;
 import java.util.Objects;
 
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 
 public class IsolatedBlockFilterFactory

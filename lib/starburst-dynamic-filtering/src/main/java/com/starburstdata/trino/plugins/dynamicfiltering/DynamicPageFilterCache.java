@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugins.dynamicfiltering;
 import com.google.common.cache.CacheBuilder;
 import com.google.inject.Inject;
 import io.airlift.jmx.CacheStatsMBean;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.cache.NonEvictableCache;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -27,7 +27,7 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
