@@ -13,9 +13,7 @@
  */
 package io.trino.operator.aggregation.listagg;
 
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.trino.block.BlockAssertions;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -38,8 +36,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestListaggAggregationFunction
 {
@@ -63,18 +59,9 @@ public class TestListaggAggregationFunction
                 true,
                 0);
 
-        assertFalse(state.isEmpty());
-        assertEquals(state.getSeparator(), separator);
-        assertFalse(state.isOverflowError());
-        assertEquals(state.getOverflowFiller(), overflowFiller);
-        assertTrue(state.showOverflowEntryCount());
-
-        DynamicSliceOutput out = new DynamicSliceOutput(state.getEntryCount() * 128);
-        state.forEach((block, position) -> {
-            out.writeBytes(block.getSlice(position, 0, block.getSliceLength(position)));
-            return true;
-        });
-        String result = out.toString(StandardCharsets.UTF_8);
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1);
+        state.write(blockBuilder);
+        String result = VARCHAR.getSlice(blockBuilder.build(), 0).toString(StandardCharsets.UTF_8);
         assertEquals(result, s);
     }
 
@@ -110,9 +97,9 @@ public class TestListaggAggregationFunction
     {
         SingleListaggAggregationState state = createListaggAggregationState("", true, "...", false,
                 "overflowvalue1", "overflowvalue2");
+        state.setMaxOutputLength(20);
 
-        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 16, 128);
-        assertThatThrownBy(() -> ListaggAggregationFunction.outputState(state, out, 20))
+        assertThatThrownBy(() -> state.write(VARCHAR.createBlockBuilder(null, 1)))
                 .isInstanceOf(TrinoException.class)
                 .matches(throwable -> ((TrinoException) throwable).getErrorCode() == EXCEEDED_FUNCTION_MEMORY_LIMIT.toErrorCode());
     }
@@ -244,18 +231,16 @@ public class TestListaggAggregationFunction
 
     private static String getOutputStateOnlyValue(SingleListaggAggregationState state, int maxOutputLengthInBytes)
     {
-        VariableWidthBlockBuilder out = new VariableWidthBlockBuilder(null, 32, 256);
-        ListaggAggregationFunction.outputState(state, out, maxOutputLengthInBytes);
-        return (String) BlockAssertions.getOnlyValue(VARCHAR, out);
+        VariableWidthBlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, 1, maxOutputLengthInBytes + 20);
+        state.setMaxOutputLength(maxOutputLengthInBytes);
+        state.write(blockBuilder);
+        return VARCHAR.getSlice(blockBuilder.build(), 0).toStringUtf8();
     }
 
     private static SingleListaggAggregationState createListaggAggregationState(String separator, boolean overflowError, String overflowFiller, boolean showOverflowEntryCount, String... values)
     {
         SingleListaggAggregationState state = new SingleListaggAggregationState();
-        state.setSeparator(utf8Slice(separator));
-        state.setOverflowError(overflowError);
-        state.setOverflowFiller(utf8Slice(overflowFiller));
-        state.setShowOverflowEntryCount(showOverflowEntryCount);
+        state.initialize(utf8Slice(separator), overflowError, utf8Slice(overflowFiller), showOverflowEntryCount);
         for (String value : values) {
             state.add(createStringsBlock(value), 0);
         }
