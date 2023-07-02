@@ -13,90 +13,145 @@
  */
 package io.trino.operator.aggregation.listagg;
 
-import com.google.common.collect.ImmutableList;
-import io.airlift.slice.Slice;
-import io.trino.operator.aggregation.AbstractGroupCollectionAggregationState;
-import io.trino.spi.PageBuilder;
+import com.google.common.primitives.Ints;
+import io.airlift.slice.SliceOutput;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.GroupedAccumulatorState;
 
-import static io.trino.spi.type.VarcharType.VARCHAR;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.util.Arrays;
 
-public final class GroupListaggAggregationState
-        extends AbstractGroupCollectionAggregationState<ListaggAggregationStateConsumer>
-        implements ListaggAggregationState
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static java.lang.Math.toIntExact;
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
+
+public class GroupListaggAggregationState
+        extends AbstractListaggAggregationState
+        implements GroupedAccumulatorState
 {
-    private static final int MAX_BLOCK_SIZE = 1024 * 1024;
-    private static final int VALUE_CHANNEL = 0;
+    // See jdk.internal.util.ArraysSupport.SOFT_MAX_ARRAY_LENGTH for an explanation
+    private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
-    private Slice separator;
-    private boolean overflowError;
-    private Slice overflowFiller;
-    private boolean showOverflowEntryCount;
+    private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
+
+    private final int recordNextIndexOffset;
+
+    private long[] groupHeadPositions = new long[0];
+    private long[] groupTailPositions = new long[0];
+    private int[] groupSize = new int[0];
+
+    private int groupId = -1;
 
     public GroupListaggAggregationState()
     {
-        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(VARCHAR)));
+        super(Long.BYTES);
+        recordNextIndexOffset = POINTER_SIZE;
+    }
+
+    private GroupListaggAggregationState(GroupListaggAggregationState state)
+    {
+        super(state);
+        this.recordNextIndexOffset = state.recordNextIndexOffset;
+
+        this.groupHeadPositions = Arrays.copyOf(state.groupHeadPositions, state.groupHeadPositions.length);
+        this.groupTailPositions = Arrays.copyOf(state.groupTailPositions, state.groupTailPositions.length);
+        this.groupSize = Arrays.copyOf(state.groupSize, state.groupSize.length);
+
+        checkArgument(state.groupId == -1, "state.groupId is not -1");
+        //noinspection DataFlowIssue
+        this.groupId = -1;
     }
 
     @Override
-    public void setSeparator(Slice separator)
+    public long getEstimatedSize()
     {
-        this.separator = separator;
+        return super.getEstimatedSize() +
+                sizeOf(groupHeadPositions) +
+                sizeOf(groupTailPositions) +
+                sizeOf(groupSize);
     }
 
     @Override
-    public Slice getSeparator()
+    public void setGroupId(long groupId)
     {
-        return separator;
+        this.groupId = toIntExact(groupId);
     }
 
     @Override
-    public void setOverflowFiller(Slice overflowFiller)
+    public void ensureCapacity(long maxGroupId)
     {
-        this.overflowFiller = overflowFiller;
-    }
+        checkArgument(maxGroupId + 1 < MAX_ARRAY_SIZE, "Maximum array size exceeded");
+        int requiredSize = toIntExact(maxGroupId + 1);
+        if (requiredSize > groupHeadPositions.length) {
+            int newSize = Ints.constrainToRange(requiredSize * 2, 1024, MAX_ARRAY_SIZE);
+            int oldSize = groupHeadPositions.length;
 
-    @Override
-    public Slice getOverflowFiller()
-    {
-        return overflowFiller;
-    }
+            groupHeadPositions = Arrays.copyOf(groupHeadPositions, newSize);
+            Arrays.fill(groupHeadPositions, oldSize, newSize, -1);
 
-    @Override
-    public void setOverflowError(boolean overflowError)
-    {
-        this.overflowError = overflowError;
-    }
+            groupTailPositions = Arrays.copyOf(groupTailPositions, newSize);
+            Arrays.fill(groupTailPositions, oldSize, newSize, -1);
 
-    @Override
-    public boolean isOverflowError()
-    {
-        return overflowError;
-    }
-
-    @Override
-    public void setShowOverflowEntryCount(boolean showOverflowEntryCount)
-    {
-        this.showOverflowEntryCount = showOverflowEntryCount;
-    }
-
-    @Override
-    public boolean showOverflowEntryCount()
-    {
-        return showOverflowEntryCount;
+            groupSize = Arrays.copyOf(groupSize, newSize);
+        }
     }
 
     @Override
     public void add(Block block, int position)
     {
-        prepareAdd();
-        appendAtChannel(VALUE_CHANNEL, block, position);
+        super.add(block, position);
+
+        long index = size() - 1;
+        byte[] records = openRecordGroup;
+        int recordOffset = getRecordOffset(index);
+        LONG_HANDLE.set(records, recordOffset + recordNextIndexOffset, -1L);
+
+        if (groupTailPositions[groupId] == -1) {
+            groupHeadPositions[groupId] = index;
+        }
+        else {
+            long tailIndex = groupTailPositions[groupId];
+            LONG_HANDLE.set(getRecords(tailIndex), getRecordOffset(tailIndex) + recordNextIndexOffset, index);
+        }
+        groupTailPositions[groupId] = index;
+
+        groupSize[groupId]++;
     }
 
     @Override
-    protected boolean accept(ListaggAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    public void write(VariableWidthBlockBuilder blockBuilder)
     {
-        consumer.accept(pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
-        return true;
+        if (groupSize[groupId] == 0) {
+            blockBuilder.appendNull();
+            return;
+        }
+        blockBuilder.buildEntry(this::write);
+    }
+
+    private void write(SliceOutput out)
+    {
+        long index = groupHeadPositions[groupId];
+        int emittedCount = 0;
+        int entryCount = groupSize[groupId];
+        while (index != -1) {
+            byte[] records = getRecords(index);
+            int recordOffset = getRecordOffset(index);
+            if (!writeEntry(records, recordOffset, out, entryCount, emittedCount)) {
+                return;
+            }
+            index = (long) LONG_HANDLE.get(records, recordOffset + recordNextIndexOffset);
+            emittedCount++;
+        }
+    }
+
+    @Override
+    public AccumulatorState copy()
+    {
+        return new GroupListaggAggregationState(this);
     }
 }
