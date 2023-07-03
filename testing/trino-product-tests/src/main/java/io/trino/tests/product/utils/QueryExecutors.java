@@ -119,6 +119,7 @@ public final class QueryExecutors
 
         RetryPolicy<QueryResult> databricksRetryPolicy = RetryPolicy.<QueryResult>builder()
                 .handleIf(throwable -> throwable.getMessage().contains("HTTP Response code: 502"))
+                .handleIf(throwable -> throwable.getMessage().contains("TEMPORARILY_UNAVAILABLE"))
                 .withBackoff(1, 10, ChronoUnit.SECONDS)
                 .withMaxRetries(60)
                 .onRetry(event -> log.warn(event.getLastException(), "Query failed on attempt %d, will retry.", event.getAttemptCount()))
