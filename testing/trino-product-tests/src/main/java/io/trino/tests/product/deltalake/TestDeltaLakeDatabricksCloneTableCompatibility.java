@@ -39,7 +39,6 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 public class TestDeltaLakeDatabricksCloneTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_OSS,
             PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
@@ -47,7 +46,6 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
     {
         testReadSchemaChangedCloneTable("SHALLOW", partitioned);
     }
-
 
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104,
             PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
