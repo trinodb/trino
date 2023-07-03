@@ -13,37 +13,74 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.operator.aggregation.AbstractGroupCollectionAggregationState;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+
+import static java.lang.Math.toIntExact;
+
 public final class GroupedMultimapAggregationState
-        extends AbstractGroupCollectionAggregationState<MultimapAggregationStateConsumer>
-        implements MultimapAggregationState
+        extends AbstractMultimapAggregationState
+        implements GroupedAccumulatorState
 {
-    private static final int MAX_BLOCK_SIZE = 1024 * 1024;
-    static final int VALUE_CHANNEL = 0;
-    static final int KEY_CHANNEL = 1;
+    private int groupId;
 
-    public GroupedMultimapAggregationState(Type keyType, Type valueType)
+    public GroupedMultimapAggregationState(
+            Type keyType,
+            MethodHandle keyReadFlat,
+            MethodHandle keyWriteFlat,
+            MethodHandle hashFlat,
+            MethodHandle distinctFlatBlock,
+            MethodHandle keyHashBlock,
+            Type valueType,
+            MethodHandle valueReadFlat,
+            MethodHandle valueWriteFlat)
     {
-        super(PageBuilder.withMaxPageSize(MAX_BLOCK_SIZE, ImmutableList.of(valueType, keyType)));
+        super(
+                keyType,
+                keyReadFlat,
+                keyWriteFlat,
+                hashFlat,
+                distinctFlatBlock,
+                keyHashBlock,
+                valueType,
+                valueReadFlat,
+                valueWriteFlat,
+                true);
     }
 
     @Override
-    public void add(Block keyBlock, Block valueBlock, int position)
+    public void setGroupId(long groupId)
     {
-        prepareAdd();
-        appendAtChannel(VALUE_CHANNEL, valueBlock, position);
-        appendAtChannel(KEY_CHANNEL, keyBlock, position);
+        this.groupId = toIntExact(groupId);
     }
 
     @Override
-    protected boolean accept(MultimapAggregationStateConsumer consumer, PageBuilder pageBuilder, int currentPosition)
+    public void ensureCapacity(long size)
     {
-        consumer.accept(pageBuilder.getBlockBuilder(KEY_CHANNEL), pageBuilder.getBlockBuilder(VALUE_CHANNEL), currentPosition);
-        return true;
+        setMaxGroupId(toIntExact(size));
+    }
+
+    @Override
+    public void add(Block keyBlock, int keyPosition, Block valueBlock, int valuePosition)
+    {
+        add(groupId, keyBlock, keyPosition, valueBlock, valuePosition);
+    }
+
+    @Override
+    public void merge(MultimapAggregationState other)
+    {
+        SingleMapBlock serializedState = ((SingleMultimapAggregationState) other).removeTempSerializedState();
+        deserialize(groupId, serializedState);
+    }
+
+    @Override
+    public void writeAll(MapBlockBuilder out)
+    {
+        serialize(groupId, out);
     }
 }
