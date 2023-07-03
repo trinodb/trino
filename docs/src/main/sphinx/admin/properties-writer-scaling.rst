@@ -33,8 +33,8 @@ session property.
 
 Enable scaling the number of concurrent writers within a task. The maximum writer
 count per task for scaling is ``task.scale-writers.max-writer-count``. Additional
-writers are added only when the average amount of physical data written per writer
-is above the minimum threshold of ``writer-min-size`` and query is bottlenecked on
+writers are added only when the average amount of uncompressed data processed per writer
+is above the minimum threshold of ``writer-scaling-min-data-processed`` and query is bottlenecked on
 writing. This can be specified on a per-query basis using the ``task_scale_writers_enabled``
 session property.
 
@@ -61,3 +61,15 @@ another writer is eligible to be added. Each writer task may have multiple
 writers, controlled by ``task.writer-count``, thus this value is effectively
 divided by the number of writers per task. This can be specified on a
 per-query basis using the ``writer_min_size`` session property.
+
+.. warning::
+    This property is deprecated now. Please use ``writer-scaling-min-data-processed``.
+
+``writer-scaling-min-data-processed``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** :ref:`prop-type-data-size`
+* **Default value:** ``100MB``
+
+The minimum amount of uncompressed data that must be processed by a writer
+before another writer can be added. This can be specified on a
+per-query basis using the ``writer_scaling_min_data_processed`` session property.

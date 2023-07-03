@@ -133,7 +133,7 @@ public class TestScaledWriterScheduler
 
         ScaledWriterScheduler scaledWriterScheduler = buildScaleWriterSchedulerWithInitialTasks(taskStatus1, taskStatus2, taskStatus3);
         // Scale up will not happen because for one of the task there are two local writers which makes the
-        // minWrittenBytes for scaling up to (2 * writerMinSizeBytes) that is greater than physicalWrittenBytes.
+        // minWrittenBytes for scaling up to (2 * writerScalingMinDataProcessed) that is greater than physicalWrittenBytes.
         assertEquals(scaledWriterScheduler.schedule().getNewTasks().size(), 0);
     }
 

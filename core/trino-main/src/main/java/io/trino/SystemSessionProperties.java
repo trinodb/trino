@@ -84,7 +84,7 @@ public final class SystemSessionProperties
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
     public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
     public static final String TASK_SCALE_WRITERS_MAX_WRITER_COUNT = "task_scale_writers_max_writer_count";
-    public static final String WRITER_MIN_SIZE = "writer_min_size";
+    public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
@@ -334,9 +334,9 @@ public final class SystemSessionProperties
                         taskManagerConfig.getScaleWritersMaxWriterCount(),
                         true),
                 dataSizeProperty(
-                        WRITER_MIN_SIZE,
-                        "Target minimum size of writer output when scaling writers",
-                        featuresConfig.getWriterMinSize(),
+                        WRITER_SCALING_MIN_DATA_PROCESSED,
+                        "Minimum amount of uncompressed output data processed by writers before writer scaling can happen",
+                        featuresConfig.getWriterScalingMinDataProcessed(),
                         false),
                 booleanProperty(
                         PUSH_TABLE_WRITE_THROUGH_UNION,
@@ -1149,9 +1149,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
     }
 
-    public static DataSize getWriterMinSize(Session session)
+    public static DataSize getWriterScalingMinDataProcessed(Session session)
     {
-        return session.getSystemProperty(WRITER_MIN_SIZE, DataSize.class);
+        return session.getSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, DataSize.class);
     }
 
     public static boolean isPushTableWriteThroughUnion(Session session)

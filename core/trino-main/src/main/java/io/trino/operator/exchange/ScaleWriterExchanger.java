@@ -38,7 +38,7 @@ public class ScaleWriterExchanger
     private final LocalExchangeMemoryManager memoryManager;
     private final long maxBufferedBytes;
     private final Supplier<Long> physicalWrittenBytesSupplier;
-    private final long writerMinSize;
+    private final long writerScalingMinDataProcessed;
 
     // Start with single writer and increase the writer count based on
     // physical written bytes and buffer utilization.
@@ -50,13 +50,13 @@ public class ScaleWriterExchanger
             LocalExchangeMemoryManager memoryManager,
             long maxBufferedBytes,
             Supplier<Long> physicalWrittenBytesSupplier,
-            DataSize writerMinSize)
+            DataSize writerScalingMinDataProcessed)
     {
         this.buffers = requireNonNull(buffers, "buffers is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.maxBufferedBytes = maxBufferedBytes;
         this.physicalWrittenBytesSupplier = requireNonNull(physicalWrittenBytesSupplier, "physicalWrittenBytesSupplier is null");
-        this.writerMinSize = writerMinSize.toBytes();
+        this.writerScalingMinDataProcessed = writerScalingMinDataProcessed.toBytes();
     }
 
     @Override
@@ -75,7 +75,7 @@ public class ScaleWriterExchanger
         // This also mean that we won't scale local writers if the writing speed can cope up
         // with incoming data. In another word, buffer utilization is below 50%.
         if (writerCount < buffers.size() && memoryManager.getBufferedBytes() >= maxBufferedBytes / 2) {
-            if (physicalWrittenBytesSupplier.get() >= writerCount * writerMinSize) {
+            if (physicalWrittenBytesSupplier.get() >= writerCount * writerScalingMinDataProcessed) {
                 writerCount++;
                 log.debug("Increased task writer count: %d", writerCount);
             }
