@@ -43,8 +43,8 @@ public class TestDynamoDbPlugin
         factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
-                        .put("dynamodb.aws-access-key", "access-key")
-                        .put("dynamodb.aws-secret-key", "secret-key")
+                        .put("dynamodb.aws-access-key", "accesskey")
+                        .put("dynamodb.aws-secret-key", "secretkey")
                         .put("dynamodb.aws-region", "us-east-2")
                         .put("dynamodb.schema-directory", tempDirectory.getAbsolutePath())
                         .buildOrThrow(),

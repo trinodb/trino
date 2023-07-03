@@ -177,8 +177,8 @@ public final class DynamoDbQueryRunner
             requireNonNull(dynamoDbUrl, "dynamoDbUrl is null");
             requireNonNull(schemaDirectory, "schemaDirectory is null");
             connectorProperties = ImmutableMap.<String, String>builder()
-                    .put("dynamodb.aws-access-key", "access-key")
-                    .put("dynamodb.aws-secret-key", "secret-key")
+                    .put("dynamodb.aws-access-key", "accesskey")
+                    .put("dynamodb.aws-secret-key", "secretkey")
                     .put("dynamodb.aws-region", "us-east-2")
                     .put("dynamodb.schema-directory", schemaDirectory.getAbsolutePath())
                     .put("dynamodb.endpoint-url", dynamoDbUrl)

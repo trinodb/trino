@@ -72,8 +72,8 @@ public class TestDynamoDbConfig
         tempDirectory.deleteOnExit();
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("dynamodb.aws-access-key", "access-key")
-                .put("dynamodb.aws-secret-key", "secret-key")
+                .put("dynamodb.aws-access-key", "accesskey")
+                .put("dynamodb.aws-secret-key", "secretkey")
                 .put("dynamodb.aws-role-arn", "role-arn")
                 .put("dynamodb.aws-external-id", "external-id")
                 .put("dynamodb.aws-region", "us-east-2")
@@ -90,8 +90,8 @@ public class TestDynamoDbConfig
                 .buildOrThrow();
 
         DynamoDbConfig expected = new DynamoDbConfig()
-                .setAwsAccessKey("access-key")
-                .setAwsSecretKey("secret-key")
+                .setAwsAccessKey("accesskey")
+                .setAwsSecretKey("secretkey")
                 .setAwsRoleArn("role-arn")
                 .setAwsExternalId("external-id")
                 .setAwsRegion("us-east-2")

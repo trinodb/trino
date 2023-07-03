@@ -57,7 +57,7 @@ public class TestDynamoDbNestedAttributeTypeMapping
         TestingDynamoDbServer server = closeAfterClass(new TestingDynamoDbServer());
 
         DynamoDbClientBuilder builder = DynamoDbClient.builder()
-                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("access-key", "secret-key")))
+                .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("accesskey", "secretkey")))
                 .region(Region.of("us-east-2"))
                 .endpointOverride(URI.create(server.getEndpointUrl()));
 

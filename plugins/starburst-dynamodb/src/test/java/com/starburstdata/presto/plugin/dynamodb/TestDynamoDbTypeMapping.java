@@ -70,8 +70,8 @@ public class TestDynamoDbTypeMapping
         TestingDynamoDbServer server = closeAfterClass(new TestingDynamoDbServer());
 
         dynamoDbConfig = new DynamoDbConfig()
-                .setAwsAccessKey("access-key")
-                .setAwsSecretKey("secret-key")
+                .setAwsAccessKey("accesskey")
+                .setAwsSecretKey("secretkey")
                 .setAwsRegion("us-east-2")
                 .setEndpointUrl(server.getEndpointUrl())
                 .setSchemaDirectory(server.getSchemaDirectory().getAbsolutePath());
