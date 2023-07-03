@@ -20,7 +20,7 @@ import io.trino.tests.product.launcher.env.EnvironmentOptions;
 public class Temurin21EaJdkProvider
         extends TarDownloadingJdkProvider
 {
-    private static final String VERSION = "21-25_ea-beta";
+    private static final String VERSION = "21-29-ea-beta";
 
     @Inject
     public Temurin21EaJdkProvider(EnvironmentOptions environmentOptions)
@@ -32,8 +32,8 @@ public class Temurin21EaJdkProvider
     protected String getDownloadUri(TestContainers.DockerArchitecture architecture)
     {
         return switch (architecture) {
-            case AMD64 -> "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-%s/OpenJDK-jdk_x64_linux_hotspot_2023-06-02-00-99.tar.gz".formatted(VERSION.replaceFirst("-", "%2B"));
-            case ARM64 -> "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-%s/OpenJDK-jdk_aarch64_linux_hotspot_2023-06-02-00-99.tar.gz".formatted(VERSION.replaceFirst("-", "%2B"));
+            case AMD64 -> "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-%s/OpenJDK21U-jdk_x64_linux_hotspot_ea_21-0-29.tar.gz".formatted(VERSION.replaceFirst("-", "%2B"));
+            case ARM64 -> "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-%s/OpenJDK21U-jdk_aarch64_linux_hotspot_ea_21-0-29.tar.gz".formatted(VERSION.replaceFirst("-", "%2B"));
             default -> throw new IllegalArgumentException("Architecture %s is not supported for Temurin 21-ea-beta distribution".formatted(architecture));
         };
     }
