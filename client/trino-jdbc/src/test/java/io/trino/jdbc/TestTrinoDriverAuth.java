@@ -248,6 +248,102 @@ public class TestTrinoDriverAuth
     }
 
     @Test
+    public void testSuccessFullSslVerificationAlternateHostname()
+            throws Exception
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "FULL");
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        try (Connection connection = DriverManager.getConnection(url, properties);
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
+        }
+    }
+
+    @Test
+    public void testFailedFullSslVerificationAlternateHostnameNotProvided()
+            throws Exception
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "FULL");
+        properties.setProperty("SSLTrustStorePath", new File(getResource("localhost.truststore").toURI()).getPath());
+        properties.setProperty("SSLTrustStorePassword", "changeit");
+        properties.setProperty("accessToken", accessToken);
+
+        try (Connection connection = DriverManager.getConnection(url, properties);
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class).hasMessageContaining("Error executing query: javax.net.ssl.SSLPeerUnverifiedException: Hostname 127.0.0.1 not verified");
+        }
+    }
+
+    @Test
+    public void testFailedCaSslVerificationAlternateHostname()
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "CA");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'hostnameInCertificate' is not allowed");
+    }
+
+    @Test
+    public void testFailedNoneSslVerificationAlternateHostname()
+    {
+        String accessToken = newJwtBuilder()
+                .setSubject("test")
+                .setHeaderParam(KEY_ID, "33")
+                .signWith(privateKey33)
+                .compact();
+
+        String url = format("jdbc:trino://127.0.0.1:%s", server.getHttpsAddress().getPort());
+        Properties properties = new Properties();
+        properties.setProperty("SSL", "true");
+        properties.setProperty("SSLVerification", "NONE");
+        properties.setProperty("accessToken", accessToken);
+        properties.setProperty("hostnameInCertificate", "localhost");
+
+        assertThatThrownBy(() -> DriverManager.getConnection(url, properties))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'hostnameInCertificate' is not allowed");
+    }
+
+    @Test
     public void testSuccessCaSslVerification()
             throws Exception
     {

@@ -90,6 +90,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> SOURCE = new Source();
     public static final ConnectionProperty<Class<? extends DnsResolver>> DNS_RESOLVER = new Resolver();
     public static final ConnectionProperty<String> DNS_RESOLVER_CONTEXT = new ResolverContext();
+    public static final ConnectionProperty<String> HOSTNAME_IN_CERTIFICATE = new HostnameInCertificate();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
@@ -132,6 +133,7 @@ final class ConnectionProperties
             .add(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
             .add(DNS_RESOLVER)
             .add(DNS_RESOLVER_CONTEXT)
+            .add(HOSTNAME_IN_CERTIFICATE)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -346,6 +348,9 @@ final class ConnectionProperties
 
         static final Predicate<Properties> IF_SSL_VERIFICATION_ENABLED =
                 IF_SSL_ENABLED.and(checkedPredicate(properties -> !SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.NONE)));
+
+        static final Predicate<Properties> IF_FULL_SSL_VERIFICATION_ENABLED =
+                IF_SSL_VERIFICATION_ENABLED.and(checkedPredicate(properties -> !SSL_VERIFICATION.getValue(properties).orElse(SslVerificationMode.FULL).equals(SslVerificationMode.CA)));
 
         public SslVerification()
         {
@@ -642,6 +647,15 @@ final class ConnectionProperties
         public ResolverContext()
         {
             super("dnsResolverContext", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class HostnameInCertificate
+            extends AbstractConnectionProperty<String>
+    {
+        public HostnameInCertificate()
+        {
+            super("hostnameInCertificate", NOT_REQUIRED, SslVerification.IF_FULL_SSL_VERIFICATION_ENABLED, STRING_CONVERTER);
         }
     }
 
