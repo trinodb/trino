@@ -44,6 +44,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
+import static io.trino.client.OkHttpUtil.setupAlternateHostnameVerification;
 import static io.trino.client.OkHttpUtil.setupCookieJar;
 import static io.trino.client.OkHttpUtil.setupHttpProxy;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
@@ -65,6 +66,7 @@ import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIREC
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
+import static io.trino.jdbc.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
@@ -289,6 +291,11 @@ public final class TrinoDriverUri
                             SSL_TRUST_STORE_PASSWORD.getValue(properties),
                             SSL_TRUST_STORE_TYPE.getValue(properties),
                             SSL_USE_SYSTEM_TRUST_STORE.getValue(properties).orElse(false));
+                }
+
+                if (sslVerificationMode.equals(FULL)) {
+                    HOSTNAME_IN_CERTIFICATE.getValue(properties).ifPresent(certHostname ->
+                            setupAlternateHostnameVerification(builder, certHostname));
                 }
 
                 if (sslVerificationMode.equals(CA)) {
