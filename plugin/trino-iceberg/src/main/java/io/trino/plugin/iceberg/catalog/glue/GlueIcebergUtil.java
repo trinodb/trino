@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import jakarta.annotation.Nullable;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
-
 import java.util.Map;
 import java.util.Optional;
 

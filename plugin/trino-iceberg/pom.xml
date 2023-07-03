@@ -268,6 +268,11 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
+            <artifactId>metrics-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
             <artifactId>sdk-core</artifactId>
         </dependency>
 
@@ -571,6 +576,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
                 <configuration>
+                    <ignoredNonTestScopedDependencies>
+                        <ignoredDependency>software.amazon.awssdk:metrics-spi</ignoredDependency>
+                    </ignoredNonTestScopedDependencies>
                     <ignoredUnusedDeclaredDependencies>
                         <!-- dependency plugin fails to recognize software.amazon.awssdk:utils as a compile-time dependency,
                              as it is not directly used, however most of the other dependencies from software.amazon.awssdk
