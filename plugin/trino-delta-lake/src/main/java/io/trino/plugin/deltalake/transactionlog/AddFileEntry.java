@@ -86,6 +86,9 @@ public class AddFileEntry
         this.parsedStats = resultParsedStats;
     }
 
+    /**
+     * paths are relative to the table location or absolute in case of shallow cloned table and are RFC 2396 URIs
+     */
     @JsonProperty
     public String getPath()
     {

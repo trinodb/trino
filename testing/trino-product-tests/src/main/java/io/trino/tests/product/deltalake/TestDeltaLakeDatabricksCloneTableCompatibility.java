@@ -15,8 +15,8 @@ package io.trino.tests.product.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.testing.DataProviders;
 import io.trino.testng.services.Flaky;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -39,107 +39,23 @@ import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 public class TestDeltaLakeDatabricksCloneTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "shallowTrueFalse")
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_OSS,
+            PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReadFromShallowClonedTable(String clone, boolean partitioned)
+    public void testReadFromSchemaChangedShallowCloneTable(boolean partitioned)
     {
-        testReadClonedTable(clone, partitioned);
+        testReadSchemaChangedCloneTable("SHALLOW", partitioned);
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS}, dataProvider = "shallowTrueFalse")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReadFromSchemaChangedShallowCloneTable(String clone, boolean partitioned)
-    {
-        testReadSchemaChangedCloneTable(clone, partitioned);
-    }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS}, dataProvider = "deepTrueFalse")
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104,
+            PROFILE_SPECIFIC_TESTS}, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReadFromDeepClonedTable(String clone, boolean partitioned)
+    public void testReadFromSchemaChangedDeepCloneTable(boolean partitioned)
     {
         // Deep Clone is not supported on Delta-Lake OSS
-        testReadClonedTable(clone, partitioned);
-    }
-
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "deepTrueFalse")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testReadFromSchemaChangedDeepCloneTable(String clone, boolean partitioned)
-    {
-        // Deep Clone is not supported on Delta-Lake OSS
-        testReadSchemaChangedCloneTable(clone, partitioned);
-    }
-
-    private void testReadClonedTable(String cloneType, boolean partitioned)
-    {
-        String baseTable = "test_dl_base_table_" + randomNameSuffix();
-        String clonedTableV1 = "test_dl_clone_tableV1_" + randomNameSuffix();
-        String clonedTableV2 = "test_dl_clone_tableV2_" + randomNameSuffix();
-        try {
-            onDelta().executeQuery("CREATE TABLE default." + baseTable +
-                    " (a_number INT, b_string STRING) USING delta " +
-                    (partitioned ? "PARTITIONED BY (b_string) " : "") +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + baseTable + "'");
-
-            onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (1, \"a\")");
-
-            Row expectedRow = row(1, "a");
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
-                    .containsOnly(expectedRow);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
-                    .containsOnly(expectedRow);
-
-            onDelta().executeQuery("INSERT INTO default." + baseTable + " VALUES (2, \"b\")");
-
-            onDelta().executeQuery("CREATE TABLE default." + clonedTableV1 +
-                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 1 " +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV1 + "'");
-
-            Row expectedRowV1 = row(1, "a");
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable + " VERSION AS OF 1"))
-                    .containsOnly(expectedRowV1);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV1))
-                    .containsOnly(expectedRowV1);
-
-            onDelta().executeQuery("CREATE TABLE default." + clonedTableV2 +
-                    " " + cloneType + " CLONE default." + baseTable + " VERSION AS OF 2 " +
-                    "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + clonedTableV2 + "'");
-
-            List<Row> expectedRowsV2 = ImmutableList.of(row(1, "a"), row(2, "b"));
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
-                    .containsOnly(expectedRowsV2);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
-                    .containsOnly(expectedRowsV2);
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable + " VERSION AS OF 2"))
-                    .containsOnly(expectedRowsV2);
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV2))
-                    .containsOnly(expectedRowsV2);
-
-            if (partitioned) {
-                List<Row> expectedPartitionRows = ImmutableList.of(row("a"), row("b"));
-                assertThat(onDelta().executeQuery("SELECT b_string FROM default." + baseTable))
-                        .containsOnly(expectedPartitionRows);
-                assertThat(onTrino().executeQuery("SELECT b_string FROM delta.default." + baseTable))
-                        .containsOnly(expectedPartitionRows);
-                assertThat(onDelta().executeQuery("SELECT b_string FROM default." + baseTable + " VERSION AS OF 2"))
-                        .containsOnly(expectedPartitionRows);
-                assertThat(onTrino().executeQuery("SELECT b_string FROM delta.default." + clonedTableV2))
-                        .containsOnly(expectedPartitionRows);
-            }
-
-            onDelta().executeQuery("INSERT INTO default." + clonedTableV2 + " VALUES (3, \"c\")");
-            onTrino().executeQuery("INSERT INTO delta.default." + clonedTableV2 + " VALUES (4, 'd')");
-
-            List<Row> expectedRowsV3 = ImmutableList.of(row(1, "a"), row(2, "b"), row(3, "c"), row(4, "d"));
-            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV2))
-                    .containsOnly(expectedRowsV3);
-            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV2))
-                    .containsOnly(expectedRowsV3);
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + baseTable);
-            dropDeltaTableWithRetry("default." + clonedTableV1);
-            dropDeltaTableWithRetry("default." + clonedTableV2);
-        }
+        testReadSchemaChangedCloneTable("DEEP", partitioned);
     }
 
     private void testReadSchemaChangedCloneTable(String cloneType, boolean partitioned)
@@ -151,7 +67,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
         String clonedTableV4 = "test_dl_clone_tableV4_" + randomNameSuffix();
         try {
             onDelta().executeQuery("CREATE TABLE default." + baseTable +
-                    " (a_number INT, b_string STRING) USING delta " +
+                    " (a_int INT, b_string STRING) USING delta " +
                     (partitioned ? "PARTITIONED BY (b_string) " : "") +
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + baseTable + "'" +
                     " TBLPROPERTIES (" +
@@ -248,6 +164,15 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
                     .containsOnly(expectedRowsV5);
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV4))
                     .containsOnly(expectedRowsV5);
+
+            onDelta().executeQuery("DELETE FROM default." + clonedTableV4 + " WHERE a_int = 1");
+            onTrino().executeQuery("DELETE FROM delta.default." + clonedTableV4 + " WHERE a_int = 2");
+
+            List<Row> expectedRowsV6 = ImmutableList.of(row(3, "c", 3), row(4, "d", 4));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV4))
+                    .containsOnly(expectedRowsV6);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV4))
+                    .containsOnly(expectedRowsV6);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTable);
@@ -256,17 +181,5 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             dropDeltaTableWithRetry("default." + clonedTableV3);
             dropDeltaTableWithRetry("default." + clonedTableV4);
         }
-    }
-
-    @DataProvider
-    public Object[][] shallowTrueFalse()
-    {
-        return new Object[][] {{"SHALLOW", true}, {"SHALLOW", false}};
-    }
-
-    @DataProvider
-    public Object[][] deepTrueFalse()
-    {
-        return new Object[][] {{"DEEP", true}, {"DEEP", false}};
     }
 }

@@ -103,7 +103,7 @@ public class TestDeltaLakeSplitManager
     }
 
     @Test(dataProvider = "absolutePaths")
-    public void testAbsolutePathSplits(final String absoluteRawEncodedFilePath, final String absoluteDecodedParsedFilePath)
+    public void testAbsolutePathSplits(String absoluteRawEncodedFilePath, String absoluteDecodedParsedFilePath)
             throws Exception
     {
         long fileSize = 20_000;
@@ -246,10 +246,12 @@ public class TestDeltaLakeSplitManager
     @DataProvider
     public static Object[][] absolutePaths()
     {
-        return new Object[][] {{"file://path/to/file", "file://path/to/file"},
+        return new Object[][] {
+                {"file://path/to/file", "file://path/to/file"},
                 {"abfs://ct@st.dfs.core.windows.net/path/to/file", "abfs://ct@st.dfs.core.windows.net/path/to/file"},
                 {"hdfs://path/to/file", "hdfs://path/to/file"},
-                {"s3://my-s3-bucket/path/to/file", "s3://my-s3-bucket/path/to/file"},
+                {"s3://my-s3-bucket/path/to//file", "s3://my-s3-bucket/path/to//file"},
+                {"s3://my-s3-bucket/path/to//file/", "s3://my-s3-bucket/path/to//file/"},
                 {"gs://my-gcp-bucket/path/to/file", "gs://my-gcp-bucket/path/to/file"},
                 {"abfs://ct@st.dfs.core.windows.net/+ab+/a%25/a%2525/path/to/file", "abfs://ct@st.dfs.core.windows.net/+ab+/a%/a%25/path/to/file"}};
     }
