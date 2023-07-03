@@ -22,7 +22,7 @@ import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileConnectorFactory
@@ -38,7 +38,7 @@ public class LocalFileConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(config, "config is null");
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         Bootstrap app = new Bootstrap(
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),

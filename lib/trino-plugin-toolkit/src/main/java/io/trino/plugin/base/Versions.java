@@ -28,8 +28,10 @@ public final class Versions
      * Using plugins built for a different version of Trino may fail at runtime, especially if plugin author
      * chooses not to maintain compatibility with older SPI versions, as happens for plugins maintained together with
      * the Trino project.
+     *
+     * @implNote This method is designed only for plugins distributed with Trino
      */
-    public static void checkSpiVersion(ConnectorContext context, ConnectorFactory connectorFactory)
+    public static void checkStrictSpiVersionMatch(ConnectorContext context, ConnectorFactory connectorFactory)
     {
         String spiVersion = context.getSpiVersion();
         String compileTimeSpiVersion = SpiVersionHolder.SPI_COMPILE_TIME_VERSION;

@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.plugin.base.Versions.checkSpiVersion;
+import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergConnectorFactory
@@ -51,7 +51,7 @@ public class IcebergConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        checkSpiVersion(context, this);
+        checkStrictSpiVersionMatch(context, this);
 
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
