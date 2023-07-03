@@ -105,14 +105,13 @@ public class TestTrinoDriverAuth
                 .signWith(defaultKey)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -126,14 +125,13 @@ public class TestTrinoDriverAuth
                 .signWith(hmac222)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -147,14 +145,13 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -162,10 +159,9 @@ public class TestTrinoDriverAuth
     public void testFailedNoToken()
             throws Exception
     {
-        try (Connection connection = createConnection(ImmutableMap.of())) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of());
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -177,10 +173,9 @@ public class TestTrinoDriverAuth
                 .setSubject("test")
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -194,10 +189,9 @@ public class TestTrinoDriverAuth
                 .signWith(badKey)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -211,10 +205,9 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -228,10 +221,9 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken))) {
-            try (Statement statement = connection.createStatement()) {
-                statement.execute("SELECT 123");
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken));
+                Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 123");
         }
     }
 
@@ -245,14 +237,13 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "FULL"));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -266,14 +257,13 @@ public class TestTrinoDriverAuth
                 .signWith(privateKey33)
                 .compact();
 
-        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"))) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123"));
-                ResultSet rs = statement.getResultSet();
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
-            }
+        try (Connection connection = createConnection(ImmutableMap.of("accessToken", accessToken, "SSLVerification", "CA"));
+                Statement statement = connection.createStatement()) {
+            assertTrue(statement.execute("SELECT 123"));
+            ResultSet rs = statement.getResultSet();
+            assertTrue(rs.next());
+            assertEquals(rs.getLong(1), 123);
+            assertFalse(rs.next());
         }
     }
 
@@ -317,11 +307,12 @@ public class TestTrinoDriverAuth
     public void testFailedNoneSslVerificationWithSSLUnsigned()
             throws Exception
     {
-        Connection connection = createBasicConnection(ImmutableMap.of("SSL", "true", "SSLVerification", "NONE"));
-        Statement statement = connection.createStatement();
-        assertThatThrownBy(() -> statement.execute("SELECT 123"))
-                .isInstanceOf(SQLException.class)
-                .hasMessage("Authentication failed: Unauthorized");
+        try (Connection connection = createBasicConnection(ImmutableMap.of("SSL", "true", "SSLVerification", "NONE"));
+                Statement statement = connection.createStatement()) {
+            assertThatThrownBy(() -> statement.execute("SELECT 123"))
+                    .isInstanceOf(SQLException.class)
+                    .hasMessage("Authentication failed: Unauthorized");
+        }
     }
 
     private Connection createConnection(Map<String, String> additionalProperties)
