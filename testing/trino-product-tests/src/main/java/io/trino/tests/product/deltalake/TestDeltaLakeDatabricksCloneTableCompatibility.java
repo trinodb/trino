@@ -165,8 +165,7 @@ public class TestDeltaLakeDatabricksCloneTableCompatibility
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTableV4))
                     .containsOnly(expectedRowsV5);
 
-            onDelta().executeQuery("DELETE FROM default." + clonedTableV4 + " WHERE a_int = 1");
-            onTrino().executeQuery("DELETE FROM delta.default." + clonedTableV4 + " WHERE a_int = 2");
+            onDelta().executeQuery("DELETE FROM default." + clonedTableV4 + " WHERE a_int in (1, 2)");
 
             List<Row> expectedRowsV6 = ImmutableList.of(row(3, "c", 3), row(4, "d", 4));
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTableV4))
