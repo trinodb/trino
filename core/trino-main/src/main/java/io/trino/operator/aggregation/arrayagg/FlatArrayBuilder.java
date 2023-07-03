@@ -135,6 +135,11 @@ public class FlatArrayBuilder
                 (variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes());
     }
 
+    public Type type()
+    {
+        return type;
+    }
+
     public long size()
     {
         return size;
