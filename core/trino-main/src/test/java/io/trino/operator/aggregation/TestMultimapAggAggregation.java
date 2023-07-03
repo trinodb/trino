@@ -175,7 +175,7 @@ public class TestMultimapAggAggregation
         GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty()).createGroupedAggregator();
         BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.isNull(0));
+        assertTrue(blockBuilder.build().isNull(0));
     }
 
     private static TestingAggregationFunction getAggregationFunction(Type keyType, Type valueType)
@@ -185,7 +185,7 @@ public class TestMultimapAggAggregation
 
     /**
      * Given a list of keys and a list of corresponding values, manually
-     * aggregate them into a map of list and check that Trino's aggregation has
+     * aggregate them into a map of list and check that the aggregation has
      * the same results.
      */
     private static <K, V> void testMultimapAgg(Type keyType, List<K> expectedKeys, Type valueType, List<V> expectedValues)
