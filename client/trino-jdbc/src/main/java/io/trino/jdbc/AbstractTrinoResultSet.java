@@ -29,7 +29,6 @@ import io.trino.client.QueryStatusInfo;
 import io.trino.jdbc.ColumnInfo.Nullable;
 import io.trino.jdbc.TypeConversions.NoConversionRegisteredException;
 import org.joda.time.DateTimeZone;
-import org.joda.time.IllegalInstantException;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -355,16 +354,10 @@ abstract class AbstractTrinoResultSet
 
     private static Date parseDate(String value, DateTimeZone localTimeZone)
     {
-        try {
-            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-            if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
-                return new Date(millis);
-            }
-        }
-        catch (IllegalInstantException ignored) {
-            // https://joda-time.sourceforge.net/faq.html#illegalinstant
-            LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-            return new Date(localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis());
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        long millis = localDate.toDateTimeAtStartOfDay(localTimeZone).getMillis();
+        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
+            return new Date(millis);
         }
 
         // The chronology used by default by Joda is not historically accurate for dates
@@ -374,8 +367,8 @@ abstract class AbstractTrinoResultSet
         // expensive GregorianCalendar; note that Joda also has a chronology that works for
         // older dates, but it uses a slightly different algorithm and yields results that
         // are not compatible with java.sql.Date.
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        LocalDate preGregorianDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        Calendar calendar = new GregorianCalendar(preGregorianDate.getYear(), preGregorianDate.getMonthOfYear() - 1, preGregorianDate.getDayOfMonth());
         calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
 
         return new Date(calendar.getTimeInMillis());
