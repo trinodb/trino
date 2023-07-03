@@ -83,7 +83,7 @@ public class TestLocalExchange
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, MEGABYTE);
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
     private static final Session SESSION = testSessionBuilder().build();
-    private static final DataSize WRITER_MIN_SIZE = DataSize.of(32, MEGABYTE);
+    private static final DataSize WRITER_SCALING_MIN_DATA_PROCESSED = DataSize.of(32, MEGABYTE);
 
     private final ConcurrentMap<CatalogHandle, ConnectorNodePartitioningProvider> partitionManagers = new ConcurrentHashMap<>();
     private NodePartitioningManager nodePartitioningManager;
@@ -118,7 +118,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(99)),
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 1);
@@ -191,7 +191,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -350,7 +350,7 @@ public class TestLocalExchange
     }
 
     @Test
-    public void testNoWriterScalingWhenOnlyWriterMinSizeLimitIsExceeded()
+    public void testNoWriterScalingWhenOnlyWriterScalingMinDataProcessedLimitIsExceeded()
     {
         LocalExchange localExchange = new LocalExchange(
                 nodePartitioningManager,
@@ -692,7 +692,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(retainedSizeOfPages(1)),
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -759,7 +759,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -855,7 +855,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -906,7 +906,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);
@@ -953,7 +953,7 @@ public class TestLocalExchange
                 Optional.empty(),
                 DataSize.ofBytes(2),
                 TYPE_OPERATOR_FACTORY,
-                WRITER_MIN_SIZE);
+                WRITER_SCALING_MIN_DATA_PROCESSED);
 
         run(localExchange, exchange -> {
             assertEquals(exchange.getBufferCount(), 2);

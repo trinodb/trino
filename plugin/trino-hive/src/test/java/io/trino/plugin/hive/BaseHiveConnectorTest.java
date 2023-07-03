@@ -119,7 +119,7 @@ import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
-import static io.trino.SystemSessionProperties.WRITER_MIN_SIZE;
+import static io.trino.SystemSessionProperties.WRITER_SCALING_MIN_DATA_PROCESSED;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -4055,7 +4055,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
-                            .setSystemProperty("writer_min_size", "32MB")
+                            .setSystemProperty("writer_scaling_min_data_processed", "32MB")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
@@ -4080,7 +4080,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
-                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("writer_scaling_min_data_processed", "1MB")
                             .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
                     createTableSql,
@@ -4110,7 +4110,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("task_writer_count", "1")
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
-                            .setSystemProperty("writer_min_size", "1MB")
+                            .setSystemProperty("writer_scaling_min_data_processed", "1MB")
                             .setSystemProperty("join_distribution_type", "PARTITIONED")
                             .setCatalogSessionProperty(catalog, "parquet_writer_block_size", "4MB")
                             .build(),
@@ -4182,14 +4182,14 @@ public abstract class BaseHiveConnectorTest
         testLimitWriterTasks(2, 2, true, true, true, DataSize.of(32, MEGABYTE));
     }
 
-    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerMinSize)
+    private void testLimitWriterTasks(int maxWriterTasks, int expectedFilesCount, boolean scaleWritersEnabled, boolean redistributeWrites, boolean partitioned, DataSize writerScalingMinDataProcessed)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
                 .setSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.toString(maxWriterTasks))
                 .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
                 .setSystemProperty(TASK_WRITER_COUNT, "1")
-                .setSystemProperty(WRITER_MIN_SIZE, writerMinSize.toString())
+                .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
                 .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
                 .build();
         String tableName = "writing_tasks_limit_%s".formatted(randomNameSuffix());
@@ -4208,7 +4208,7 @@ public abstract class BaseHiveConnectorTest
 
     protected AbstractLongAssert<?> testTaskScaleWriters(
             Session session,
-            DataSize writerMinSize,
+            DataSize writerScalingMinDataProcessed,
             int taskMaxScaleWriterCount,
             boolean scaleWriters)
     {
@@ -4221,7 +4221,7 @@ public abstract class BaseHiveConnectorTest
                     Session.builder(session)
                             .setSystemProperty(SCALE_WRITERS, String.valueOf(scaleWriters))
                             .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "true")
-                            .setSystemProperty(WRITER_MIN_SIZE, writerMinSize.toString())
+                            .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
                             .setSystemProperty(TASK_SCALE_WRITERS_MAX_WRITER_COUNT, String.valueOf(taskMaxScaleWriterCount))
                             // Set the value higher than sf1 input data size such that fault-tolerant scheduler
                             // shouldn't add new task and scaling only happens through the local scaling exchange.
@@ -8067,7 +8067,7 @@ public abstract class BaseHiveConnectorTest
 
         Session writerScalingSession = Session.builder(optimizeEnabledSession())
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("writer_min_size", "100GB")
+                .setSystemProperty("writer_scaling_min_data_processed", "100GB")
                 .build();
 
         assertUpdate(writerScalingSession, "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");
@@ -8104,7 +8104,7 @@ public abstract class BaseHiveConnectorTest
         Session optimizeEnabledSession = optimizeEnabledSession();
         Session writerScalingSession = Session.builder(optimizeEnabledSession)
                 .setSystemProperty("scale_writers", "true")
-                .setSystemProperty("writer_min_size", "100GB")
+                .setSystemProperty("writer_scaling_min_data_processed", "100GB")
                 .build();
 
         // optimize with unsupported WHERE

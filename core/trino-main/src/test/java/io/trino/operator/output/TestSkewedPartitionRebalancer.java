@@ -138,7 +138,7 @@ public class TestSkewedPartitionRebalancer
     }
 
     @Test
-    public void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterMinSize()
+    public void testNoRebalanceWhenDataWrittenByThePartitionIsLessThanWriterScalingMinDataProcessed()
     {
         int partitionCount = 3;
         long minPartitionDataProcessedRebalanceThreshold = DataSize.of(50, MEGABYTE).toBytes();
@@ -149,7 +149,7 @@ public class TestSkewedPartitionRebalancer
         rebalancer.addPartitionRowCount(1, 600);
         rebalancer.addPartitionRowCount(2, 0);
         rebalancer.addDataProcessed(DataSize.of(60, MEGABYTE).toBytes());
-        // No rebalancing will happen since no partition has crossed the writerMinSize limit of 50MB
+        // No rebalancing will happen since no partition has crossed the writerScalingMinDataProcessed limit of 50MB
         rebalancer.rebalance();
 
         assertThat(getPartitionPositions(function, 6))

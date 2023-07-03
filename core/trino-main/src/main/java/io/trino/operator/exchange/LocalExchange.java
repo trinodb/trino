@@ -99,7 +99,7 @@ public class LocalExchange
             Optional<Integer> partitionHashChannel,
             DataSize maxBufferedBytes,
             BlockTypeOperators blockTypeOperators,
-            DataSize writerMinSize)
+            DataSize writerScalingMinDataProcessed)
     {
         int bufferCount = computeBufferCount(partitioning, defaultConcurrency, partitionChannels);
 
@@ -141,7 +141,7 @@ public class LocalExchange
                         }
                         return physicalWrittenBytes;
                     },
-                    writerMinSize);
+                    writerScalingMinDataProcessed);
         }
         else if (isScaledWriterHashDistribution(partitioning)) {
             int partitionCount = bufferCount * SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -151,7 +151,7 @@ public class LocalExchange
                     () -> computeAggregatedPartitionRowCounts(writerPartitionRowCountsSuppliers),
                     partitionCount,
                     bufferCount,
-                    writerMinSize.toBytes());
+                    writerScalingMinDataProcessed.toBytes());
 
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
