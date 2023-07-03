@@ -328,4 +328,9 @@ public final class OkHttpUtil
         clientBuilder.addInterceptor(handler);
         clientBuilder.authenticator(handler);
     }
+
+    public static void setupAlternateHostnameVerification(OkHttpClient.Builder clientBuilder, String alternativeHostname)
+    {
+        clientBuilder.hostnameVerifier((hostname, session) -> LegacyHostnameVerifier.INSTANCE.verify(alternativeHostname, session));
+    }
 }
