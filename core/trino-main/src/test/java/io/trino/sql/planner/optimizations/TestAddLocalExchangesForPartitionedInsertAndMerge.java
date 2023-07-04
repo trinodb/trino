@@ -86,7 +86,6 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
     private MockConnectorFactory createMergeConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withSupportsReportingWrittenBytes(true)
                 .withGetTableHandle(((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("source_table")) {
                         return new MockConnectorTableHandle(schemaTableName);

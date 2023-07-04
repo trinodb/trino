@@ -766,7 +766,7 @@ public class AddExchanges
                 Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
                         ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
                         : Optional.empty();
-                if (scaleWriters && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
+                if (scaleWriters) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), Optional.empty(), false, Optional.empty(), maxWritersNodesCount));
                 }
                 else if (redistributeWrites) {

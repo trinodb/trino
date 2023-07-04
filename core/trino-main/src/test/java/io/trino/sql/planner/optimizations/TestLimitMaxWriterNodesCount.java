@@ -129,7 +129,6 @@ public class TestLimitMaxWriterNodesCount
                         distributedWithFilteringAndRepartitioning(),
                         ImmutableList.of(PropertyMetadata.stringProperty("file_size_threshold", "file_size_threshold", "10GB", false)))))
                 .withPartitionProvider(new TestTableScanNodePartitioning.TestPartitioningProvider(new InMemoryNodeManager()))
-                .withSupportsReportingWrittenBytes(true)
                 .withMaxWriterTasks(maxWriterTasks)
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),

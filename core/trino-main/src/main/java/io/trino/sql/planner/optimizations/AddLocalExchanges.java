@@ -720,12 +720,12 @@ public class AddLocalExchanges
 
             return partitioningScheme
                     .map(scheme -> visitPartitionedWriter(node, scheme, source, parentPreferences))
-                    .orElseGet(() -> visitUnpartitionedWriter(node, source, writerTarget));
+                    .orElseGet(() -> visitUnpartitionedWriter(node, source));
         }
 
-        private PlanWithProperties visitUnpartitionedWriter(PlanNode node, PlanNode source, WriterTarget writerTarget)
+        private PlanWithProperties visitUnpartitionedWriter(PlanNode node, PlanNode source)
         {
-            if (isTaskScaleWritersEnabled(session) && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
+            if (isTaskScaleWritersEnabled(session)) {
                 PlanWithProperties newSource = source.accept(this, defaultParallelism(session));
                 PlanWithProperties exchange = deriveProperties(
                         partitionedExchange(

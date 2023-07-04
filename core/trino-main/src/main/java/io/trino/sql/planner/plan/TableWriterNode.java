@@ -26,7 +26,6 @@ import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OutputTableHandle;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableLayout;
@@ -193,8 +192,6 @@ public class TableWriterNode
         @Override
         public abstract String toString();
 
-        public abstract boolean supportsReportingWrittenBytes(Metadata metadata, Session session);
-
         public abstract boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session);
 
         public abstract OptionalInt getMaxWriterTasks(Metadata metadata, Session session);
@@ -218,16 +215,6 @@ public class TableWriterNode
         public String getCatalog()
         {
             return catalog;
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            QualifiedObjectName fullTableName = new QualifiedObjectName(
-                    catalog,
-                    tableMetadata.getTableSchema().getTable().getSchemaName(),
-                    tableMetadata.getTableSchema().getTable().getTableName());
-            return metadata.supportsReportingWrittenBytes(session, fullTableName, tableMetadata.getProperties());
         }
 
         @Override
@@ -264,7 +251,6 @@ public class TableWriterNode
     {
         private final OutputTableHandle handle;
         private final SchemaTableName schemaTableName;
-        private final boolean reportingWrittenBytesSupported;
         private final boolean multipleWritersPerPartitionSupported;
         private final OptionalInt maxWriterTasks;
 
@@ -272,13 +258,11 @@ public class TableWriterNode
         public CreateTarget(
                 @JsonProperty("handle") OutputTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
                 @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
                 @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
             this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         }
@@ -296,12 +280,6 @@ public class TableWriterNode
         }
 
         @JsonProperty
-        public boolean getReportingWrittenBytesSupported()
-        {
-            return reportingWrittenBytesSupported;
-        }
-
-        @JsonProperty
         public boolean isMultipleWritersPerPartitionSupported()
         {
             return multipleWritersPerPartitionSupported;
@@ -311,12 +289,6 @@ public class TableWriterNode
         public String toString()
         {
             return handle.toString();
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return reportingWrittenBytesSupported;
         }
 
         @Override
@@ -362,12 +334,6 @@ public class TableWriterNode
         }
 
         @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return metadata.supportsReportingWrittenBytes(session, handle);
-        }
-
-        @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, handle)
@@ -387,7 +353,6 @@ public class TableWriterNode
     {
         private final InsertTableHandle handle;
         private final SchemaTableName schemaTableName;
-        private final boolean reportingWrittenBytesSupported;
         private final boolean multipleWritersPerPartitionSupported;
         private final OptionalInt maxWriterTasks;
 
@@ -395,13 +360,11 @@ public class TableWriterNode
         public InsertTarget(
                 @JsonProperty("handle") InsertTableHandle handle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported,
                 @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
                 @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
             this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
         }
@@ -419,12 +382,6 @@ public class TableWriterNode
         }
 
         @JsonProperty
-        public boolean getReportingWrittenBytesSupported()
-        {
-            return reportingWrittenBytesSupported;
-        }
-
-        @JsonProperty
         public boolean isMultipleWritersPerPartitionSupported()
         {
             return multipleWritersPerPartitionSupported;
@@ -434,12 +391,6 @@ public class TableWriterNode
         public String toString()
         {
             return handle.toString();
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return reportingWrittenBytesSupported;
         }
 
         @Override
@@ -483,12 +434,6 @@ public class TableWriterNode
         public String toString()
         {
             return table;
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return metadata.supportsReportingWrittenBytes(session, storageTableHandle);
         }
 
         @Override
@@ -558,12 +503,6 @@ public class TableWriterNode
         }
 
         @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return metadata.supportsReportingWrittenBytes(session, tableHandle);
-        }
-
-        @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             return metadata.getInsertLayout(session, tableHandle)
@@ -615,12 +554,6 @@ public class TableWriterNode
         public String toString()
         {
             return handle.map(Object::toString).orElse("[]");
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -695,12 +628,6 @@ public class TableWriterNode
         }
 
         @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
         public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
         {
             throw new UnsupportedOperationException();
@@ -719,19 +646,16 @@ public class TableWriterNode
         private final TableExecuteHandle executeHandle;
         private final Optional<TableHandle> sourceHandle;
         private final SchemaTableName schemaTableName;
-        private final boolean reportingWrittenBytesSupported;
 
         @JsonCreator
         public TableExecuteTarget(
                 @JsonProperty("executeHandle") TableExecuteHandle executeHandle,
                 @JsonProperty("sourceHandle") Optional<TableHandle> sourceHandle,
-                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-                @JsonProperty("reportingWrittenBytesSupported") boolean reportingWrittenBytesSupported)
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName)
         {
             this.executeHandle = requireNonNull(executeHandle, "handle is null");
             this.sourceHandle = requireNonNull(sourceHandle, "sourceHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-            this.reportingWrittenBytesSupported = reportingWrittenBytesSupported;
         }
 
         @JsonProperty
@@ -757,22 +681,10 @@ public class TableWriterNode
             return schemaTableName;
         }
 
-        @JsonProperty
-        public boolean isReportingWrittenBytesSupported()
-        {
-            return reportingWrittenBytesSupported;
-        }
-
         @Override
         public String toString()
         {
             return executeHandle.toString();
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return sourceHandle.map(tableHandle -> metadata.supportsReportingWrittenBytes(session, tableHandle)).orElse(reportingWrittenBytesSupported);
         }
 
         @Override
@@ -839,12 +751,6 @@ public class TableWriterNode
         public String toString()
         {
             return handle.toString();
-        }
-
-        @Override
-        public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-        {
-            return false;
         }
 
         @Override
