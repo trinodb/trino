@@ -70,12 +70,12 @@ public class TestGroupByHash
     @DataProvider
     public Object[][] groupByHashType()
     {
-        return new Object[][] {{GroupByHashType.BIGINT}, {GroupByHashType.MULTI_CHANNEL}, {GroupByHashType.FLAT}};
+        return new Object[][] {{GroupByHashType.BIGINT}, {GroupByHashType.FLAT}};
     }
 
     private enum GroupByHashType
     {
-        BIGINT, MULTI_CHANNEL, FLAT;
+        BIGINT, FLAT;
 
         public GroupByHash createGroupByHash()
         {
@@ -86,14 +86,6 @@ public class TestGroupByHash
         {
             return switch (this) {
                 case BIGINT -> new BigintGroupByHash(true, expectedSize, updateMemory);
-                case MULTI_CHANNEL -> new MultiChannelGroupByHash(
-                        ImmutableList.of(BigintType.BIGINT),
-                        true,
-                        expectedSize,
-                        true,
-                        JOIN_COMPILER,
-                        TYPE_OPERATORS,
-                        updateMemory);
                 case FLAT -> new FlatGroupByHash(
                         ImmutableList.of(BigintType.BIGINT),
                         true,
@@ -146,10 +138,11 @@ public class TestGroupByHash
         assertEquals(groupByHash.getGroupCount(), 1);
 
         Work<int[]> work = groupByHash.getGroupIds(page);
-        switch (groupByHashType) {
-            case FLAT -> assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
-            case MULTI_CHANNEL -> assertThat(work).isInstanceOf(MultiChannelGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
-            default -> assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        if (groupByHashType == GroupByHashType.FLAT) {
+            assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+        }
+        else {
+            assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
         }
         work.process();
         int[] groupIds = work.getResult();
@@ -318,7 +311,7 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, () -> {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, () -> {
             rehashCount.incrementAndGet();
             return true;
         });
@@ -357,7 +350,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -383,7 +376,7 @@ public class TestGroupByHash
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(true, ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
+        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, JOIN_COMPILER, TYPE_OPERATORS, updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -628,7 +621,7 @@ public class TestGroupByHash
 
     private static void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
     {
-        GroupByHash groupByHash = createGroupByHash(true, types, false, 100, true, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
+        GroupByHash groupByHash = createGroupByHash(types, false, 100, true, JOIN_COMPILER, TYPE_OPERATORS, NOOP);
         Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
         assertThat(work).isInstanceOf(clazz);
