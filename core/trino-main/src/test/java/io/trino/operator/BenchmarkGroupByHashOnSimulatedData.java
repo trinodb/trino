@@ -544,7 +544,7 @@ public class BenchmarkGroupByHashOnSimulatedData
 
         private void createNonDictionaryBlock(int blockCount, int positionsPerBlock, int channel, double nullChance, Block[] blocks)
         {
-            BlockBuilder allValues = generateValues(channel, distinctValuesCountInColumn);
+            Block allValues = generateValues(channel, distinctValuesCountInColumn).build();
             Random r = new Random(channel);
             for (int i = 0; i < blockCount; i++) {
                 BlockBuilder block = columnType.getType().createBlockBuilder(null, positionsPerBlock);
