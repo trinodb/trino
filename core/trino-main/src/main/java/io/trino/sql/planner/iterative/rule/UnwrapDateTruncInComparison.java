@@ -145,7 +145,7 @@ public class UnwrapDateTruncInComparison
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            ComparisonExpression expression = (ComparisonExpression) treeRewriter.defaultRewrite((Expression) node, null);
+            ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
             return unwrapDateTrunc(expression);
         }
 
