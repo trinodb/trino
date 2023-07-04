@@ -86,10 +86,6 @@ public class ValidateScaledWritersUsage
                     checkState(target.supportsMultipleWritersPerPartition(plannerContext.getMetadata(), session),
                             "The hash scaled writer partitioning scheme is set for the partitioned write but writer target %s doesn't support multiple writers per partition", target);
                 }
-                else {
-                    checkState(target.supportsReportingWrittenBytes(plannerContext.getMetadata(), session),
-                            "The round robin scaled writer partitioning scheme is set but writer target %s doesn't support reporting physical written bytes", target);
-                }
             });
             return children;
         }

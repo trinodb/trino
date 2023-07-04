@@ -298,7 +298,6 @@ public class TestTableWriterOperator
                                 new ConnectorOutputTableHandle() {}),
                         schemaTableName,
                         false,
-                        false,
                         OptionalInt.empty()),
                 ImmutableList.of(0),
                 session,
