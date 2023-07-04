@@ -46,6 +46,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -1279,13 +1280,13 @@ public class TestArrayOperators
                 .isEqualTo("1.0E0x2.1E0x3.3E0");
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[ARRAY[1], ARRAY[2]]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[MAP(ARRAY[1], ARRAY[2])]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
 
         assertTrinoExceptionThrownBy(assertions.function("array_join", "ARRAY[CAST(row(1, 2) AS row(col0 bigint, col1 bigint))]", "'-'")::evaluate)
-                .hasErrorCode(FUNCTION_NOT_FOUND);
+                .hasErrorCode(OPERATOR_NOT_FOUND);
     }
 
     @Test

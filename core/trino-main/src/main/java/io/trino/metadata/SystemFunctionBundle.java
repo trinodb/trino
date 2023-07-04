@@ -101,6 +101,7 @@ import io.trino.operator.scalar.ArrayFilterFunction;
 import io.trino.operator.scalar.ArrayFunctions;
 import io.trino.operator.scalar.ArrayHistogramFunction;
 import io.trino.operator.scalar.ArrayIntersectFunction;
+import io.trino.operator.scalar.ArrayJoin;
 import io.trino.operator.scalar.ArrayMaxFunction;
 import io.trino.operator.scalar.ArrayMinFunction;
 import io.trino.operator.scalar.ArrayNgramsFunction;
@@ -277,8 +278,6 @@ import static io.trino.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG
 import static io.trino.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.trino.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
-import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN;
-import static io.trino.operator.scalar.ArrayJoin.ARRAY_JOIN_WITH_NULL_REPLACEMENT;
 import static io.trino.operator.scalar.ArrayReduceFunction.ARRAY_REDUCE_FUNCTION;
 import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
@@ -517,7 +516,7 @@ public final class SystemFunctionBundle
                 .scalar(DynamicFilters.NullableFunction.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
-                .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
+                .scalars(ArrayJoin.class)
                 .scalar(ArrayToArrayCast.class)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
