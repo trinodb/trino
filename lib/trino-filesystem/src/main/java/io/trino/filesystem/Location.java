@@ -14,7 +14,6 @@
 package io.trino.filesystem;
 
 import com.google.common.base.Splitter;
-import com.google.common.collect.Iterables;
 
 import java.io.File;
 import java.util.List;
@@ -23,6 +22,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getLast;
 import static java.lang.Character.isWhitespace;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
@@ -78,11 +78,11 @@ public final class Location
         if (afterScheme.startsWith("//")) {
             // Locations with an authority must begin with a double slash
             afterScheme = afterScheme.substring(2);
-            List<String> userInfoSplit = USER_INFO_SPLITTER.splitToList(afterScheme);
-            Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
 
-            List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(Iterables.getLast(userInfoSplit));
-            List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(authoritySplit.get(0));
+            List<String> authoritySplit = AUTHORITY_SPLITTER.splitToList(afterScheme);
+            List<String> userInfoSplit = USER_INFO_SPLITTER.splitToList(authoritySplit.get(0));
+            Optional<String> userInfo = userInfoSplit.size() == 2 ? Optional.of(userInfoSplit.get(0)) : Optional.empty();
+            List<String> hostAndPortSplit = HOST_AND_PORT_SPLITTER.splitToList(getLast(userInfoSplit));
 
             Optional<String> host = Optional.of(hostAndPortSplit.get(0)).filter(not(String::isEmpty));
 
