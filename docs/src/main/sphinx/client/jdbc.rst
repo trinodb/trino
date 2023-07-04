@@ -185,6 +185,7 @@ Name                                                              Description
 ``KerberosDelegation``                                            Set to ``true`` to use the token from an existing Kerberos context.
                                                                   This allows client to use Kerberos authentication without passing
                                                                   the Keytab or credential cache. Defaults to ``false``.
+``KerberosConstrainedDelegation``                                 Pass GssCredential object as driver property directly to driver.
 ``extraCredentials``                                              Extra credentials for connecting to external services,
                                                                   specified as a list of key-value pairs. For example,
                                                                   ``foo:bar;abc:xyz`` creates the credential named ``abc``
