@@ -25,7 +25,6 @@ import io.trino.sql.gen.JoinCompiler;
 import java.util.List;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.trino.SystemSessionProperties.isFlatGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @NotThreadSafe
@@ -40,13 +39,11 @@ public interface GroupByHash
             TypeOperators typeOperators,
             UpdateMemory updateMemory)
     {
-        boolean flatGroupByHash = isFlatGroupByHash(session);
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
-        return createGroupByHash(flatGroupByHash, types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, typeOperators, updateMemory);
+        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, typeOperators, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
-            boolean flatGroupByHash,
             List<Type> types,
             boolean hasPrecomputedHash,
             int expectedSize,
@@ -58,10 +55,7 @@ public interface GroupByHash
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
             return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        if (flatGroupByHash) {
-            return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
-        }
-        return new MultiChannelGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, typeOperators, updateMemory);
+        return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, joinCompiler, updateMemory);
     }
 
     long getEstimatedSize();
