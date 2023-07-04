@@ -46,12 +46,8 @@ class TestLocation
         assertLocation("scheme:///some/path", "scheme", Optional.empty(), "", "some/path");
         // host can be empty string when userInfo is present
         assertLocation("scheme://user@/some/path", Optional.of("scheme"), Optional.of("user"), Optional.empty(), OptionalInt.empty(), "some/path", Set.of("userInfo compared with URI: expected [Optional.empty], was [Optional[user]]"));
-        // userInfo can be arbitrary string (note: this documents current state, but does not imply the intent to support such locations)
-        assertLocation("scheme://host:1234/some/path//@here:444/there", Optional.of("scheme"), Optional.of("host:1234/some/path//"), Optional.of("here"), OptionalInt.of(444), "there", Set.of(
-                "userInfo compared with URI: expected [Optional.empty], was [Optional[host:1234/some/path//]]",
-                "host compared with URI: expected [Optional[host]], was [Optional[here]]",
-                "port compared with URI: expected [OptionalInt[1234]], was [OptionalInt[444]]",
-                "'/path' compared with URI: expected [/some/path//@here:444/there], was [/there]"));
+        // userInfo cannot contain slashes
+        assertLocation("scheme://host:1234/some/path//@here:444/there", Optional.of("scheme"), Optional.empty(), Optional.of("host"), OptionalInt.of(1234), "some/path//@here:444/there");
         // host and userInfo can both be empty
         assertLocation("scheme://@/some/path", Optional.of("scheme"), Optional.of(""), Optional.empty(), OptionalInt.empty(), "some/path", Set.of("userInfo compared with URI: expected [Optional.empty], was [Optional[]]"));
         // port or userInfo can be given even if host is not (note: this documents current state, but does not imply the intent to support such locations)
@@ -113,6 +109,7 @@ class TestLocation
         assertLocation("file:/some/path", "file", "some/path");
         assertLocation("file:/some@what/path", "file", "some@what/path");
         assertLocation("hdfs:/a/hadoop/path.csv", "hdfs", "a/hadoop/path.csv");
+        assertLocation("file:///tmp/staging/dir/some-user@example.com", "file", "tmp/staging/dir/some-user@example.com");
 
         // invalid locations
         assertThatThrownBy(() -> Location.of(null))
@@ -438,6 +435,9 @@ class TestLocation
 
         assertAppendPath("/", "name", Location.of("/name"));
         assertAppendPath("/path", "name", Location.of("/path/name"));
+
+        assertAppendPath("/tmp", "username@example.com", Location.of("/tmp/username@example.com"));
+        assertAppendPath("file:///tmp", "username@example.com", Location.of("file:///tmp/username@example.com"));
     }
 
     private static void assertAppendPath(String locationString, String newPathElement, Location expected)
