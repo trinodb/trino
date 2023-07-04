@@ -45,7 +45,7 @@ public class TestHiveWriterFactory
     {
         String pathWithoutScheme = "/simple/file/path";
         String result = setSchemeToFileIfAbsent(Location.of(pathWithoutScheme)).toString();
-        assertThat(result).isEqualTo("file:///simple/file/path");
+        assertThat(result).isEqualTo("file://@/simple/file/path");
         URI resultUri = new Path(result).toUri();
         assertThat(resultUri.getScheme()).isEqualTo("file");
         assertThat(resultUri.getPath()).isEqualTo("/simple/file/path");
@@ -59,7 +59,7 @@ public class TestHiveWriterFactory
 
         String pathWithEmptySpaces = "/simple/file 1/path";
         result = setSchemeToFileIfAbsent(Location.of(pathWithEmptySpaces)).toString();
-        assertThat(result).isEqualTo("file:///simple/file 1/path");
+        assertThat(result).isEqualTo("file://@/simple/file 1/path");
         resultUri = new Path(result).toUri();
         assertThat(resultUri.getScheme()).isEqualTo("file");
         assertThat(resultUri.getPath()).isEqualTo("/simple/file 1/path");
@@ -70,5 +70,12 @@ public class TestHiveWriterFactory
         resultUri = new Path(result).toUri();
         assertThat(resultUri.getScheme()).isEqualTo("s3");
         assertThat(resultUri.getPath()).isEqualTo("/file 1/path");
+
+        String pathWithAtSign = "/tmp/user@example.com";
+        result = setSchemeToFileIfAbsent(Location.of(pathWithAtSign)).toString();
+        assertThat(result).isEqualTo("file://@/tmp/user@example.com");
+        resultUri = new Path(result).toUri();
+        assertThat(resultUri.getScheme()).isEqualTo("file");
+        assertThat(resultUri.getPath()).isEqualTo("/tmp/user@example.com");
     }
 }

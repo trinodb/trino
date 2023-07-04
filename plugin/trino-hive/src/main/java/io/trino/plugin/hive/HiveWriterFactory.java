@@ -812,7 +812,7 @@ public class HiveWriterFactory
         if (location.scheme().isPresent()) {
             return location;
         }
-        return Location.of("file:///" + location.path());
+        return Location.of("file://@/" + location.path());
     }
 
     private static class DataColumn
