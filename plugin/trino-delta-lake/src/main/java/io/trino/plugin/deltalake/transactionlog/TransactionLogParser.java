@@ -29,7 +29,6 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -66,7 +65,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.parseDouble;
@@ -185,8 +184,8 @@ public final class TransactionLogParser
             if (type.equals(BIGINT)) {
                 return parseLong(valueString);
             }
-            if (type.getBaseName().equals(StandardTypes.DECIMAL)) {
-                return parseDecimal((DecimalType) type, valueString);
+            if (type instanceof DecimalType decimalType) {
+                return parseDecimal(decimalType, valueString);
             }
             if (type.equals(REAL)) {
                 return (long) floatToRawIntBits(parseFloat(valueString));
@@ -198,7 +197,7 @@ public final class TransactionLogParser
                 // date values are represented as yyyy-MM-dd
                 return LocalDate.parse(valueString).toEpochDay();
             }
-            if (type.equals(createTimestampWithTimeZoneType(3))) {
+            if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                 return timestampReader.apply(valueString);
             }
             if (VARCHAR.equals(type)) {
