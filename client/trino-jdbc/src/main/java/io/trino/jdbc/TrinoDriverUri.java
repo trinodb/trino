@@ -69,6 +69,7 @@ import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.jdbc.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
+import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONSTRAINED_DELEGATION;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CREDENTIAL_CACHE_PATH;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_DELEGATION;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_KEYTAB_PATH;
@@ -321,7 +322,8 @@ public final class TrinoDriverUri
                         KERBEROS_KEYTAB_PATH.getValue(properties),
                         Optional.ofNullable(KERBEROS_CREDENTIAL_CACHE_PATH.getValue(properties)
                                 .orElseGet(() -> defaultCredentialCachePath().map(File::new).orElse(null))),
-                        KERBEROS_DELEGATION.getRequiredValue(properties));
+                        KERBEROS_DELEGATION.getRequiredValue(properties),
+                        KERBEROS_CONSTRAINED_DELEGATION.getValue(properties));
             }
 
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
@@ -486,7 +488,8 @@ public final class TrinoDriverUri
     {
         Map<String, Object> defaults = ConnectionProperties.getDefaults();
         Map<String, Object> urlProperties = parseParameters(uri.getQuery());
-        Map<String, Object> suppliedProperties = driverProperties.entrySet().stream().collect(toImmutableMap(entry -> (String) entry.getKey(), Entry::getValue));
+        Map<String, Object> suppliedProperties = driverProperties.entrySet().stream()
+                .collect(toImmutableMap(entry -> (String) entry.getKey(), Entry::getValue));
 
         for (String key : urlProperties.keySet()) {
             if (suppliedProperties.containsKey(key)) {

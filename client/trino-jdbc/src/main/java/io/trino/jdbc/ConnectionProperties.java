@@ -21,6 +21,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
+import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
 import java.util.List;
@@ -77,6 +78,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<String, File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String, Boolean> KERBEROS_DELEGATION = new KerberosDelegation();
+    public static final ConnectionProperty<GSSCredential, GSSCredential> KERBEROS_CONSTRAINED_DELEGATION = new KerberosConstrainedDelegation();
     public static final ConnectionProperty<String, String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<String, Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<String, Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
@@ -120,6 +122,7 @@ final class ConnectionProperties
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(KERBEROS_DELEGATION)
+            .add(KERBEROS_CONSTRAINED_DELEGATION)
             .add(ACCESS_TOKEN)
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
@@ -455,6 +458,11 @@ final class ConnectionProperties
         return isKerberosEnabled().and(checkedPredicate(properties -> !KERBEROS_DELEGATION.getValue(properties).orElse(false)));
     }
 
+    private static Predicate<Properties> isKerberosWithDelegation()
+    {
+        return isKerberosEnabled().and(checkedPredicate(properties -> KERBEROS_DELEGATION.getValue(properties).orElse(false)));
+    }
+
     private static class KerberosServicePrincipalPattern
             extends AbstractConnectionProperty<String, String>
     {
@@ -515,6 +523,15 @@ final class ConnectionProperties
         public KerberosDelegation()
         {
             super("KerberosDelegation", Optional.of("false"), isKerberosEnabled(), ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class KerberosConstrainedDelegation
+            extends AbstractConnectionProperty<GSSCredential, GSSCredential>
+    {
+        public KerberosConstrainedDelegation()
+        {
+            super("KerberosConstrainedDelegation", Optional.empty(), NOT_REQUIRED, isKerberosWithDelegation(), GSSCredential.class::cast);
         }
     }
 

@@ -49,7 +49,7 @@ public class Suite3
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
                         .build(),
                 testOnEnvironment(EnvMultinodeTlsKerberosDelegation.class)
-                        .withGroups("configured_features", "jdbc")
+                        .withGroups("configured_features", "jdbc", "jdbc_kerberos_constrained_delegation")
                         .build());
     }
 }
