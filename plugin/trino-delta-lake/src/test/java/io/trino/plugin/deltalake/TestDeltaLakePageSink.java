@@ -43,14 +43,12 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -159,14 +157,11 @@ public class TestDeltaLakePageSink
     {
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         DeltaLakeConfig deltaLakeConfig = new DeltaLakeConfig();
-        String schemaString = serializeSchemaAsJson(
-                getColumnHandles().stream().map(DeltaLakeColumnHandle::getColumnName).collect(toImmutableList()),
-                getColumnHandles().stream()
-                        .map(column -> Map.entry(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType())))
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableMap.of());
+        DeltaLakeTable.Builder deltaTable = DeltaLakeTable.builder();
+        for (DeltaLakeColumnHandle column : getColumnHandles()) {
+            deltaTable.addColumn(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType()), true, null, ImmutableMap.of());
+        }
+        String schemaString = serializeSchemaAsJson(deltaTable.build());
         DeltaLakeOutputTableHandle tableHandle = new DeltaLakeOutputTableHandle(
                 SCHEMA_NAME,
                 TABLE_NAME,
