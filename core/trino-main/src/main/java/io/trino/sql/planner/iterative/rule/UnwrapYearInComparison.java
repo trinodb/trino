@@ -120,7 +120,7 @@ public class UnwrapYearInComparison
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            ComparisonExpression expression = (ComparisonExpression) treeRewriter.defaultRewrite((Expression) node, null);
+            ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
             return unwrapYear(expression);
         }
 
