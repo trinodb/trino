@@ -53,7 +53,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
@@ -74,7 +73,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_BAD_DATA;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
@@ -85,11 +84,12 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 public class CheckpointEntryIterator
@@ -463,9 +463,9 @@ public class CheckpointEntryIterator
                 continue;
             }
             if (type instanceof TimestampWithTimeZoneType) {
-                Instant instant = Instant.ofEpochMilli(LongMath.divide((Long) readNativeValue(TIMESTAMP_MILLIS, valuesBlock, i), MICROSECONDS_PER_MILLISECOND, UNNECESSARY));
-                if (!instant.atZone(UTC).toLocalDate().isBefore(START_OF_MODERN_ERA)) {
-                    values.put(name, packDateTimeWithZone(instant.toEpochMilli(), UTC_KEY));
+                long epochMillis = LongMath.divide((long) readNativeValue(TIMESTAMP_MILLIS, valuesBlock, i), MICROSECONDS_PER_MILLISECOND, UNNECESSARY);
+                if (floorDiv(epochMillis, MILLISECONDS_PER_DAY) >= START_OF_MODERN_ERA_EPOCH_DAY) {
+                    values.put(name, packDateTimeWithZone(epochMillis, UTC_KEY));
                 }
                 continue;
             }
