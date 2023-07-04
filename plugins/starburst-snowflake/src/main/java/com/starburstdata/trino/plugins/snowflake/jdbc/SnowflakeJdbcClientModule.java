@@ -175,6 +175,7 @@ public class SnowflakeJdbcClientModule
         snowflakeConfig.getRole().ifPresent(role -> properties.setProperty("role", role));
 
         properties.setProperty("JDBC_TREAT_DECIMAL_AS_INT", "false"); // avoid cast to Long which overflows
+        properties.setProperty("JDBC_USE_SESSION_TIMEZONE", "false");
         properties.setProperty("TIMESTAMP_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
         properties.setProperty("TIMESTAMP_NTZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);
         properties.setProperty("TIMESTAMP_TZ_OUTPUT_FORMAT", TIMESTAMP_FORMAT);

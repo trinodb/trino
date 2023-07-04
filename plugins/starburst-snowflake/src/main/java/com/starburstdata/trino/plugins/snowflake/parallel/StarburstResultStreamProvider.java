@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugins.snowflake.parallel;
 
 import com.google.inject.Inject;
 import io.trino.spi.TrinoException;
+import net.snowflake.client.core.ExecTimeTelemetryData;
 import net.snowflake.client.jdbc.RestRequest;
 import net.snowflake.client.jdbc.SnowflakeSQLException;
 import net.snowflake.client.jdbc.internal.apache.http.Header;
@@ -100,7 +101,8 @@ public class StarburstResultStreamProvider
                         false, // no cookie
                         false, // no retry parameters in url
                         false, // no request_guid
-                        true); // retry on HTTP403 for AWS S3
+                        true, // retry on HTTP403 for AWS S3
+                        new ExecTimeTelemetryData());
         if (response == null || response.getStatusLine().getStatusCode() != 200) {
             throw new TrinoException(
                     JDBC_ERROR,

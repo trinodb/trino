@@ -41,6 +41,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.type.Type;
+import net.snowflake.client.core.ExecTimeTelemetryData;
 import net.snowflake.client.core.ParameterBindingDTO;
 import net.snowflake.client.core.SFException;
 import net.snowflake.client.core.SFStatement;
@@ -126,7 +127,8 @@ public class SnowflakeSplitManager
                     bindValues,
                     false,
                     false,
-                    false);
+                    false,
+                    new ExecTimeTelemetryData());
 
             return new FixedSplitSource(parseChunkFiles(jsonResult));
         }
