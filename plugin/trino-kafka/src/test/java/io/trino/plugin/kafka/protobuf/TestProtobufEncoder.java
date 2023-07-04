@@ -292,7 +292,7 @@ public class TestProtobufEncoder
                 new Block[]{listBlockBuilder.build(), mapBlockBuilder.build(), rowBlockBuilder.build()});
         nestedRowType.appendTo(rowBlock, 0, nestedBlockBuilder);
 
-        rowEncoder.appendColumnValue(nestedBlockBuilder, 0);
+        rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);
 
         assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
     }

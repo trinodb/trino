@@ -95,20 +95,6 @@ public class TestBlockBuilder
         blockBuilder.appendNull();
         int[] positions = new int[] {0, 1, 1, 1, 4};
 
-        // test getPositions for block builder
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, positions.length), buildBigintBlock(null, 42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 4), buildBigintBlock(42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 2, 1), buildBigintBlock(42));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, 0), buildBigintBlock());
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 0), buildBigintBlock());
-
-        // out of range
-        assertInvalidPosition(blockBuilder, new int[] {-1}, 0, 1);
-        assertInvalidPosition(blockBuilder, new int[] {6}, 0, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, -1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 2, -1);
-
         // test getPositions for block
         Block block = blockBuilder.build();
         assertBlockEquals(BIGINT, block.getPositions(positions, 0, positions.length), buildBigintBlock(null, 42, 42, 42, null));

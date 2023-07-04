@@ -64,17 +64,21 @@ public class TestBlockSet
     public void testGetElementPosition()
     {
         int elementCount = 100;
-        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
-            blockSet.add(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            blockSet.add(block, i);
         }
 
         assertEquals(blockSet.size(), elementCount);
 
-        for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
-            assertEquals(blockSet.positionOf(blockBuilder, j), j);
+        for (int j = 0; j < block.getPositionCount(); j++) {
+            assertEquals(blockSet.positionOf(block, j), j);
         }
     }
 
@@ -82,7 +86,6 @@ public class TestBlockSet
     public void testGetElementPositionWithNull()
     {
         int elementCount = 100;
-        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -91,7 +94,12 @@ public class TestBlockSet
             else {
                 BIGINT.writeLong(blockBuilder, i);
             }
-            blockSet.add(blockBuilder, i);
+        }
+        Block block = blockBuilder.build();
+
+        BlockSet blockSet = createBlockSet(BIGINT, elementCount);
+        for (int i = 0; i < block.getPositionCount(); i++) {
+            blockSet.add(block, i);
         }
 
         // The internal elementBlock and hashtable of the blockSet should contain
@@ -99,14 +107,14 @@ public class TestBlockSet
         assertEquals(blockSet.size(), elementCount - elementCount / 10 + 1);
 
         int nullCount = 0;
-        for (int j = 0; j < blockBuilder.getPositionCount(); j++) {
+        for (int j = 0; j < block.getPositionCount(); j++) {
             // The null is only added to blockSet once, so the internal elementBlock subscript is shifted by nullCountMinusOne
-            if (!blockBuilder.isNull(j)) {
-                assertEquals(blockSet.positionOf(blockBuilder, j), j - nullCount + 1);
+            if (!block.isNull(j)) {
+                assertEquals(blockSet.positionOf(block, j), j - nullCount + 1);
             }
             else {
                 // The first null added to blockSet is at position 0
-                assertEquals(blockSet.positionOf(blockBuilder, j), 0);
+                assertEquals(blockSet.positionOf(block, j), 0);
                 nullCount++;
             }
         }
@@ -155,22 +163,24 @@ public class TestBlockSet
     @Test
     public void testGetElementPositionRandom()
     {
-        BlockBuilder keys = VARCHAR.createBlockBuilder(null, 5);
-        VARCHAR.writeSlice(keys, utf8Slice("hello"));
-        VARCHAR.writeSlice(keys, utf8Slice("bye"));
-        VARCHAR.writeSlice(keys, utf8Slice("abc"));
+        BlockBuilder keysBuilder = VARCHAR.createBlockBuilder(null, 5);
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("hello"));
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("bye"));
+        VARCHAR.writeSlice(keysBuilder, utf8Slice("abc"));
+        Block keys = keysBuilder.build();
 
         BlockSet set = createBlockSet(VARCHAR, 4);
         for (int i = 0; i < keys.getPositionCount(); i++) {
             set.add(keys, i);
         }
 
-        BlockBuilder values = VARCHAR.createBlockBuilder(null, 5);
-        VARCHAR.writeSlice(values, utf8Slice("bye"));
-        VARCHAR.writeSlice(values, utf8Slice("abc"));
-        VARCHAR.writeSlice(values, utf8Slice("hello"));
-        VARCHAR.writeSlice(values, utf8Slice("bad"));
-        values.appendNull();
+        BlockBuilder valuesBuilder = VARCHAR.createBlockBuilder(null, 5);
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("bye"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("abc"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("hello"));
+        VARCHAR.writeSlice(valuesBuilder, utf8Slice("bad"));
+        valuesBuilder.appendNull();
+        Block values = valuesBuilder.build();
 
         assertEquals(set.positionOf(values, 4), -1);
         assertEquals(set.positionOf(values, 2), 0);

@@ -67,18 +67,19 @@ public class TestDoubleType
         // the following two are the long values of a double NaN
         blockBuilder.writeLong(-0x000fffffffffffffL);
         blockBuilder.writeLong(0x7ff8000000000000L);
+        Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
-        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 4));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 1));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 2));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 3));
+        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 4));
 
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 1));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 2));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 3));
-        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 4));
+        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 1));
+        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 2));
+        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 3));
+        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 4));
     }
 
     @Test
