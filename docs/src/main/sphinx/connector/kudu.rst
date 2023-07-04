@@ -61,6 +61,9 @@ replacing the properties as appropriate:
    ## Disable Kudu client's collection of statistics.
    #kudu.client.disable-statistics = false
 
+   ## Assign Kudu splits to replica host if worker and kudu share the same cluster
+   #kudu.allow-local-scheduling = false
+
 Kerberos support
 ----------------
 
