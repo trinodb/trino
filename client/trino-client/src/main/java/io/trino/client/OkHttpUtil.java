@@ -16,6 +16,7 @@ package io.trino.client;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.net.HostAndPort;
+import io.trino.client.auth.kerberos.DelegatedConstrainedContextProvider;
 import io.trino.client.auth.kerberos.DelegatedUnconstrainedContextProvider;
 import io.trino.client.auth.kerberos.GSSContextProvider;
 import io.trino.client.auth.kerberos.LoginBasedUnconstrainedContextProvider;
@@ -25,6 +26,7 @@ import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.internal.tls.LegacyHostnameVerifier;
+import org.ietf.jgss.GSSCredential;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -315,11 +317,12 @@ public final class OkHttpUtil
             Optional<File> kerberosConfig,
             Optional<File> keytab,
             Optional<File> credentialCache,
-            boolean delegatedKerberos)
+            boolean delegatedKerberos,
+            Optional<GSSCredential> gssCredential)
     {
         GSSContextProvider contextProvider;
         if (delegatedKerberos) {
-            contextProvider = new DelegatedUnconstrainedContextProvider();
+            contextProvider = getDelegatedGSSContextProvider(gssCredential);
         }
         else {
             contextProvider = new LoginBasedUnconstrainedContextProvider(principal, kerberosConfig, keytab, credentialCache);
@@ -332,5 +335,12 @@ public final class OkHttpUtil
     public static void setupAlternateHostnameVerification(OkHttpClient.Builder clientBuilder, String alternativeHostname)
     {
         clientBuilder.hostnameVerifier((hostname, session) -> LegacyHostnameVerifier.INSTANCE.verify(alternativeHostname, session));
+    }
+
+    private static GSSContextProvider getDelegatedGSSContextProvider(Optional<GSSCredential> gssCredential)
+    {
+        return gssCredential.map(DelegatedConstrainedContextProvider::new)
+                .map(gssCred -> (GSSContextProvider) gssCred)
+                .orElse(new DelegatedUnconstrainedContextProvider());
     }
 }
