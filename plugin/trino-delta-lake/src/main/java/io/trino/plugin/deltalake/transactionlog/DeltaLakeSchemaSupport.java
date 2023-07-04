@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
+import io.trino.plugin.deltalake.DeltaLakeTable;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.Location;
@@ -197,52 +198,42 @@ public final class DeltaLakeSchemaSupport
                 .collect(toImmutableList());
     }
 
-    public static String serializeSchemaAsJson(
-            List<String> columnNames,
-            Map<String, Object> columnTypes,
-            Map<String, String> columnComments,
-            Map<String, Boolean> columnNullability,
-            Map<String, Map<String, Object>> columnMetadata)
+    public static String serializeSchemaAsJson(DeltaLakeTable deltaTable)
     {
         try {
-            return OBJECT_MAPPER.writeValueAsString(serializeStructType(columnNames, columnTypes, columnComments, columnNullability, columnMetadata));
+            return OBJECT_MAPPER.writeValueAsString(serializeStructType(deltaTable));
         }
         catch (JsonProcessingException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, getLocation(e), "Failed to encode Delta Lake schema", e);
         }
     }
 
-    private static Map<String, Object> serializeStructType(
-            List<String> columnNames,
-            Map<String, Object> columnTypes,
-            Map<String, String> columnComments,
-            Map<String, Boolean> columnNullability,
-            Map<String, Map<String, Object>> columnMetadata)
+    private static Map<String, Object> serializeStructType(DeltaLakeTable deltaTable)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-type
         ImmutableMap.Builder<String, Object> schema = ImmutableMap.builder();
 
         schema.put("type", "struct");
-        schema.put("fields", columnNames.stream()
-                .map(columnName -> serializeStructField(
-                        columnName,
-                        columnTypes.get(columnName),
-                        columnComments.get(columnName),
-                        columnNullability.get(columnName),
-                        columnMetadata.get(columnName)))
+        schema.put("fields", deltaTable.columns().stream()
+                .map(column -> serializeStructField(
+                        column.name(),
+                        column.type(),
+                        column.comment(),
+                        column.nullable(),
+                        column.metadata()))
                 .collect(toImmutableList()));
 
         return schema.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, @Nullable Boolean nullable, @Nullable Map<String, Object> metadata)
+    private static Map<String, Object> serializeStructField(String name, Object type, @Nullable String comment, boolean nullable, @Nullable Map<String, Object> metadata)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#struct-field
         ImmutableMap.Builder<String, Object> fieldContents = ImmutableMap.builder();
 
         fieldContents.put("name", name);
         fieldContents.put("type", type);
-        fieldContents.put("nullable", nullable != null ? nullable : true);
+        fieldContents.put("nullable", nullable);
 
         ImmutableMap.Builder<String, Object> columnMetadata = ImmutableMap.builder();
         if (comment != null) {
@@ -306,7 +297,7 @@ public final class DeltaLakeSchemaSupport
                 .map(field -> {
                     Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
-                    return serializeStructField(field.getName().orElse(null), fieldType, null, null, metadata);
+                    return serializeStructField(field.getName().orElse(null), fieldType, null, true, metadata);
                 })
                 .collect(toImmutableList()));
 
