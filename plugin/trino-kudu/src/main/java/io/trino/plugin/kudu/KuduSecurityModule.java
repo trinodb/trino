@@ -115,6 +115,6 @@ public class KuduSecurityModule
         else {
             strategy = new NoSchemaEmulation();
         }
-        return new KuduClientSession(client, strategy);
+        return new KuduClientSession(client, strategy, config.isAllowLocalScheduling());
     }
 }

@@ -44,6 +44,7 @@ public class KuduClientConfig
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
+    private boolean allowLocalScheduling;
 
     @NotNull
     @Size(min = 1)
@@ -141,6 +142,19 @@ public class KuduClientConfig
     public KuduClientConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    public boolean isAllowLocalScheduling()
+    {
+        return allowLocalScheduling;
+    }
+
+    @Config("kudu.allow-local-scheduling")
+    @ConfigDescription("Assign Kudu splits to replica host if worker and kudu share the same cluster")
+    public KuduClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
+    {
+        this.allowLocalScheduling = allowLocalScheduling;
         return this;
     }
 }

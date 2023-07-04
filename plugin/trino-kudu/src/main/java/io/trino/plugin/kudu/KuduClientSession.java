@@ -22,6 +22,7 @@ import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.properties.RangePartition;
 import io.trino.plugin.kudu.properties.RangePartitionDefinition;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
+import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -52,6 +53,7 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduSession;
 import org.apache.kudu.client.KuduTable;
+import org.apache.kudu.client.LocatedTablet.Replica;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.PartitionSchema.HashBucketSchema;
 
@@ -67,8 +69,10 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 import static org.apache.kudu.ColumnSchema.ColumnSchemaBuilder;
 import static org.apache.kudu.ColumnSchema.CompressionAlgorithm;
@@ -84,11 +88,13 @@ public class KuduClientSession
     public static final String DEFAULT_SCHEMA = "default";
     private final KuduClientWrapper client;
     private final SchemaEmulation schemaEmulation;
+    private final boolean allowLocalScheduling;
 
-    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation)
+    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation, boolean allowLocalScheduling)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
+        this.allowLocalScheduling = allowLocalScheduling;
     }
 
     public List<String> listSchemaNames()
@@ -614,7 +620,19 @@ public class KuduClientSession
     {
         try {
             byte[] serializedScanToken = token.serialize();
-            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber);
+            List<HostAddress> addresses = ImmutableList.of();
+            if (allowLocalScheduling) {
+                List<Replica> replicas = token.getTablet().getReplicas();
+                // KuduScanTokenBuilder uses ReplicaSelection.LEADER_ONLY by default, see org.apache.kudu.client.AbstractKuduScannerBuilder,
+                // because use ReplicaSelection.CLOSEST_REPLICA may cause slow queries when tablet followers' data lag behind tablet leaders',
+                // in this condition followers will wait until its data is synchronized with leaders' before returning
+                addresses = replicas.stream()
+                        .filter(replica -> replica.getRole().toLowerCase(ENGLISH).equals("leader"))
+                        .map(replica -> fromParts(replica.getRpcHost(), replica.getRpcPort()))
+                        .collect(toImmutableList());
+            }
+
+            return new KuduSplit(tableHandle.getSchemaTableName(), primaryKeyColumnCount, serializedScanToken, bucketNumber, addresses);
         }
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
