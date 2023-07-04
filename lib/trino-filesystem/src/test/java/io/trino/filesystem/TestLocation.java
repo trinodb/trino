@@ -40,7 +40,7 @@ class TestLocation
 
         // host can be empty string
         assertLocation("scheme:///some/path", "scheme", Optional.empty(), "", "some/path");
-        // userInfo can be empty string
+        // host can be empty string when userInfo is present
         assertLocation("scheme://user@/some/path", "scheme", Optional.of("user"), "", "some/path");
         // userInfo can be arbitrary string (note: this documents current state, but does not imply the intent to support such locations)
         assertLocation("scheme://host:1234/some/path//@here:444/there", Optional.of("scheme"), Optional.of("host:1234/some/path//"), Optional.of("here"), OptionalInt.of(444), "there");
