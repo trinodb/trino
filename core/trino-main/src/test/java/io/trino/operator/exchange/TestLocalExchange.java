@@ -130,7 +130,7 @@ public class TestLocalExchange
             LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
             sinkFactory.noMoreSinkFactories();
 
-            LocalExchangeSource source = getNextSource(exchange);
+            LocalExchangeSource source = exchange.getNextSource();
             assertSource(source, 0);
 
             LocalExchangeSink sink = sinkFactory.createSink();
@@ -206,10 +206,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             for (int i = 0; i < 100; i++) {
@@ -255,13 +255,13 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
             sink.addPage(createPage(0));
@@ -314,13 +314,13 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
             range(0, 6).forEach(i -> sink.addPage(createPage(0)));
@@ -356,13 +356,13 @@ public class TestLocalExchange
             sinkFactory.close();
 
             AtomicLong physicalWrittenBytesA = new AtomicLong(0);
-            LocalExchangeSource sourceA = exchange.getNextSource(physicalWrittenBytesA::get);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
             range(0, 8).forEach(i -> sink.addPage(createPage(0)));
@@ -401,16 +401,16 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
-            LocalExchangeSource sourceD = getNextSource(exchange);
+            LocalExchangeSource sourceD = exchange.getNextSource();
             assertSource(sourceD, 0);
 
             sink.addPage(createSingleValuePage(0, 1000));
@@ -490,16 +490,16 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
-            LocalExchangeSource sourceD = getNextSource(exchange);
+            LocalExchangeSource sourceD = exchange.getNextSource();
             assertSource(sourceD, 0);
 
             sink.addPage(createSingleValuePage(0, 1000));
@@ -553,16 +553,16 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceC = getNextSource(exchange);
+            LocalExchangeSource sourceC = exchange.getNextSource();
             assertSource(sourceC, 0);
 
-            LocalExchangeSource sourceD = getNextSource(exchange);
+            LocalExchangeSource sourceD = exchange.getNextSource();
             assertSource(sourceD, 0);
 
             sink.addPage(createSingleValuePage(0, 1000));
@@ -616,10 +616,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             sink.addPage(createSingleValuePage(0, 1000));
@@ -665,10 +665,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
@@ -730,10 +730,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             sink.addPage(createPage(0));
@@ -826,10 +826,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sink);
             sinkFactory.close();
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
             Page pageA = SequencePageBuilder.createSequencePage(types, 1, 100, 42);
@@ -879,10 +879,10 @@ public class TestLocalExchange
             assertSinkCanWrite(sinkB);
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             sourceA.finish();
@@ -932,10 +932,10 @@ public class TestLocalExchange
 
             sinkFactory.close();
 
-            LocalExchangeSource sourceA = getNextSource(exchange);
+            LocalExchangeSource sourceA = exchange.getNextSource();
             assertSource(sourceA, 0);
 
-            LocalExchangeSource sourceB = getNextSource(exchange);
+            LocalExchangeSource sourceB = exchange.getNextSource();
             assertSource(sourceB, 0);
 
             sinkA.addPage(createPage(0));
@@ -1016,11 +1016,6 @@ public class TestLocalExchange
         test.accept(localExchange);
     }
 
-    private LocalExchangeSource getNextSource(LocalExchange exchange)
-    {
-        return exchange.getNextSource(() -> DataSize.of(0, MEGABYTE).toBytes());
-    }
-
     private static void assertSource(LocalExchangeSource source, int pageCount)
     {
         LocalExchangeBufferInfo bufferInfo = source.getBufferInfo();
@@ -1051,11 +1046,6 @@ public class TestLocalExchange
         assertTrue(source.waitForReading().isDone());
 
         assertTrue(source.isFinished());
-    }
-
-    private static void assertRemoveAllPages(LocalExchangeSource source, Page expectedPage)
-    {
-        range(0, source.getBufferInfo().getBufferedPages()).forEach(i -> assertRemovePage(source, expectedPage));
     }
 
     private static void assertRemovePage(LocalExchangeSource source, Page expectedPage)

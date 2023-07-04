@@ -1470,11 +1470,15 @@ public interface ConnectorMetadata
         return Optional.empty();
     }
 
+    // TODO - Remove this method since now it is only used in test BaseConnectorTest#testWrittenDataSize()
+    @Deprecated
     default boolean supportsReportingWrittenBytes(ConnectorSession session, SchemaTableName schemaTableName, Map<String, Object> tableProperties)
     {
         return false;
     }
 
+    // TODO - Remove this method since now it is only used in test BaseConnectorTest#testWrittenDataSize()
+    @Deprecated
     default boolean supportsReportingWrittenBytes(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
     {
         return false;

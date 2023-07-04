@@ -30,12 +30,6 @@ public class TestingWriterTarget
     }
 
     @Override
-    public boolean supportsReportingWrittenBytes(Metadata metadata, Session session)
-    {
-        return false;
-    }
-
-    @Override
     public boolean supportsMultipleWritersPerPartition(Metadata metadata, Session session)
     {
         return false;

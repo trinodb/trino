@@ -944,8 +944,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        boolean supportsReportingWrittenBytes = metadata.supportsReportingWrittenBytes(session, tableHandle);
-        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName(), supportsReportingWrittenBytes);
+        TableWriterNode.TableExecuteTarget tableExecuteTarget = new TableWriterNode.TableExecuteTarget(executeHandle, Optional.empty(), tableName.asSchemaTableName());
 
         Optional<TableLayout> layout = metadata.getLayoutForTableExecute(session, executeHandle);
 

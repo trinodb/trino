@@ -40,7 +40,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -71,9 +70,6 @@ public class LocalExchange
     private final Supplier<LocalExchanger> exchangerSupplier;
 
     private final List<LocalExchangeSource> sources;
-
-    // Physical written bytes for each writer in the same order as source buffers
-    private final List<Supplier<Long>> physicalWrittenBytesSuppliers = new CopyOnWriteArrayList<>();
 
     @GuardedBy("this")
     private boolean allSourcesFinished;
@@ -212,11 +208,10 @@ public class LocalExchange
         return newFactory;
     }
 
-    public synchronized LocalExchangeSource getNextSource(Supplier<Long> physicalWrittenBytesSupplier)
+    public synchronized LocalExchangeSource getNextSource()
     {
         checkState(nextSourceIndex < sources.size(), "All operators already created");
         LocalExchangeSource result = sources.get(nextSourceIndex);
-        physicalWrittenBytesSuppliers.add(physicalWrittenBytesSupplier);
         nextSourceIndex++;
         return result;
     }
