@@ -266,7 +266,8 @@ public class UnwrapCastInComparison
                             case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
                             case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
-                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
+                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
                         };
                     }
 
@@ -290,7 +291,8 @@ public class UnwrapCastInComparison
                             case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
                             case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
-                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM -> new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                            case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
+                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
                         };
                     }
                 }
@@ -337,8 +339,8 @@ public class UnwrapCastInComparison
                             yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         }
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
-                                // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                                // larger than the next value in the source type
+                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                            // larger than the next value in the source type
                                 new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                     };
                 }
@@ -350,8 +352,8 @@ public class UnwrapCastInComparison
                         case NOT_EQUAL -> trueIfNotNull(cast.getExpression());
                         case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         case LESS_THAN, LESS_THAN_OR_EQUAL ->
-                                // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
-                                // smaller than the next value in the source type
+                            // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
+                            // smaller than the next value in the source type
                                 new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
                                 new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType)) :
