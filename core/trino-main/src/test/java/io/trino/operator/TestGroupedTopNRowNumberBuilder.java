@@ -242,7 +242,6 @@ public class TestGroupedTopNRowNumberBuilder
     {
         TypeOperators typeOperators = new TypeOperators();
         return GroupByHash.createGroupByHash(
-                true,
                 partitionTypes,
                 false,
                 1,
