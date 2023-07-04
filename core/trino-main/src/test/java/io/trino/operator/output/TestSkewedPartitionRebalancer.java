@@ -32,12 +32,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSkewedPartitionRebalancer
 {
     private static final long MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(1, MEGABYTE).toBytes();
+    private static final long MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = DataSize.of(50, MEGABYTE).toBytes();
 
     @Test
     public void testRebalanceWithSkewness()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -92,7 +93,7 @@ public class TestSkewedPartitionRebalancer
     public void testRebalanceWithoutSkewness()
     {
         int partitionCount = 6;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 4, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 4, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -118,7 +119,7 @@ public class TestSkewedPartitionRebalancer
     public void testNoRebalanceWhenDataWrittenIsLessThanTheRebalanceLimit()
     {
         int partitionCount = 3;
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD);
+        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, MIN_PARTITION_DATA_PROCESSED_REBALANCE_THRESHOLD, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
@@ -142,7 +143,7 @@ public class TestSkewedPartitionRebalancer
     {
         int partitionCount = 3;
         long minPartitionDataProcessedRebalanceThreshold = DataSize.of(50, MEGABYTE).toBytes();
-        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, minPartitionDataProcessedRebalanceThreshold);
+        SkewedPartitionRebalancer rebalancer = createSkewedPartitionRebalancer(partitionCount, 3, 6, minPartitionDataProcessedRebalanceThreshold, MIN_DATA_PROCESSED_REBALANCE_THRESHOLD);
         SkewedPartitionFunction function = new SkewedPartitionFunction(new TestPartitionFunction(partitionCount), rebalancer);
 
         rebalancer.addPartitionRowCount(0, 1000);
