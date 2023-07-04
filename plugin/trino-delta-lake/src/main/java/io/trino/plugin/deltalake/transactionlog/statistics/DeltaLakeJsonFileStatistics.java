@@ -26,8 +26,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -40,13 +38,14 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.toCanonicalNameKeyedMap;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON_STATISTICS_TIMESTAMP_FORMATTER;
-import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializeColumnValue;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
-import static java.time.ZoneOffset.UTC;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 public class DeltaLakeJsonFileStatistics
         implements DeltaLakeFileStatistics
@@ -139,14 +138,14 @@ public class DeltaLakeJsonFileStatistics
         Type columnType = columnHandle.getBaseType();
         if (columnType.equals(DATE)) {
             long epochDate = (long) columnValue;
-            if (LocalDate.ofEpochDay(epochDate).isBefore(START_OF_MODERN_ERA)) {
+            if (epochDate < START_OF_MODERN_ERA_EPOCH_DAY) {
                 return Optional.empty();
             }
         }
         if (columnType instanceof TimestampWithTimeZoneType) {
             long packedTimestamp = (long) columnValue;
-            ZonedDateTime dateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(unpackMillisUtc(packedTimestamp)), UTC);
-            if (dateTime.toLocalDate().isBefore(START_OF_MODERN_ERA)) {
+            long epochMillis = unpackMillisUtc(packedTimestamp);
+            if (floorDiv(epochMillis, MILLISECONDS_PER_DAY) < START_OF_MODERN_ERA_EPOCH_DAY) {
                 return Optional.empty();
             }
         }

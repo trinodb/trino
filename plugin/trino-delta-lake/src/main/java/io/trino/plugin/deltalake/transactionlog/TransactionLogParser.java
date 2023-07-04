@@ -88,7 +88,7 @@ public final class TransactionLogParser
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
     // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 day margin.
-    public static final LocalDate START_OF_MODERN_ERA = LocalDate.of(1900, 1, 2);
+    public static final long START_OF_MODERN_ERA_EPOCH_DAY = LocalDate.of(1900, 1, 2).toEpochDay();
 
     public static final String LAST_CHECKPOINT_FILENAME = "_last_checkpoint";
 
