@@ -39,7 +39,6 @@ import io.trino.spi.predicate.TupleDomain;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.util.internal.Accessor;
-import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.util.AbstractCollection;
@@ -85,7 +84,6 @@ public class AvroHivePageSourceFactory
 
     @Override
     public Optional<ReaderPageSource> createPageSource(
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             long start,

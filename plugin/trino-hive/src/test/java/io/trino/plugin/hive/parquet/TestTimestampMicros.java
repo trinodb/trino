@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -114,7 +113,6 @@ public class TestTimestampMicros
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
 
         ReaderPageSource pageSourceWithProjections = pageSourceFactory.createPageSource(
-                        newEmptyConfiguration(),
                         session,
                         Location.of(parquetFile.getPath()),
                         0,
