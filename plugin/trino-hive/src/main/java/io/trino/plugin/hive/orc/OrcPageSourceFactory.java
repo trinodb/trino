@@ -53,7 +53,6 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.apache.hadoop.conf.Configuration;
 import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
@@ -174,7 +173,6 @@ public class OrcPageSourceFactory
 
     @Override
     public Optional<ReaderPageSource> createPageSource(
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             long start,

@@ -17,7 +17,6 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.conf.Configuration;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +26,6 @@ import java.util.Properties;
 public interface HivePageSourceFactory
 {
     Optional<ReaderPageSource> createPageSource(
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             long start,

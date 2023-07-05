@@ -39,7 +39,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.hadoop.conf.Configuration;
 
 import java.io.InputStream;
 import java.util.List;
@@ -89,7 +88,6 @@ public abstract class LinePageSourceFactory
 
     @Override
     public Optional<ReaderPageSource> createPageSource(
-            Configuration configuration,
             ConnectorSession session,
             Location path,
             long start,

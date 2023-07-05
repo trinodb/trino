@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -88,7 +87,6 @@ public class TestOnlyNulls
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());
 
         return pageSourceFactory.createPageSource(
-                        newEmptyConfiguration(),
                         getHiveSession(new HiveConfig()),
                         Location.of(parquetFile.getPath()),
                         0,
