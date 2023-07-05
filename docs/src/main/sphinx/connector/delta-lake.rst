@@ -639,6 +639,14 @@ The following table properties are available for use:
     - Set the checkpoint interval in seconds.
   * - ``change_data_feed_enabled``
     - Enables storing change data feed entries.
+  * - ``column_mapping_mode``
+    - Column mapping mode. Possible values are:
+
+      * ``ID``
+      * ``NAME``
+      * ``NONE``
+
+      Defaults to ``NONE``.
 
 The following example uses all available table properties::
 
@@ -647,7 +655,8 @@ The following example uses all available table properties::
     location = 's3://my-bucket/a/path',
     partitioned_by = ARRAY['regionkey'],
     checkpoint_interval = 5,
-    change_data_feed_enabled = true
+    change_data_feed_enabled = false,
+    column_mapping_mode = 'name'
   )
   AS SELECT name, comment, regionkey FROM tpch.tiny.nation;
 
