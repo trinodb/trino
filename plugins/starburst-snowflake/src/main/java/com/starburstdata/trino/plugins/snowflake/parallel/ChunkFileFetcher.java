@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +57,7 @@ public class ChunkFileFetcher
 
     public CompletableFuture<List<List<ValueVector>>> startFetching()
     {
+        checkState(future == null, "future is not null at the beginning of fetching");
         future = CompletableFuture.supplyAsync(() -> {
             try {
                 long start = System.nanoTime();
