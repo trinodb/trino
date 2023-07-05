@@ -162,6 +162,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatJsonPathInvocation;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
+import static io.trino.sql.ExpressionFormatter.formatSingleQuotedString;
 import static io.trino.sql.ExpressionFormatter.formatSkipTo;
 import static io.trino.sql.ExpressionFormatter.formatStringLiteral;
 import static io.trino.sql.ExpressionFormatter.formatWindowSpecification;
@@ -1136,7 +1137,7 @@ public final class SqlFormatter
 
             node.getComment().ifPresent(comment -> builder
                     .append(" COMMENT ")
-                    .append(formatStringLiteral(comment)));
+                    .append(formatSingleQuotedString(comment)));
 
             node.getSecurity().ifPresent(security -> builder
                     .append(" SECURITY ")

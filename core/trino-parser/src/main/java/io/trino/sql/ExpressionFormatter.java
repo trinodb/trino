@@ -1051,6 +1051,12 @@ public final class ExpressionFormatter
         }
     }
 
+    static String formatSingleQuotedString(String s)
+    {
+        s = s.replace("'", "''");
+        return "'" + s + "'";
+    }
+
     static String formatStringLiteral(String s)
     {
         s = s.replace("'", "''");
