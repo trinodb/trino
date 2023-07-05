@@ -402,8 +402,8 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part_stale", ExplainType.Type.IO))
                 .doesNotContain("base_table3", "base_table4");
 
-        assertUpdate("DROP TABLE IF EXISTS base_table3");
-        assertUpdate("DROP TABLE IF EXISTS base_table4");
+        assertUpdate("DROP TABLE base_table3");
+        assertUpdate("DROP TABLE base_table4");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_part_stale");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_stale");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
@@ -546,7 +546,7 @@ public abstract class BaseIcebergMaterializedViewTest
         assertThat(getExplainPlan("SELECT * FROM materialized_view_level1", ExplainType.Type.IO))
                 .contains("base_table5");
 
-        assertUpdate("DROP TABLE IF EXISTS base_table5");
+        assertUpdate("DROP TABLE base_table5");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_level2");
     }
