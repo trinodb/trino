@@ -13,8 +13,6 @@
  */
 package io.trino.client.auth.external;
 
-import javax.annotation.concurrent.NotThreadSafe;
-
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -24,7 +22,7 @@ import static java.util.Objects.requireNonNull;
  * LocalKnownToken class keeps the token on its field
  * and it's designed to use it in fully serialized manner.
  */
-@NotThreadSafe
+// This class is not considered thread-safe.
 class LocalKnownToken
         implements KnownToken
 {

@@ -13,7 +13,8 @@
  */
 package io.trino.operator;
 
-import javax.annotation.concurrent.NotThreadSafe;
+import io.trino.annotation.NotThreadSafe;
+
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.lang.management.ManagementFactory;

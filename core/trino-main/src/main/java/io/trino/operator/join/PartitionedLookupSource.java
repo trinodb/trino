@@ -14,6 +14,7 @@
 package io.trino.operator.join;
 
 import com.google.common.io.Closer;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
@@ -23,7 +24,6 @@ import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

@@ -13,10 +13,9 @@
  */
 package io.trino.operator.join;
 
+import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 

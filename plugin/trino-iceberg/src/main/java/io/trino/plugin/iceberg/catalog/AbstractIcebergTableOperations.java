@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg.catalog;
 
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
@@ -31,7 +32,6 @@ import org.apache.iceberg.io.OutputFile;
 import org.apache.iceberg.types.Types.NestedField;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.FileNotFoundException;
 import java.time.Duration;
