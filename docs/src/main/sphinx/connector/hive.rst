@@ -1155,12 +1155,45 @@ Metadata tables
 
 The raw Hive table properties are available as a hidden table, containing a
 separate column per table property, with a single row containing the property
-values. The properties table name is the same as the table name with
-``$properties`` appended.
+values.
+
+``$properties`` table
+~~~~~~~~~~~~~~~~~~~~~
+
+The properties table name is composed with the table name and ``$properties`` appended.
+It exposes the parameters of the table in the metastore.
 
 You can inspect the property names and values with a simple query::
 
     SELECT * FROM example.web."page_views$properties";
+
+
+.. code-block:: text
+
+            stats_generated_via_stats_task        | auto.purge |       presto_query_id       | presto_version | transactional
+     ---------------------------------------------+------------+-----------------------------+----------------+---------------
+      workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 423            | false
+
+``$partitions`` table
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``$partitions`` table provides a list of all partition values
+of a partitioned table.
+
+The following example query returns all partition values from the
+``page_views`` table in the ``web`` schema of the ``example`` catalog::
+
+    SELECT * FROM example.web."page_views$partitions";
+
+.. code-block:: text
+
+          day    | country
+     ------------+---------
+      2023-07-01 | POL
+      2023-07-02 | POL
+      2023-07-03 | POL
+      2023-03-01 | USA
+      2023-03-02 | USA
 
 .. _hive-column-properties:
 
