@@ -37,10 +37,10 @@ import static io.trino.spi.block.MapHashTables.computePosition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class SingleMapBlock
+public class SqlMap
         implements Block
 {
-    private static final int INSTANCE_SIZE = instanceSize(SingleMapBlock.class);
+    private static final int INSTANCE_SIZE = instanceSize(SqlMap.class);
 
     private final MapType mapType;
     private final Block rawKeyBlock;
@@ -49,7 +49,7 @@ public class SingleMapBlock
     private final int offset;
     private final int positionCount;    // The number of keys in this single map * 2
 
-    public SingleMapBlock(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int positionCount)
+    public SqlMap(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int positionCount)
     {
         this.mapType = mapType;
         this.rawKeyBlock = rawKeyBlock;
@@ -109,7 +109,7 @@ public class SingleMapBlock
     @Override
     public String getEncodingName()
     {
-        return SingleMapBlockEncoding.NAME;
+        return SqlMapBlockEncoding.NAME;
     }
 
     int getOffset()
@@ -130,13 +130,13 @@ public class SingleMapBlock
     @Override
     public Block copyWithAppendedNull()
     {
-        throw new UnsupportedOperationException("SingleMapBlock does not support newBlockWithAppendedNull()");
+        throw new UnsupportedOperationException("SqlMap does not support newBlockWithAppendedNull()");
     }
 
     @Override
     public String toString()
     {
-        return format("SingleMapBlock{positionCount=%d}", getPositionCount());
+        return format("SqlMap{positionCount=%d}", getPositionCount());
     }
 
     @Override
@@ -157,7 +157,7 @@ public class SingleMapBlock
         if (loadedValueBlock == rawValueBlock) {
             return this;
         }
-        return new SingleMapBlock(mapType, rawKeyBlock, loadedValueBlock, hashTablesSupplier, offset, positionCount);
+        return new SqlMap(mapType, rawKeyBlock, loadedValueBlock, hashTablesSupplier, offset, positionCount);
     }
 
     private int getAbsolutePosition(int position)

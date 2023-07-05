@@ -545,11 +545,11 @@ public class MapBlock
 
         int startEntryOffset = getOffset(position);
         int endEntryOffset = getOffset(position + 1);
-        return clazz.cast(new SingleMapBlock(
+        return clazz.cast(new SqlMap(
                 mapType,
                 keyBlock,
                 valueBlock,
-                new SingleMapBlock.HashTableSupplier(this),
+                new SqlMap.HashTableSupplier(this),
                 startEntryOffset * 2,
                 (endEntryOffset - startEntryOffset) * 2));
     }

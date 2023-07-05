@@ -15,7 +15,7 @@ package io.trino.operator.aggregation;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.type.Type;
 
@@ -27,7 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class SingleMapAggregationState
         extends AbstractMapAggregationState
 {
-    private SingleMapBlock tempSerializedState;
+    private SqlMap tempSerializedState;
 
     public SingleMapAggregationState(
             Type keyType,
@@ -78,16 +78,16 @@ public class SingleMapAggregationState
         return new SingleMapAggregationState(this);
     }
 
-    void setTempSerializedState(SingleMapBlock tempSerializedState)
+    void setTempSerializedState(SqlMap tempSerializedState)
     {
         this.tempSerializedState = tempSerializedState;
     }
 
-    SingleMapBlock removeTempSerializedState()
+    SqlMap removeTempSerializedState()
     {
-        SingleMapBlock block = tempSerializedState;
-        checkState(block != null, "tempDeserializeBlock is null");
+        SqlMap sqlMap = tempSerializedState;
+        checkState(sqlMap != null, "tempDeserializeBlock is null");
         tempSerializedState = null;
-        return block;
+        return sqlMap;
     }
 }
