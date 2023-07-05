@@ -757,9 +757,12 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private void optimize()
         {
+            SubPlan oldPlan = plan;
             plan = optimizePlan(plan);
-            planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
-            stageRegistry.updatePlan(plan);
+            if (plan != oldPlan) {
+                planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+                stageRegistry.updatePlan(plan);
+            }
         }
 
         private SubPlan optimizePlan(SubPlan plan)
