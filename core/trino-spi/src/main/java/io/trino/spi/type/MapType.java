@@ -18,7 +18,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorMethodHandle;
@@ -91,7 +91,7 @@ public class MapType
             DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
             INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
             SEEK_KEY = lookup.findVirtual(
-                    SingleMapBlock.class,
+                    SqlMap.class,
                     "seekKey",
                     methodType(int.class, MethodHandle.class, MethodHandle.class, Block.class, int.class));
         }
@@ -290,13 +290,13 @@ public class MapType
             return null;
         }
 
-        Block singleMapBlock = block.getObject(position, Block.class);
-        if (!(singleMapBlock instanceof SingleMapBlock)) {
-            throw new UnsupportedOperationException("Map is encoded with legacy block representation");
+        Block sqlMap = block.getObject(position, Block.class);
+        if (!(sqlMap instanceof SqlMap)) {
+            throw new UnsupportedOperationException("Maps must be represented with SqlMap");
         }
         Map<Object, Object> map = new HashMap<>();
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(session, singleMapBlock, i), valueType.getObjectValue(session, singleMapBlock, i + 1));
+        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+            map.put(keyType.getObjectValue(session, sqlMap, i), valueType.getObjectValue(session, sqlMap, i + 1));
         }
 
         return Collections.unmodifiableMap(map);
@@ -322,14 +322,14 @@ public class MapType
     @Override
     public void writeObject(BlockBuilder blockBuilder, Object value)
     {
-        if (!(value instanceof SingleMapBlock singleMapBlock)) {
-            throw new IllegalArgumentException("Maps must be represented with SingleMapBlock");
+        if (!(value instanceof SqlMap sqlMap)) {
+            throw new IllegalArgumentException("Maps must be represented with SqlMap");
         }
 
         ((MapBlockBuilder) blockBuilder).buildEntry((keyBuilder, valueBuilder) -> {
-            for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-                keyType.appendTo(singleMapBlock, i, keyBuilder);
-                valueType.appendTo(singleMapBlock, i + 1, valueBuilder);
+            for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+                keyType.appendTo(sqlMap, i, keyBuilder);
+                valueType.appendTo(sqlMap, i + 1, valueBuilder);
             }
         });
     }
@@ -728,7 +728,7 @@ public class MapType
         boolean unknown = false;
         for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact((SqlMap) rightBlock, leftBlock, position);
             if (rightPosition == -1) {
                 return false;
             }
@@ -772,7 +772,7 @@ public class MapType
 
         for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SingleMapBlock) rightBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact((SqlMap) rightBlock, leftBlock, position);
             if (rightPosition == -1) {
                 return true;
             }

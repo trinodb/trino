@@ -75,7 +75,7 @@ import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -1314,7 +1314,7 @@ public class PostgreSqlClient
     private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            checkArgument(block instanceof SingleMapBlock, "wrong block type: %s. expected SingleMapBlock", block.getClass().getSimpleName());
+            checkArgument(block instanceof SqlMap, "wrong block type: %s. expected SqlMap", block.getClass().getSimpleName());
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < block.getPositionCount(); i += 2) {
                 map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));

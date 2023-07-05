@@ -376,6 +376,18 @@
                                     <old>class io.trino.spi.block.SingleRowBlock</old>
                                     <new>class io.trino.spi.block.SingleRowBlock</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleMapBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.SingleMapBlockEncoding</old>
+                                </item>
+                                <item>
+                                    <code>java.class.nonPublicPartOfAPI</code>
+                                    <new>class io.trino.spi.block.SqlMap.HashTableSupplier</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
