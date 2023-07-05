@@ -78,6 +78,7 @@ import io.trino.sql.planner.iterative.rule.MergePatternRecognitionNodes;
 import io.trino.sql.planner.iterative.rule.MergeProjectWithValues;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationsToSubqueries;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.OptimizeRowPattern;
 import io.trino.sql.planner.iterative.rule.PreAggregateCaseAggregations;
@@ -455,6 +456,7 @@ public class PlanOptimizers
                                         new RemoveRedundantExists(),
                                         new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
+                                        new MultipleDistinctAggregationsToSubqueries(metadata),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),

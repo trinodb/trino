@@ -14,6 +14,8 @@
 package io.trino.sql.planner;
 
 import io.trino.metadata.Metadata;
+import io.trino.sql.planner.iterative.GroupReference;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -57,7 +59,12 @@ public final class PlanCopier
 
     public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator), plan, null);
+        return copyPlan(plan, fields, metadata, symbolAllocator, idAllocator, Lookup.noLookup());
+    }
+
+    public static NodeAndMappings copyPlan(PlanNode plan, List<Symbol> fields, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, Lookup lookup)
+    {
+        PlanNode copy = SimplePlanRewriter.rewriteWith(new Copier(idAllocator, lookup), plan, null);
         return new UnaliasSymbolReferences(metadata).reallocateSymbols(copy, fields, symbolAllocator);
     }
 
@@ -65,16 +72,24 @@ public final class PlanCopier
             extends SimplePlanRewriter<Void>
     {
         private final PlanNodeIdAllocator idAllocator;
+        private final Lookup lookup;
 
-        private Copier(PlanNodeIdAllocator idAllocator)
+        private Copier(PlanNodeIdAllocator idAllocator, Lookup lookup)
         {
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+            this.lookup = requireNonNull(lookup, "lookup is null");
         }
 
         @Override
         protected PlanNode visitPlan(PlanNode node, RewriteContext<Void> context)
         {
             throw new UnsupportedOperationException("plan copying not implemented for " + node.getClass().getSimpleName());
+        }
+
+        @Override
+        public PlanNode visitGroupReference(GroupReference node, RewriteContext<Void> context)
+        {
+            return context.rewrite(lookup.resolve(node));
         }
 
         @Override

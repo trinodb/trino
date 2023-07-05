@@ -61,7 +61,7 @@ import static io.trino.sql.planner.plan.Patterns.aggregation;
 public class SingleDistinctAggregationToGroupBy
         implements Rule<AggregationNode>
 {
-    private static final Pattern<AggregationNode> PATTERN = aggregation()
+    public static final Pattern<AggregationNode> PATTERN = aggregation()
             .matching(SingleDistinctAggregationToGroupBy::hasSingleDistinctInput)
             .matching(SingleDistinctAggregationToGroupBy::allDistinctAggregates)
             .matching(SingleDistinctAggregationToGroupBy::noFilters)
@@ -74,7 +74,7 @@ public class SingleDistinctAggregationToGroupBy
                 .count() == 1;
     }
 
-    private static boolean allDistinctAggregates(AggregationNode aggregationNode)
+    public static boolean allDistinctAggregates(AggregationNode aggregationNode)
     {
         return aggregationNode.getAggregations()
                 .values().stream()
