@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DataProviders;
@@ -37,10 +38,12 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -908,6 +911,81 @@ public class TestDeltaLakeConnectorTest
                 .contains("change_data_feed_enabled = true");
     }
 
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName -> {
+            assertUpdate("CREATE TABLE " + tableName + "(a_int integer, a_row row(x integer)) WITH (column_mapping_mode='" + mode + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, row(11))", 1);
+        });
+    }
+
+    @Test(dataProvider = "columnMappingModeDataProvider")
+    public void testCreateTableAsSelectWithColumnMappingMode(ColumnMappingMode mode)
+    {
+        testCreateTableColumnMappingMode(mode, tableName ->
+                assertUpdate("CREATE TABLE " + tableName + " WITH (column_mapping_mode='" + mode + "')" +
+                        " AS SELECT 1 AS a_int, CAST(row(11) AS row(x integer)) AS a_row", 1));
+    }
+
+    private void testCreateTableColumnMappingMode(ColumnMappingMode mode, Consumer<String> createTable)
+    {
+        String tableName = "test_create_table_column_mapping_" + randomNameSuffix();
+        createTable.accept(tableName);
+
+        String showCreateTableResult = (String) computeScalar("SHOW CREATE TABLE " + tableName);
+        if (mode != ColumnMappingMode.NONE) {
+            assertThat(showCreateTableResult).contains("column_mapping_mode = '" + mode + "'");
+        }
+        else {
+            assertThat(showCreateTableResult).doesNotContain("column_mapping_mode");
+        }
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (1, CAST(row(11) AS row(x integer)))");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] columnMappingModeDataProvider()
+    {
+        return Arrays.stream(ColumnMappingMode.values())
+                .filter(mode -> mode != ColumnMappingMode.UNKNOWN)
+                .collect(toDataProvider());
+    }
+
+    @Test
+    public void testCreateTableUnsupportedColumnMappingMode()
+    {
+        String tableName = "test_unsupported_column_mapping_mode_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (column_mapping_mode = 'illegal')",
+                ".* \\QInvalid value [illegal]. Valid values: [ID, NAME, NONE]");
+        assertQueryFails("CREATE TABLE " + tableName + " WITH (column_mapping_mode = 'illegal') AS SELECT 1 a",
+                ".* \\QInvalid value [illegal]. Valid values: [ID, NAME, NONE]");
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (column_mapping_mode = 'unknown')",
+                ".* \\QInvalid value [unknown]. Valid values: [ID, NAME, NONE]");
+        assertQueryFails("CREATE TABLE " + tableName + " WITH (column_mapping_mode = 'unknown') AS SELECT 1 a",
+                ".* \\QInvalid value [unknown]. Valid values: [ID, NAME, NONE]");
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
+    public void testCreateTableUnsupportedChangeDataFeedAndColumnMappingMode()
+    {
+        String tableName = "test_unsupported_column_mapping_mode_" + randomNameSuffix();
+
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (change_data_feed_enabled = true, column_mapping_mode = 'id')",
+                "Creating tables with change_data_feed_enabled and column_mapping_mode is unsupported");
+        assertQueryFails("CREATE TABLE " + tableName + "(a integer) WITH (change_data_feed_enabled = true, column_mapping_mode = 'name')",
+                "Creating tables with change_data_feed_enabled and column_mapping_mode is unsupported");
+
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
     @Test
     public void testAlterTableWithUnsupportedProperties()
     {
@@ -919,6 +997,8 @@ public class TestDeltaLakeConnectorTest
                 "The following properties cannot be updated: checkpoint_interval");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES partitioned_by = ARRAY['a']",
                 "The following properties cannot be updated: partitioned_by");
+        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES column_mapping_mode = 'ID'",
+                "The following properties cannot be updated: column_mapping_mode");
 
         assertUpdate("DROP TABLE " + tableName);
     }

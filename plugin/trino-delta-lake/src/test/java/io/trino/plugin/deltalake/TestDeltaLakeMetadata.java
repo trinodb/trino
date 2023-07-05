@@ -82,6 +82,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -349,7 +350,9 @@ public class TestDeltaLakeMetadata
                 tableColumns,
                 ImmutableMap.of(
                         PARTITIONED_BY_PROPERTY,
-                        getPartitionColumnNames(partitionTableColumns)));
+                        getPartitionColumnNames(partitionTableColumns),
+                        COLUMN_MAPPING_MODE_PROPERTY,
+                        "none"));
     }
 
     @Test

@@ -179,6 +179,8 @@ public class TestDeltaLakePageSink
                 Optional.empty(),
                 Optional.of(false),
                 schemaString,
+                NONE,
+                OptionalInt.empty(),
                 new ProtocolEntry(DEFAULT_READER_VERSION, DEFAULT_WRITER_VERSION, Optional.empty(), Optional.empty()));
 
         DeltaLakePageSinkProvider provider = new DeltaLakePageSinkProvider(
