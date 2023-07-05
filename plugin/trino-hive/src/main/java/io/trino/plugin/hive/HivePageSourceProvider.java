@@ -217,7 +217,6 @@ public class HivePageSourceProvider
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, true, typeManager, timestampPrecision);
 
             Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
-                    configuration,
                     session,
                     path,
                     start,
