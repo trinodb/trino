@@ -777,6 +777,9 @@ class QueryPlanner
 
         PlanBuilder subPlan = newPlanBuilder(joinPlan, analysis, lambdaDeclarationToSymbolMap, session, plannerContext);
 
+        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
+        Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
+
         // Build the SearchedCaseExpression that creates the project merge_row
         Metadata metadata = plannerContext.getMetadata();
         List<ColumnSchema> dataColumnSchemas = mergeAnalysis.getDataColumnSchemas();
@@ -794,10 +797,12 @@ class QueryPlanner
             }
 
             ImmutableList.Builder<Expression> rowBuilder = ImmutableList.builder();
+            Assignments.Builder assignments = Assignments.builder();
             List<ColumnHandle> mergeCaseSetColumns = mergeCaseColumnsHandles.get(caseNumber);
             for (ColumnHandle dataColumnHandle : mergeAnalysis.getDataColumnHandles()) {
                 int index = mergeCaseSetColumns.indexOf(dataColumnHandle);
                 int fieldNumber = mergeAnalysis.getColumnHandleFieldNumbers().get(dataColumnHandle);
+                Symbol field = planWithPresentColumn.getFieldMappings().get(fieldNumber);
                 if (index >= 0) {
                     Expression setExpression = mergeCase.getSetExpressions().get(index);
                     subPlan = subqueryPlanner.handleSubqueries(subPlan, setExpression, analysis.getSubqueries(merge));
@@ -809,9 +814,11 @@ class QueryPlanner
                         rewritten = new CoalesceExpression(rewritten, new Cast(failFunction(metadata, session, INVALID_ARGUMENTS, "Assigning NULL to non-null MERGE target table column " + columnName), toSqlType(columnSchema.getType())));
                     }
                     rowBuilder.add(rewritten);
+                    assignments.put(field, rewritten);
                 }
                 else {
-                    rowBuilder.add(planWithPresentColumn.getFieldMappings().get(fieldNumber).toSymbolReference());
+                    rowBuilder.add(field.toSymbolReference());
+                    assignments.putIdentity(field);
                 }
             }
 
@@ -837,6 +844,19 @@ class QueryPlanner
             }
 
             whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
+
+            List<Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
+            if (!constraints.isEmpty()) {
+                assignments.putIdentity(uniqueIdSymbol);
+                assignments.putIdentity(presentColumn);
+                assignments.putIdentity(rowIdSymbol);
+                assignments.putIdentities(source.getFieldMappings());
+                subPlan = subPlan.withNewRoot(new ProjectNode(
+                        idAllocator.getNextId(),
+                        subPlan.getRoot(),
+                        assignments.build()));
+                subPlan = addCheckConstraints(constraints, subPlan.withScope(targetTablePlan.getScope(), targetTablePlan.getFieldMappings()));
+            }
         }
 
         // Build the "else" clause for the SearchedCaseExpression
@@ -851,8 +871,6 @@ class QueryPlanner
 
         SearchedCaseExpression caseExpression = new SearchedCaseExpression(whenClauses.build(), Optional.of(new Row(rowBuilder.build())));
 
-        FieldReference rowIdReference = analysis.getRowIdField(mergeAnalysis.getTargetTable());
-        Symbol rowIdSymbol = planWithPresentColumn.getFieldMappings().get(rowIdReference.getFieldIndex());
         Symbol mergeRowSymbol = symbolAllocator.newSymbol("merge_row", mergeAnalysis.getMergeRowType());
         Symbol caseNumberSymbol = symbolAllocator.newSymbol("case_number", INTEGER);
 
