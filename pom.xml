@@ -244,7 +244,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.38.2</version>
+                <version>3.39.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
