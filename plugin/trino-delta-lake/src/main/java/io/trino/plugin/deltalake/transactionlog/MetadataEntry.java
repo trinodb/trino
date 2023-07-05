@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -29,6 +28,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class MetadataEntry
 {
@@ -67,7 +67,7 @@ public class MetadataEntry
         this.partitionColumns = partitionColumns;
         this.canonicalPartitionColumns = partitionColumns.stream()
                 // canonicalize partition keys to lowercase so they match column names used in DeltaLakeColumnHandle
-                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .map(value -> value.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         this.configuration = configuration;
         this.createdTime = createdTime;
