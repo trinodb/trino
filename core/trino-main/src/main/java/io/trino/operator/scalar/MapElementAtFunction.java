@@ -18,7 +18,7 @@ import com.google.common.primitives.Primitives;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -103,44 +103,44 @@ public class MapElementAtFunction
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, Block map, boolean key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, Block map, long key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, Block map, double key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, Block map, Object key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 }

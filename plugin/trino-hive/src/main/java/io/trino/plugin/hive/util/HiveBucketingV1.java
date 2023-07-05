@@ -199,13 +199,13 @@ final class HiveBucketingV1
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
 
-    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
+    private static int hashOfMap(MapTypeInfo type, Block sqlMap)
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
         int result = 0;
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ hash(valueTypeInfo, singleMapBlock, i + 1);
+        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+            result += hash(keyTypeInfo, sqlMap, i) ^ hash(valueTypeInfo, sqlMap, i + 1);
         }
         return result;
     }

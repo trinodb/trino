@@ -201,15 +201,15 @@ final class HiveBucketingV2
         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive category: " + type.getCategory());
     }
 
-    private static int hashOfMap(MapTypeInfo type, Block singleMapBlock)
+    private static int hashOfMap(MapTypeInfo type, Block sqlMap)
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
         int result = 0;
-        for (int i = 0; i < singleMapBlock.getPositionCount(); i += 2) {
+        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
             // Sic! we're hashing map keys with v2 but map values with v1 just as in
             // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L903-L904
-            result += hash(keyTypeInfo, singleMapBlock, i) ^ HiveBucketingV1.hash(valueTypeInfo, singleMapBlock, i + 1);
+            result += hash(keyTypeInfo, sqlMap, i) ^ HiveBucketingV1.hash(valueTypeInfo, sqlMap, i + 1);
         }
         return result;
     }

@@ -23,7 +23,7 @@ import java.util.Optional;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
 
-public class SingleMapBlockEncoding
+public class SqlMapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP_ELEMENT";
@@ -37,15 +37,15 @@ public class SingleMapBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        blockEncodingSerde.writeType(sliceOutput, singleMapBlock.getMapType());
+        SqlMap sqlMap = (SqlMap) block;
+        blockEncodingSerde.writeType(sliceOutput, sqlMap.getMapType());
 
-        int offset = singleMapBlock.getOffset();
-        int positionCount = singleMapBlock.getPositionCount();
-        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
-        blockEncodingSerde.writeBlock(sliceOutput, singleMapBlock.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
+        int offset = sqlMap.getOffset();
+        int positionCount = sqlMap.getPositionCount();
+        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
+        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
 
-        Optional<int[]> hashTable = singleMapBlock.tryGetHashTable();
+        Optional<int[]> hashTable = sqlMap.tryGetHashTable();
         if (hashTable.isPresent()) {
             int hashTableLength = positionCount / 2 * HASH_MULTIPLIER;
             sliceOutput.appendInt(hashTableLength);  // hashtable length
@@ -73,22 +73,22 @@ public class SingleMapBlockEncoding
         }
 
         if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
-            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: key %d, value %d",
+            throw new IllegalArgumentException(format("Deserialized SqlMap violates invariants: key %d, value %d",
                     keyBlock.getPositionCount(),
                     valueBlock.getPositionCount()));
         }
 
         if (hashTable != null && keyBlock.getPositionCount() * HASH_MULTIPLIER != hashTable.length) {
-            throw new IllegalArgumentException(format("Deserialized SingleMapBlock violates invariants: expected hashtable size %d, actual hashtable size %d",
+            throw new IllegalArgumentException(format("Deserialized SqlMap violates invariants: expected hashtable size %d, actual hashtable size %d",
                     keyBlock.getPositionCount() * HASH_MULTIPLIER,
                     hashTable.length));
         }
 
-        return new SingleMapBlock(
+        return new SqlMap(
                 mapType,
                 keyBlock,
                 valueBlock,
-                new SingleMapBlock.HashTableSupplier(hashTable),
+                new SqlMap.HashTableSupplier(hashTable),
                 0,
                 keyBlock.getPositionCount() * 2);
     }
