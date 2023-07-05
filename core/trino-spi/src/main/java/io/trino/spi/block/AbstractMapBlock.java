@@ -146,7 +146,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, length, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
@@ -274,7 +274,7 @@ public abstract class AbstractMapBlock
                 newOffsets,
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, length, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
@@ -317,7 +317,7 @@ public abstract class AbstractMapBlock
                 new int[] {0, valueLength},
                 newKeys,
                 newValues,
-                new MapHashTables(mapType, Optional.ofNullable(newRawHashTables)));
+                new MapHashTables(mapType, 1, Optional.ofNullable(newRawHashTables)));
     }
 
     @Override
