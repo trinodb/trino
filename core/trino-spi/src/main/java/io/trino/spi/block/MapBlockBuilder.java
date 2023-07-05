@@ -27,6 +27,9 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.calculateNewArraySize;
 import static io.trino.spi.block.MapBlock.createMapBlockInternal;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapHashTables.buildDistinctHashTableStrict;
+import static io.trino.spi.block.MapHashTables.buildHashTable;
+import static io.trino.spi.block.MapHashTables.buildHashTableStrict;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -45,7 +48,7 @@ public class MapBlockBuilder
     private boolean hasNullValue;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
-    private final MapHashTables hashTables;
+    private int[] rawHashTables;
 
     private boolean currentEntryOpened;
     private HashBuildMode hashBuildMode = HashBuildMode.DUPLICATE_NOT_CHECKED;
@@ -79,9 +82,8 @@ public class MapBlockBuilder
         this.keyBlockBuilder = requireNonNull(keyBlockBuilder, "keyBlockBuilder is null");
         this.valueBlockBuilder = requireNonNull(valueBlockBuilder, "valueBlockBuilder is null");
 
-        int[] hashTable = new int[mapIsNull.length * HASH_MULTIPLIER];
-        Arrays.fill(hashTable, -1);
-        this.hashTables = new MapHashTables(mapType, Optional.of(hashTable));
+        rawHashTables = new int[mapIsNull.length * HASH_MULTIPLIER];
+        Arrays.fill(rawHashTables, -1);
     }
 
     public MapBlockBuilder strict()
@@ -111,7 +113,7 @@ public class MapBlockBuilder
     @Override
     protected MapHashTables getHashTables()
     {
-        return hashTables;
+        return new MapHashTables(getMapType(), positionCount, Optional.of(rawHashTables));
     }
 
     @Override
@@ -161,7 +163,7 @@ public class MapBlockBuilder
                 + valueBlockBuilder.getRetainedSizeInBytes()
                 + sizeOf(offsets)
                 + sizeOf(mapIsNull)
-                + hashTables.getRetainedSizeInBytes();
+                + sizeOf(rawHashTables);
         if (blockBuilderStatus != null) {
             size += BlockBuilderStatus.INSTANCE_SIZE;
         }
@@ -175,7 +177,7 @@ public class MapBlockBuilder
         consumer.accept(valueBlockBuilder, valueBlockBuilder.getRetainedSizeInBytes());
         consumer.accept(offsets, sizeOf(offsets));
         consumer.accept(mapIsNull, sizeOf(mapIsNull));
-        consumer.accept(hashTables, hashTables.getRetainedSizeInBytes());
+        consumer.accept(rawHashTables, sizeOf(rawHashTables));
         consumer.accept(this, INSTANCE_SIZE);
     }
 
@@ -196,9 +198,9 @@ public class MapBlockBuilder
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
         switch (hashBuildMode) {
-            case DUPLICATE_NOT_CHECKED -> hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-            case STRICT_EQUALS -> hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
-            case STRICT_NOT_DISTINCT_FROM -> hashTables.buildDistinctHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+            case DUPLICATE_NOT_CHECKED -> buildHashTable(getMapType(), keyBlockBuilder, previousAggregatedEntryCount, entryCount, rawHashTables);
+            case STRICT_EQUALS -> buildHashTableStrict(getMapType(), keyBlockBuilder, previousAggregatedEntryCount, entryCount, rawHashTables);
+            case STRICT_NOT_DISTINCT_FROM -> buildDistinctHashTableStrict(getMapType(), keyBlockBuilder, previousAggregatedEntryCount, entryCount, rawHashTables);
         }
     }
 
@@ -236,10 +238,11 @@ public class MapBlockBuilder
 
     private void ensureHashTableSize()
     {
-        int[] rawHashTables = hashTables.get();
         if (rawHashTables.length < offsets[positionCount] * HASH_MULTIPLIER) {
             int newSize = calculateNewArraySize(offsets[positionCount] * HASH_MULTIPLIER);
-            hashTables.growHashTables(newSize);
+            int[] newRawHashTables = Arrays.copyOf(rawHashTables, newSize);
+            Arrays.fill(newRawHashTables, rawHashTables.length, newSize, -1);
+            this.rawHashTables = newRawHashTables;
         }
     }
 
@@ -250,7 +253,6 @@ public class MapBlockBuilder
             throw new IllegalStateException("Current entry must be closed before the block can be built");
         }
 
-        int[] rawHashTables = hashTables.get();
         int hashTablesEntries = offsets[positionCount] * HASH_MULTIPLIER;
         return createMapBlockInternal(
                 getMapType(),
@@ -260,7 +262,7 @@ public class MapBlockBuilder
                 offsets,
                 keyBlockBuilder.build(),
                 valueBlockBuilder.build(),
-                new MapHashTables(getMapType(), Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries))));
+                new MapHashTables(getMapType(), positionCount, Optional.of(Arrays.copyOf(rawHashTables, hashTablesEntries))));
     }
 
     @Override

@@ -98,8 +98,7 @@ public class BufferedMapValueBuilder
         // build the map block
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
-
-        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
+        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, 1, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
         MapBlock mapBlock = MapBlock.createMapBlockInternal(
                 mapType,
                 0,
