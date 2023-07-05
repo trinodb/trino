@@ -15,6 +15,7 @@ package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.spi.Node;
@@ -22,8 +23,6 @@ import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.PartitioningHandle;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.HashMap;

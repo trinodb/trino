@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +31,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
-@NotThreadSafe
+// This class is not considered thread-safe.
 public class LazyBlock
         implements Block
 {

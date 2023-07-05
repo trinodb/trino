@@ -29,6 +29,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
@@ -45,7 +46,6 @@ import io.trino.spi.exchange.ExchangeSource;
 import io.trino.spi.exchange.ExchangeSourceOutputSelector;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.Closeable;

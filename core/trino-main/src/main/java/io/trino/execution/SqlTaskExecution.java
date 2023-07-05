@@ -24,6 +24,7 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.event.SplitMonitor;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.execution.buffer.BufferState;
@@ -44,7 +45,6 @@ import io.trino.tracing.TrinoAttributes;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;

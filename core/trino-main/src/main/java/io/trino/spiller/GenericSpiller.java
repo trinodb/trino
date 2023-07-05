@@ -15,12 +15,11 @@ package io.trino.spiller;
 
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.IOException;
 import java.util.ArrayList;

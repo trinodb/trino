@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
+import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
@@ -24,8 +25,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Optional;
 
