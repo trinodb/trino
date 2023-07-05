@@ -84,6 +84,14 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testInPredicate()
+    {
+        testUnwrap("smallint", "a in (DOUBLE '1', 2)", "a in (SMALLINT '1', SMALLINT '2')", true);
+        testUnwrap("bigint", "a in (DOUBLE '1', 2)", "a in (BIGINT '1', BIGINT '2')", true);
+        testUnwrap("varchar(3)", "a in (CAST('abc' AS char(3)), CAST('def' AS char(3)))", "a in ('abc', 'def')", true);
+    }
+
+    @Test
     public void testNotEquals()
     {
         // representable
@@ -811,12 +819,22 @@ public class TestUnwrapCastInComparison
         testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
     }
 
+    private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate, boolean reverseOrder)
+    {
+        testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate, reverseOrder);
+    }
+
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)
+    {
+        testUnwrap(session, inputType, inputPredicate, expectedPredicate, false);
+    }
+
+    private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate, boolean reverseOrder)
     {
         assertPlan(format("SELECT * FROM (VALUES CAST(NULL AS %s)) t(a) WHERE %s OR rand() = 42", inputType, inputPredicate),
                 session,
                 output(
-                        filter(format("%s OR rand() = 42e0", expectedPredicate),
+                        filter(reverseOrder ? format("rand() = 42e0 OR %s", expectedPredicate) : format("%s OR rand() = 42e0", expectedPredicate),
                                 values("a"))));
     }
 
