@@ -101,9 +101,11 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -112,6 +114,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -914,6 +917,11 @@ public class IcebergPageSourceProvider
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
+            // For Hive and Parquet case, when Hive writes to Parquet, it normalizes timestamp to UTC and the timezone writes to the footer
+            DateTimeZone parquetDateTimeZone = Optional.ofNullable(fileMetaData.getKeyValueMetaData().get("writer.time.zone"))
+                    .map(writerTimeZone -> DateTimeZone.forID(TimeZone.getTimeZone(ZoneId.of(writerTimeZone)).getID()))
+                    .orElse(UTC);
+
             MessageType fileSchema = fileMetaData.getSchema();
             if (nameMapping.isPresent() && !ParquetSchemaUtil.hasIds(fileSchema)) {
                 // NameMapping conversion is necessary because MetadataReader converts all column names to lowercase and NameMapping is case sensitive
@@ -935,7 +943,7 @@ public class IcebergPageSourceProvider
             MessageType requestedSchema = getMessageType(regularColumns, fileSchema.getName(), parquetIdToField);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : getParquetTupleDomain(descriptorsByPath, effectivePredicate);
-            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
+            TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, parquetDateTimeZone);
 
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(
                     start,
@@ -945,7 +953,7 @@ public class IcebergPageSourceProvider
                     ImmutableList.of(parquetTupleDomain),
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,
-                    UTC,
+                    parquetDateTimeZone,
                     ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
                     options);
             Optional<Long> startRowPosition = Optional.empty();
@@ -1018,7 +1026,7 @@ public class IcebergPageSourceProvider
                     parquetColumnFieldsBuilder.build(),
                     rowGroups,
                     dataSource,
-                    UTC,
+                    parquetDateTimeZone,
                     memoryContext,
                     options,
                     exception -> handleException(dataSourceId, exception),

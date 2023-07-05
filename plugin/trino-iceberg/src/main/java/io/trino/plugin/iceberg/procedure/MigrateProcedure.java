@@ -55,6 +55,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.procedure.Procedure;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.AppendFiles;
@@ -91,6 +92,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.HiveMetadata.TRANSACTIONAL;
 import static io.trino.plugin.hive.HiveMetadata.extractHiveStorageFormat;
+import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
+import static io.trino.plugin.hive.HiveTimestampPrecision.MILLISECONDS;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
@@ -219,9 +222,9 @@ public class MigrateProcedure
             throw new TrinoException(NOT_SUPPORTED, "The table is already an Iceberg table");
         }
 
-        Schema schema = toIcebergSchema(concat(hiveTable.getDataColumns().stream(), hiveTable.getPartitionColumns().stream()).toList());
-        NameMapping nameMapping = MappingUtil.create(schema);
         HiveStorageFormat storageFormat = extractHiveStorageFormat(hiveTable.getStorage().getStorageFormat());
+        Schema schema = toIcebergSchema(concat(hiveTable.getDataColumns().stream(), hiveTable.getPartitionColumns().stream()).toList(), storageFormat);
+        NameMapping nameMapping = MappingUtil.create(schema);
         String location = hiveTable.getStorage().getLocation();
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
@@ -298,13 +301,13 @@ public class MigrateProcedure
         return ImmutableMap.copyOf(icebergTableProperties);
     }
 
-    private Schema toIcebergSchema(List<Column> columns)
+    private Schema toIcebergSchema(List<Column> columns, HiveStorageFormat storageFormat)
     {
         AtomicInteger nextFieldId = new AtomicInteger(1);
         List<Types.NestedField> icebergColumns = new ArrayList<>();
         for (Column column : columns) {
             int index = icebergColumns.size();
-            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType())), nextFieldId);
+            org.apache.iceberg.types.Type type = toIcebergType(typeManager.getType(getTypeSignature(column.getType(), MILLISECONDS)), nextFieldId, storageFormat);
             Types.NestedField field = Types.NestedField.of(index, false, column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
@@ -315,8 +318,13 @@ public class MigrateProcedure
         return new Schema(icebergSchema.asStructType().fields());
     }
 
-    private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId)
+    private static org.apache.iceberg.types.Type toIcebergType(Type type, AtomicInteger nextFieldId, HiveStorageFormat storageFormat)
     {
+        // TODO https://github.com/trinodb/trino/issues/20481
+        if (type instanceof TimestampType && storageFormat == AVRO) {
+            throw new TrinoException(NOT_SUPPORTED, "Migrating timestamp type with %s format is not supported.".formatted(storageFormat));
+        }
+
         if (type.equals(TINYINT) || type.equals(SMALLINT)) {
             return Types.IntegerType.get();
         }
