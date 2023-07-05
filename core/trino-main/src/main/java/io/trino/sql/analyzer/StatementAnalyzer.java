@@ -3414,15 +3414,12 @@ class StatementAnalyzer
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with row filters");
             }
-            if (!tableSchema.getTableSchema().getCheckConstraints().isEmpty()) {
-                // TODO https://github.com/trinodb/trino/issues/15411 Add support for CHECK constraint to MERGE statement
-                throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with check constraints");
-            }
-
             Scope mergeScope = createScope(scope);
             Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
             Scope sourceTableScope = process(merge.getSource(), mergeScope);
             Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+            analyzeCheckConstraints(table, tableName, targetTableScope, tableSchema.getTableSchema().getCheckConstraints());
+            analysis.registerTable(table, redirection.tableHandle(), tableName, session.getIdentity().getUser(), targetTableScope);
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
