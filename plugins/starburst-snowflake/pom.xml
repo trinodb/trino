@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>423-SNAPSHOT</version>
+        <version>425-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -25,6 +25,11 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.starburstdata.trino.plugins</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>

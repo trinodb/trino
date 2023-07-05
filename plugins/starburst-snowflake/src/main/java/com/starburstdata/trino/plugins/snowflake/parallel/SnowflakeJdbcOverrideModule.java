@@ -9,10 +9,13 @@
  */
 package com.starburstdata.trino.plugins.snowflake.parallel;
 
+import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
 import com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeJdbcClientModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
@@ -25,8 +28,23 @@ public class SnowflakeJdbcOverrideModule
     }
 
     @Override
-    protected ConnectionFactory getDriverConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, SnowflakeConfig snowflakeConfig)
+    protected ConnectionFactory getDriverConnectionFactory(
+            BaseJdbcConfig config,
+            CredentialProvider credentialProvider,
+            SnowflakeConfig snowflakeConfig,
+            CatalogName catalogName,
+            JdbcConnectionPoolConfig connectionPoolingConfig,
+            IdentityCacheMapping identityCacheMapping)
     {
+        if (connectionPoolingConfig.isConnectionPoolEnabled()) {
+            return new ParallelWarehouseAwareDriverPoolingConnectionFactory(
+                    catalogName.toString(),
+                    getConnectionProperties(snowflakeConfig),
+                    config,
+                    connectionPoolingConfig,
+                    credentialProvider,
+                    identityCacheMapping);
+        }
         return new ParallelWarehouseAwareDriverConnectionFactory(
                 new SnowflakeDriver(),
                 config.getConnectionUrl(),

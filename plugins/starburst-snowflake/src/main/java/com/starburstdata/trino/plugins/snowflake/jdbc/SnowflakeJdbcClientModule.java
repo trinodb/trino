@@ -15,10 +15,12 @@ import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeConfig;
 import com.starburstdata.trino.plugins.snowflake.SnowflakeSessionProperties;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigBinder;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -92,6 +94,8 @@ public class SnowflakeJdbcClientModule
         bindSessionPropertiesProvider(binder, SnowflakeSessionProperties.class);
         bindSessionPropertiesProvider(binder, SnowflakeJdbcSessionProperties.class);
 
+        configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+
         install(new CredentialProviderModule());
 
         install(new ConnectorObjectNameGeneratorModule("com.starburstdata.trino.plugins.snowflake", "starburst.plugin.snowflake"));
@@ -148,16 +152,37 @@ public class SnowflakeJdbcClientModule
     public ConnectionFactory getConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider,
-            SnowflakeConfig snowflakeConfig)
+            SnowflakeConfig snowflakeConfig,
+            CatalogName catalogName,
+            JdbcConnectionPoolConfig connectionPoolingConfig,
+            IdentityCacheMapping identityCacheMapping)
     {
-        return getDriverConnectionFactory(config, credentialProvider, snowflakeConfig);
+        return getDriverConnectionFactory(
+                config,
+                credentialProvider,
+                snowflakeConfig,
+                catalogName,
+                connectionPoolingConfig,
+                identityCacheMapping);
     }
 
     protected ConnectionFactory getDriverConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider,
-            SnowflakeConfig snowflakeConfig)
+            SnowflakeConfig snowflakeConfig,
+            CatalogName catalogName,
+            JdbcConnectionPoolConfig connectionPoolingConfig,
+            IdentityCacheMapping identityCacheMapping)
     {
+        if (connectionPoolingConfig.isConnectionPoolEnabled()) {
+            return new WarehouseAwareDriverPoolingConnectionFactory(
+                    catalogName.toString(),
+                    getConnectionProperties(snowflakeConfig),
+                    config,
+                    connectionPoolingConfig,
+                    credentialProvider,
+                    identityCacheMapping);
+        }
         return new WarehouseAwareDriverConnectionFactory(
                 new SnowflakeDriver(),
                 config.getConnectionUrl(),
