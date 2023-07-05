@@ -73,11 +73,20 @@ public class MergeHashSort
 
     private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(InterpretedHashGenerator hashGenerator)
     {
-        return (pageBuilder, pageWithPosition) -> {
-            long hash = hashGenerator.hashPosition(pageWithPosition.getPosition(), pageWithPosition.getPage());
-            return !pageBuilder.isEmpty()
-                    && hashGenerator.hashPosition(pageBuilder.getPositionCount() - 1, pageBuilder::getBlockBuilder) != hash
-                    && pageBuilder.isFull();
+        return new BiPredicate<>()
+        {
+            private long lastHash;
+
+            @Override
+            public boolean test(PageBuilder pageBuilder, PageWithPosition pageWithPosition)
+            {
+                // set the last bit on the hash, so that zero is never produced
+                long hash = hashGenerator.hashPosition(pageWithPosition.getPosition(), pageWithPosition.getPage()) | 1;
+                boolean sameHash = hash == lastHash;
+                lastHash = hash;
+
+                return !pageBuilder.isEmpty() && !sameHash && pageBuilder.isFull();
+            }
         };
     }
 
