@@ -15,7 +15,7 @@ package io.trino.operator.aggregation.multimapagg;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.MapBlockBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.Type;
 
@@ -74,7 +74,7 @@ public final class GroupedMultimapAggregationState
     @Override
     public void merge(MultimapAggregationState other)
     {
-        SingleMapBlock serializedState = ((SingleMultimapAggregationState) other).removeTempSerializedState();
+        SqlMap serializedState = ((SingleMultimapAggregationState) other).removeTempSerializedState();
         deserialize(groupId, serializedState);
     }
 

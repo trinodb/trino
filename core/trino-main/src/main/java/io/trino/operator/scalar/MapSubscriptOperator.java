@@ -20,7 +20,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -109,45 +109,45 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, boolean key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, long key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, double key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
+        SqlMap sqlMap = (SqlMap) map;
+        int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, mapBlock, valuePosition);
+        return readNativeValue(valueType, sqlMap, valuePosition);
     }
 
     private static class MissingKeyExceptionFactory

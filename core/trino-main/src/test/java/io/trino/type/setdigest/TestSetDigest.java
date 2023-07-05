@@ -16,7 +16,7 @@ package io.trino.type.setdigest;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
@@ -106,7 +106,7 @@ public class TestSetDigest
 
         MapType mapType = new MapType(BIGINT, SMALLINT, new TypeOperators());
         Block block = hashCounts(mapType, digest1.serialize());
-        assertTrue(block instanceof SingleMapBlock);
+        assertTrue(block instanceof SqlMap);
         Set<Short> blockValues = new HashSet<>();
         for (int i = 1; i < block.getPositionCount(); i += 2) {
             blockValues.add(block.getShort(i, 0));
@@ -116,7 +116,7 @@ public class TestSetDigest
 
         digest1.mergeWith(digest2);
         block = hashCounts(mapType, digest1.serialize());
-        assertTrue(block instanceof SingleMapBlock);
+        assertTrue(block instanceof SqlMap);
         expected = ImmutableSet.of((short) 1, (short) 2, (short) 4);
         blockValues = new HashSet<>();
         for (int i = 1; i < block.getPositionCount(); i += 2) {
