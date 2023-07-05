@@ -98,11 +98,11 @@ public class BufferedMapValueBuilder
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
         MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, 1, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
 
-        return new SingleMapBlock(
+        return new SqlMap(
                 mapType,
                 keyBlock,
                 valueBlock,
-                new SingleMapBlock.HashTableSupplier(hashTables.get()),
+                new SqlMap.HashTableSupplier(hashTables.get()),
                 0,
                 keyBlock.getPositionCount() * 2);
     }

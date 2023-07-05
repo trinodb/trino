@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
-import io.trino.spi.block.SingleMapBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -95,41 +95,41 @@ public final class MapZipWithFunction
             Block rightBlock,
             MapZipWithLambda function)
     {
-        SingleMapBlock leftMapBlock = (SingleMapBlock) leftBlock;
-        SingleMapBlock rightMapBlock = (SingleMapBlock) rightBlock;
+        SqlMap leftMap = (SqlMap) leftBlock;
+        SqlMap rightMap = (SqlMap) rightBlock;
         Type outputValueType = outputMapType.getValueType();
 
-        int maxOutputSize = (leftMapBlock.getPositionCount() + rightMapBlock.getPositionCount()) / 2;
+        int maxOutputSize = (leftMap.getPositionCount() + rightMap.getPositionCount()) / 2;
         BufferedMapValueBuilder mapValueBuilder = (BufferedMapValueBuilder) state;
         return mapValueBuilder.build(maxOutputSize, (keyBuilder, valueBuilder) -> {
             // seekKey() can take non-trivial time when key is complicated value, such as a long VARCHAR or ROW.
-            boolean[] keyFound = new boolean[rightMapBlock.getPositionCount()];
-            for (int leftKeyPosition = 0; leftKeyPosition < leftMapBlock.getPositionCount(); leftKeyPosition += 2) {
-                Object key = readNativeValue(keyType, leftMapBlock, leftKeyPosition);
-                Object leftValue = readNativeValue(leftValueType, leftMapBlock, leftKeyPosition + 1);
+            boolean[] keyFound = new boolean[rightMap.getPositionCount()];
+            for (int leftKeyPosition = 0; leftKeyPosition < leftMap.getPositionCount(); leftKeyPosition += 2) {
+                Object key = readNativeValue(keyType, leftMap, leftKeyPosition);
+                Object leftValue = readNativeValue(leftValueType, leftMap, leftKeyPosition + 1);
 
-                int rightValuePosition = rightMapBlock.seekKey(key);
+                int rightValuePosition = rightMap.seekKey(key);
                 Object rightValue = null;
                 if (rightValuePosition != -1) {
-                    rightValue = readNativeValue(rightValueType, rightMapBlock, rightValuePosition);
+                    rightValue = readNativeValue(rightValueType, rightMap, rightValuePosition);
                     keyFound[rightValuePosition / 2] = true;
                 }
 
                 Object outputValue = function.apply(key, leftValue, rightValue);
 
-                keyType.appendTo(leftMapBlock, leftKeyPosition, keyBuilder);
+                keyType.appendTo(leftMap, leftKeyPosition, keyBuilder);
                 writeNativeValue(outputValueType, valueBuilder, outputValue);
             }
 
-            // iterate over keys that only exists in rightMapBlock
-            for (int rightKeyPosition = 0; rightKeyPosition < rightMapBlock.getPositionCount(); rightKeyPosition += 2) {
+            // iterate over keys that only exists in rightMap
+            for (int rightKeyPosition = 0; rightKeyPosition < rightMap.getPositionCount(); rightKeyPosition += 2) {
                 if (!keyFound[rightKeyPosition / 2]) {
-                    Object key = readNativeValue(keyType, rightMapBlock, rightKeyPosition);
-                    Object rightValue = readNativeValue(rightValueType, rightMapBlock, rightKeyPosition + 1);
+                    Object key = readNativeValue(keyType, rightMap, rightKeyPosition);
+                    Object rightValue = readNativeValue(rightValueType, rightMap, rightKeyPosition + 1);
 
                     Object outputValue = function.apply(key, null, rightValue);
 
-                    keyType.appendTo(rightMapBlock, rightKeyPosition, keyBuilder);
+                    keyType.appendTo(rightMap, rightKeyPosition, keyBuilder);
                     writeNativeValue(outputValueType, valueBuilder, outputValue);
                 }
             }
