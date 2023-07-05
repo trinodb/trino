@@ -48,7 +48,6 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_TYPE_COLUMN_
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSchemaMapping;
-import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -98,7 +97,7 @@ public class DeltaLakePageSinkProvider
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(
                 tableHandle.getSchemaString(),
                 typeManager,
-                NONE, // TODO support ID and NAME column mapping
+                tableHandle.getColumnMappingMode(),
                 tableHandle.getPartitionedBy());
         return new DeltaLakePageSink(
                 typeManager.getTypeOperators(),

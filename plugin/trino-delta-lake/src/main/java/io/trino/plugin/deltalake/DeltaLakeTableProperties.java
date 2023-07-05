@@ -15,11 +15,13 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +41,7 @@ public class DeltaLakeTableProperties
     public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
     public static final String CHECKPOINT_INTERVAL_PROPERTY = "checkpoint_interval";
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
+    public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -72,6 +75,18 @@ public class DeltaLakeTableProperties
                         CHANGE_DATA_FEED_ENABLED_PROPERTY,
                         "Enables storing change data feed entries",
                         null,
+                        false))
+                .add(stringProperty(
+                        COLUMN_MAPPING_MODE_PROPERTY,
+                        "Column mapping mode. Possible values: [ID, NAME, NONE]",
+                        // TODO: Consider using 'name' by default. 'none' column mapping doesn't support some statements
+                        ColumnMappingMode.NONE.name(),
+                        value -> {
+                            EnumSet<ColumnMappingMode> allowed = EnumSet.of(ColumnMappingMode.ID, ColumnMappingMode.NAME, ColumnMappingMode.NONE);
+                            if (allowed.stream().map(Enum::name).noneMatch(mode -> mode.equalsIgnoreCase(value))) {
+                                throw new IllegalArgumentException(format("Invalid value [%s]. Valid values: [ID, NAME, NONE]", value));
+                            }
+                        },
                         false))
                 .build();
     }
@@ -107,5 +122,10 @@ public class DeltaLakeTableProperties
     public static Optional<Boolean> getChangeDataFeedEnabled(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(CHANGE_DATA_FEED_ENABLED_PROPERTY));
+    }
+
+    public static ColumnMappingMode getColumnMappingMode(Map<String, Object> tableProperties)
+    {
+        return ColumnMappingMode.valueOf(tableProperties.get(COLUMN_MAPPING_MODE_PROPERTY).toString().toUpperCase(ENGLISH));
     }
 }
