@@ -11,13 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.join;
+package io.trino.annotation;
 
-import io.trino.annotation.NotThreadSafe;
-import io.trino.spi.Page;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-@NotThreadSafe
-public interface JoinFilterFunction
+import static java.lang.annotation.ElementType.TYPE;
+import static java.lang.annotation.RetentionPolicy.CLASS;
+
+/**
+ * The class to which this annotation is applied is not considered thread-safe.
+ */
+@Documented
+@Target(value = TYPE)
+@Retention(value = CLASS)
+public @interface NotThreadSafe
 {
-    boolean filter(int leftPosition, int rightPosition, Page rightPage);
 }

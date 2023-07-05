@@ -19,6 +19,7 @@ import com.google.common.math.Stats;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.StageId;
 import io.trino.metadata.Split;
@@ -28,7 +29,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collection;
 import java.util.Comparator;

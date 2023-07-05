@@ -17,12 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.Collections;
 import java.util.List;

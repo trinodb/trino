@@ -455,6 +455,14 @@
                                     <old>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</old>
                                     <new>method java.lang.invoke.MethodHandle io.trino.spi.function.ScalarFunctionAdapter::adapt(java.lang.invoke.MethodHandle, io.trino.spi.type.Type, java.util.List&lt;io.trino.spi.type.Type&gt;, io.trino.spi.function.InvocationConvention, io.trino.spi.function.InvocationConvention)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>class io.trino.spi.block.LazyBlock</old>
+                                    <new>class io.trino.spi.block.LazyBlock</new>
+                                    <annotation>@javax.annotation.concurrent.NotThreadSafe</annotation>
+                                    <justification>Removal of javax.annotation.concurrent usage</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

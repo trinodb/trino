@@ -18,14 +18,13 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.RemoteTask;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.metadata.InternalNode;
 import io.trino.server.DynamicFilterService;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanNodeId;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;

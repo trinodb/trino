@@ -14,6 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.array.ReferenceCountMap;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverYieldSignal;
@@ -26,8 +27,6 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.gen.ExpressionProfiler;
-
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.util.HashMap;
 import java.util.Iterator;

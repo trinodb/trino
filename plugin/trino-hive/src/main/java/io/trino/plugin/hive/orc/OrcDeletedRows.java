@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.annotation.NotThreadSafe;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -32,7 +33,6 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.security.ConnectorIdentity;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.IOException;
 import java.util.Iterator;
