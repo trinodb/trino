@@ -256,7 +256,7 @@ properties only apply to a ``TASK`` retry policy.
        distribution for fault-tolerant execution. Lower bound is 1.0. For every
        task size increase, new task target size is old task target size
        multiplied by this growth factor.
-     - ``1.2``
+     - ``1.26``
    * - ``fault-tolerant-execution-arbitrary-distribution-compute-task-target-size-min``
      - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
        non-writer tasks of arbitrary distribution of fault-tolerant execution.
@@ -274,7 +274,7 @@ properties only apply to a ``TASK`` retry policy.
        distribution for fault-tolerant execution. Lower bound is 1.0. For every
        task size increase, new task target size is old task target size
        multiplied by this growth factor.
-     - ``1.2``
+     - ``1.26``
    * - ``fault-tolerant-execution-arbitrary-distribution-write-task-target-size-min``
      - Initial/minimum target input :ref:`data size <prop-type-data-size>` for
        writer tasks of arbitrary distribution of fault-tolerant execution.
