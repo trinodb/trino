@@ -66,6 +66,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -197,8 +198,8 @@ public class PlanPrinter
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
     private final ValuePrinter valuePrinter;
     private final Anonymizer anonymizer;
+    private final boolean verbose;
 
-    // NOTE: do NOT add Metadata or Session to this class.  The plan printer must be usable outside of a transaction.
     @VisibleForTesting
     PlanPrinter(
             PlanNode planRoot,
@@ -210,6 +211,31 @@ public class PlanPrinter
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
             Anonymizer anonymizer)
     {
+        this(planRoot,
+                types,
+                tableInfoSupplier,
+                dynamicFilterDomainStats,
+                valuePrinter,
+                estimatedStatsAndCosts,
+                stats,
+                anonymizer,
+                false);
+    }
+
+    // NOTE: do NOT add Metadata or Session to this class. The plan printer must be usable outside of a transaction.
+    @VisibleForTesting
+    PlanPrinter(
+            PlanNode planRoot,
+            TypeProvider types,
+            Function<TableScanNode, TableInfo> tableInfoSupplier,
+            Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats,
+            ValuePrinter valuePrinter,
+            StatsAndCosts estimatedStatsAndCosts,
+            Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            Anonymizer anonymizer,
+            boolean verbose)
+    {
+        this.verbose = verbose;
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(types, "types is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
@@ -403,7 +429,8 @@ public class PlanPrinter
                 valuePrinter,
                 estimatedStatsAndCosts,
                 Optional.empty(),
-                new NoOpAnonymizer())
+                new NoOpAnonymizer(),
+                verbose)
                 .toText(verbose, level));
         return builder.toString();
     }
@@ -608,7 +635,8 @@ public class PlanPrinter
                                 valuePrinter,
                                 fragment.getStatsAndCosts(),
                                 planNodeStats,
-                                anonymizer).toText(verbose, 1))
+                                anonymizer,
+                                verbose).toText(verbose, 1))
                 .append("\n");
 
         return builder.toString();
@@ -1958,6 +1986,32 @@ public class PlanPrinter
             addNode(node, "TableFunctionProcessor", descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(), context.tag());
 
             return processChildren(node, new Context());
+        }
+
+        @Override
+        public Void visitChooseAlternativeNode(ChooseAlternativeNode node, Context context)
+        {
+            List<PlanNode> alternatives = node.getSources();
+            addNode(node, "ChooseAlternativeNode", ImmutableMap.of("alternativesCount", String.valueOf(alternatives.size())), context.tag());
+            Context childContext = new Context();
+            if (stats.isEmpty()) {
+                // alternatives weren't used, it's probably explain (not explain analyze), if not verbose, print no more than 10 alternatives
+                int alternativesCount = verbose ? alternatives.size() : Math.min(alternatives.size(), 10);
+                for (int i = 0; i < alternativesCount; i++) {
+                    PlanNode child = alternatives.get(i);
+                    child.accept(this, childContext);
+                }
+            }
+            else {
+                for (PlanNode child : alternatives) {
+                    Optional<PlanNodeStats> childStats = stats.map(s -> s.get(child.getId()));
+                    // print alternative if it was used or verbose
+                    if (verbose || childStats.isPresent()) {
+                        child.accept(this, childContext);
+                    }
+                }
+            }
+            return null;
         }
 
         @Override
