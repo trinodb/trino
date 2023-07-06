@@ -372,7 +372,7 @@ public final class SqlFormatter
                     .append(" ")
                     .append(formatExpression(node.getType()))
                     .append(" FORMAT ")
-                    .append(node.getFormat().name());
+                    .append(node.getFormat().toString());
             node.getJsonPath().ifPresent(path ->
                     builder.append(" PATH ")
                             .append(formatExpression(path)));
