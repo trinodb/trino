@@ -30,6 +30,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -605,17 +606,17 @@ public final class JsonUtil
                 jsonGenerator.writeNull();
             }
             else {
-                Block mapBlock = type.getObject(block, position);
+                SqlMap sqlMap = type.getObject(block, position);
                 Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-                for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                    String objectKey = keyProvider.getObjectKey(mapBlock, i);
+                for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+                    String objectKey = keyProvider.getObjectKey(sqlMap, i);
                     orderedKeyToValuePosition.put(objectKey, i + 1);
                 }
 
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    valueWriter.writeJsonValue(jsonGenerator, mapBlock, entry.getValue());
+                    valueWriter.writeJsonValue(jsonGenerator, sqlMap, entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }

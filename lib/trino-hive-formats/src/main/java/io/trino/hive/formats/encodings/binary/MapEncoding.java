@@ -21,6 +21,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 
 import static java.lang.Math.toIntExact;
@@ -41,7 +42,7 @@ public class MapEncoding
     @Override
     public void encodeValue(Block block, int position, SliceOutput output)
     {
-        Block map = block.getObject(position, Block.class);
+        SqlMap map = block.getObject(position, SqlMap.class);
 
         // write entry count
         ReadWriteUtils.writeVInt(output, map.getPositionCount() / 2);

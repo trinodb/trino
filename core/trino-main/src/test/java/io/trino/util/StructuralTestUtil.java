@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -52,7 +53,7 @@ public final class StructuralTestUtil
         return blockBuilder.build();
     }
 
-    public static Block mapBlockOf(Type keyType, Type valueType, Map<?, ?> map)
+    public static SqlMap sqlMapOf(Type keyType, Type valueType, Map<?, ?> map)
     {
         return buildMapValue(
                 mapType(keyType, valueType),

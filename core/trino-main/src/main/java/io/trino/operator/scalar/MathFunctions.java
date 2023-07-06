@@ -22,6 +22,7 @@ import io.airlift.slice.Slice;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -1361,8 +1362,8 @@ public final class MathFunctions
                     operator = HASH_CODE,
                     argumentTypes = "varchar",
                     convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode varcharHashCode,
-            @SqlType("map(varchar,double)") Block leftMap,
-            @SqlType("map(varchar,double)") Block rightMap)
+            @SqlType("map(varchar,double)") SqlMap leftMap,
+            @SqlType("map(varchar,double)") SqlMap rightMap)
     {
         Double normLeftMap = mapL2Norm(leftMap);
         Double normRightMap = mapL2Norm(rightMap);
@@ -1376,7 +1377,7 @@ public final class MathFunctions
         return dotProduct / (normLeftMap * normRightMap);
     }
 
-    private static double mapDotProduct(BlockPositionIsDistinctFrom varcharDistinct, BlockPositionHashCode varcharHashCode, Block leftMap, Block rightMap)
+    private static double mapDotProduct(BlockPositionIsDistinctFrom varcharDistinct, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
     {
         BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharDistinct, varcharHashCode, rightMap.getPositionCount() / 2);
 
@@ -1398,7 +1399,7 @@ public final class MathFunctions
         return result;
     }
 
-    private static Double mapL2Norm(Block map)
+    private static Double mapL2Norm(SqlMap map)
     {
         double norm = 0.0;
 

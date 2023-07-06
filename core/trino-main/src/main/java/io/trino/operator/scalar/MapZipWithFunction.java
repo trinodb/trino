@@ -15,7 +15,6 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
@@ -43,7 +42,7 @@ public final class MapZipWithFunction
 {
     public static final MapZipWithFunction MAP_ZIP_WITH_FUNCTION = new MapZipWithFunction();
 
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, Object.class, Block.class, Block.class, MapZipWithLambda.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapZipWithFunction.class, "mapZipWith", Type.class, Type.class, Type.class, MapType.class, Object.class, SqlMap.class, SqlMap.class, MapZipWithLambda.class);
     private static final MethodHandle STATE_FACTORY = methodHandle(MapZipWithFunction.class, "createState", MapType.class);
 
     private MapZipWithFunction()
@@ -85,18 +84,16 @@ public final class MapZipWithFunction
         return BufferedMapValueBuilder.createBuffered(mapType);
     }
 
-    public static Block mapZipWith(
+    public static SqlMap mapZipWith(
             Type keyType,
             Type leftValueType,
             Type rightValueType,
             MapType outputMapType,
             Object state,
-            Block leftBlock,
-            Block rightBlock,
+            SqlMap leftMap,
+            SqlMap rightMap,
             MapZipWithLambda function)
     {
-        SqlMap leftMap = (SqlMap) leftBlock;
-        SqlMap rightMap = (SqlMap) rightBlock;
         Type outputValueType = outputMapType.getValueType();
 
         int maxOutputSize = (leftMap.getPositionCount() + rightMap.getPositionCount()) / 2;

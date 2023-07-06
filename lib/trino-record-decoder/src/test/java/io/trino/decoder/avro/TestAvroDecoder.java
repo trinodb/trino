@@ -24,6 +24,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -729,7 +730,7 @@ public class TestAvroDecoder
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
         GenericArray<Map<String, Float>> list = new GenericData.Array<>(schema, data);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
-        checkArrayValues(getBlock(decodedRow, row), row.getType(), data);
+        checkArrayValues((Block) getObject(decodedRow, row), row.getType(), data);
     }
 
     @Test
@@ -749,7 +750,7 @@ public class TestAvroDecoder
         DecoderTestColumnHandle row = new DecoderTestColumnHandle(0, "row", new ArrayType(REAL_MAP_TYPE), "array_field", null, null, false, false, false);
         GenericArray<Map<String, Float>> list = new GenericData.Array<>(schema, data);
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(row, "array_field", schema.toString(), list);
-        checkArrayValues(getBlock(decodedRow, row), row.getType(), data);
+        checkArrayValues((Block) getObject(decodedRow, row), row.getType(), data);
     }
 
     @Test
@@ -1133,17 +1134,17 @@ public class TestAvroDecoder
 
     private static void checkRowValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
     {
-        checkRowValues(getBlock(decodedRow, handle), handle.getType(), expected);
+        checkRowValues((Block) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, Object expected)
     {
-        checkArrayValues(getBlock(decodedRow, handle), handle.getType(), expected);
+        checkArrayValues((Block) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
     private static void checkArrayItemIsNull(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle, long[] expected)
     {
-        Block actualBlock = getBlock(decodedRow, handle);
+        Block actualBlock = (Block) getObject(decodedRow, handle);
         assertEquals(actualBlock.getPositionCount(), expected.length);
 
         for (int i = 0; i < actualBlock.getPositionCount(); i++) {
@@ -1154,14 +1155,14 @@ public class TestAvroDecoder
 
     private static void checkMapValue(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderTestColumnHandle handle, Object expected)
     {
-        checkMapValues(getBlock(decodedRow, handle), handle.getType(), expected);
+        checkMapValues((SqlMap) getObject(decodedRow, handle), handle.getType(), expected);
     }
 
-    private static Block getBlock(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
+    private static Object getObject(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
     {
         FieldValueProvider provider = decodedRow.get(handle);
         assertNotNull(provider);
-        return provider.getBlock();
+        return provider.getObject();
     }
 
     @Test

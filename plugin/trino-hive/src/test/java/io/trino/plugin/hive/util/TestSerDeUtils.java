@@ -47,7 +47,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 
 import static io.trino.plugin.hive.HiveTestUtils.mapType;
-import static io.trino.plugin.hive.util.SerDeUtils.getBlockObject;
 import static io.trino.plugin.hive.util.SerDeUtils.serializeObject;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -345,7 +344,7 @@ public class TestSerDeUtils
         ObjectInspector inspector = getInspector(type);
 
         MapType mapType = mapType(VARCHAR, BIGINT);
-        Block actual = getBlockObject(mapType, ImmutableMap.of(value, 0L), inspector);
+        Block actual = toSingleValueBlock(mapType, ImmutableMap.of(value, 0L), inspector);
 
         MapBlockBuilder blockBuilder = mapType.createBlockBuilder(null, 1);
         blockBuilder.buildEntry((keyBuilder, valueBuilder) -> {

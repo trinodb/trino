@@ -20,6 +20,7 @@ import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Chars;
@@ -196,12 +197,12 @@ public class OpenXJsonSerializer
                 throw new RuntimeException("Unsupported map key type: " + keyType);
             }
             Type valueType = mapType.getValueType();
-            Block mapBlock = mapType.getObject(block, position);
+            SqlMap sqlMap = mapType.getObject(block, position);
 
             Map<String, Object> jsonMap = new LinkedHashMap<>();
-            for (int mapIndex = 0; mapIndex < mapBlock.getPositionCount(); mapIndex += 2) {
+            for (int mapIndex = 0; mapIndex < sqlMap.getPositionCount(); mapIndex += 2) {
                 try {
-                    Object key = writeValue(keyType, mapBlock, mapIndex);
+                    Object key = writeValue(keyType, sqlMap, mapIndex);
                     if (key == null) {
                         throw new RuntimeException("OpenX JsonSerDe can not write a null map key");
                     }
@@ -216,7 +217,7 @@ public class OpenXJsonSerializer
                         fieldName = key.toString();
                     }
 
-                    Object value = writeValue(valueType, mapBlock, mapIndex + 1);
+                    Object value = writeValue(valueType, sqlMap, mapIndex + 1);
                     jsonMap.put(fieldName, value);
                 }
                 catch (InvalidJsonException ignored) {

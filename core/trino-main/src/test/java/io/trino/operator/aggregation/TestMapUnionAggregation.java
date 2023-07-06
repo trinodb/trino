@@ -31,8 +31,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 
 public class TestMapUnionAggregation
 {
@@ -49,8 +49,8 @@ public class TestMapUnionAggregation
                 ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 43.0, "ccc", 53.0, "ddd", 13.0, "eee"),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(DOUBLE, VARCHAR, ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 53.0, "ddd")),
-                        mapBlockOf(DOUBLE, VARCHAR, ImmutableMap.of(43.0, "ccc", 53.0, "ddd", 13.0, "eee"))));
+                        sqlMapOf(DOUBLE, VARCHAR, ImmutableMap.of(23.0, "aaa", 33.0, "bbb", 53.0, "ddd")),
+                        sqlMapOf(DOUBLE, VARCHAR, ImmutableMap.of(43.0, "ccc", 53.0, "ddd", 13.0, "eee"))));
 
         mapType = mapType(DOUBLE, BIGINT);
         assertAggregation(
@@ -59,8 +59,8 @@ public class TestMapUnionAggregation
                 ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L, 4.0, 44L),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L)),
-                        mapBlockOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 44L, 2.0, 44L, 4.0, 44L))));
+                        sqlMapOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 99L, 2.0, 99L, 3.0, 99L)),
+                        sqlMapOf(DOUBLE, BIGINT, ImmutableMap.of(1.0, 44L, 2.0, 44L, 4.0, 44L))));
 
         mapType = mapType(BOOLEAN, BIGINT);
         assertAggregation(
@@ -70,8 +70,8 @@ public class TestMapUnionAggregation
                 ImmutableMap.of(false, 12L, true, 13L),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(BOOLEAN, BIGINT, ImmutableMap.of(false, 12L)),
-                        mapBlockOf(BOOLEAN, BIGINT, ImmutableMap.of(true, 13L, false, 33L))));
+                        sqlMapOf(BOOLEAN, BIGINT, ImmutableMap.of(false, 12L)),
+                        sqlMapOf(BOOLEAN, BIGINT, ImmutableMap.of(true, 13L, false, 33L))));
     }
 
     @Test
@@ -88,9 +88,9 @@ public class TestMapUnionAggregation
                 expected,
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(DOUBLE, VARCHAR, mapOf(23.0, "aaa", 33.0, null, 53.0, "ddd")),
+                        sqlMapOf(DOUBLE, VARCHAR, mapOf(23.0, "aaa", 33.0, null, 53.0, "ddd")),
                         null,
-                        mapBlockOf(DOUBLE, VARCHAR, mapOf(43.0, "ccc", 53.0, "ddd"))));
+                        sqlMapOf(DOUBLE, VARCHAR, mapOf(43.0, "ccc", 53.0, "ddd"))));
     }
 
     @Test
@@ -108,7 +108,7 @@ public class TestMapUnionAggregation
                         4.0, ImmutableList.of("r", "s")),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(
+                        sqlMapOf(
                                 DOUBLE,
                                 new ArrayType(VARCHAR),
                                 ImmutableMap.of(
@@ -118,7 +118,7 @@ public class TestMapUnionAggregation
                                         ImmutableList.of("c", "d"),
                                         3.0,
                                         ImmutableList.of("e", "f"))),
-                        mapBlockOf(
+                        sqlMapOf(
                                 DOUBLE,
                                 new ArrayType(VARCHAR),
                                 ImmutableMap.of(
@@ -140,7 +140,7 @@ public class TestMapUnionAggregation
                         3.0, ImmutableMap.of("e", "f")),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(
+                        sqlMapOf(
                                 DOUBLE,
                                 mapType(VARCHAR, VARCHAR),
                                 ImmutableMap.of(
@@ -148,7 +148,7 @@ public class TestMapUnionAggregation
                                         ImmutableMap.of("a", "b"),
                                         2.0,
                                         ImmutableMap.of("c", "d"))),
-                        mapBlockOf(
+                        sqlMapOf(
                                 DOUBLE,
                                 mapType(VARCHAR, VARCHAR),
                                 ImmutableMap.of(
@@ -166,7 +166,7 @@ public class TestMapUnionAggregation
                         ImmutableList.of("e", "f"), 3.0),
                 arrayBlockOf(
                         mapType,
-                        mapBlockOf(
+                        sqlMapOf(
                                 new ArrayType(VARCHAR),
                                 DOUBLE,
                                 ImmutableMap.of(
@@ -174,7 +174,7 @@ public class TestMapUnionAggregation
                                         1.0,
                                         ImmutableList.of("e", "f"),
                                         3.0)),
-                        mapBlockOf(
+                        sqlMapOf(
                                 new ArrayType(VARCHAR),
                                 DOUBLE,
                                 ImmutableMap.of(

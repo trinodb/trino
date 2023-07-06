@@ -59,7 +59,7 @@ public class BufferedMapValueBuilder
         return INSTANCE_SIZE + keyBlockBuilder.getRetainedSizeInBytes() + valueBlockBuilder.getRetainedSizeInBytes();
     }
 
-    public <E extends Throwable> Block build(int entryCount, MapValueBuilder<E> builder)
+    public <E extends Throwable> SqlMap build(int entryCount, MapValueBuilder<E> builder)
             throws E
     {
         if (keyBlockBuilder.getPositionCount() != valueBlockBuilder.getPositionCount()) {

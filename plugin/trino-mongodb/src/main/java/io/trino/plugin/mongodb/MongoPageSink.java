@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
 import io.trino.spi.type.ArrayType;
@@ -214,14 +215,14 @@ public class MongoPageSink
             Type keyType = mapType.getKeyType();
             Type valueType = mapType.getValueType();
 
-            Block mapBlock = block.getObject(position, Block.class);
+            SqlMap sqlMap = block.getObject(position, SqlMap.class);
 
             // map type is converted into list of fixed keys document
-            List<Object> values = new ArrayList<>(mapBlock.getPositionCount() / 2);
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
+            List<Object> values = new ArrayList<>(sqlMap.getPositionCount() / 2);
+            for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
                 Map<String, Object> mapValue = new HashMap<>();
-                mapValue.put("key", getObjectValue(keyType, mapBlock, i));
-                mapValue.put("value", getObjectValue(valueType, mapBlock, i + 1));
+                mapValue.put("key", getObjectValue(keyType, sqlMap, i));
+                mapValue.put("value", getObjectValue(valueType, sqlMap, i + 1));
                 values.add(mapValue);
             }
 

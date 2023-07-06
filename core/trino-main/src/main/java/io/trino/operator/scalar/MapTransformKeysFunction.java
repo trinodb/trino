@@ -35,6 +35,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
 import io.trino.spi.block.MapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -139,13 +140,13 @@ public final class MapTransformKeysFunction
 
         Parameter state = arg("state", Object.class);
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
-                type(Block.class),
-                ImmutableList.of(state, session, block, function));
+                type(SqlMap.class),
+                ImmutableList.of(state, session, map, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -153,12 +154,12 @@ public final class MapTransformKeysFunction
         Variable mapValueBuilder = scope.declareVariable(BufferedMapValueBuilder.class, "mapValueBuilder");
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
-        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(session, block, function));
-        BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
+        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(session, map, function));
+        BytecodeExpression entryCount = divide(map.invoke("getPositionCount", int.class), constantInt(2));
 
         Variable duplicateKeyException = scope.declareVariable(DuplicateMapKeyException.class, "e");
         body.append(new TryCatch(
-                mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret(),
+                mapValueBuilder.invoke("build", SqlMap.class, entryCount, mapEntryBuilder).ret(),
                 ImmutableList.of(
                         new TryCatch.CatchBlock(
                                 new BytecodeBlock()
@@ -168,13 +169,13 @@ public final class MapTransformKeysFunction
                                 ImmutableList.of(type(DuplicateMapKeyException.class))))));
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformKeysFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "transform", Object.class, ConnectorSession.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
     private static MethodDefinition generateTransformKeyInner(ClassDefinition definition, CallSiteBinder binder, Type keyType, Type transformedKeyType, Type valueType)
     {
         Parameter session = arg("session", ConnectorSession.class);
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
@@ -182,7 +183,7 @@ public final class MapTransformKeysFunction
                 a(PRIVATE, STATIC),
                 "transform",
                 type(void.class),
-                ImmutableList.of(session, block, function, keyBuilder, valueBuilder));
+                ImmutableList.of(session, map, function, keyBuilder, valueBuilder));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -198,7 +199,7 @@ public final class MapTransformKeysFunction
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
 
         // invoke block.getPositionCount()
-        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+        body.append(positionCount.set(map.invoke("getPositionCount", int.class)));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -211,7 +212,7 @@ public final class MapTransformKeysFunction
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(map.cast(Block.class), position).cast(keyJavaType)));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time but,
@@ -227,9 +228,9 @@ public final class MapTransformKeysFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(map.invoke("isNull", boolean.class, add(position, constantInt(1))))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(map.cast(Block.class), add(position, constantInt(1))).cast(valueJavaType)));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time
@@ -245,7 +246,7 @@ public final class MapTransformKeysFunction
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
                                     .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
-                                    .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), valueBuilder))));
+                                    .append(valueSqlType.invoke("appendTo", void.class, map.cast(Block.class), add(position, constantInt(1)), valueBuilder))));
         }
         else {
             // key cannot be unknown
