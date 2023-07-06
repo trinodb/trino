@@ -25,6 +25,7 @@ import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
@@ -122,6 +123,7 @@ public class TestIcebergSplitSource
         SchemaTableName schemaTableName = new SchemaTableName("tpch", "nation");
         Table nationTable = catalog.loadTable(SESSION, schemaTableName);
         IcebergTableHandle tableHandle = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 TableType.DATA,
