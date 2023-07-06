@@ -707,19 +707,19 @@ public final class IcebergUtil
         }
     }
 
-    public static OptionalInt parseVersion(String metadataLocation)
+    public static OptionalInt parseVersion(String metadataFileName)
             throws TrinoException
     {
-        int versionStart = metadataLocation.lastIndexOf('/') + 1; // if '/' isn't found, this will be 0
-        int versionEnd = metadataLocation.indexOf('-', versionStart);
-        if (versionStart == 0 || versionEnd == -1) {
-            throw new TrinoException(ICEBERG_BAD_DATA, "Invalid metadata location: " + metadataLocation);
+        checkArgument(!metadataFileName.contains("/"), "Not a file name: %s", metadataFileName);
+        int versionEnd = metadataFileName.indexOf('-');
+        if (versionEnd == -1) {
+            throw new TrinoException(ICEBERG_BAD_DATA, "Invalid metadata file name: " + metadataFileName);
         }
         try {
-            return OptionalInt.of(parseInt(metadataLocation.substring(versionStart, versionEnd)));
+            return OptionalInt.of(parseInt(metadataFileName.substring(0, versionEnd)));
         }
         catch (NumberFormatException e) {
-            log.warn(e, "Unable to parse version from metadata location: %s", metadataLocation);
+            log.warn(e, "Unable to parse version from metadata file name: %s", metadataFileName);
             return OptionalInt.empty();
         }
     }
