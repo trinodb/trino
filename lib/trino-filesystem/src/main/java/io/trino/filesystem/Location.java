@@ -197,7 +197,10 @@ public final class Location
             return withPath(newLocation, "");
         }
 
-        String newPath = path.substring(0, lastIndexOfSlash);
+        // Special handling for the case where the parent path contains multiple trailing slashes
+        // The parent directory for `s3://bucket/directory//file` is `s3://bucket/directory//`
+        int parentDirectoryEndIndex = (lastIndexOfSlash > 0 && path.charAt(lastIndexOfSlash - 1) == '/') ? lastIndexOfSlash + 1 : lastIndexOfSlash;
+        String newPath = path.substring(0, parentDirectoryEndIndex);
         String newLocation = location.substring(0, location.length() - (path.length() - newPath.length()));
         return withPath(newLocation, newPath);
     }
