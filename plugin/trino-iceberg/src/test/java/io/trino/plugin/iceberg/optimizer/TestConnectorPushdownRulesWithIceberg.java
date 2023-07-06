@@ -154,6 +154,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.empty());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -235,6 +236,7 @@ public class TestConnectorPushdownRulesWithIceberg
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -283,6 +285,7 @@ public class TestConnectorPushdownRulesWithIceberg
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,
@@ -342,6 +345,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
+                CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                 SCHEMA_NAME,
                 tableName,
                 DATA,

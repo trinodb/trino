@@ -29,6 +29,7 @@ import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -105,6 +106,7 @@ public class TestTrinoGlueCatalog
             // Test with IcebergMetadata, should the ConnectorMetadata implementation behavior depend on that class
             ConnectorMetadata icebergMetadata = new IcebergMetadata(
                     PLANNER_CONTEXT.getTypeManager(),
+                    CatalogHandle.fromId("iceberg:NORMAL:v12345"),
                     jsonCodec(CommitTaskData.class),
                     catalog,
                     connectorIdentity -> {
