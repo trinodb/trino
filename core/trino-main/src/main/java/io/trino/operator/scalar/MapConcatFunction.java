@@ -18,6 +18,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -57,7 +58,7 @@ public final class MapConcatFunction
             BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             Object.class,
-            Block[].class);
+            SqlMap[].class);
 
     private final BlockTypeOperators blockTypeOperators;
 
@@ -89,8 +90,8 @@ public final class MapConcatFunction
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
 
         MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
-                Block.class,
-                Block.class,
+                SqlMap.class,
+                SqlMap.class,
                 boundSignature.getArity(),
                 MethodHandles.insertArguments(METHOD_HANDLE, 0, mapType, keysDistinctOperator, keyHashCode),
                 USER_STATE_FACTORY.bindTo(mapType));
@@ -110,7 +111,7 @@ public final class MapConcatFunction
     }
 
     @UsedByGeneratedCode
-    public static Block mapConcat(MapType mapType, BlockPositionIsDistinctFrom keysDistinctOperator, BlockPositionHashCode keyHashCode, Object state, Block[] maps)
+    public static SqlMap mapConcat(MapType mapType, BlockPositionIsDistinctFrom keysDistinctOperator, BlockPositionHashCode keyHashCode, Object state, SqlMap[] maps)
     {
         int maxEntries = 0;
         int lastMapIndex = maps.length - 1;

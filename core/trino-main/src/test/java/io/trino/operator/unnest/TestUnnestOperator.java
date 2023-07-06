@@ -70,7 +70,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
@@ -114,11 +114,11 @@ public class TestUnnestOperator
         Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1L, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
+                .row(1L, arrayBlockOf(BIGINT, 2, 3), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
                 .row(2L, arrayBlockOf(BIGINT, 99), null)
                 .row(3L, null, null)
                 .pageBreak()
-                .row(6L, arrayBlockOf(BIGINT, 7, 8), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(9, 10, 11, 12)))
+                .row(6L, arrayBlockOf(BIGINT, 7, 8), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(9, 10, 11, 12)))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -145,14 +145,14 @@ public class TestUnnestOperator
                 .row(
                         1L,
                         arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(2, 4), ImmutableList.of(3, 6)),
-                        mapBlockOf(new ArrayType(BIGINT), new ArrayType(BIGINT), ImmutableMap.of(ImmutableList.of(4, 8), ImmutableList.of(5, 10))))
+                        sqlMapOf(new ArrayType(BIGINT), new ArrayType(BIGINT), ImmutableMap.of(ImmutableList.of(4, 8), ImmutableList.of(5, 10))))
                 .row(2L, arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(99, 198)), null)
                 .row(3L, null, null)
                 .pageBreak()
                 .row(
                         6,
                         arrayBlockOf(new ArrayType(BIGINT), ImmutableList.of(7, 14), ImmutableList.of(8, 16)),
-                        mapBlockOf(new ArrayType(BIGINT), new ArrayType(BIGINT), ImmutableMap.of(ImmutableList.of(9, 18), ImmutableList.of(10, 20), ImmutableList.of(11, 22), ImmutableList.of(12, 24))))
+                        sqlMapOf(new ArrayType(BIGINT), new ArrayType(BIGINT), ImmutableMap.of(ImmutableList.of(9, 18), ImmutableList.of(10, 20), ImmutableList.of(11, 22), ImmutableList.of(12, 24))))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -176,11 +176,11 @@ public class TestUnnestOperator
         Type mapType = TESTING_TYPE_MANAGER.getType(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()));
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
-                .row(1L, arrayBlockOf(BIGINT, 2, 3), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
+                .row(1L, arrayBlockOf(BIGINT, 2, 3), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(4, 5)))
                 .row(2L, arrayBlockOf(BIGINT, 99), null)
                 .row(3L, null, null)
                 .pageBreak()
-                .row(6L, arrayBlockOf(BIGINT, 7, 8), mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(9, 10, 11, 12)))
+                .row(6L, arrayBlockOf(BIGINT, 7, 8), sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(9, 10, 11, 12)))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -205,7 +205,7 @@ public class TestUnnestOperator
 
         List<Page> input = rowPagesBuilder(BIGINT, arrayType, mapType)
                 .row(1L, arrayBlockOf(DOUBLE, NEGATIVE_INFINITY, POSITIVE_INFINITY, NaN),
-                        mapBlockOf(BIGINT, DOUBLE, ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN)))
+                        sqlMapOf(BIGINT, DOUBLE, ImmutableMap.of(1, NEGATIVE_INFINITY, 2, POSITIVE_INFINITY, 3, NaN)))
                 .build();
 
         OperatorFactory operatorFactory = new UnnestOperator.UnnestOperatorFactory(
@@ -260,7 +260,7 @@ public class TestUnnestOperator
         List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
                 .row(
                         1,
-                        mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(1, 2)),
+                        sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(1, 2)),
                         arrayBlockOf(BIGINT, 3),
                         arrayBlockOf(elementType, ImmutableList.of(4, 5.5, "a"), ImmutableList.of(6, 7.7, "b")))
                 .row(2, null, null, null)
@@ -292,7 +292,7 @@ public class TestUnnestOperator
         List<Page> input = rowPagesBuilder(BIGINT, mapType, arrayType, arrayOfRowType)
                 .row(
                         1,
-                        mapBlockOf(BIGINT, BIGINT, ImmutableMap.of(1, 2, 6, 7)),
+                        sqlMapOf(BIGINT, BIGINT, ImmutableMap.of(1, 2, 6, 7)),
                         arrayBlockOf(BIGINT, 3),
                         arrayBlockOf(elementType, ImmutableList.of(4, 5.5, "a")))
                 .row(2, null, null, null)

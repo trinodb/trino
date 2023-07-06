@@ -15,7 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.DoubleType;
@@ -31,8 +31,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
-import static io.trino.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
-import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromSqlMap;
+import static io.trino.plugin.prometheus.PrometheusRecordCursor.getSqlMapFromMap;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,7 +63,7 @@ public class TestPrometheusRecordSet
         List<PrometheusStandardizedRow> actual = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
             actual.add(new PrometheusStandardizedRow(
-                    getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)).entrySet().stream()
+                    getMapFromSqlMap(varcharMapType, (SqlMap) cursor.getObject(0)).entrySet().stream()
                             .collect(toImmutableMap(entry -> (String) entry.getKey(), entry -> (String) entry.getValue())),
                     (Instant) cursor.getObject(1),
                     cursor.getDouble(2)));
@@ -87,7 +87,7 @@ public class TestPrometheusRecordSet
         for (int i = 0; i < actual.size(); i++) {
             PrometheusStandardizedRow actualRow = actual.get(i);
             PrometheusStandardizedRow expectedRow = expected.get(i);
-            assertEquals(getMapFromBlock(varcharMapType, getBlockFromMap(varcharMapType, actualRow.getLabels())), getMapFromBlock(varcharMapType, getBlockFromMap(varcharMapType, expectedRow.getLabels())));
+            assertEquals(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, actualRow.getLabels())), getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, expectedRow.getLabels())));
             assertEquals(actualRow.getTimestamp(), expectedRow.getTimestamp());
             assertEquals(actualRow.getValue(), expectedRow.getValue());
         }

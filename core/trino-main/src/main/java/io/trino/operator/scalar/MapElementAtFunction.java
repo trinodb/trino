@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -42,10 +41,10 @@ public class MapElementAtFunction
 {
     public static final MapElementAtFunction MAP_ELEMENT_AT = new MapElementAtFunction();
 
-    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, Block.class, boolean.class);
-    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, Block.class, long.class);
-    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, Block.class, Object.class);
+    private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, SqlMap.class, boolean.class);
+    private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, SqlMap.class, long.class);
+    private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, SqlMap.class, double.class);
+    private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapElementAtFunction.class, "elementAt", Type.class, SqlMap.class, Object.class);
 
     protected MapElementAtFunction()
     {
@@ -101,9 +100,8 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(Type valueType, Block map, boolean key)
+    public static Object elementAt(Type valueType, SqlMap sqlMap, boolean key)
     {
-        SqlMap sqlMap = (SqlMap) map;
         int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
@@ -112,9 +110,8 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(Type valueType, Block map, long key)
+    public static Object elementAt(Type valueType, SqlMap sqlMap, long key)
     {
-        SqlMap sqlMap = (SqlMap) map;
         int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
@@ -123,9 +120,8 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(Type valueType, Block map, double key)
+    public static Object elementAt(Type valueType, SqlMap sqlMap, double key)
     {
-        SqlMap sqlMap = (SqlMap) map;
         int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
@@ -134,9 +130,8 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(Type valueType, Block map, Object key)
+    public static Object elementAt(Type valueType, SqlMap sqlMap, Object key)
     {
-        SqlMap sqlMap = (SqlMap) map;
         int valuePosition = sqlMap.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;

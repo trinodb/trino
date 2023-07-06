@@ -22,6 +22,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
@@ -60,7 +61,7 @@ public class MapEncoding
     public void encodeValueInto(Block block, int position, SliceOutput output)
             throws FileCorruptionException
     {
-        Block map = block.getObject(position, Block.class);
+        SqlMap map = block.getObject(position, SqlMap.class);
         boolean first = true;
         for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
             if (map.isNull(elementIndex)) {

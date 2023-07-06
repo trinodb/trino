@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.OperatorDependency;
@@ -62,7 +63,7 @@ public final class MultimapFromEntriesFunction
     @TypeParameter("V")
     @SqlType("map(K,array(V))")
     @SqlNullable
-    public Block multimapFromEntries(
+    public SqlMap multimapFromEntries(
             @TypeParameter("map(K,array(V))") MapType mapType,
             @OperatorDependency(
                     operator = IS_DISTINCT_FROM,
@@ -104,7 +105,7 @@ public final class MultimapFromEntriesFunction
             }
         }
 
-        Block resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
+        SqlMap resultMap = mapValueBuilder.build(keySet.size(), (keyBuilder, valueBuilder) -> {
             for (int i = 0; i < keySet.size(); i++) {
                 IntList indexList = entryIndicesList[i];
                 keyType.appendTo(mapEntryType.getObject(mapEntries, indexList.getInt(0)), 0, keyBuilder);

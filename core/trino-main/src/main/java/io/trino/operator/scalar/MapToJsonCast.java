@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -53,7 +53,7 @@ public class MapToJsonCast
         extends SqlScalarFunction
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(MapToJsonCast.class, "toJson", ObjectKeyProvider.class, JsonGeneratorWriter.class, SqlMap.class);
 
     private static final JsonFactory JSON_FACTORY = createJsonFactory();
 
@@ -89,12 +89,12 @@ public class MapToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, Block block)
+    public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
     {
         try {
             Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-            for (int i = 0; i < block.getPositionCount(); i += 2) {
-                String objectKey = provider.getObjectKey(block, i);
+            for (int i = 0; i < map.getPositionCount(); i += 2) {
+                String objectKey = provider.getObjectKey(map, i);
                 orderedKeyToValuePosition.put(objectKey, i + 1);
             }
 
@@ -103,7 +103,7 @@ public class MapToJsonCast
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, block, entry.getValue());
+                    writer.writeJsonValue(jsonGenerator, map, entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }
