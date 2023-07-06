@@ -1289,7 +1289,7 @@ public class PostgreSqlClient
 
     private ObjectReadFunction varcharMapReadFunction()
     {
-        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(SqlMap.class, (resultSet, columnIndex) -> {
             @SuppressWarnings("unchecked")
             Map<String, String> map = (Map<String, String>) resultSet.getObject(columnIndex);
             BlockBuilder keyBlockBuilder = varcharMapType.getKeyType().createBlockBuilder(null, map.size());
@@ -1307,14 +1307,13 @@ public class PostgreSqlClient
                 }
             }
             return varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build())
-                    .getObject(0, Block.class);
+                    .getObject(0, SqlMap.class);
         });
     }
 
     private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
-        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            checkArgument(block instanceof SqlMap, "wrong block type: %s. expected SqlMap", block.getClass().getSimpleName());
+        return ObjectWriteFunction.of(SqlMap.class, (statement, index, block) -> {
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < block.getPositionCount(); i += 2) {
                 map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));

@@ -15,7 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
@@ -31,7 +31,7 @@ import java.util.Map;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
-import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromSqlMap;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
@@ -78,7 +78,7 @@ public class TestPrometheusRecordSetProvider
 
         Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
-            actual.put((Instant) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
+            actual.put((Instant) cursor.getObject(1), getMapFromSqlMap(varcharMapType, (SqlMap) cursor.getObject(0)));
         }
         Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()
                 .put(ofEpochMilli(1565962969044L), ImmutableMap.of("instance",

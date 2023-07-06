@@ -22,6 +22,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -210,11 +211,11 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
 
-            Block mapBlock = block.getObject(position, Block.class);
+            SqlMap sqlMap = block.getObject(position, SqlMap.class);
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = toIcebergAvroObject(keyType, keyIcebergType, mapBlock, i);
-                Object value = toIcebergAvroObject(valueType, valueIcebergType, mapBlock, i + 1);
+            for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+                Object key = toIcebergAvroObject(keyType, keyIcebergType, sqlMap, i);
+                Object value = toIcebergAvroObject(valueType, valueIcebergType, sqlMap, i + 1);
                 map.put(key, value);
             }
 

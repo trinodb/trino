@@ -37,8 +37,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 
 public class TestMapAggAggregation
 {
@@ -146,9 +146,9 @@ public class TestMapAggAggregation
         MapType innerMapType = mapType(VARCHAR, VARCHAR);
 
         BlockBuilder builder = innerMapType.createBlockBuilder(null, 3);
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
-        innerMapType.writeObject(builder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("a", "b")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("c", "d")));
+        innerMapType.writeObject(builder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("e", "f")));
 
         assertAggregation(
                 FUNCTION_RESOLUTION,

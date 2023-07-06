@@ -21,6 +21,7 @@ import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
@@ -51,8 +52,8 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.arrayBlocksEqual;
-import static io.trino.testing.StructuralTestUtil.mapBlockOf;
-import static io.trino.testing.StructuralTestUtil.mapBlocksEqual;
+import static io.trino.testing.StructuralTestUtil.sqlMapEqual;
+import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testng.Assert.assertEquals;
@@ -97,9 +98,9 @@ public class TestShardWriter
         byte[] bytes3 = octets(0x01, 0x02, 0x19, 0x80);
 
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(columnTypes)
-                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
-                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
-                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
+                .row(123L, "hello", wrappedBuffer(bytes1), 123.456, true, arrayBlockOf(BIGINT, 1, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))
+                .row(null, "world", null, Double.POSITIVE_INFINITY, null, arrayBlockOf(BIGINT, 3, null), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", null), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 6, 7)))
+                .row(456L, "bye \u2603", wrappedBuffer(bytes3), Double.NaN, false, arrayBlockOf(BIGINT), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", false), arrayBlockOf(arrayType, arrayBlockOf(BIGINT)));
 
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(new EmptyClassLoader());
                 OrcFileWriter writer = new OrcFileWriter(TESTING_TYPE_MANAGER, columnIds, columnTypes, file)) {
@@ -160,11 +161,11 @@ public class TestShardWriter
             Block column6 = page.getBlock(6);
             assertEquals(column6.getPositionCount(), 3);
 
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 0), mapBlockOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            Block object = arrayType.getObject(column6, 1);
-            Block k2 = mapBlockOf(createVarcharType(5), BOOLEAN, "k2", null);
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, object, k2));
-            assertTrue(mapBlocksEqual(createVarcharType(5), BOOLEAN, arrayType.getObject(column6, 2), mapBlockOf(createVarcharType(5), BOOLEAN, "k3", false)));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column6, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true)));
+            SqlMap object = (SqlMap) mapType.getObject(column6, 1);
+            SqlMap k2 = sqlMapOf(createVarcharType(5), BOOLEAN, "k2", null);
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, object, k2));
+            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column6, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", false)));
 
             Block column7 = page.getBlock(7);
             assertEquals(column7.getPositionCount(), 3);

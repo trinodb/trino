@@ -109,9 +109,9 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.StructuralTestUtil.arrayBlockOf;
 import static io.trino.testing.StructuralTestUtil.decimalArrayBlockOf;
-import static io.trino.testing.StructuralTestUtil.decimalMapBlockOf;
-import static io.trino.testing.StructuralTestUtil.mapBlockOf;
+import static io.trino.testing.StructuralTestUtil.decimalSqlMapOf;
 import static io.trino.testing.StructuralTestUtil.rowBlockOf;
+import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.intBitsToFloat;
@@ -280,77 +280,77 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_string",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     ImmutableMap.of("test", "test"),
-                    mapBlockOf(createUnboundedVarcharType(), createUnboundedVarcharType(), "test", "test")))
+                    sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), "test", "test")))
             .add(new TestColumn("t_map_tinyint",
                     getStandardMapObjectInspector(javaByteObjectInspector, javaByteObjectInspector),
                     ImmutableMap.of((byte) 1, (byte) 1),
-                    mapBlockOf(TINYINT, TINYINT, (byte) 1, (byte) 1)))
+                    sqlMapOf(TINYINT, TINYINT, (byte) 1, (byte) 1)))
             .add(new TestColumn("t_map_varchar",
                     getStandardMapObjectInspector(javaHiveVarcharObjectInspector, javaHiveVarcharObjectInspector),
                     ImmutableMap.of(new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH), new HiveVarchar("test", HiveVarchar.MAX_VARCHAR_LENGTH)),
-                    mapBlockOf(createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "test", "test")))
+                    sqlMapOf(createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), createVarcharType(HiveVarchar.MAX_VARCHAR_LENGTH), "test", "test")))
             .add(new TestColumn("t_map_char",
                     getStandardMapObjectInspector(CHAR_INSPECTOR_LENGTH_10, CHAR_INSPECTOR_LENGTH_10),
                     ImmutableMap.of(new HiveChar("test", 10), new HiveChar("test", 10)),
-                    mapBlockOf(createCharType(10), createCharType(10), "test", "test")))
+                    sqlMapOf(createCharType(10), createCharType(10), "test", "test")))
             .add(new TestColumn("t_map_smallint",
                     getStandardMapObjectInspector(javaShortObjectInspector, javaShortObjectInspector),
                     ImmutableMap.of((short) 2, (short) 2),
-                    mapBlockOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
+                    sqlMapOf(SMALLINT, SMALLINT, (short) 2, (short) 2)))
             .add(new TestColumn("t_map_null_key",
                     getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
                     asMap(new Long[] {null, 2L}, new Long[] {0L, 3L}),
-                    mapBlockOf(BIGINT, BIGINT, 2, 3)))
+                    sqlMapOf(BIGINT, BIGINT, 2, 3)))
             .add(new TestColumn("t_map_int",
                     getStandardMapObjectInspector(javaIntObjectInspector, javaIntObjectInspector),
                     ImmutableMap.of(3, 3),
-                    mapBlockOf(INTEGER, INTEGER, 3, 3)))
+                    sqlMapOf(INTEGER, INTEGER, 3, 3)))
             .add(new TestColumn("t_map_bigint",
                     getStandardMapObjectInspector(javaLongObjectInspector, javaLongObjectInspector),
                     ImmutableMap.of(4L, 4L),
-                    mapBlockOf(BIGINT, BIGINT, 4L, 4L)))
+                    sqlMapOf(BIGINT, BIGINT, 4L, 4L)))
             .add(new TestColumn("t_map_float",
                     getStandardMapObjectInspector(javaFloatObjectInspector, javaFloatObjectInspector),
-                    ImmutableMap.of(5.0f, 5.0f), mapBlockOf(REAL, REAL, 5.0f, 5.0f)))
+                    ImmutableMap.of(5.0f, 5.0f), sqlMapOf(REAL, REAL, 5.0f, 5.0f)))
             .add(new TestColumn("t_map_double",
                     getStandardMapObjectInspector(javaDoubleObjectInspector, javaDoubleObjectInspector),
-                    ImmutableMap.of(6.0, 6.0), mapBlockOf(DOUBLE, DOUBLE, 6.0, 6.0)))
+                    ImmutableMap.of(6.0, 6.0), sqlMapOf(DOUBLE, DOUBLE, 6.0, 6.0)))
             .add(new TestColumn("t_map_boolean",
                     getStandardMapObjectInspector(javaBooleanObjectInspector, javaBooleanObjectInspector),
                     ImmutableMap.of(true, true),
-                    mapBlockOf(BOOLEAN, BOOLEAN, true, true)))
+                    sqlMapOf(BOOLEAN, BOOLEAN, true, true)))
             .add(new TestColumn("t_map_date",
                     getStandardMapObjectInspector(javaDateObjectInspector, javaDateObjectInspector),
                     ImmutableMap.of(HIVE_DATE, HIVE_DATE),
-                    mapBlockOf(DateType.DATE, DateType.DATE, DATE_DAYS, DATE_DAYS)))
+                    sqlMapOf(DateType.DATE, DateType.DATE, DATE_DAYS, DATE_DAYS)))
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
                     ImmutableMap.of(HIVE_TIMESTAMP, HIVE_TIMESTAMP),
-                    mapBlockOf(TimestampType.TIMESTAMP_MILLIS, TimestampType.TIMESTAMP_MILLIS, TIMESTAMP_MICROS, TIMESTAMP_MICROS)))
+                    sqlMapOf(TimestampType.TIMESTAMP_MILLIS, TimestampType.TIMESTAMP_MILLIS, TIMESTAMP_MICROS, TIMESTAMP_MICROS)))
             .add(new TestColumn("t_map_decimal_precision_2",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_2, DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_2, WRITE_DECIMAL_PRECISION_2),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_2, EXPECTED_DECIMAL_PRECISION_2)))
             .add(new TestColumn("t_map_decimal_precision_4",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_4, DECIMAL_INSPECTOR_PRECISION_4),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_4, WRITE_DECIMAL_PRECISION_4),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_4, EXPECTED_DECIMAL_PRECISION_4)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_4, EXPECTED_DECIMAL_PRECISION_4)))
             .add(new TestColumn("t_map_decimal_precision_8",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_8, DECIMAL_INSPECTOR_PRECISION_8),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_8, WRITE_DECIMAL_PRECISION_8),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_8, EXPECTED_DECIMAL_PRECISION_8)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_8, EXPECTED_DECIMAL_PRECISION_8)))
             .add(new TestColumn("t_map_decimal_precision_17",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_17, DECIMAL_INSPECTOR_PRECISION_17),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_17, WRITE_DECIMAL_PRECISION_17),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_17, EXPECTED_DECIMAL_PRECISION_17)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_17, EXPECTED_DECIMAL_PRECISION_17)))
             .add(new TestColumn("t_map_decimal_precision_18",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_18, DECIMAL_INSPECTOR_PRECISION_18),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_18, WRITE_DECIMAL_PRECISION_18),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_18, EXPECTED_DECIMAL_PRECISION_18)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_18, EXPECTED_DECIMAL_PRECISION_18)))
             .add(new TestColumn("t_map_decimal_precision_38",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_38, DECIMAL_INSPECTOR_PRECISION_38),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_38, WRITE_DECIMAL_PRECISION_38),
-                    decimalMapBlockOf(DECIMAL_TYPE_PRECISION_38, EXPECTED_DECIMAL_PRECISION_38)))
+                    decimalSqlMapOf(DECIMAL_TYPE_PRECISION_38, EXPECTED_DECIMAL_PRECISION_38)))
             .add(new TestColumn("t_array_empty", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of(), arrayBlockOf(createUnboundedVarcharType())))
             .add(new TestColumn("t_array_string", getStandardListObjectInspector(javaStringObjectInspector), ImmutableList.of("test"), arrayBlockOf(createUnboundedVarcharType(), "test")))
             .add(new TestColumn("t_array_tinyint", getStandardListObjectInspector(javaByteObjectInspector), ImmutableList.of((byte) 1), arrayBlockOf(TINYINT, (byte) 1)))
@@ -414,20 +414,20 @@ public abstract class AbstractTestHiveFileFormats
                                             ImmutableList.of("s_int"),
                                             ImmutableList.of(javaIntObjectInspector)))),
                     ImmutableMap.of("test", ImmutableList.<Object>of(new Integer[] {1})),
-                    mapBlockOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
+                    sqlMapOf(createUnboundedVarcharType(), new ArrayType(RowType.anonymous(ImmutableList.of(INTEGER))),
                             "test", arrayBlockOf(RowType.anonymous(ImmutableList.of(INTEGER)), rowBlockOf(ImmutableList.of(INTEGER), 1L)))))
             .add(new TestColumn("t_map_null_key_complex_value",
                     getStandardMapObjectInspector(
                             javaStringObjectInspector,
                             getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)),
                     asMap(new String[] {null, "k"}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
-                    mapBlockOf(createUnboundedVarcharType(), mapType(BIGINT, BOOLEAN), "k", mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
+                    sqlMapOf(createUnboundedVarcharType(), mapType(BIGINT, BOOLEAN), "k", sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
             .add(new TestColumn("t_map_null_key_complex_key_value",
                     getStandardMapObjectInspector(
                             getStandardListObjectInspector(javaStringObjectInspector),
                             getStandardMapObjectInspector(javaLongObjectInspector, javaBooleanObjectInspector)),
                     asMap(new ImmutableList[] {null, ImmutableList.of("k", "ka")}, new ImmutableMap[] {ImmutableMap.of(15L, true), ImmutableMap.of(16L, false)}),
-                    mapBlockOf(new ArrayType(createUnboundedVarcharType()), mapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), mapBlockOf(BIGINT, BOOLEAN, 16L, false))))
+                    sqlMapOf(new ArrayType(createUnboundedVarcharType()), mapType(BIGINT, BOOLEAN), arrayBlockOf(createUnboundedVarcharType(), "k", "ka"), sqlMapOf(BIGINT, BOOLEAN, 16L, false))))
             .add(new TestColumn("t_struct_nested", getStandardStructObjectInspector(ImmutableList.of("struct_field"),
                     ImmutableList.of(getStandardListObjectInspector(javaStringObjectInspector))), ImmutableList.of(ImmutableList.of("1", "2", "3")), rowBlockOf(ImmutableList.of(new ArrayType(createUnboundedVarcharType())), arrayBlockOf(createUnboundedVarcharType(), "1", "2", "3"))))
             .add(new TestColumn("t_struct_null", getStandardStructObjectInspector(ImmutableList.of("struct_field_null", "struct_field_null2"),
@@ -453,7 +453,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_null_value",
                     getStandardMapObjectInspector(javaStringObjectInspector, javaStringObjectInspector),
                     asMap(new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"}),
-                    mapBlockOf(createUnboundedVarcharType(), createUnboundedVarcharType(), new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"})))
+                    sqlMapOf(createUnboundedVarcharType(), createUnboundedVarcharType(), new String[] {"k1", "k2", "k3"}, new String[] {"v1", null, "v3"})))
             .add(new TestColumn("t_array_string_starting_with_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList(null, "test"), arrayBlockOf(createUnboundedVarcharType(), null, "test")))
             .add(new TestColumn("t_array_string_with_nulls_in_between", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList("test-1", null, "test-2"), arrayBlockOf(createUnboundedVarcharType(), "test-1", null, "test-2")))
             .add(new TestColumn("t_array_string_ending_with_nulls", getStandardListObjectInspector(javaStringObjectInspector), Arrays.asList("test", null), arrayBlockOf(createUnboundedVarcharType(), "test", null)))

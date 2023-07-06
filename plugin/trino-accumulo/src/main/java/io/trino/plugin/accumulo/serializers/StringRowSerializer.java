@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
@@ -214,13 +215,13 @@ public class StringRowSerializer
     }
 
     @Override
-    public Block getMap(String name, Type type)
+    public SqlMap getMap(String name, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
     }
 
     @Override
-    public void setMap(Text text, Type type, Block block)
+    public void setMap(Text text, Type type, SqlMap map)
     {
         throw new TrinoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
     }

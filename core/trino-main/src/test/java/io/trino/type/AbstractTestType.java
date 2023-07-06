@@ -73,7 +73,7 @@ import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
@@ -99,6 +99,7 @@ public abstract class AbstractTestType
     private final MethodHandle readFlatMethod;
     private final MethodHandle writeFlatMethod;
     private final MethodHandle writeBlockToFlatMethod;
+    private final MethodHandle stackStackEqualOperator;
     private final MethodHandle flatFlatEqualOperator;
     private final MethodHandle flatBlockPositionEqualOperator;
     private final MethodHandle blockPositionFlatEqualOperator;
@@ -135,6 +136,7 @@ public abstract class AbstractTestType
 
         blockTypeOperators = new BlockTypeOperators(typeOperators);
         if (type.isComparable()) {
+            stackStackEqualOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
             flatFlatEqualOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, FLAT, FLAT));
             flatBlockPositionEqualOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, FLAT, BLOCK_POSITION));
             blockPositionFlatEqualOperator = typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, FLAT));
@@ -150,6 +152,7 @@ public abstract class AbstractTestType
             distinctFromOperator = blockTypeOperators.getDistinctFromOperator(type);
         }
         else {
+            stackStackEqualOperator = null;
             flatFlatEqualOperator = null;
             flatBlockPositionEqualOperator = null;
             blockPositionFlatEqualOperator = null;
@@ -309,6 +312,9 @@ public abstract class AbstractTestType
             }
             else if (type.getJavaType() == Block.class) {
                 assertBlockEquals((Block) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable), (Block) expectedStackValue);
+            }
+            else if (stackStackEqualOperator != null) {
+                assertTrue((Boolean) stackStackEqualOperator.invoke(readFlatMethod.invoke(fixed, elementFixedOffset, variable), expectedStackValue));
             }
             else {
                 assertEquals(readFlatMethod.invoke(fixed, elementFixedOffset, variable), expectedStackValue);
@@ -482,11 +488,21 @@ public abstract class AbstractTestType
             assertBlockEquals((Block) readBlockMethod.invokeExact(block, position), (Block) expectedStackValue);
         }
         else {
-            assertEquals(type.getObject(block, position), expectedStackValue);
+            if (stackStackEqualOperator != null) {
+                assertTrue((Boolean) stackStackEqualOperator.invoke(type.getObject(block, position), expectedStackValue));
+            }
+            else {
+                assertEquals(type.getObject(block, position), expectedStackValue);
+            }
             assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
             assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
-            assertEquals(readBlockMethod.invoke(block, position), expectedStackValue);
+            if (stackStackEqualOperator != null) {
+                assertTrue((Boolean) stackStackEqualOperator.invoke(readBlockMethod.invoke(block, position), expectedStackValue));
+            }
+            else {
+                assertEquals(readBlockMethod.invoke(block, position), expectedStackValue);
+            }
         }
     }
 
@@ -678,7 +694,7 @@ public abstract class AbstractTestType
             Object keyNonNullValue = getNonNullValueForType(keyType);
             Object valueNonNullValue = getNonNullValueForType(valueType);
             Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
-            return mapBlockOf(keyType, valueType, map);
+            return sqlMapOf(keyType, valueType, map);
         }
         if (type instanceof RowType rowType) {
             List<Type> elementTypes = rowType.getTypeParameters();

@@ -53,8 +53,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -217,7 +217,7 @@ public class TestStateCompiler
         singleState.setYetAnotherSlice(null);
         Block array = createLongsBlock(45);
         singleState.setBlock(array);
-        singleState.setAnotherBlock(mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
+        singleState.setAnotherBlock(sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(123L, "testBlock")));
 
         BlockBuilder builder = RowType.anonymous(ImmutableList.of(mapType, VARBINARY, arrayType, BOOLEAN, TINYINT, DOUBLE, INTEGER, BIGINT, VARBINARY, VARBINARY))
                 .createBlockBuilder(null, 1);

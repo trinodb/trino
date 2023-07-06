@@ -185,12 +185,12 @@ public abstract class AbstractTestAccumuloRowSerializer
                 TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);
-        byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromMap(type, expected));
+        byte[] data = serializer.encode(type, AccumuloRowSerializer.getSqlMapFromMap(type, expected));
         Map<Object, Object> actual = serializer.decode(type, data);
         assertEquals(actual, expected);
 
         deserializeData(serializer, data);
-        actual = AccumuloRowSerializer.getMapFromBlock(type, serializer.getMap(COLUMN_NAME, type));
+        actual = AccumuloRowSerializer.getMapFromSqlMap(type, serializer.getMap(COLUMN_NAME, type));
         assertEquals(actual, expected);
     }
 

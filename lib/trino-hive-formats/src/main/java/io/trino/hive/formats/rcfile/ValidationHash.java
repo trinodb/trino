@@ -14,6 +14,7 @@
 package io.trino.hive.formats.rcfile;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -109,12 +110,12 @@ class ValidationHash
 
     private static long mapSkipNullKeysHash(MapType type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
     {
-        Block mapBlock = type.getObject(block, position);
+        SqlMap sqlMap = type.getObject(block, position);
         long hash = 0;
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            if (!mapBlock.isNull(i)) {
-                hash += keyHash.hash(mapBlock, i);
-                hash += valueHash.hash(mapBlock, i + 1);
+        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+            if (!sqlMap.isNull(i)) {
+                hash += keyHash.hash(sqlMap, i);
+                hash += valueHash.hash(sqlMap, i + 1);
             }
         }
         return hash;

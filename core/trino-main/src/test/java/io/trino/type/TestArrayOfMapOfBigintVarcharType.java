@@ -24,8 +24,8 @@ import java.util.List;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -43,14 +43,14 @@ public class TestArrayOfMapOfBigintVarcharType
     {
         BlockBuilder blockBuilder = TYPE.createBlockBuilder(null, 4);
         TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(2, "bye"))));
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(1, "hi")),
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(2, "bye"))));
         TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(3, "4", 4, "bye"))));
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(1, "2", 2, "hello")),
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(3, "4", 4, "bye"))));
         TYPE.writeObject(blockBuilder, arrayBlockOf(TYPE.getElementType(),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(100, "hundred")),
-                mapBlockOf(BIGINT, VARCHAR, ImmutableMap.of(200, "two hundred"))));
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(100, "hundred")),
+                sqlMapOf(BIGINT, VARCHAR, ImmutableMap.of(200, "two hundred"))));
         return blockBuilder.build();
     }
 

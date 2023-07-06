@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -462,12 +463,12 @@ public class AvroPagePositionDataWriter
         void encodeFromBlock(int position, Encoder encoder)
                 throws IOException
         {
-            Block mapBlock = type.getObject(block, position);
-            keyBlockPositionEncoder.setBlock(mapBlock);
-            valueBlockPositionEncoder.setBlock(mapBlock);
+            SqlMap sqlMap = type.getObject(block, position);
+            keyBlockPositionEncoder.setBlock(sqlMap);
+            valueBlockPositionEncoder.setBlock(sqlMap);
             encoder.writeMapStart();
-            encoder.setItemCount(mapBlock.getPositionCount() / 2);
-            for (int mapIndex = 0; mapIndex < mapBlock.getPositionCount(); mapIndex += 2) {
+            encoder.setItemCount(sqlMap.getPositionCount() / 2);
+            for (int mapIndex = 0; mapIndex < sqlMap.getPositionCount(); mapIndex += 2) {
                 encoder.startItem();
                 keyBlockPositionEncoder.encode(mapIndex, encoder);
                 valueBlockPositionEncoder.encode(mapIndex + 1, encoder);

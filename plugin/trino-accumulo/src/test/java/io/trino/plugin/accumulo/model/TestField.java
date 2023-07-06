@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
@@ -166,7 +167,7 @@ public class TestField
         Type type = TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(VARCHAR.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
-        Block expected = AccumuloRowSerializer.getBlockFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));
+        SqlMap expected = AccumuloRowSerializer.getSqlMapFromMap(type, ImmutableMap.of("a", 1L, "b", 2L, "c", 3L));
         Field f1 = new Field(expected, type);
         assertEquals(f1.getMap(), expected);
         assertEquals(f1.getObject(), expected);

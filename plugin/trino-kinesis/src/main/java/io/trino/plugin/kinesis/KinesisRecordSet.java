@@ -28,7 +28,6 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -440,7 +439,7 @@ public class KinesisRecordSet
         @Override
         public Object getObject(int field)
         {
-            return getFieldValueProvider(field, Block.class).getBlock();
+            return getFieldValueProvider(field, Object.class).getObject();
         }
 
         @Override
