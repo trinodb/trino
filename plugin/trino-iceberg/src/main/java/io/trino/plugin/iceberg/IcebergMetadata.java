@@ -2677,6 +2677,11 @@ public class IcebergMetadata
                     if (!(handle instanceof IcebergTableHandle icebergHandle)) {
                         return UNKNOWN_SNAPSHOT_TOKEN;
                     }
+                    // Currently the catalogs are isolated in separate classloaders, and the above instanceof check is sufficient to know "our" handles.
+                    // This isolation will be removed after we remove Hadoop dependencies, so check that this is "our" handle explicitly.
+                    if (!trinoCatalogHandle.equals(icebergHandle.getCatalog())) {
+                        return UNKNOWN_SNAPSHOT_TOKEN;
+                    }
                     return icebergHandle.getSchemaTableName() + "=" + icebergHandle.getSnapshotId().map(Object.class::cast).orElse("");
                 })
                 .distinct()
