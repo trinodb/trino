@@ -1134,7 +1134,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer, vc varchar), " +
+                "  a_row row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone), " + // not sorted on, but still written to sort temp file, if any
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
                 ") " +
@@ -1163,17 +1163,17 @@ public abstract class BaseIcebergConnectorTest
                 "REAL '3.0', " +
                 "DOUBLE '4.0', " +
                 "DECIMAL '5.00', " +
-                "DECIMAL '6.00', " +
-                "'seven', " +
+                "CAST(DECIMAL '6.00' AS decimal(38,20)), " +
+                "VARCHAR 'seven', " +
                 "X'88888888', " +
                 "DATE '2022-09-09', " +
                 "TIME '10:10:10.000000', " +
                 "TIMESTAMP '2022-11-11 11:11:11.000000', " +
                 "TIMESTAMP '2022-11-11 11:11:11.000000 UTC', " +
                 "UUID '12121212-1212-1212-1212-121212121212', " +
-                "ROW(13, 'thirteen'), " +
-                "ARRAY['four', 'teen'], " +
-                "MAP(ARRAY[15], ARRAY['fifteen']))";
+                "CAST(ROW(13, 'thirteen', TIME '10:10:10.000000', TIMESTAMP '2022-11-11 11:11:11.000000', TIMESTAMP '2022-11-11 11:11:11.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
+                "ARRAY[VARCHAR 'four', 'teen'], " +
+                "MAP(ARRAY[15], ARRAY[VARCHAR 'fifteen']))";
         String highValues = "(" +
                 "true, " +
                 "999999999, " +
@@ -1189,7 +1189,7 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2099-12-31 23:59:59.000000', " +
                 "TIMESTAMP '2099-12-31 23:59:59.000000 UTC', " +
                 "UUID 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF', " +
-                "ROW(999, 'zzzzzzzz'), " +
+                "CAST(ROW(999, 'zzzzzzzz', TIME '23:59:59.999999', TIMESTAMP '2099-12-31 23:59:59.000000', TIMESTAMP '2099-12-31 23:59:59.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
                 "ARRAY['zzzz', 'zzzz'], " +
                 "MAP(ARRAY[999], ARRAY['zzzz']))";
         String lowValues = "(" +
@@ -1207,11 +1207,22 @@ public abstract class BaseIcebergConnectorTest
                 "TIMESTAMP '2000-01-01 00:00:00.000000', " +
                 "TIMESTAMP '2000-01-01 00:00:00.000000 UTC', " +
                 "UUID '00000000-0000-0000-0000-000000000000', " +
-                "ROW(0, ''), " +
+                "CAST(ROW(0, '', TIME '00:00:00.000000', TIMESTAMP '2000-01-01 00:00:00.000000', TIMESTAMP '2000-01-01 00:00:00.000000 UTC') AS row(id integer, vc varchar, t time(6), ts timestamp(6), tstz timestamp(6) with time zone)), " +
                 "ARRAY['', ''], " +
                 "MAP(ARRAY[0], ARRAY['']))";
 
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values + ", " + highValues + ", " + lowValues, 3);
+        assertThat(query("TABLE " + tableName))
+                .matches("VALUES " + values + ", " + highValues + ", " + lowValues);
+
+        // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
+        assertUpdate("""
+                INSERT INTO %s
+                SELECT v.*
+                FROM (VALUES %s, %s, %s) v
+                CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
+                """.formatted(tableName, values, highValues, lowValues), 30000);
+
         dropTable(tableName);
     }
 
