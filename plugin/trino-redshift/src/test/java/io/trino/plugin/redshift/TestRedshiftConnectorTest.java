@@ -34,6 +34,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.TEST_SCHEMA;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.createRedshiftQueryRunner;
 import static io.trino.plugin.redshift.RedshiftQueryRunner.executeInRedshift;
@@ -98,6 +100,40 @@ public class TestRedshiftConnectorTest
 
             default:
                 return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Test
+    public void testSuperColumnType()
+    {
+        Session convertToVarchar = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                .build();
+        try (TestTable table = new TestTable(
+                onRemoteDatabase(),
+                format("%s.test_table_with_super_columns", TEST_SCHEMA),
+                "(c1 integer, c2 super)",
+                ImmutableList.of(
+                        "1, null",
+                        "2, 'super value string'",
+                        "3, " + """
+                                JSON_PARSE('{"r_nations":[
+                                      {"n_comment":"s. ironic, unusual asymptotes wake blithely r",
+                                         "n_nationkey":16,
+                                         "n_name":"MOZAMBIQUE"
+                                      }
+                                   ]
+                                }')
+                                """,
+                        "4, 4"))) {
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1), (2), (3), (4)");
+            assertQuery(convertToVarchar, "SELECT * FROM " + table.getName(), """
+                    VALUES
+                    (1, null),
+                    (2, '\"super value string\"'),
+                    (3, '{"r_nations":[{"n_comment":"s. ironic, unusual asymptotes wake blithely r","n_nationkey":16,"n_name":"MOZAMBIQUE"}]}'),
+                    (4, '4')
+                    """);
         }
     }
 
