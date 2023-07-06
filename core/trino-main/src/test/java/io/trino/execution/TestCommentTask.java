@@ -30,6 +30,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.sql.tree.Comment.Type.COLUMN;
 import static io.trino.sql.tree.Comment.Type.TABLE;
 import static io.trino.sql.tree.Comment.Type.VIEW;
@@ -44,7 +45,7 @@ public class TestCommentTask
     public void testCommentTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         assertThat(metadata.getTableMetadata(testSession, metadata.getTableHandle(testSession, tableName).get()).getMetadata().getComment())
                 .isEmpty();
 
@@ -90,7 +91,7 @@ public class TestCommentTask
     public void testCommentViewOnTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(tableName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -113,7 +114,7 @@ public class TestCommentTask
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         QualifiedName columnName = qualifiedColumnName("existing_table", "test");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         getFutureValue(setComment(COLUMN, columnName, Optional.of("new test column comment")));
         TableHandle tableHandle = metadata.getTableHandle(testSession, tableName).get();

@@ -1316,19 +1316,22 @@ public class Analysis
         private final Optional<TableLayout> layout;
         private final boolean createTableAsSelectWithData;
         private final boolean createTableAsSelectNoOp;
+        private final boolean replace;
 
         public Create(
                 Optional<QualifiedObjectName> destination,
                 Optional<ConnectorTableMetadata> metadata,
                 Optional<TableLayout> layout,
                 boolean createTableAsSelectWithData,
-                boolean createTableAsSelectNoOp)
+                boolean createTableAsSelectNoOp,
+                boolean replace)
         {
             this.destination = requireNonNull(destination, "destination is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.layout = requireNonNull(layout, "layout is null");
             this.createTableAsSelectWithData = createTableAsSelectWithData;
             this.createTableAsSelectNoOp = createTableAsSelectNoOp;
+            this.replace = replace;
         }
 
         public Optional<QualifiedObjectName> getDestination()
@@ -1354,6 +1357,11 @@ public class Analysis
         public boolean isCreateTableAsSelectNoOp()
         {
             return createTableAsSelectNoOp;
+        }
+
+        public boolean isReplace()
+        {
+            return replace;
         }
     }
 

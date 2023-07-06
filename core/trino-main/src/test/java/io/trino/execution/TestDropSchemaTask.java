@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.Collections.emptyList;
@@ -69,7 +70,7 @@ public class TestDropSchemaTask
         DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
 
         QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
-        metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), false);
+        metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
@@ -115,7 +116,7 @@ public class TestDropSchemaTask
         DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
 
         QualifiedObjectName tableName = new QualifiedObjectName(CATALOG_SCHEMA_NAME.getCatalogName(), CATALOG_SCHEMA_NAME.getSchemaName(), "test_table");
-        metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), false);
+        metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
         assertFalse(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
