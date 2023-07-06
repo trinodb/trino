@@ -884,23 +884,19 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            // TODO: Remove when engine is supporting table replacement
-            if (node.getSaveMode() == REPLACE) {
-                throw semanticException(NOT_SUPPORTED, node, "Replace table is not supported");
-            }
-
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (targetTableHandle.isPresent()) {
+            if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
                 if (node.getSaveMode() == IGNORE) {
                     analysis.setCreate(new Analysis.Create(
                             Optional.of(targetTable),
                             Optional.empty(),
                             Optional.empty(),
                             node.isWithData(),
-                            true));
+                            true,
+                            false));
                     analysis.setUpdateType("CREATE TABLE");
                     analysis.setUpdateTarget(targetTableHandle.get().getCatalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
@@ -989,7 +985,8 @@ class StatementAnalyzer
                     Optional.of(tableMetadata),
                     newTableLayout,
                     node.isWithData(),
-                    false));
+                    false,
+                    node.getSaveMode() == REPLACE));
 
             analysis.setUpdateType("CREATE TABLE");
             analysis.setUpdateTarget(
@@ -1126,11 +1123,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
-            // TODO: Remove when engine is supporting table replacement
-            if (node.getSaveMode() == REPLACE) {
-                throw semanticException(NOT_SUPPORTED, node, "Replace table is not supported");
-            }
-
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }

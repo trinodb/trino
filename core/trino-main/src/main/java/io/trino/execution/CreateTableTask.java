@@ -32,6 +32,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
@@ -83,7 +84,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.EXCLUDING;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
-import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
@@ -130,10 +130,6 @@ public class CreateTableTask
     ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
-        // TODO: Remove when engine is supporting table replacement
-        if (statement.getSaveMode() == REPLACE) {
-            throw semanticException(NOT_SUPPORTED, statement, "Replace table is not supported");
-        }
 
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
@@ -147,7 +143,7 @@ public class CreateTableTask
             }
             throw e;
         }
-        if (tableHandle.isPresent()) {
+        if (tableHandle.isPresent() && statement.getSaveMode() != REPLACE) {
             if (statement.getSaveMode() == FAIL) {
                 throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table '%s' already exists", tableName);
             }
@@ -298,7 +294,7 @@ public class CreateTableTask
         Map<String, Object> finalProperties = combineProperties(specifiedPropertyKeys, properties, inheritedProperties);
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.copyOf(columns.values()), finalProperties, statement.getComment());
         try {
-            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, statement.getSaveMode() == IGNORE);
+            plannerContext.getMetadata().createTable(session, catalogName, tableMetadata, toConnectorSaveMode(statement.getSaveMode()));
         }
         catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
@@ -333,5 +329,14 @@ public class CreateTableTask
             }
         }
         return finalProperties;
+    }
+
+    private static SaveMode toConnectorSaveMode(io.trino.sql.tree.SaveMode saveMode)
+    {
+        return switch (saveMode) {
+            case FAIL -> SaveMode.FAIL;
+            case IGNORE -> SaveMode.IGNORE;
+            case REPLACE -> SaveMode.REPLACE;
+        };
     }
 }

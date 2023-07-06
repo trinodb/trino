@@ -35,6 +35,7 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.sql.QueryUtil.identifier;
@@ -49,7 +50,7 @@ public class TestRenameColumnTask
     public void testRenameColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("a", BIGINT), new ColumnMetadata("b", BIGINT));
@@ -82,7 +83,7 @@ public class TestRenameColumnTask
     public void testRenameMissingColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("missing_column"), identifier("test"), false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
@@ -93,7 +94,7 @@ public class TestRenameColumnTask
     public void testRenameColumnIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
 
         getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("missing_column"), identifier("test"), false, true));
@@ -146,7 +147,7 @@ public class TestRenameColumnTask
     public void testRenameMissingField()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("missing_column"), identifier("x"), false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
@@ -157,7 +158,7 @@ public class TestRenameColumnTask
     public void testRenameFieldIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, simpleTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
 
         getFutureValue(executeRenameColumn(asQualifiedName(tableName), QualifiedName.of("c"), identifier("x"), false, true));
@@ -169,7 +170,7 @@ public class TestRenameColumnTask
     public void testUnsupportedRenameDuplicatedField()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(
@@ -184,7 +185,7 @@ public class TestRenameColumnTask
     public void testUnsupportedRenameToExistingField()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("b"), BIGINT)), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT), new RowType.Field(Optional.of("b"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("col", RowType.rowType(

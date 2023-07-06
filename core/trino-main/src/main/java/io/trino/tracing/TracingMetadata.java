@@ -68,6 +68,7 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
@@ -388,11 +389,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         Span span = startSpan("createTable", catalogName, tableMetadata);
         try (var ignored = scopedSpan(span)) {
-            delegate.createTable(session, catalogName, tableMetadata, ignoreExisting);
+            delegate.createTable(session, catalogName, tableMetadata, saveMode);
         }
     }
 
@@ -568,11 +569,11 @@ public class TracingMetadata
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
+    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout, boolean replace)
     {
         Span span = startSpan("beginCreateTable", catalogName, tableMetadata);
         try (var ignored = scopedSpan(span)) {
-            return delegate.beginCreateTable(session, catalogName, tableMetadata, layout);
+            return delegate.beginCreateTable(session, catalogName, tableMetadata, layout, replace);
         }
     }
 
