@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.iceberg.util.HiveSchemaUtil;
@@ -108,7 +109,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadata = tableMetadata;
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
-        version = parseVersion(currentMetadataLocation);
+        version = parseVersion(Location.of(currentMetadataLocation).fileName());
     }
 
     @Override
@@ -258,7 +259,7 @@ public abstract class AbstractIcebergTableOperations
 
         currentMetadata = newMetadata;
         currentMetadataLocation = newLocation;
-        version = parseVersion(newLocation);
+        version = parseVersion(Location.of(newLocation).fileName());
         shouldRefresh = false;
     }
 

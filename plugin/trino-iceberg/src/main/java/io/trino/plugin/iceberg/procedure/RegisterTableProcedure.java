@@ -175,16 +175,17 @@ public class RegisterTableProcedure
 
     public static String getLatestMetadataLocation(TrinoFileSystem fileSystem, String location)
     {
-        List<String> latestMetadataLocations = new ArrayList<>();
+        List<Location> latestMetadataLocations = new ArrayList<>();
         String metadataDirectoryLocation = format("%s/%s", stripTrailingSlash(location), METADATA_FOLDER_NAME);
         try {
             int latestMetadataVersion = -1;
             FileIterator fileIterator = fileSystem.listFiles(Location.of(metadataDirectoryLocation));
             while (fileIterator.hasNext()) {
                 FileEntry fileEntry = fileIterator.next();
-                String fileLocation = fileEntry.location().toString();
-                if (fileLocation.contains(METADATA_FILE_EXTENSION)) {
-                    OptionalInt version = parseVersion(fileLocation);
+                Location fileLocation = fileEntry.location();
+                String fileName = fileLocation.fileName();
+                if (fileName.endsWith(METADATA_FILE_EXTENSION)) {
+                    OptionalInt version = parseVersion(fileName);
                     if (version.isPresent()) {
                         int versionNumber = version.getAsInt();
                         if (versionNumber > latestMetadataVersion) {
@@ -211,7 +212,7 @@ public class RegisterTableProcedure
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
         }
-        return getOnlyElement(latestMetadataLocations);
+        return getOnlyElement(latestMetadataLocations).toString();
     }
 
     private static void validateMetadataLocation(TrinoFileSystem fileSystem, Location location)
