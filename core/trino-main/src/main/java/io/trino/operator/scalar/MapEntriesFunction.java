@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedArrayValueBuilder;
 import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -44,21 +45,21 @@ public class MapEntriesFunction
     @SqlType("array(row(K,V))")
     public Block mapFromEntries(
             @TypeParameter("row(K,V)") RowType rowType,
-            @SqlType("map(K,V)") Block block)
+            @SqlType("map(K,V)") SqlMap sqlMap)
     {
         verify(rowType.getTypeParameters().size() == 2);
-        verify(block.getPositionCount() % 2 == 0);
+        verify(sqlMap.getPositionCount() % 2 == 0);
 
         Type keyType = rowType.getTypeParameters().get(0);
         Type valueType = rowType.getTypeParameters().get(1);
 
-        int entryCount = block.getPositionCount() / 2;
+        int entryCount = sqlMap.getPositionCount() / 2;
         return arrayValueBuilder.build(entryCount, valueBuilder -> {
             for (int i = 0; i < entryCount; i++) {
                 int position = 2 * i;
                 ((RowBlockBuilder) valueBuilder).buildEntry(fieldBuilders -> {
-                    keyType.appendTo(block, position, fieldBuilders.get(0));
-                    valueType.appendTo(block, position + 1, fieldBuilders.get(1));
+                    keyType.appendTo(sqlMap, position, fieldBuilders.get(0));
+                    valueType.appendTo(sqlMap, position + 1, fieldBuilders.get(1));
                 });
             }
         });

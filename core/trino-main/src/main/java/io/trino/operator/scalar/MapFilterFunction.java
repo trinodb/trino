@@ -31,6 +31,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -124,13 +125,13 @@ public final class MapFilterFunction
         MethodDefinition filterKeyValue = generateFilterInner(definition, binder, mapType);
 
         Parameter state = arg("state", Object.class);
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "filter",
-                type(Block.class),
-                ImmutableList.of(state, block, function));
+                type(SqlMap.class),
+                ImmutableList.of(state, map, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -138,17 +139,17 @@ public final class MapFilterFunction
         Variable mapValueBuilder = scope.declareVariable(BufferedMapValueBuilder.class, "mapValueBuilder");
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
-        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, filterKeyValue, ImmutableList.of(block, function));
-        BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
-        body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
+        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, filterKeyValue, ImmutableList.of(map, function));
+        BytecodeExpression entryCount = divide(map.invoke("getPositionCount", int.class), constantInt(2));
+        body.append(mapValueBuilder.invoke("build", SqlMap.class, entryCount, mapEntryBuilder).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "filter", Object.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "filter", Object.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
     private static MethodDefinition generateFilterInner(ClassDefinition definition, CallSiteBinder binder, MapType mapType)
     {
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
@@ -156,7 +157,7 @@ public final class MapFilterFunction
                 a(PRIVATE, STATIC),
                 "filter",
                 type(void.class),
-                ImmutableList.of(block, function, keyBuilder, valueBuilder));
+                ImmutableList.of(map, function, keyBuilder, valueBuilder));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -172,14 +173,14 @@ public final class MapFilterFunction
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
         Variable keep = scope.declareVariable(Boolean.class, "keep");
 
-        // invoke block.getPositionCount()
-        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+        // invoke map.getPositionCount()
+        body.append(positionCount.set(map.invoke("getPositionCount", int.class)));
 
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
             // key element must be non-null
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(map.cast(Block.class), position).cast(keyJavaType)));
         }
         else {
             loadKeyElement = new BytecodeBlock().append(keyElement.set(constantNull(keyJavaType)));
@@ -189,9 +190,9 @@ public final class MapFilterFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(map.invoke("isNull", boolean.class, add(position, constantInt(1))))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(map.cast(Block.class), add(position, constantInt(1))).cast(valueJavaType)));
         }
         else {
             loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
@@ -208,8 +209,8 @@ public final class MapFilterFunction
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(keySqlType.invoke("appendTo", void.class, block, position, keyBuilder))
-                                        .append(valueSqlType.invoke("appendTo", void.class, block, add(position, constantInt(1)), valueBuilder))))));
+                                        .append(keySqlType.invoke("appendTo", void.class, map.cast(Block.class), position, keyBuilder))
+                                        .append(valueSqlType.invoke("appendTo", void.class, map.cast(Block.class), add(position, constantInt(1)), valueBuilder))))));
         body.ret();
 
         return method;

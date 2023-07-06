@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Int128;
@@ -59,22 +60,22 @@ public final class StructuralTestUtil
         return true;
     }
 
-    public static boolean mapBlocksEqual(Type keyType, Type valueType, Block block1, Block block2)
+    public static boolean sqlMapEqual(Type keyType, Type valueType, SqlMap leftMap, SqlMap rightMap)
     {
-        if (block1.getPositionCount() != block2.getPositionCount()) {
+        if (leftMap.getPositionCount() != rightMap.getPositionCount()) {
             return false;
         }
 
         BlockPositionEqual keyEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(keyType);
         BlockPositionEqual valueEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(valueType);
-        for (int i = 0; i < block1.getPositionCount(); i += 2) {
-            if (block1.isNull(i) != block2.isNull(i) || block1.isNull(i + 1) != block2.isNull(i + 1)) {
+        for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
+            if (leftMap.isNull(i) != rightMap.isNull(i) || leftMap.isNull(i + 1) != rightMap.isNull(i + 1)) {
                 return false;
             }
-            if (!block1.isNull(i) && !keyEqualOperator.equal(block1, i, block2, i)) {
+            if (!leftMap.isNull(i) && !keyEqualOperator.equal(leftMap, i, rightMap, i)) {
                 return false;
             }
-            if (!block1.isNull(i + 1) && !valueEqualOperator.equal(block1, i + 1, block2, i + 1)) {
+            if (!leftMap.isNull(i + 1) && !valueEqualOperator.equal(leftMap, i + 1, rightMap, i + 1)) {
                 return false;
             }
         }
@@ -90,7 +91,7 @@ public final class StructuralTestUtil
         return blockBuilder.build();
     }
 
-    public static Block mapBlockOf(Type keyType, Type valueType, Object key, Object value)
+    public static SqlMap sqlMapOf(Type keyType, Type valueType, Object key, Object value)
     {
         return buildMapValue(
                 mapType(keyType, valueType),
@@ -101,7 +102,7 @@ public final class StructuralTestUtil
                 });
     }
 
-    public static Block mapBlockOf(Type keyType, Type valueType, Object[] keys, Object[] values)
+    public static SqlMap sqlMapOf(Type keyType, Type valueType, Object[] keys, Object[] values)
     {
         checkArgument(keys.length == values.length, "keys/values must have the same length");
         return buildMapValue(
@@ -136,14 +137,14 @@ public final class StructuralTestUtil
         return arrayBlockOf(type, sliceDecimal);
     }
 
-    public static Block decimalMapBlockOf(DecimalType type, BigDecimal decimal)
+    public static SqlMap decimalSqlMapOf(DecimalType type, BigDecimal decimal)
     {
         if (type.isShort()) {
             long longDecimal = decimal.unscaledValue().longValue();
-            return mapBlockOf(type, type, longDecimal, longDecimal);
+            return sqlMapOf(type, type, longDecimal, longDecimal);
         }
         Int128 sliceDecimal = Int128.valueOf(decimal.unscaledValue());
-        return mapBlockOf(type, type, sliceDecimal, sliceDecimal);
+        return sqlMapOf(type, type, sliceDecimal, sliceDecimal);
     }
 
     public static MapType mapType(Type keyType, Type valueType)

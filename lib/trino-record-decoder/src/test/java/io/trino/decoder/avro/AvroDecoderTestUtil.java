@@ -14,6 +14,7 @@
 package io.trino.decoder.avro;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -118,36 +119,36 @@ public final class AvroDecoderTestUtil
         }
     }
 
-    public static void checkMapValues(Block block, Type type, Object value)
+    public static void checkMapValues(SqlMap sqlMap, Type type, Object value)
     {
         assertNotNull(type, "Type is null");
         assertTrue(type instanceof MapType, "Unexpected type");
         assertTrue(((MapType) type).getKeyType() instanceof VarcharType, "Unexpected key type");
-        assertNotNull(block, "block is null");
+        assertNotNull(sqlMap, "sqlMap is null");
         assertNotNull(value, "Value is null");
 
         Map<?, ?> expected = (Map<?, ?>) value;
 
-        assertEquals(block.getPositionCount(), expected.size() * 2);
+        assertEquals(sqlMap.getPositionCount(), expected.size() * 2);
         Type valueType = ((MapType) type).getValueType();
-        for (int index = 0; index < block.getPositionCount(); index += 2) {
-            String actualKey = VARCHAR.getSlice(block, index).toStringUtf8();
+        for (int index = 0; index < sqlMap.getPositionCount(); index += 2) {
+            String actualKey = VARCHAR.getSlice(sqlMap, index).toStringUtf8();
             assertTrue(expected.containsKey(actualKey));
-            if (block.isNull(index + 1)) {
+            if (sqlMap.isNull(index + 1)) {
                 assertNull(expected.get(actualKey));
                 continue;
             }
             if (valueType instanceof ArrayType arrayType) {
-                checkArrayValues(arrayType.getObject(block, index + 1), valueType, expected.get(actualKey));
+                checkArrayValues(arrayType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
             }
             else if (valueType instanceof MapType mapType) {
-                checkMapValues(mapType.getObject(block, index + 1), valueType, expected.get(actualKey));
+                checkMapValues(mapType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
             }
             else if (valueType instanceof RowType rowType) {
-                checkRowValues(rowType.getObject(block, index + 1), valueType, expected.get(actualKey));
+                checkRowValues(rowType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
             }
             else {
-                checkPrimitiveValue(valueType.getObjectValue(SESSION, block, index + 1), expected.get(actualKey));
+                checkPrimitiveValue(valueType.getObjectValue(SESSION, sqlMap, index + 1), expected.get(actualKey));
             }
         }
     }

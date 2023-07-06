@@ -83,13 +83,13 @@ public class MapType
         try {
             Lookup lookup = MethodHandles.lookup();
             NOT = lookup.findStatic(MapType.class, "not", methodType(boolean.class, boolean.class));
-            READ_FLAT = lookup.findStatic(MapType.class, "readFlat", methodType(Block.class, MapType.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class));
+            READ_FLAT = lookup.findStatic(MapType.class, "readFlat", methodType(SqlMap.class, MapType.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class));
             READ_FLAT_TO_BLOCK = lookup.findStatic(MapType.class, "readFlatToBlock", methodType(void.class, MethodHandle.class, MethodHandle.class, int.class, int.class, byte[].class, int.class, byte[].class, BlockBuilder.class));
-            WRITE_FLAT = lookup.findStatic(MapType.class, "writeFlat", methodType(void.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, int.class, int.class, boolean.class, boolean.class, Block.class, byte[].class, int.class, byte[].class, int.class));
-            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
-            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, Block.class));
-            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, Block.class, Block.class));
-            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
+            WRITE_FLAT = lookup.findStatic(MapType.class, "writeFlat", methodType(void.class, Type.class, Type.class, MethodHandle.class, MethodHandle.class, int.class, int.class, boolean.class, boolean.class, SqlMap.class, byte[].class, int.class, byte[].class, int.class));
+            EQUAL = lookup.findStatic(MapType.class, "equalOperator", methodType(Boolean.class, MethodHandle.class, MethodHandle.class, SqlMap.class, SqlMap.class));
+            HASH_CODE = lookup.findStatic(MapType.class, "hashOperator", methodType(long.class, MethodHandle.class, MethodHandle.class, SqlMap.class));
+            DISTINCT_FROM = lookup.findStatic(MapType.class, "distinctFromOperator", methodType(boolean.class, MethodHandle.class, MethodHandle.class, SqlMap.class, SqlMap.class));
+            INDETERMINATE = lookup.findStatic(MapType.class, "indeterminate", methodType(boolean.class, MethodHandle.class, SqlMap.class, boolean.class));
             SEEK_KEY = lookup.findVirtual(
                     SqlMap.class,
                     "seekKey",
@@ -122,7 +122,7 @@ public class MapType
                         StandardTypes.MAP,
                         TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(valueType.getTypeSignature())),
-                Block.class);
+                SqlMap.class);
         if (!keyType.isComparable()) {
             throw new IllegalArgumentException(format("key type must be comparable, got %s", keyType));
         }
@@ -246,7 +246,8 @@ public class MapType
                 typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL)));
 
         MethodHandle valueDistinctFromOperator = typeOperators.getDistinctFromOperator(valueType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-        return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator));
+        MethodHandle methodHandle = DISTINCT_FROM.bindTo(seekKey).bindTo(valueDistinctFromOperator);
+        return new OperatorMethodHandle(DISTINCT_FROM_CONVENTION, methodHandle);
     }
 
     private static OperatorMethodHandle getIndeterminateOperatorInvoker(TypeOperators typeOperators, Type valueType)
@@ -290,10 +291,7 @@ public class MapType
             return null;
         }
 
-        Block sqlMap = block.getObject(position, Block.class);
-        if (!(sqlMap instanceof SqlMap)) {
-            throw new UnsupportedOperationException("Maps must be represented with SqlMap");
-        }
+        SqlMap sqlMap = block.getObject(position, SqlMap.class);
         Map<Object, Object> map = new HashMap<>();
         for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
             map.put(keyType.getObjectValue(session, sqlMap, i), valueType.getObjectValue(session, sqlMap, i + 1));
@@ -314,9 +312,9 @@ public class MapType
     }
 
     @Override
-    public Block getObject(Block block, int position)
+    public SqlMap getObject(Block block, int position)
     {
-        return block.getObject(position, Block.class);
+        return block.getObject(position, SqlMap.class);
     }
 
     @Override
@@ -372,7 +370,7 @@ public class MapType
     @Override
     public int getFlatVariableWidthSize(Block block, int position)
     {
-        Block map = getObject(block, position);
+        SqlMap map = getObject(block, position);
 
         long size = map.getPositionCount() / 2 * (keyType.getFlatFixedSize() + valueType.getFlatFixedSize() + 2L);
 
@@ -512,26 +510,26 @@ public class MapType
         return keyBlockNotDistinctFrom;
     }
 
-    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, Block block)
+    private static long hashOperator(MethodHandle keyOperator, MethodHandle valueOperator, SqlMap sqlMap)
             throws Throwable
     {
         long result = 0;
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
-            result += invokeHashOperator(keyOperator, block, i) ^ invokeHashOperator(valueOperator, block, i + 1);
+        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+            result += invokeHashOperator(keyOperator, sqlMap, i) ^ invokeHashOperator(valueOperator, sqlMap, i + 1);
         }
         return result;
     }
 
-    private static long invokeHashOperator(MethodHandle keyOperator, Block block, int position)
+    private static long invokeHashOperator(MethodHandle keyOperator, SqlMap map, int position)
             throws Throwable
     {
-        if (block.isNull(position)) {
+        if (map.isNull(position)) {
             return NULL_HASH_CODE;
         }
-        return (long) keyOperator.invokeExact(block, position);
+        return (long) keyOperator.invokeExact((Block) map, position);
     }
 
-    private static Block readFlat(
+    private static SqlMap readFlat(
             MapType mapType,
             MethodHandle keyReadOperator,
             MethodHandle valueReadOperator,
@@ -635,7 +633,7 @@ public class MapType
             int valueFixedSize,
             boolean keyVariableWidth,
             boolean valueVariableWidth,
-            Block map,
+            SqlMap map,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] variableSizeSlice,
@@ -657,7 +655,7 @@ public class MapType
             int valueFixedSize,
             boolean keyVariableWidth,
             boolean valueVariableWidth,
-            Block map,
+            SqlMap map,
             byte[] slice,
             int offset)
             throws Throwable
@@ -679,7 +677,7 @@ public class MapType
                     keyVariableSize = keyType.getFlatVariableWidthSize(map, index);
                 }
                 keyWriteFlat.invokeExact(
-                        map,
+                        (Block) map,
                         index,
                         slice,
                         offset,
@@ -702,7 +700,7 @@ public class MapType
                     valueVariableSize = valueType.getFlatVariableWidthSize(map, index + 1);
                 }
                 valueWriteFlat.invokeExact(
-                        map,
+                        (Block) map,
                         index + 1,
                         slice,
                         offset,
@@ -717,27 +715,27 @@ public class MapType
     private static Boolean equalOperator(
             MethodHandle seekKey,
             MethodHandle valueEqualOperator,
-            Block leftBlock,
-            Block rightBlock)
+            SqlMap leftMap,
+            SqlMap rightMap)
             throws Throwable
     {
-        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+        if (leftMap.getPositionCount() != rightMap.getPositionCount()) {
             return false;
         }
 
         boolean unknown = false;
-        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
+        for (int position = 0; position < leftMap.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SqlMap) rightBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact(rightMap, (Block) leftMap, position);
             if (rightPosition == -1) {
                 return false;
             }
 
-            if (leftBlock.isNull(leftPosition) || rightBlock.isNull(rightPosition)) {
+            if (leftMap.isNull(leftPosition) || rightMap.isNull(rightPosition)) {
                 unknown = true;
             }
             else {
-                Boolean result = (Boolean) valueEqualOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+                Boolean result = (Boolean) valueEqualOperator.invokeExact((Block) leftMap, leftPosition, (Block) rightMap, rightPosition);
                 if (result == null) {
                     unknown = true;
                 }
@@ -756,28 +754,28 @@ public class MapType
     private static boolean distinctFromOperator(
             MethodHandle seekKey,
             MethodHandle valueDistinctFromOperator,
-            Block leftBlock,
-            Block rightBlock)
+            SqlMap leftMap,
+            SqlMap rightMap)
             throws Throwable
     {
-        boolean leftIsNull = leftBlock == null;
-        boolean rightIsNull = rightBlock == null;
+        boolean leftIsNull = leftMap == null;
+        boolean rightIsNull = rightMap == null;
         if (leftIsNull || rightIsNull) {
             return leftIsNull != rightIsNull;
         }
 
-        if (leftBlock.getPositionCount() != rightBlock.getPositionCount()) {
+        if (leftMap.getPositionCount() != rightMap.getPositionCount()) {
             return true;
         }
 
-        for (int position = 0; position < leftBlock.getPositionCount(); position += 2) {
+        for (int position = 0; position < leftMap.getPositionCount(); position += 2) {
             int leftPosition = position + 1;
-            int rightPosition = (int) seekKey.invokeExact((SqlMap) rightBlock, leftBlock, position);
+            int rightPosition = (int) seekKey.invokeExact(rightMap, (Block) leftMap, position);
             if (rightPosition == -1) {
                 return true;
             }
 
-            boolean result = (boolean) valueDistinctFromOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
+            boolean result = (boolean) valueDistinctFromOperator.invokeExact((Block) leftMap, leftPosition, (Block) rightMap, rightPosition);
             if (result) {
                 return true;
             }
@@ -786,18 +784,18 @@ public class MapType
         return false;
     }
 
-    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, Block block, boolean isNull)
+    private static boolean indeterminate(MethodHandle valueIndeterminateFunction, SqlMap map, boolean isNull)
             throws Throwable
     {
         if (isNull) {
             return true;
         }
-        for (int i = 0; i < block.getPositionCount(); i += 2) {
+        for (int i = 0; i < map.getPositionCount(); i += 2) {
             // since maps are not allowed to have indeterminate keys we only check values here
-            if (block.isNull(i + 1)) {
+            if (map.isNull(i + 1)) {
                 return true;
             }
-            if ((boolean) valueIndeterminateFunction.invokeExact(block, i + 1)) {
+            if ((boolean) valueIndeterminateFunction.invokeExact((Block) map, i + 1)) {
                 return true;
             }
         }

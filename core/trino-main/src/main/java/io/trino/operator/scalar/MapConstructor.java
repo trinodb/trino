@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -98,16 +99,17 @@ public final class MapConstructor
                 simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
+        MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(keyIndeterminate);
         return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                METHOD_HANDLE.bindTo(mapType).bindTo(keyIndeterminate),
+                methodHandle,
                 Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode
-    public static Block createMap(
+    public static SqlMap createMap(
             MapType mapType,
             MethodHandle keyIndeterminate,
             State state,

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -77,7 +76,7 @@ public final class SerDeUtils
 {
     private SerDeUtils() {}
 
-    public static Block getBlockObject(Type type, Object object, ObjectInspector inspector)
+    public static Object getBlockObject(Type type, Object object, ObjectInspector inspector)
     {
         requireNonNull(object, "object is null");
         if (inspector instanceof ListObjectInspector listObjectInspector) {

@@ -14,6 +14,7 @@
 package io.trino.parquet;
 
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -113,11 +114,11 @@ class ValidationHash
 
     private static long mapHash(MapType type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
     {
-        Block mapBlock = type.getObject(block, position);
+        SqlMap map = type.getObject(block, position);
         long hash = 0;
-        for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-            hash = 31 * hash + keyHash.hash(mapBlock, i);
-            hash = 31 * hash + valueHash.hash(mapBlock, i + 1);
+        for (int i = 0; i < map.getPositionCount(); i += 2) {
+            hash = 31 * hash + keyHash.hash(map, i);
+            hash = 31 * hash + valueHash.hash(map, i + 1);
         }
         return hash;
     }
