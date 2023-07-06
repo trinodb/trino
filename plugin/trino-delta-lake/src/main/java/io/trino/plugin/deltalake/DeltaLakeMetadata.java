@@ -304,6 +304,7 @@ public class DeltaLakeMetadata
     public static final String CREATE_TABLE_OPERATION = "CREATE TABLE";
     public static final String ADD_COLUMN_OPERATION = "ADD COLUMNS";
     public static final String DROP_COLUMN_OPERATION = "DROP COLUMNS";
+    public static final String RENAME_COLUMN_OPERATION = "RENAME COLUMN";
     public static final String INSERT_OPERATION = "WRITE";
     public static final String MERGE_OPERATION = "MERGE";
     public static final String UPDATE_OPERATION = "UPDATE"; // used by old Trino versions and Spark
@@ -1471,6 +1472,73 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             LOG.warn(e, "Failed to update extended statistics when dropping %s column from %s table", dropColumnName, table.schemaTableName());
+        }
+    }
+
+    @Override
+    public void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, String newColumnName)
+    {
+        DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
+        DeltaLakeColumnHandle deltaLakeColumn = (DeltaLakeColumnHandle) columnHandle;
+        verify(deltaLakeColumn.isBaseColumn(), "Unexpected dereference: %s", deltaLakeColumn);
+        String sourceColumnName = deltaLakeColumn.getBaseColumnName();
+
+        checkSupportedWriterVersion(session, table);
+        if (changeDataFeedEnabled(table.getMetadataEntry())) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot rename column when change data feed is enabled");
+        }
+
+        MetadataEntry metadataEntry = table.getMetadataEntry();
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry);
+        if (columnMappingMode != ColumnMappingMode.NAME && columnMappingMode != ColumnMappingMode.ID) {
+            throw new TrinoException(NOT_SUPPORTED, "Cannot rename column in table using column mapping mode " + columnMappingMode);
+        }
+
+        long commitVersion = table.getReadVersion() + 1;
+
+        // Use equalsIgnoreCase because the remote column name can contain uppercase characters
+        // Creating a table with ambiguous names (e.g. "a" and "A") is disallowed, so this should be safe
+        List<String> partitionColumns = metadataEntry.getOriginalPartitionColumns().stream()
+                .map(columnName -> columnName.equalsIgnoreCase(sourceColumnName) ? newColumnName : columnName)
+                .collect(toImmutableList());
+
+        List<String> columnNames = getExactColumnNames(metadataEntry).stream()
+                .map(name -> name.equalsIgnoreCase(sourceColumnName) ? newColumnName : name)
+                .collect(toImmutableList());
+        Map<String, Object> columnTypes = getColumnTypes(metadataEntry).entrySet().stream()
+                .map(column -> column.getKey().equalsIgnoreCase(sourceColumnName) ? Map.entry(newColumnName, column.getValue()) : column)
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+        Map<String, String> columnComments = getColumnComments(metadataEntry).entrySet().stream()
+                .map(column -> column.getKey().equalsIgnoreCase(sourceColumnName) ? Map.entry(newColumnName, column.getValue()) : column)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Boolean> columnsNullability = getColumnsNullability(metadataEntry).entrySet().stream()
+                .map(column -> column.getKey().equalsIgnoreCase(sourceColumnName) ? Map.entry(newColumnName, column.getValue()) : column)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, Map<String, Object>> columnMetadata = getColumnsMetadata(metadataEntry).entrySet().stream()
+                .map(column -> column.getKey().equalsIgnoreCase(sourceColumnName) ? Map.entry(newColumnName, column.getValue()) : column)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        try {
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, table.getLocation());
+            appendTableEntries(
+                    commitVersion,
+                    transactionLogWriter,
+                    metadataEntry.getId(),
+                    columnNames,
+                    partitionColumns,
+                    columnTypes,
+                    columnComments,
+                    columnsNullability,
+                    columnMetadata,
+                    metadataEntry.getConfiguration(),
+                    RENAME_COLUMN_OPERATION,
+                    session,
+                    Optional.ofNullable(metadataEntry.getDescription()),
+                    getProtocolEntry(session, table));
+            transactionLogWriter.flush();
+            // Don't update extended statistics because it uses physical column names internally
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to rename '%s' column for: %s.%s", sourceColumnName, table.getSchemaName(), table.getTableName()), e);
         }
     }
 

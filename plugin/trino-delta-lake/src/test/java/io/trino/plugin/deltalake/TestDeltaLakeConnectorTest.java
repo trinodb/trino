@@ -150,7 +150,6 @@ public class TestDeltaLakeConnectorTest
                 return false;
 
             case SUPPORTS_DROP_FIELD:
-            case SUPPORTS_RENAME_COLUMN:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
 
@@ -359,6 +358,33 @@ public class TestDeltaLakeConnectorTest
         // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
         assertThatThrownBy(super::testDropAndAddColumnWithSameName)
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testRenameColumn)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testAlterTableRenameColumnToLongName()
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+    }
+
+    @Override
+    public void testRenameColumnName(String columnName)
+    {
+        // Override because the connector doesn't support renaming columns with 'none' column mapping
+        // There are some tests in in io.trino.tests.product.deltalake.TestDeltaLakeColumnMappingMode
+        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+                .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
     @Override
@@ -903,6 +929,17 @@ public class TestDeltaLakeConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES change_data_feed_enabled = false");
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN " + columnName + " int");
             assertTableColumnNames(table.getName(), "col", columnName);
+        }
+    }
+
+    @Test(dataProvider = "changeDataFeedColumnNamesDataProvider")
+    public void testUnsupportedRenameColumnWithChangeDataFeed(String columnName)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_rename_column", "(col int) WITH (change_data_feed_enabled = true)")) {
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " RENAME COLUMN col TO " + columnName,
+                    "Cannot rename column when change data feed is enabled");
+            assertTableColumnNames(table.getName(), "col");
         }
     }
 
