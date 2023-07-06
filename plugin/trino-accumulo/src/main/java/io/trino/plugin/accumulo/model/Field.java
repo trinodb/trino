@@ -21,6 +21,7 @@ import io.trino.plugin.accumulo.Types;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -164,9 +165,9 @@ public class Field
         return (Integer) value;
     }
 
-    public Block getMap()
+    public SqlMap getMap()
     {
-        return (Block) value;
+        return (SqlMap) value;
     }
 
     public Object getObject()

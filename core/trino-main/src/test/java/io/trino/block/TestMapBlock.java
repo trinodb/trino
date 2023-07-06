@@ -306,7 +306,7 @@ public class TestMapBlock
         requireNonNull(map, "map is null");
 
         assertFalse(mapBlock.isNull(position));
-        SqlMap sqlMap = (SqlMap) mapType.getObject(mapBlock, position);
+        SqlMap sqlMap = mapType.getObject(mapBlock, position);
         assertEquals(sqlMap.getPositionCount(), map.size() * 2);
 
         // Test new/hash-index access: assert inserted keys

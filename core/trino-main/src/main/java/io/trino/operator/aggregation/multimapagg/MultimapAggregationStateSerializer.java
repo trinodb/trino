@@ -19,16 +19,17 @@ import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
 public class MultimapAggregationStateSerializer
         implements AccumulatorStateSerializer<MultimapAggregationState>
 {
-    private final Type serializedType;
+    private final MapType serializedType;
 
     public MultimapAggregationStateSerializer(@TypeParameter("map(K, Array(V))") Type serializedType)
     {
-        this.serializedType = serializedType;
+        this.serializedType = (MapType) serializedType;
     }
 
     @Override
@@ -46,7 +47,7 @@ public class MultimapAggregationStateSerializer
     @Override
     public void deserialize(Block block, int index, MultimapAggregationState state)
     {
-        SqlMap sqlMap = (SqlMap) serializedType.getObject(block, index);
+        SqlMap sqlMap = serializedType.getObject(block, index);
         ((SingleMultimapAggregationState) state).setTempSerializedState(sqlMap);
     }
 }

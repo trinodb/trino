@@ -42,7 +42,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.testing.StructuralTestUtil.mapBlockOf;
+import static io.trino.testing.StructuralTestUtil.sqlMapOf;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,7 +104,7 @@ public class TestLearnAggregations
         Random rand = new Random(0);
         for (int i = 0; i < datapoints; i++) {
             long label = rand.nextDouble() < 0.5 ? 0 : 1;
-            builder.row(label, mapBlockOf(BIGINT, DOUBLE, 0L, label + rand.nextGaussian()), "C=1");
+            builder.row(label, sqlMapOf(BIGINT, DOUBLE, 0L, label + rand.nextGaussian()), "C=1");
         }
 
         return builder.build();

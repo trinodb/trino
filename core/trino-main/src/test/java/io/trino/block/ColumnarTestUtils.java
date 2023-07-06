@@ -19,6 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 
 import java.lang.reflect.Array;
@@ -77,7 +78,7 @@ public final class ColumnarTestUtils
         }
         else if (expectedValue instanceof Slice[][] expected) {
             // map
-            Block actual = block.getObject(position, Block.class);
+            SqlMap actual = block.getObject(position, SqlMap.class);
             // a map is exposed as a block alternating key and value entries, so we need to flatten the expected values array
             assertBlock(actual, flattenMapEntries(expected));
         }

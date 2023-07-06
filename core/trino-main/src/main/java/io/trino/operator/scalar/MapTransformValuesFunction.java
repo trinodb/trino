@@ -35,6 +35,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.MapValueBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.Signature;
@@ -138,13 +139,13 @@ public final class MapTransformValuesFunction
 
         // define transform method
         Parameter state = arg("state", Object.class);
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         MethodDefinition method = definition.declareMethod(
                 a(PUBLIC, STATIC),
                 "transform",
-                type(Block.class),
-                ImmutableList.of(state, block, function));
+                type(SqlMap.class),
+                ImmutableList.of(state, map, function));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -152,17 +153,17 @@ public final class MapTransformValuesFunction
         Variable mapValueBuilder = scope.declareVariable(BufferedMapValueBuilder.class, "mapValueBuilder");
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
-        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(block, function));
-        BytecodeExpression entryCount = divide(block.invoke("getPositionCount", int.class), constantInt(2));
-        body.append(mapValueBuilder.invoke("build", Block.class, entryCount, mapEntryBuilder).ret());
+        BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(map, function));
+        BytecodeExpression entryCount = divide(map.invoke("getPositionCount", int.class), constantInt(2));
+        body.append(mapValueBuilder.invoke("build", SqlMap.class, entryCount, mapEntryBuilder).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapTransformValuesFunction.class.getClassLoader());
-        return methodHandle(generatedClass, "transform", Object.class, Block.class, BinaryFunctionInterface.class);
+        return methodHandle(generatedClass, "transform", Object.class, SqlMap.class, BinaryFunctionInterface.class);
     }
 
     private static MethodDefinition generateTransformInner(ClassDefinition definition, CallSiteBinder binder, Type keyType, Type valueType, Type transformedValueType)
     {
-        Parameter block = arg("block", Block.class);
+        Parameter map = arg("map", SqlMap.class);
         Parameter function = arg("function", BinaryFunctionInterface.class);
         Parameter keyBuilder = arg("keyBuilder", BlockBuilder.class);
         Parameter valueBuilder = arg("valueBuilder", BlockBuilder.class);
@@ -170,7 +171,7 @@ public final class MapTransformValuesFunction
                 a(PRIVATE, STATIC),
                 "transform",
                 type(void.class),
-                ImmutableList.of(block, function, keyBuilder, valueBuilder));
+                ImmutableList.of(map, function, keyBuilder, valueBuilder));
 
         BytecodeBlock body = method.getBody();
         Scope scope = method.getScope();
@@ -185,8 +186,8 @@ public final class MapTransformValuesFunction
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
         Variable transformedValueElement = scope.declareVariable(transformedValueJavaType, "transformedValueElement");
 
-        // invoke block.getPositionCount()
-        body.append(positionCount.set(block.invoke("getPositionCount", int.class)));
+        // invoke map.getPositionCount()
+        body.append(positionCount.set(map.invoke("getPositionCount", int.class)));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -199,7 +200,7 @@ public final class MapTransformValuesFunction
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(block, position).cast(keyJavaType)));
+            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(map.cast(Block.class), position).cast(keyJavaType)));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time,
@@ -215,9 +216,9 @@ public final class MapTransformValuesFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(block.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(map.invoke("isNull", boolean.class, add(position, constantInt(1))))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(block, add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(map.cast(Block.class), add(position, constantInt(1))).cast(valueJavaType)));
         }
         else {
             loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
@@ -255,7 +256,7 @@ public final class MapTransformValuesFunction
                                                                 .append(newInstance(RuntimeException.class, transformationException))
                                                                 .throwObject(),
                                                         ImmutableList.of(type(Throwable.class))))))
-                        .append(keySqlType.invoke("appendTo", void.class, block, position, keyBuilder))
+                        .append(keySqlType.invoke("appendTo", void.class, map.cast(Block.class), position, keyBuilder))
                         .append(writeTransformedValueElement)));
 
         body.ret();

@@ -538,8 +538,8 @@ public class MapBlock
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        if (clazz != Block.class) {
-            throw new IllegalArgumentException("clazz must be Block.class");
+        if (clazz != SqlMap.class) {
+            throw new IllegalArgumentException("clazz must be SqlMap.class");
         }
         checkReadablePosition(this, position);
 

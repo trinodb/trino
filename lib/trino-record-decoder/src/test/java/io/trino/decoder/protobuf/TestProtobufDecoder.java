@@ -33,6 +33,7 @@ import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderSpec;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
@@ -426,14 +427,14 @@ public class TestProtobufDecoder
 
         assertEquals(decodedRow.size(), 3);
 
-        Block listBlock = decodedRow.get(listColumn).getBlock();
+        Block listBlock = (Block) decodedRow.get(listColumn).getObject();
         assertEquals(VARCHAR.getSlice(listBlock, 0).toStringUtf8(), "Presto");
 
-        Block mapBlock = decodedRow.get(mapColumn).getBlock();
-        assertEquals(VARCHAR.getSlice(mapBlock, 0).toStringUtf8(), "Key");
-        assertEquals(VARCHAR.getSlice(mapBlock, 1).toStringUtf8(), "Value");
+        SqlMap sqlMap = (SqlMap) decodedRow.get(mapColumn).getObject();
+        assertEquals(VARCHAR.getSlice(sqlMap, 0).toStringUtf8(), "Key");
+        assertEquals(VARCHAR.getSlice(sqlMap, 1).toStringUtf8(), "Value");
 
-        Block rowBlock = decodedRow.get(rowColumn).getBlock();
+        Block rowBlock = (Block) decodedRow.get(rowColumn).getObject();
         ConnectorSession session = TestingSession.testSessionBuilder().build().toConnectorSession();
         assertEquals(VARCHAR.getObjectValue(session, rowBlock, 0), stringData);
         assertEquals(INTEGER.getObjectValue(session, rowBlock, 1), integerData);
@@ -473,7 +474,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertThatThrownBy(() -> decodedRow.get(rowColumn).getBlock())
+        assertThatThrownBy(() -> decodedRow.get(rowColumn).getObject())
                 .hasMessageMatching("Unknown Field unknown_mapping");
     }
 

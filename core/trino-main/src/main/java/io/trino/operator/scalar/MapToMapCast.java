@@ -20,6 +20,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -67,7 +68,7 @@ public final class MapToMapCast
             BlockPositionIsDistinctFrom.class,
             BlockPositionHashCode.class,
             ConnectorSession.class,
-            Block.class);
+            SqlMap.class);
 
     private static final MethodHandle CHECK_LONG_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkLongIsNotNull", Long.class);
     private static final MethodHandle CHECK_DOUBLE_IS_NOT_NULL = methodHandle(MapToMapCast.class, "checkDoubleIsNotNull", Double.class);
@@ -237,14 +238,14 @@ public final class MapToMapCast
     }
 
     @UsedByGeneratedCode
-    public static Block mapCast(
+    public static SqlMap mapCast(
             MethodHandle keyProcessFunction,
             MethodHandle valueProcessFunction,
             Type targetType,
             BlockPositionIsDistinctFrom keyDistinctOperator,
             BlockPositionHashCode keyHashCode,
             ConnectorSession session,
-            Block fromMap)
+            SqlMap fromMap)
     {
         MapType mapType = (MapType) targetType;
         Type toKeyType = mapType.getKeyType();

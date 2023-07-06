@@ -15,7 +15,6 @@ package io.trino.decoder;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 
 /**
  * Base class for all providers that return values for a selected column.
@@ -42,9 +41,9 @@ public abstract class FieldValueProvider
         throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Slice not supported");
     }
 
-    public Block getBlock()
+    public Object getObject()
     {
-        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Block not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion not supported");
     }
 
     public abstract boolean isNull();
