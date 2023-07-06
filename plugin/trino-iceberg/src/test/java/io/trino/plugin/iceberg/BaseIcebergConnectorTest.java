@@ -757,7 +757,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar), " +
                 "  \"a quoted, field\" varchar" +
@@ -1134,7 +1134,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
                 ") " +
@@ -1940,8 +1940,8 @@ public abstract class BaseIcebergConnectorTest
 
         @Language("SQL") String initialValues =
                 "(TIMESTAMP '1969-12-31 22:22:22.222222', 8)," +
-                "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
-                "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)";
+                        "(TIMESTAMP '1969-12-31 23:33:11.456789', 9)," +
+                        "(TIMESTAMP '1969-12-31 23:44:55.567890', 10)";
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))
                 .containsAll("VALUES 8, 9, 10")
@@ -1949,8 +1949,8 @@ public abstract class BaseIcebergConnectorTest
 
         @Language("SQL") String hourTransformValues =
                 "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
-                "(TIMESTAMP '2015-01-02 10:10:02.987654', 2)," +
-                "(TIMESTAMP '2015-01-03 10:55:00.456789', 3)";
+                        "(TIMESTAMP '2015-01-02 10:10:02.987654', 2)," +
+                        "(TIMESTAMP '2015-01-03 10:55:00.456789', 3)";
         // While the bucket transform is still used the hour transform still cannot be used for pushdown
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['hour(d)']");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + hourTransformValues, 3);
@@ -3157,7 +3157,7 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT b FROM test_truncate_decimal_transform WHERE d = -0.05", "VALUES 5");
         assertQuery(
                 select + " WHERE partition.d_trunc = -0.10",
-                 format == AVRO ? "VALUES (-0.10, 1, NULL, NULL, NULL, NULL)" : "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
+                format == AVRO ? "VALUES (-0.10, 1, NULL, NULL, NULL, NULL)" : "VALUES (-0.10, 1, -0.05, -0.05, 5, 5)");
 
         // Exercise IcebergMetadata.applyFilter with non-empty Constraint.predicate, via non-pushdownable predicates
         assertQuery(
@@ -3928,7 +3928,7 @@ public abstract class BaseIcebergConnectorTest
                 ", vb VARBINARY" +
                 ", ts TIMESTAMP(6)" +
                 ", tstz TIMESTAMP(6) WITH TIME ZONE" +
-                ", str ROW(id INTEGER , vc VARCHAR)" +
+                ", str ROW(id INTEGER, vc VARCHAR)" +
                 ", dt DATE)" +
                 " WITH (partitioning = ARRAY['int'])");
 
@@ -4251,7 +4251,7 @@ public abstract class BaseIcebergConnectorTest
                 "  a_timestamp timestamp(6), " +
                 "  a_timestamptz timestamp(6) with time zone, " +
                 "  a_uuid uuid, " +
-                "  a_row row(id integer , vc varchar), " +
+                "  a_row row(id integer, vc varchar), " +
                 "  an_array array(varchar), " +
                 "  a_map map(integer, varchar) " +
                 ")");
@@ -6071,7 +6071,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
                 .returnsEmptyResult();
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1 , true)", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('a', 1, true)", 1);
         long v2SnapshotId = getCurrentSnapshotId(tableName);
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF " + v2SnapshotId))
                 .hasOutputTypes(ImmutableList.of(VARCHAR, INTEGER, BOOLEAN))
@@ -6390,7 +6390,7 @@ public abstract class BaseIcebergConnectorTest
                 .hasMessage("One MERGE target table row matched more than one source row");
 
         assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
-                "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
+                        "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address",
                 1);
         assertQuery("SELECT customer, purchases, address FROM " + targetTable, "VALUES ('Aaron', 5, 'Adelphi'), ('Bill', 7, 'Antioch')");
         assertUpdate("DROP TABLE " + sourceTable);
@@ -6997,7 +6997,7 @@ public abstract class BaseIcebergConnectorTest
     {
         int idField = 0;
         return getQueryRunner().execute(
-                format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
+                        format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at", tableName))
                 .getMaterializedRows().stream()
                 .map(row -> (Long) row.getField(idField))
                 .collect(toList());
