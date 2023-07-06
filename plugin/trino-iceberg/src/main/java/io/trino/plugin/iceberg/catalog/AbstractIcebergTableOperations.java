@@ -109,7 +109,7 @@ public abstract class AbstractIcebergTableOperations
         currentMetadata = tableMetadata;
         currentMetadataLocation = tableMetadata.metadataFileLocation();
         shouldRefresh = false;
-        version = parseVersion(Location.of(currentMetadataLocation).fileName());
+        version = OptionalInt.of(parseVersion(Location.of(currentMetadataLocation).fileName()));
     }
 
     @Override
@@ -259,7 +259,7 @@ public abstract class AbstractIcebergTableOperations
 
         currentMetadata = newMetadata;
         currentMetadataLocation = newLocation;
-        version = parseVersion(Location.of(newLocation).fileName());
+        version = OptionalInt.of(parseVersion(Location.of(newLocation).fileName()));
         shouldRefresh = false;
     }
 

@@ -15,8 +15,6 @@ package io.trino.plugin.iceberg;
 
 import org.testng.annotations.Test;
 
-import java.util.OptionalInt;
-
 import static io.trino.plugin.iceberg.IcebergUtil.parseVersion;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -26,10 +24,10 @@ public class TestIcebergUtil
     @Test
     public void testParseVersion()
     {
-        assertEquals(parseVersion("00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(0));
-        assertEquals(parseVersion("99999-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(99999));
-        assertEquals(parseVersion("00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(10));
-        assertEquals(parseVersion("00011-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.of(11));
+        assertEquals(parseVersion("00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), 0);
+        assertEquals(parseVersion("99999-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), 99999);
+        assertEquals(parseVersion("00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), 10);
+        assertEquals(parseVersion("00011-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), 11);
 
         assertThatThrownBy(() -> parseVersion("hdfs://hadoop-master:9000/user/hive/warehouse/orders_5-581fad8517934af6be1857a903559d44/metadata/00000-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
                 .hasMessageMatching("Not a file name: .*");
@@ -40,7 +38,9 @@ public class TestIcebergUtil
         assertThatThrownBy(() -> parseVersion("00010_409702ba_4735_4645_8f14_09537cc0b2c8.metadata.json"))
                 .hasMessageMatching("Invalid metadata file name:.*");
 
-        assertEquals(parseVersion("00003_409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.empty());
-        assertEquals(parseVersion("-00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"), OptionalInt.empty());
+        assertThatThrownBy(() -> parseVersion("00003_409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
+        assertThatThrownBy(() -> parseVersion("-00010-409702ba-4735-4645-8f14-09537cc0b2c8.metadata.json"))
+                .hasMessageMatching("Invalid metadata file name:.*");
     }
 }
