@@ -37,7 +37,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
@@ -185,17 +184,14 @@ public class RegisterTableProcedure
                 Location fileLocation = fileEntry.location();
                 String fileName = fileLocation.fileName();
                 if (fileName.endsWith(METADATA_FILE_EXTENSION)) {
-                    OptionalInt version = parseVersion(fileName);
-                    if (version.isPresent()) {
-                        int versionNumber = version.getAsInt();
-                        if (versionNumber > latestMetadataVersion) {
-                            latestMetadataVersion = versionNumber;
-                            latestMetadataLocations.clear();
-                            latestMetadataLocations.add(fileLocation);
-                        }
-                        else if (versionNumber == latestMetadataVersion) {
-                            latestMetadataLocations.add(fileLocation);
-                        }
+                    int versionNumber = parseVersion(fileName);
+                    if (versionNumber > latestMetadataVersion) {
+                        latestMetadataVersion = versionNumber;
+                        latestMetadataLocations.clear();
+                        latestMetadataLocations.add(fileLocation);
+                    }
+                    else if (versionNumber == latestMetadataVersion) {
+                        latestMetadataLocations.add(fileLocation);
                     }
                 }
             }
