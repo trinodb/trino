@@ -51,6 +51,7 @@ import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTableC
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.getTablePropertyOnDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -991,31 +992,6 @@ public class TestDeltaLakeColumnMappingMode
         };
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
-    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
-    public void testUnsupportedOperationsColumnMappingMode(String mode)
-    {
-        String tableName = "test_dl_unsupported_column_mapping_mode_" + randomNameSuffix();
-
-        onDelta().executeQuery("" +
-                "CREATE TABLE default." + tableName +
-                " (a_number INT, a_string STRING)" +
-                " USING delta " +
-                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
-                " TBLPROPERTIES (" +
-                " 'delta.columnMapping.mode'='" + mode + "'," +
-                " 'delta.minReaderVersion'='2'," +
-                " 'delta.minWriterVersion'='5')");
-
-        try {
-            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN a_number TO renamed_column"))
-                    .hasMessageContaining("This connector does not support renaming columns");
-        }
-        finally {
-            dropDeltaTableWithRetry("default." + tableName);
-        }
-    }
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingWithTrueAndFalseDataProvider")
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testOptimizeProcedureColumnMappingMode(String mode, boolean partitioned)
@@ -1628,6 +1604,233 @@ public class TestDeltaLakeColumnMappingMode
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoRenameColumnWithColumnMappingMode(String mode)
+    {
+        testRenameColumnWithColumnMappingMode(
+                mode,
+                (tableName, column) -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN " + column.sourceColumn + " TO " + column.newColumn));
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testSparkRenameColumnWithColumnMappingMode(String mode)
+    {
+        testRenameColumnWithColumnMappingMode(
+                mode,
+                (tableName, column) -> onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN " + column.sourceColumn + " TO " + column.newColumn));
+    }
+
+    private void testRenameColumnWithColumnMappingMode(String mode, BiConsumer<String, RenameColumn> renameColumns)
+    {
+        String tableName = "test_rename_column_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (id INT, data INT, part STRING)" +
+                " USING delta " +
+                " PARTITIONED BY (part) " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
+
+        try {
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+                    .isEqualTo("3");
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 10, 'part#1')");
+
+            renameColumns.accept(tableName, new RenameColumn("data", "new_data"));
+            renameColumns.accept(tableName, new RenameColumn("part", "new_part"));
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+                    .isEqualTo("3");
+
+            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
+                    .containsOnly(
+                            row("id", "integer", "", ""),
+                            row("new_data", "integer", "", ""),
+                            row("new_part", "varchar", "", ""));
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 10, "part#1"));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 10, "part#1"));
+
+            // Ensure renaming to the dropped column doesn't restore the old data
+            onDelta().executeQuery("ALTER TABLE default." + tableName + " DROP COLUMN id");
+            renameColumns.accept(tableName, new RenameColumn("new_data", "id"));
+
+            assertThat(onTrino().executeQuery("SELECT id, new_part FROM delta.default." + tableName))
+                    .containsOnly(row(10, "part#1"));
+            assertThat(onDelta().executeQuery("SELECT id, new_part FROM default." + tableName))
+                    .containsOnly(row(10, "part#1"));
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    private record RenameColumn(String sourceColumn, String newColumn)
+    {
+        private RenameColumn
+        {
+            requireNonNull(sourceColumn, "sourceColumn is null");
+            requireNonNull(newColumn, "newColumn is null");
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testTrinoExtendedStatisticsRenameColumnWithColumnMappingMode(String mode)
+    {
+        String tableName = "test_rename_column_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (a INT, b INT)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 2)");
+            onTrino().executeQuery("ANALYZE delta.default." + tableName);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("a", null, 1.0, 0.0, null, "1", "1"),
+                            row("b", null, 1.0, 0.0, null, "2", "2"),
+                            row(null, null, null, null, 1.0, null, null));
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN b TO new_b");
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("a", null, 1.0, 0.0, null, "1", "1"),
+                            row("new_b", null, 1.0, 0.0, null, "2", "2"),
+                            row(null, null, null, null, 1.0, null, null));
+
+            // Re-analyzing should work
+            onTrino().executeQuery("ANALYZE delta.default." + tableName);
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("a", null, 1.0, 0.0, null, "1", "1"),
+                            row("new_b", null, 1.0, 0.0, null, "2", "2"),
+                            row(null, null, null, null, 1.0, null, null));
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testRenameColumnWithComment(String mode)
+    {
+        String tableName = "test_rename_column_with_comment_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (col INT COMMENT 'test column comment', part INT COMMENT 'test partition comment')" +
+                " USING delta" +
+                " PARTITIONED BY (part)" +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
+        try {
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN col TO new_col");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "new_col"), "test column comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "new_col"), "test column comment");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN part TO new_part");
+            assertEquals(getColumnCommentOnTrino("default", tableName, "new_part"), "test partition comment");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "new_part"), "test partition comment");
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS}, dataProvider = "columnMappingDataProvider")
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testRenameNonLowercaseColumn(String mode)
+    {
+        String tableName = "test_rename_non_lowercase_column_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (UPPER_COL INT NOT NULL COMMENT 'test comment', UPPER_PART INT)" +
+                " USING delta" +
+                " PARTITIONED BY (UPPER_PART)" +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
+        try {
+            onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 2)");
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("upper_col", null, 1.0, 0.0, null, "1", "1"),
+                            row("upper_part", null, 1.0, 0.0, null, null, null),
+                            row(null, null, null, null, 1.0, null, null));
+
+            assertThat(getColumnNamesOnDelta("default", tableName))
+                    .containsExactly("UPPER_COL", "UPPER_PART");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_col TO new_col");
+            assertThat(getColumnNamesOnDelta("default", tableName))
+                    .containsExactly("new_col", "UPPER_PART");
+            assertEquals(getColumnCommentOnDelta("default", tableName, "new_col"), "test comment");
+            assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO delta.default." + tableName + " (new_col) VALUES NULL"))
+                    .hasMessageContaining("NULL value not allowed for NOT NULL column: new_col");
+
+            onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN upper_part TO new_part");
+            assertThat(getColumnNamesOnDelta("default", tableName))
+                    .containsExactly("new_col", "new_part");
+
+            assertThat(onTrino().executeQuery("SELECT new_col, new_part FROM delta.default." + tableName))
+                    .containsOnly(row(1, 2));
+            assertThat(onTrino().executeQuery("SHOW STATS FOR delta.default." + tableName))
+                    .containsOnly(
+                            row("new_col", null, 1.0, 0.0, null, "1", "1"),
+                            row("new_part", null, 1.0, 0.0, null, null, null),
+                            row(null, null, null, null, 1.0, null, null));
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, DELTA_LAKE_EXCLUDE_73, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_EXCLUDE_104, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testUnsupportedRenameColumnWithColumnMappingModeNone()
+    {
+        String tableName = "test_unsupported_rename_column_" + randomNameSuffix();
+
+        onDelta().executeQuery("" +
+                "CREATE TABLE default." + tableName +
+                " (id INT, data INT)" +
+                " USING delta " +
+                " LOCATION 's3://" + bucketName + "/databricks-compatibility-test-" + tableName + "'" +
+                " TBLPROPERTIES ('delta.columnMapping.mode' = 'none')");
+
+        try {
+            onDelta().executeQuery("INSERT INTO default." + tableName + " VALUES (1, 10)");
+
+            assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " RENAME COLUMN data TO new_data"))
+                    .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
+            assertQueryFailure(() -> onDelta().executeQuery("ALTER TABLE default." + tableName + " RENAME COLUMN data TO new_data"))
+                    .hasMessageContaining(" Column rename is not supported for your Delta table");
+
+            assertThat(onTrino().executeQuery("DESCRIBE delta.default." + tableName))
+                    .containsOnly(
+                            row("id", "integer", "", ""),
+                            row("data", "integer", "", ""));
+
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
+                    .containsOnly(row(1, 10));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName))
+                    .containsOnly(row(1, 10));
+        }
+        finally {
+            dropDeltaTableWithRetry(tableName);
         }
     }
 
