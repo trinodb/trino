@@ -75,6 +75,7 @@ public enum TestingConnectorBehavior
     SUPPORTS_DROP_SCHEMA_CASCADE(SUPPORTS_CREATE_SCHEMA),
 
     SUPPORTS_CREATE_TABLE,
+    SUPPORTS_CREATE_OR_REPLACE_TABLE(false),
     SUPPORTS_CREATE_TABLE_WITH_DATA(SUPPORTS_CREATE_TABLE),
     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT(SUPPORTS_CREATE_TABLE),
     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT(SUPPORTS_CREATE_TABLE),
@@ -137,6 +138,7 @@ public enum TestingConnectorBehavior
                         (name().equals("SUPPORTS_CANCELLATION") ||
                                 name().equals("SUPPORTS_DYNAMIC_FILTER_PUSHDOWN") ||
                                 name().equals("SUPPORTS_JOIN_PUSHDOWN") ||
+                                name().equals("SUPPORTS_CREATE_OR_REPLACE_TABLE") ||
                                 name().equals("SUPPORTS_REPORTING_WRITTEN_BYTES") ||
                                 name().equals("SUPPORTS_MULTI_STATEMENT_WRITES")),
                 "Every behavior should be expected to be true by default. Having mixed defaults makes reasoning about tests harder. False default provided for %s",

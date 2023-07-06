@@ -45,6 +45,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
@@ -60,7 +61,7 @@ public class TestAddColumnTask
     public void testAddColumn()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("test", BIGINT));
@@ -74,7 +75,7 @@ public class TestAddColumnTask
     public void testAddColumnWithComment()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
 
         getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("new_col"), INTEGER, Optional.of("test comment"), false, false));
@@ -92,7 +93,7 @@ public class TestAddColumnTask
     public void testAddColumnWithColumnProperty()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         Property columnProperty = new Property(new Identifier("column_property"), new LongLiteral("111"));
 
@@ -126,7 +127,7 @@ public class TestAddColumnTask
     public void testAddColumnNotExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("test", BIGINT));
@@ -140,7 +141,7 @@ public class TestAddColumnTask
     public void testAddColumnAlreadyExist()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("test"), INTEGER, Optional.empty(), false, false)))
                 .hasErrorCode(COLUMN_ALREADY_EXISTS)
@@ -173,7 +174,7 @@ public class TestAddColumnTask
     public void testAddFieldWithNotExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
@@ -191,7 +192,7 @@ public class TestAddColumnTask
                 testSession,
                 TEST_CATALOG_NAME,
                 rowTable(tableName, new RowType.Field(Optional.of("a"), rowType(new RowType.Field(Optional.of("b"), INTEGER)))),
-                false);
+                FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "x", "c"), INTEGER, false, false)))
                 .hasErrorCode(COLUMN_NOT_FOUND)
@@ -206,7 +207,7 @@ public class TestAddColumnTask
                 testSession,
                 TEST_CATALOG_NAME,
                 rowTable(tableName, new RowType.Field(Optional.of("a"), new ArrayType(rowType(new RowType.Field(Optional.of("element"), INTEGER))))),
-                false);
+                FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "c"), INTEGER, false, false)))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -224,7 +225,7 @@ public class TestAddColumnTask
                         rowType(new RowType.Field(Optional.of("key"), INTEGER)),
                         rowType(new RowType.Field(Optional.of("key"), INTEGER)),
                         new TypeOperators()))),
-                false);
+                FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("col", "a", "c"), INTEGER, false, false)))
                 .hasErrorCode(NOT_SUPPORTED)
@@ -235,7 +236,7 @@ public class TestAddColumnTask
     public void testUnsupportedAddDuplicatedField()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, rowTable(tableName, new RowType.Field(Optional.of("a"), BIGINT)), FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("col", rowType(new RowType.Field(Optional.of("a"), BIGINT))));
@@ -260,7 +261,7 @@ public class TestAddColumnTask
                 rowTable(tableName,
                         new RowType.Field(Optional.of("a"), rowType(new RowType.Field(Optional.of("x"), INTEGER))),
                         new RowType.Field(Optional.of("A"), rowType(new RowType.Field(Optional.of("y"), INTEGER)))),
-                false);
+                FAIL);
         TableHandle table = metadata.getTableHandle(testSession, tableName).get();
         assertThat(metadata.getTableMetadata(testSession, table).getColumns())
                 .containsExactly(new ColumnMetadata("col", rowType(

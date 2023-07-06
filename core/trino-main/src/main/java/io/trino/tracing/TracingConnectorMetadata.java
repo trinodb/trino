@@ -55,6 +55,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -376,6 +377,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+    {
+        Span span = startSpan("createTable", tableMetadata.getTable());
+        try (var ignored = scopedSpan(span)) {
+            delegate.createTable(session, tableMetadata, saveMode);
+        }
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         Span span = startSpan("dropTable", tableHandle);
@@ -606,6 +616,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("beginCreateTable", tableMetadata.getTable());
         try (var ignored = scopedSpan(span)) {
             return delegate.beginCreateTable(session, tableMetadata, layout, retryMode);
+        }
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
+    {
+        Span span = startSpan("beginCreateTable", tableMetadata.getTable());
+        try (var ignored = scopedSpan(span)) {
+            return delegate.beginCreateTable(session, tableMetadata, layout, retryMode, replace);
         }
     }
 

@@ -33,6 +33,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.TimestampType;
@@ -81,6 +82,7 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -192,6 +194,22 @@ public class TestCreateTableTask
                 .hasMessage("Table already exists");
 
         assertEquals(metadata.getCreateTableCallCount(), 1);
+    }
+
+    @Test
+    public void testReplaceTable()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                REPLACE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
+                .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
     }
 
     @Test
@@ -422,10 +440,13 @@ public class TestCreateTableTask
         private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
+            if (saveMode == SaveMode.REPLACE) {
+                tables.removeIf(table -> table.getTable().equals(tableMetadata.getTable()));
+            }
             tables.add(tableMetadata);
-            if (!ignoreExisting) {
+            if (saveMode == SaveMode.FAIL) {
                 throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
         }
