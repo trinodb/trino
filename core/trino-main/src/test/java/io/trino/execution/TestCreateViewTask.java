@@ -37,6 +37,7 @@ import java.util.Optional;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.sql.QueryUtil.selectList;
 import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
@@ -68,7 +69,7 @@ public class TestCreateViewTask
                 new StatementRewrite(ImmutableSet.of()),
                 plannerContext.getTracer());
         QualifiedObjectName tableName = qualifiedObjectName("mock_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
     }
 
     @Test
@@ -104,7 +105,7 @@ public class TestCreateViewTask
     public void testCreateViewOnTableIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), false)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)
@@ -115,7 +116,7 @@ public class TestCreateViewTask
     public void testReplaceViewOnTableIfExists()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateView(asQualifiedName(tableName), true)))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)

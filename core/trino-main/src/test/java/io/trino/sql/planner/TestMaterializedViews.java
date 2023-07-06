@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -91,7 +92,7 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", BIGINT),
                                     new ColumnMetadata("b", BIGINT))),
-                    false);
+                    FAIL);
             return null;
         });
 
@@ -105,7 +106,7 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", BIGINT),
                                     new ColumnMetadata("b", BIGINT))),
-                    false);
+                    FAIL);
             return null;
         });
 
@@ -119,7 +120,7 @@ public class TestMaterializedViews
                             ImmutableList.of(
                                     new ColumnMetadata("a", TINYINT),
                                     new ColumnMetadata("b", VARCHAR))),
-                    false);
+                    FAIL);
             return null;
         });
 

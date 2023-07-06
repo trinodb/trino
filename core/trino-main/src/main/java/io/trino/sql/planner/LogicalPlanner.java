@@ -493,7 +493,7 @@ public class LogicalPlanner
                 analysis,
                 plan.getRoot(),
                 visibleFields(plan),
-                new CreateReference(catalogName, tableMetadata, newTableLayout),
+                new CreateReference(catalogName, tableMetadata, newTableLayout, create.isReplace()),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);

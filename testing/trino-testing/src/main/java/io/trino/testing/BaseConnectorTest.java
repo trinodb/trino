@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -120,6 +121,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_OR_REPLACE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
@@ -3339,6 +3341,112 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateOrReplaceTableWhenTableDoesNotExist()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String table = "test_create_or_replace_" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            assertQueryFails("CREATE OR REPLACE TABLE " + table + " (a bigint, b double, c varchar(50))", "This connector does not support replacing tables");
+            return;
+        }
+
+        try {
+            assertUpdate("CREATE OR REPLACE TABLE " + table + " (a bigint, b double, c varchar(50))");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table);
+        } finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelectWhenTableDoesNotExists()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String table = "test_create_or_replace_" + randomNameSuffix();
+        @Language("SQL") String query = "SELECT nationkey, name, regionkey FROM nation";
+        @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            assertQueryFails("CREATE OR REPLACE TABLE " + table + " AS " + query, "This connector does not support replacing tables");
+            return;
+        }
+
+        try {
+            assertUpdate("CREATE OR REPLACE TABLE " + table + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table, query);
+        } finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWhenTableAlreadyExistsSameSchema()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", "AS SELECT CAST(1 AS BIGINT) AS nationkey, 'test' AS name, CAST(2 AS BIGINT) AS regionkey FROM nation LIMIT 1")) {
+            @Language("SQL") String query = "SELECT nationkey, name, regionkey FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWhenTableAlreadyExistsSameSchemaNoData()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name, regionkey FROM nation WITH NO DATA", 0L);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithNewColumnNames()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+            assertTableColumnNames(table.getName(), "nationkey", "name", "regionkey");
+            @Language("SQL") String query = "SELECT nationkey AS nationkey_new, name AS name_new_2, regionkey AS region_key_new FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertTableColumnNames(table.getName(), "nationkey_new", "name_new_2", "region_key_new");
+            assertQuery("SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithDifferentDataType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name FROM nation")) {
+            @Language("SQL") String query = "SELECT name AS nationkey, nationkey AS name FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertQuery(getSession(), "SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
     public void testCreateSchemaWithLongName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
@@ -4916,6 +5024,87 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent add column failure", e);
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testCreateOrReplaceTableConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // Already handled in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        int threads = 4;
+        int numOfCreateOrReplaceStatements = 4;
+        int numOfReads = 16;
+        CyclicBarrier barrier = new CyclicBarrier(threads + 1);
+        ExecutorService executor = newFixedThreadPool(threads + 1);
+        List<Future<?>> futures = new ArrayList<>();
+        try (TestTable table = createTableWithOneIntegerColumn("test_create_or_replace")) {
+            String tableName = table.getName();
+
+            getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+
+            /// One thread submits some CREATE OR REPLACE statements
+            futures.add(executor.submit(() -> {
+                barrier.await(30, SECONDS);
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                    try {
+                        getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
+                    } catch (Exception e) {
+                        RuntimeException trinoException = getTrinoExceptionCause(e);
+                        try {
+                            throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
+                        } catch (Throwable verifyFailure) {
+                            if (verifyFailure != e) {
+                                verifyFailure.addSuppressed(e);
+                            }
+                            throw verifyFailure;
+                        }
+                    }
+                });
+                return null;
+            }));
+            // Other 4 threads continue try to read the same table, none of the reads should fail.
+            IntStream.range(0, threads)
+                    .forEach(threadNumber -> futures.add(executor.submit(() -> {
+                        barrier.await(30, SECONDS);
+                        IntStream.range(0, numOfReads).forEach(readIndex -> {
+                            try {
+                                MaterializedResult result = computeActual("SELECT * FROM " + tableName);
+                                if (result.getRowCount() == 1) {
+                                    assertEqualsIgnoreOrder(result.getMaterializedRows(), List.of(new MaterializedRow(List.of(1))));
+                                }
+                                else {
+                                    assertEqualsIgnoreOrder(result.getMaterializedRows(), List.of(new MaterializedRow(List.of(1)), new MaterializedRow(List.of(2))));
+                                }
+                            }
+                            catch (Exception e) {
+                                RuntimeException trinoException = getTrinoExceptionCause(e);
+                                try {
+                                    throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
+                                }
+                                catch (Throwable verifyFailure) {
+                                    if (verifyFailure != e) {
+                                        verifyFailure.addSuppressed(e);
+                                    }
+                                    throw verifyFailure;
+                                }
+                            }
+                        });
+                        return null;
+                    })));
+            futures.forEach(Futures::getUnchecked);
+            getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2), (3)) AS t(a)");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3");
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(30, SECONDS);
+        }
     }
 
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)

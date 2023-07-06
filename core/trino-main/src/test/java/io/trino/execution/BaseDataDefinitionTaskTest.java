@@ -43,6 +43,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.function.OperatorType;
@@ -82,6 +83,8 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -340,9 +343,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
-            checkArgument(ignoreExisting || !tables.containsKey(tableMetadata.getTable()));
+            checkArgument(saveMode == REPLACE || saveMode == IGNORE || !tables.containsKey(tableMetadata.getTable()));
             tables.put(tableMetadata.getTable(), tableMetadata);
         }
 
