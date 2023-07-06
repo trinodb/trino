@@ -40,6 +40,7 @@ import static io.trino.tests.product.utils.QueryExecutors.onDelta;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeDatabricksCreateTableCompatibility
@@ -306,6 +307,23 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 
         try {
             assertEquals(getColumnCommentOnTrino("default", tableName, "col"), "test comment");
+        }
+        finally {
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_DATABRICKS, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
+    public void testCreateTableWithDuplicatedColumnNames()
+    {
+        String tableName = "test_dl_create_table_with_duplicated_column_names_" + randomNameSuffix();
+        String tableDirectory = "databricks-compatibility-test-" + tableName;
+
+        try {
+            assertThatThrownBy(() -> onDelta().executeQuery(
+                    "CREATE TABLE default." + tableName + " (col INT, COL int) USING DELTA LOCATION 's3://" + bucketName + "/" + tableDirectory + "'"))
+                    .hasMessageMatching("(?s).*(Found duplicate column|The column `col` already exists).*");
         }
         finally {
             dropDeltaTableWithRetry("default." + tableName);
