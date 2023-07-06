@@ -43,6 +43,7 @@ import io.trino.sql.tree.NullLiteral;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
@@ -125,7 +126,7 @@ public class UnwrapYearInComparison
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
-            return unwrapYear(expression);
+            return unwrapYear(expression.getOperator(), expression.getLeft(), expression.getRight()).orElse(expression);
         }
 
         @Override
@@ -146,67 +147,66 @@ public class UnwrapYearInComparison
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
             ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(inListExpression.getValues().size());
             for (Expression rightExpression : inListExpression.getValues()) {
-                ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
-                Expression unwrappedExpression = unwrapYear(comparisonExpression);
-                if (unwrappedExpression == comparisonExpression) {
+                Optional<Expression> unwrappedExpression = unwrapYear(EQUAL, value, rightExpression);
+                if (unwrappedExpression.isEmpty()) {
                     return inPredicate;
                 }
-                comparisonExpressions.add(unwrappedExpression);
+                comparisonExpressions.add(unwrappedExpression.get());
             }
 
             return or(comparisonExpressions.build());
         }
 
         // Simplify `year(d) ? value`
-        private Expression unwrapYear(ComparisonExpression expression)
+        private Optional<Expression> unwrapYear(ComparisonExpression.Operator operator, Expression leftExpression, Expression rightExpression)
         {
             // Expect year on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
-            if (!(expression.getLeft() instanceof FunctionCall call) ||
+            if (!(leftExpression instanceof FunctionCall call) ||
                     !extractFunctionName(call.getName()).equals("year") ||
                     call.getArguments().size() != 1) {
-                return expression;
+                return Optional.empty();
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, ImmutableList.of(leftExpression, rightExpression));
 
             Expression argument = getOnlyElement(call.getArguments());
             Type argumentType = expressionTypes.get(NodeRef.of(argument));
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
+            Object right = new ExpressionInterpreter(rightExpression, plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null || right instanceof NullLiteral) {
-                return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), toSqlType(BOOLEAN));
-                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
+                return switch (operator) {
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> Optional.of(new Cast(new NullLiteral(), toSqlType(BOOLEAN)));
+                    case IS_DISTINCT_FROM -> Optional.of(new IsNotNullPredicate(argument));
                 };
             }
 
             if (right instanceof Expression) {
-                return expression;
+                return Optional.empty();
             }
             if (argumentType instanceof TimestampWithTimeZoneType) {
                 // Cannot replace with a range due to how year operates on value's local date/time.
                 // I.e. unwrapping is possible only when values are all of some fixed zone and the zone is known.
-                return expression;
+                return Optional.empty();
             }
             if (argumentType != DATE && !(argumentType instanceof TimestampType)) {
                 // e.g. year(INTERVAL) not handled here
-                return expression;
+                return Optional.empty();
             }
 
             int year = toIntExact((Long) right);
-            return switch (expression.getOperator()) {
-                case EQUAL -> between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType));
-                case NOT_EQUAL -> new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
-                case IS_DISTINCT_FROM -> or(
+            return switch (operator) {
+                case EQUAL -> Optional.of(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)));
+                case NOT_EQUAL -> Optional.of(new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
+                case IS_DISTINCT_FROM -> Optional.of(or(
                         new IsNullPredicate(argument),
-                        new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType))));
-                case LESS_THAN -> new ComparisonExpression(LESS_THAN, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType));
-                case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType));
+                        new NotExpression(between(argument, argumentType, calculateRangeStartInclusive(year, argumentType), calculateRangeEndInclusive(year, argumentType)))));
+                case LESS_THAN -> Optional.of(new ComparisonExpression(LESS_THAN, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType)));
+                case LESS_THAN_OR_EQUAL -> Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType)));
+                case GREATER_THAN -> Optional.of(new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(year, argumentType), argumentType)));
+                case GREATER_THAN_OR_EQUAL -> Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(calculateRangeStartInclusive(year, argumentType), argumentType)));
             };
         }
 

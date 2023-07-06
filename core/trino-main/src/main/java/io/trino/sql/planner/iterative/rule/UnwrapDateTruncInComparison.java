@@ -149,7 +149,7 @@ public class UnwrapDateTruncInComparison
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             ComparisonExpression expression = treeRewriter.defaultRewrite(node, null);
-            return unwrapDateTrunc(expression);
+            return unwrapDateTrunc(expression.getOperator(), expression.getLeft(), expression.getRight()).orElse(expression);
         }
 
         @Override
@@ -170,75 +170,74 @@ public class UnwrapDateTruncInComparison
             // unwrap the InPredicate only in case we manage to unwrap the entire value list
             ImmutableList.Builder<Expression> comparisonExpressions = ImmutableList.builderWithExpectedSize(inListExpression.getValues().size());
             for (Expression rightExpression : inListExpression.getValues()) {
-                ComparisonExpression comparisonExpression = new ComparisonExpression(EQUAL, value, rightExpression);
-                Expression unwrappedExpression = unwrapDateTrunc(comparisonExpression);
-                if (unwrappedExpression == comparisonExpression) {
+                Optional<Expression> unwrappedExpression = unwrapDateTrunc(EQUAL, value, rightExpression);
+                if (unwrappedExpression.isEmpty()) {
                     return inPredicate;
                 }
-                comparisonExpressions.add(unwrappedExpression);
+                comparisonExpressions.add(unwrappedExpression.get());
             }
 
             return or(comparisonExpressions.build());
         }
 
         // Simplify `date_trunc(unit, d) ? value`
-        private Expression unwrapDateTrunc(ComparisonExpression expression)
+        private Optional<Expression> unwrapDateTrunc(ComparisonExpression.Operator operator, Expression leftExpression, Expression rightExpression)
         {
             // Expect date_trunc on the left side and value on the right side of the comparison.
             // This is provided by CanonicalizeExpressionRewriter.
 
-            if (!(expression.getLeft() instanceof FunctionCall call) ||
+            if (!(leftExpression instanceof FunctionCall call) ||
                     !extractFunctionName(call.getName()).equals("date_trunc") ||
                     call.getArguments().size() != 2) {
-                return expression;
+                return Optional.empty();
             }
 
-            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, expression);
+            Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, ImmutableList.of(leftExpression, rightExpression));
             Expression unitExpression = call.getArguments().get(0);
             if (!(expressionTypes.get(NodeRef.of(unitExpression)) instanceof VarcharType) || !isEffectivelyLiteral(plannerContext, session, unitExpression)) {
-                return expression;
+                return Optional.empty();
             }
             Slice unitName = (Slice) new ExpressionInterpreter(unitExpression, plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
             if (unitName == null) {
-                return expression;
+                return Optional.empty();
             }
 
             Expression argument = call.getArguments().get(1);
             Type argumentType = expressionTypes.get(NodeRef.of(argument));
 
-            Type rightType = expressionTypes.get(NodeRef.of(expression.getRight()));
+            Type rightType = expressionTypes.get(NodeRef.of(rightExpression));
             verify(argumentType.equals(rightType), "Mismatched types: %s and %s", argumentType, rightType);
 
-            Object right = new ExpressionInterpreter(expression.getRight(), plannerContext, session, expressionTypes)
+            Object right = new ExpressionInterpreter(rightExpression, plannerContext, session, expressionTypes)
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             if (right == null || right instanceof NullLiteral) {
-                return switch (expression.getOperator()) {
-                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> new Cast(new NullLiteral(), toSqlType(BOOLEAN));
-                    case IS_DISTINCT_FROM -> new IsNotNullPredicate(argument);
+                return switch (operator) {
+                    case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> Optional.of(new Cast(new NullLiteral(), toSqlType(BOOLEAN)));
+                    case IS_DISTINCT_FROM -> Optional.of(new IsNotNullPredicate(argument));
                 };
             }
 
             if (right instanceof Expression) {
-                return expression;
+                return Optional.empty();
             }
             if (rightType instanceof TimestampWithTimeZoneType) {
                 // Cannot replace with a range due to how date_trunc operates on value's local date/time.
                 // I.e. unwrapping is possible only when values are all of some fixed zone and the zone is known.
-                return expression;
+                return Optional.empty();
             }
 
             ResolvedFunction resolvedFunction = plannerContext.getMetadata().decodeFunction(call.getName());
 
             Optional<SupportedUnit> unitIfSupported = Enums.getIfPresent(SupportedUnit.class, unitName.toStringUtf8().toUpperCase(Locale.ENGLISH)).toJavaUtil();
             if (unitIfSupported.isEmpty()) {
-                return expression;
+                return Optional.empty();
             }
             SupportedUnit unit = unitIfSupported.get();
             if (rightType == DATE && (unit == SupportedUnit.DAY || unit == SupportedUnit.HOUR)) {
                 // DAY case handled by CanonicalizeExpressionRewriter, other is illegal, will fail
-                return expression;
+                return Optional.empty();
             }
 
             Object rangeLow = functionInvoker.invoke(resolvedFunction, session.toConnectorSession(), ImmutableList.of(unitName, right));
@@ -246,40 +245,40 @@ public class UnwrapDateTruncInComparison
             verify(compare <= 0, "Truncation of %s value %s resulted in a bigger value %s", rightType, right, rangeLow);
             boolean rightValueAtRangeLow = compare == 0;
 
-            return switch (expression.getOperator()) {
+            return switch (operator) {
                 case EQUAL -> {
                     if (!rightValueAtRangeLow) {
-                        yield falseIfNotNull(argument);
+                        yield Optional.of(falseIfNotNull(argument));
                     }
-                    yield between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit));
+                    yield Optional.of(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
                 }
                 case NOT_EQUAL -> {
                     if (!rightValueAtRangeLow) {
-                        yield trueIfNotNull(argument);
+                        yield Optional.of(trueIfNotNull(argument));
                     }
-                    yield new NotExpression(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)));
+                    yield Optional.of(new NotExpression(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit))));
                 }
                 case IS_DISTINCT_FROM -> {
                     if (!rightValueAtRangeLow) {
-                        yield TRUE_LITERAL;
+                        yield Optional.of(TRUE_LITERAL);
                     }
-                    yield or(
+                    yield Optional.of(or(
                             new IsNullPredicate(argument),
-                            new NotExpression(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit))));
+                            new NotExpression(between(argument, rightType, rangeLow, calculateRangeEndInclusive(rangeLow, rightType, unit)))));
                 }
                 case LESS_THAN -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(LESS_THAN, argument, toExpression(rangeLow, rightType));
+                        yield Optional.of(new ComparisonExpression(LESS_THAN, argument, toExpression(rangeLow, rightType)));
                     }
-                    yield new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                    yield Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType)));
                 }
-                case LESS_THAN_OR_EQUAL -> new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
-                case GREATER_THAN -> new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                case LESS_THAN_OR_EQUAL -> Optional.of(new ComparisonExpression(LESS_THAN_OR_EQUAL, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType)));
+                case GREATER_THAN -> Optional.of(new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType)));
                 case GREATER_THAN_OR_EQUAL -> {
                     if (rightValueAtRangeLow) {
-                        yield new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(rangeLow, rightType));
+                        yield Optional.of(new ComparisonExpression(GREATER_THAN_OR_EQUAL, argument, toExpression(rangeLow, rightType)));
                     }
-                    yield new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType));
+                    yield Optional.of(new ComparisonExpression(GREATER_THAN, argument, toExpression(calculateRangeEndInclusive(rangeLow, rightType, unit), rightType)));
                 }
             };
         }
