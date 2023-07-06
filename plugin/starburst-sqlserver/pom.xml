@@ -10,14 +10,29 @@
     </parent>
 
     <artifactId>starburst-sqlserver</artifactId>
-    <description>Starburst Enterprise - SQL Server Connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Starburst Enterprise - SQL Server Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-base-jdbc</artifactId>
@@ -44,18 +59,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-base-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-sqlserver</artifactId>
+            <groupId>dev.failsafe</groupId>
+            <artifactId>failsafe</artifactId>
         </dependency>
 
         <dependency>
@@ -69,23 +74,18 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.microsoft.sqlserver</groupId>
-            <artifactId>mssql-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.failsafe</groupId>
-            <artifactId>failsafe</artifactId>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-sqlserver</artifactId>
         </dependency>
 
         <dependency>
@@ -104,26 +104,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -140,9 +128,21 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -212,6 +212,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-base-jdbc</artifactId>
             <type>test-jar</type>
@@ -277,12 +283,6 @@
         <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
