@@ -31,7 +31,6 @@ import io.trino.parquet.reader.TestingColumnReader.DataPageVersion;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.type.AbstractVariableWidthType;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -57,6 +56,7 @@ import static io.trino.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.trino.parquet.ParquetEncoding.RLE;
 import static io.trino.parquet.ParquetEncoding.RLE_DICTIONARY;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
+import static io.trino.parquet.reader.AbstractColumnReader.shouldProduceDictionaryForType;
 import static io.trino.parquet.reader.TestingColumnReader.DataPageVersion.V1;
 import static io.trino.parquet.reader.TestingColumnReader.getDictionaryPage;
 import static org.apache.parquet.bytes.BytesUtils.getWidthFromMaxInt;
@@ -86,7 +86,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isFalse();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -109,7 +109,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
         assertThat(actual.mayHaveNull()).isTrue();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
         }
         format.assertBlock(values, actual);
@@ -131,7 +131,7 @@ public abstract class AbstractColumnReaderTest
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isTrue();
         }
@@ -154,7 +154,7 @@ public abstract class AbstractColumnReaderTest
         reader.setPageReader(getPageReaderMock(List.of(page), dictionaryPage, true), Optional.empty());
         reader.prepareNextRead(2);
         Block actual = reader.readPrimitive().getBlock();
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual).isInstanceOf(DictionaryBlock.class);
             assertThat(actual.mayHaveNull()).isFalse();
         }
@@ -204,7 +204,7 @@ public abstract class AbstractColumnReaderTest
         reader.prepareNextRead(2);
         Block block2 = reader.readPrimitive().getBlock();
 
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(block1).isInstanceOf(DictionaryBlock.class);
             assertThat(block2).isInstanceOf(DictionaryBlock.class);
 
@@ -359,7 +359,7 @@ public abstract class AbstractColumnReaderTest
         Block actual2 = readBlock(reader, 3);
         Block actual3 = readBlock(reader, 4);
 
-        if (field.getType() instanceof AbstractVariableWidthType) {
+        if (shouldProduceDictionaryForType(field.getType())) {
             assertThat(actual1).isInstanceOf(DictionaryBlock.class);
             assertThat(actual2).isInstanceOf(DictionaryBlock.class);
             assertThat(actual3).isInstanceOf(DictionaryBlock.class);
