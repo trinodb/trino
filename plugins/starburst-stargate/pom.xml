@@ -10,14 +10,24 @@
     </parent>
 
     <artifactId>starburst-stargate</artifactId>
-    <description>Starburst Enterprise - Stargate connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Starburst Enterprise - Stargate connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-base-jdbc</artifactId>
@@ -31,6 +41,16 @@
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-plugin-toolkit</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
@@ -59,26 +79,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
@@ -89,32 +89,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-spi</artifactId>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -131,9 +113,27 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jol</groupId>
             <artifactId>jol-core</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -210,6 +210,12 @@
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -298,12 +304,6 @@
         <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
