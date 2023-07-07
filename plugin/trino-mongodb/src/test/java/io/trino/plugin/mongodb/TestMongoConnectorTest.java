@@ -329,12 +329,12 @@ public class TestMongoConnectorTest
     public void testPredicatePushdown(String value)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_predicate_pushdown", "AS SELECT %s col".formatted(value))) {
-            testPredicatePushdown(table.getName(), "col = " + value);
-            testPredicatePushdown(table.getName(), "col != " + value);
-            testPredicatePushdown(table.getName(), "col < " + value);
-            testPredicatePushdown(table.getName(), "col > " + value);
-            testPredicatePushdown(table.getName(), "col <= " + value);
-            testPredicatePushdown(table.getName(), "col >= " + value);
+            assertPredicatePushdown(table.getName(), "col = " + value);
+            assertPredicatePushdown(table.getName(), "col != " + value);
+            assertPredicatePushdown(table.getName(), "col < " + value);
+            assertPredicatePushdown(table.getName(), "col > " + value);
+            assertPredicatePushdown(table.getName(), "col <= " + value);
+            assertPredicatePushdown(table.getName(), "col >= " + value);
         }
     }
 
@@ -406,27 +406,257 @@ public class TestMongoConnectorTest
                     // With EQUAL operator when column type precision is less than the predicate value's precision,
                     // PushPredicateIntoTableScan#pushFilterIntoTableScan returns ValuesNode. So It is not possible to verify isFullyPushedDown.
                     .returnsEmptyResult();
-            testPredicatePushdown(table.getName(), "col != " + predicateValue);
-            testPredicatePushdown(table.getName(), "col < " + predicateValue);
-            testPredicatePushdown(table.getName(), "col > " + predicateValue);
-            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
-            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col != " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col < " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col > " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col >= " + predicateValue);
 
             // Filter clause with 34 precision decimal value
             predicateValue = "decimal '3141592653589793238462643383279502'";
-            testPredicatePushdown(table.getName(), "col = " + predicateValue);
-            testPredicatePushdown(table.getName(), "col != " + predicateValue);
-            testPredicatePushdown(table.getName(), "col < " + predicateValue);
-            testPredicatePushdown(table.getName(), "col > " + predicateValue);
-            testPredicatePushdown(table.getName(), "col <= " + predicateValue);
-            testPredicatePushdown(table.getName(), "col >= " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col = " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col != " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col < " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col > " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col <= " + predicateValue);
+            assertPredicatePushdown(table.getName(), "col >= " + predicateValue);
         }
     }
 
-    private void testPredicatePushdown(String tableName, String whereClause)
+    @Test(dataProvider = "complexPredicatePushdownProvider")
+    public void testComplexExpressionPredicatePushdown(String value)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_complex_expression_predicate_pushdown", "AS SELECT %1$s col, %1$s another_col".formatted(value))) {
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col = %1$s".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col != %1$s".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col < %1$s".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col > %1$s".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col <= %1$s".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col >= %1$s".formatted(value));
+
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col = NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col != NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col < NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col > NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col <= NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col >= NULL".formatted(value));
+
+            assertPredicatePushdown(table.getName(), "col = %s OR another_col IS NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col != %s OR another_col IS NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col < %s OR another_col IS NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col > %s OR another_col IS NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col <= %s OR another_col IS NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col >= %s OR another_col IS NULL".formatted(value));
+
+            assertPredicatePushdown(table.getName(), "col = %s OR another_col IS NOT NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col != %s OR another_col IS NOT NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col < %s OR another_col IS NOT NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col > %s OR another_col IS NOT NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col <= %s OR another_col IS NOT NULL".formatted(value));
+            assertPredicatePushdown(table.getName(), "col >= %s OR another_col IS NOT NULL".formatted(value));
+
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col IN (NULL, %1$s)".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR NULL IN (another_col, %1$s)".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR %1$s IN (NULL, another_col)".formatted(value));
+
+            assertPredicatePushdown(table.getName(), "col = %1$s OR another_col NOT IN (NULL, %1$s)".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR NULL NOT IN (another_col, %1$s)".formatted(value));
+            assertPredicatePushdown(table.getName(), "col = %1$s OR %1$s NOT IN (NULL, another_col)".formatted(value));
+        }
+    }
+
+    @DataProvider
+    public Object[][] complexPredicatePushdownProvider()
+    {
+        return new Object[][] {
+                {"tinyint '1'"},
+                {"smallint '2'"},
+                {"integer '3'"},
+                {"bigint '4'"},
+                {"decimal '3.14'"},
+                {"decimal '1234567890.123456789'"},
+                {"varchar 'test'"},
+        };
+    }
+
+    @Test
+    public void testNestedComplexExpressionPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_nested_complex_expression_predicate_pushdown",
+                "(id INT, amount BIGINT, profit DECIMAL(10, 2), returned BOOLEAN, discounted BOOLEAN)",
+                ImmutableList.of("1, -1234, -12.34, true, false", "2, 1234, 12.34, false, true", "null, null, null, null, null"))) {
+            assertPredicatePushdown(table.getName(), "amount = 1234 AND (profit = -12.34 OR (discounted AND NOT returned))");
+            assertPredicatePushdown(table.getName(), "amount = 1234 AND (profit != -12.34 OR (NOT discounted AND returned))");
+            assertPredicatePushdown(table.getName(), "amount = 1234 AND (profit < -12.34 OR (discounted AND NOT returned))");
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit > 12.34 OR (NOT discounted AND returned))");
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit <= 12.34 OR (discounted AND NOT returned))");
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit >= 12.34 OR (NOT discounted AND returned))");
+
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit IS NULL OR (NOT discounted AND returned))");
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit IS NOT NULL OR (NOT discounted AND returned))");
+
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit IN (NULL, -12.34) OR (NOT discounted AND returned))");
+            assertPredicatePushdown(table.getName(), "amount = -1234 AND (profit NOT IN (NULL, 12.34) OR (NOT discounted AND returned))");
+        }
+    }
+
+    @Test
+    public void testComplexExpressionPredicatePushdownWithNullAndMissingField()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_complex_expression_predicate_pushdown_with_null_and_missing_field",
+                "(id INT, discount INT)")) {
+            Document document1 = new Document("id", 1).append("discount", 10);
+            Document document2 = new Document("id", 2).append("discount", null);
+            Document document3 = new Document("id", 3);
+            Document document4 = new Document("id", 4).append("discount", 20);
+
+            MongoCollection<Document> collection = client.getDatabase(getSession().getSchema().orElseThrow()).getCollection(table.getName());
+            collection.insertMany(ImmutableList.of(document1, document2, document3, document4));
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount = 20");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount != 20");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount < 20");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount > 20");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount <= 20");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount >= 20");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 = discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 != discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 < discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 > discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 <= discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 >= discount");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount = id");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount != id");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount < id");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount > id");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount <= id");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount >= id");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR id = discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR id != discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR id < discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR id > discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR id <= discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR id >= discount");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount = NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount != NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount < NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount > NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount <= NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount >= NULL");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL = discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL != discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL < discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL > discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL <= discount");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL >= discount");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount IS NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount IS NOT NULL");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount IN (NULL, 20)");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 IN (NULL, discount)");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL IN (discount, 20)");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR discount NOT IN (NULL, 20)");
+            assertPredicatePushdown(table.getName(), "id = 1 OR 20 NOT IN (NULL, discount)");
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL NOT IN (discount, 20)");
+        }
+    }
+
+    @Test(dataProvider = "mismatchDataProvider")
+    public void testComplexExpressionPredicatePushdownWithMismatchedDataType(String dataType, Object value1, Object value2, Object value3, Object value4, Object value5, String predicateValue)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_complex_expression_predicate_pushdown_with_mismatched_data_type",
+                "(id INT, value %s)".formatted(dataType))) {
+            Document document1 = new Document("id", 1).append("value", value1);
+            Document document2 = new Document("id", 2).append("value", value2);
+            Document document3 = new Document("id", 3).append("value", value3);
+            Document document4 = new Document("id", 4).append("value", value4);
+            Document document5 = new Document("id", 4).append("value", value5);
+
+            MongoCollection<Document> collection = client.getDatabase(getSession().getSchema().orElseThrow()).getCollection(table.getName());
+            collection.insertMany(ImmutableList.of(document1, document2, document3, document4, document5));
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR value = %s".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR value != %s".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR value < %s".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR value > %s".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR value <= %s".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR value >= %s".formatted(predicateValue));
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR value IS NULL");
+            assertPredicatePushdown(table.getName(), "id = 1 OR value IS NOT NULL");
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR value IN (NULL, %s)".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR %s IN (NULL, value)".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL IN (value, %s)".formatted(predicateValue));
+
+            assertPredicatePushdown(table.getName(), "id = 1 OR value NOT IN (NULL, %s)".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR %s NOT IN (NULL, value)".formatted(predicateValue));
+            assertPredicatePushdown(table.getName(), "id = 1 OR NULL NOT IN (value, %s)".formatted(predicateValue));
+        }
+    }
+
+    @DataProvider
+    public Object[][] mismatchDataProvider()
+    {
+        return new Object[][] {
+                {"TINYINT", -8, "-9", 10, "11", new Date(), "tinyint '10'"},
+                {"SMALLINT", -8, "-9", 10, "11", new Date(), "smallint '10'"},
+                {"INT", -8, "-9", 10, "11", new Date(), "integer '10'"},
+                {"BIGINT", -123, "-124", 1235, "1236", new Date(), "bigint '1235'"},
+                {"DECIMAL(3, 2)", -3.12, "-3.13", 3.14, "3.15", new Date(), "decimal '3.14'"},
+                {"DECIMAL(3, 2)", new BigDecimal("-3.12"), "-3.13", new BigDecimal("3.14"), "-3.15", new Date(), "decimal '3.14'"},
+                {"DECIMAL(19, 9)", -1234567890.123456789, "-1234567891.123456789", 1234567892.123456789, "1234567893.123456789", new Date(), "decimal '1234567892.123456789'"},
+                {"VARCHAR", "test1", 123, "test2", 123.456, new Date(), "varchar 'test2'"},
+        };
+    }
+
+    @Test(dataProvider = "unsupportedComplexPredicatePushdownProvider")
+    public void testUnsupportedComplexExpressionPredicatePushdown(String value)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_complex_expression_predicate_pushdown", "AS SELECT %1$s col, %1$s another_col".formatted(value))) {
+            assertPredicateNotFullyPushdown(table.getName(), "col = %1$s OR another_col = %1$s".formatted(value));
+        }
+    }
+
+    @DataProvider
+    public Object[][] unsupportedComplexPredicatePushdownProvider()
+    {
+        return new Object[][] {
+                {"char 'test'"},
+                {"to_utf8('BinData')"},
+                {"real '3.14'"},
+                {"double '3.4'"},
+                {"objectid('6216f0c6c432d45190f25e7c')"},
+                {"date '1970-01-01'"},
+                {"time '00:00:00.000'"},
+                {"timestamp '1970-01-01 00:00:00.000'"},
+                {"timestamp '1970-01-01 00:00:00.000 UTC'"},
+        };
+    }
+
+    private void assertPredicatePushdown(String tableName, String whereClause)
     {
         assertThat(query("SELECT * FROM " + tableName + " WHERE " + whereClause))
                 .isFullyPushedDown();
+    }
+
+    private void assertPredicateNotFullyPushdown(String tableName, String whereClause)
+    {
+        assertThat(query("SELECT * FROM " + tableName + " WHERE " + whereClause))
+                .isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test

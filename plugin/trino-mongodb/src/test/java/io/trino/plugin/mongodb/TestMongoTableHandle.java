@@ -122,6 +122,7 @@ public class TestMongoTableHandle
                 remoteTableName,
                 Optional.empty(),
                 TupleDomain.all(),
+                ImmutableList.of(),
                 projectedColumns,
                 OptionalInt.empty());
 

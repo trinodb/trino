@@ -21,8 +21,11 @@ import com.google.common.io.Closer;
 import com.mongodb.client.MongoCollection;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.mongodb.MongoIndex.MongodbIndexKey;
+import io.trino.plugin.mongodb.expression.FilterExpression;
+import io.trino.plugin.mongodb.expression.MongoExpressionRewriter;
 import io.trino.plugin.mongodb.ptf.Query.QueryFunctionHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
@@ -49,7 +52,9 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -80,6 +85,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -91,12 +97,15 @@ import static com.mongodb.client.model.Aggregates.project;
 import static com.mongodb.client.model.Filters.ne;
 import static com.mongodb.client.model.Projections.exclude;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
+import static io.trino.plugin.base.expression.ConnectorExpressions.and;
+import static io.trino.plugin.base.expression.ConnectorExpressions.extractConjuncts;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
 import static io.trino.plugin.mongodb.MongoSession.COLLECTION_NAME;
 import static io.trino.plugin.mongodb.MongoSession.DATABASE_NAME;
 import static io.trino.plugin.mongodb.MongoSession.ID;
+import static io.trino.plugin.mongodb.MongoSessionProperties.isComplexExpressionPushdown;
 import static io.trino.plugin.mongodb.MongoSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -125,12 +134,14 @@ public class MongoMetadata
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
 
     private final MongoSession mongoSession;
+    private final ConnectorExpressionRewriter<FilterExpression> expressionRewriter;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
     public MongoMetadata(MongoSession mongoSession)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.expressionRewriter = new MongoExpressionRewriter().getRewriter();
     }
 
     @Override
@@ -580,6 +591,7 @@ public class MongoMetadata
                         handle.getRemoteTableName(),
                         handle.getFilter(),
                         handle.getConstraint(),
+                        handle.getConstraintExpressions(),
                         handle.getProjectedColumns(),
                         OptionalInt.of(toIntExact(limit))),
                 true,
@@ -593,9 +605,14 @@ public class MongoMetadata
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        List<String> newConstraintExpressions;
         TupleDomain<ColumnHandle> remainingFilter;
+        Optional<ConnectorExpression> remainingExpression;
+
         if (newDomain.isNone()) {
+            newConstraintExpressions = ImmutableList.of();
             remainingFilter = TupleDomain.all();
+            remainingExpression = Optional.of(Constant.TRUE);
         }
         else {
             Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
@@ -617,9 +634,38 @@ public class MongoMetadata
             }
             newDomain = TupleDomain.withColumnDomains(supported);
             remainingFilter = TupleDomain.withColumnDomains(unsupported);
+
+            if (isComplexExpressionPushdown(session)) {
+                ImmutableList.Builder<String> newExpressions = ImmutableList.builder();
+                ImmutableList.Builder<ConnectorExpression> remainingExpressions = ImmutableList.builder();
+                for (ConnectorExpression expression : extractConjuncts(constraint.getExpression())) {
+                    if (expression instanceof Call) {
+                        Optional<FilterExpression> rewriteExpression = expressionRewriter.rewrite(session, expression, constraint.getAssignments());
+                        if (rewriteExpression.isPresent()) {
+                            verify(rewriteExpression.get().expression() instanceof Document, "rewrite expression must be a bson document");
+                            Document expressionDocument = (Document) rewriteExpression.get().expression();
+                            newExpressions.add(expressionDocument.toJson());
+                        }
+                        else {
+                            remainingExpressions.add(expression);
+                        }
+                    }
+                }
+
+                newConstraintExpressions = ImmutableSet.<String>builder()
+                        .addAll(handle.getConstraintExpressions())
+                        .addAll(newExpressions.build())
+                        .build().asList();
+                remainingExpression = Optional.of(and(remainingExpressions.build()));
+            }
+            else {
+                newConstraintExpressions = ImmutableList.of();
+                remainingExpression = Optional.empty();
+            }
         }
 
-        if (oldDomain.equals(newDomain)) {
+        if (oldDomain.equals(newDomain)
+                && handle.getConstraintExpressions().equals(newConstraintExpressions)) {
             return Optional.empty();
         }
 
@@ -628,10 +674,14 @@ public class MongoMetadata
                 handle.getRemoteTableName(),
                 handle.getFilter(),
                 newDomain,
+                newConstraintExpressions,
                 handle.getProjectedColumns(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+        return Optional.of(
+                remainingExpression.isPresent()
+                        ? new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression.get(), false)
+                        : new ConstraintApplicationResult<>(handle, remainingFilter, false));
     }
 
     @Override

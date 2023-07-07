@@ -129,4 +129,13 @@ public abstract class BaseMongoConnectorSmokeTest
             assertQuery("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + testTable.getName() + " WHERE row1_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
         }
     }
+
+    @Test
+    public void testComplexExpressionPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_complex_expression_predicate_pushdown", "AS SELECT varchar 'India' col, varchar 'Poland' another_col")) {
+            assertThat(query("SELECT * FROM " + table.getName() + " WHERE col = 'India' OR another_col = 'Poland'"))
+                    .isFullyPushedDown();
+        }
+    }
 }
