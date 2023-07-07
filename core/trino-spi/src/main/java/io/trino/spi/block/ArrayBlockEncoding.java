@@ -34,7 +34,7 @@ public class ArrayBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        AbstractArrayBlock arrayBlock = (AbstractArrayBlock) block;
+        ArrayBlock arrayBlock = (ArrayBlock) block;
 
         int positionCount = arrayBlock.getPositionCount();
 
