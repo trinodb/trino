@@ -32,7 +32,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.FAIL;
 import static io.trino.plugin.hive.fs.HiveFileIterator.NestedDirectoryPolicy.RECURSE;
-import static java.net.URLDecoder.decode;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.fs.Path.SEPARATOR_CHAR;
 
@@ -46,8 +45,8 @@ public class HiveFileIterator
         FAIL
     }
 
-    private final String pathPrefix;
     private final Table table;
+    private final Location location;
     private final TrinoFileSystem fileSystem;
     private final DirectoryLister directoryLister;
     private final HdfsNamenodeStats namenodeStats;
@@ -62,8 +61,8 @@ public class HiveFileIterator
             HdfsNamenodeStats namenodeStats,
             NestedDirectoryPolicy nestedDirectoryPolicy)
     {
-        this.pathPrefix = location.toString();
         this.table = requireNonNull(table, "table is null");
+        this.location = requireNonNull(location, "location is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
@@ -80,7 +79,7 @@ public class HiveFileIterator
             // Ignore hidden files and directories
             if (nestedDirectoryPolicy == RECURSE) {
                 // Search the full sub-path under the listed prefix for hidden directories
-                if (isHiddenOrWithinHiddenParentDirectory(new Path(status.getPath()), pathPrefix)) {
+                if (isHiddenOrWithinHiddenParentDirectory(Location.of(status.getPath()), location)) {
                     continue;
                 }
             }
@@ -121,9 +120,10 @@ public class HiveFileIterator
     }
 
     @VisibleForTesting
-    static boolean isHiddenOrWithinHiddenParentDirectory(Path path, String prefix)
+    static boolean isHiddenOrWithinHiddenParentDirectory(Location path, Location rootLocation)
     {
-        String pathString = decode(path.toUri().toString());
+        String pathString = path.toString();
+        String prefix = rootLocation.toString();
         checkArgument(pathString.startsWith(prefix), "path %s does not start with prefix %s", pathString, prefix);
         return containsHiddenPathPartAfterIndex(pathString, prefix.endsWith("/") ? prefix.length() : prefix.length() + 1);
     }
