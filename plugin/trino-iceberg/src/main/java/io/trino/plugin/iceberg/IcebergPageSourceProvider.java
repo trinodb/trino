@@ -568,21 +568,21 @@ public class IcebergPageSourceProvider
             Map<IcebergColumnHandle, Domain> effectivePredicateDomains = effectivePredicate.getDomains()
                     .orElseThrow(() -> new IllegalArgumentException("Effective predicate is none"));
 
-            Optional<ReaderColumns> columnProjections = projectColumns(columns);
+            Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(columns);
             Map<Integer, List<List<Integer>>> projectionsByFieldId = columns.stream()
                     .collect(groupingBy(
                             column -> column.getBaseColumnIdentity().getId(),
                             mapping(IcebergColumnHandle::getPath, toUnmodifiableList())));
 
-            List<IcebergColumnHandle> readColumns = columnProjections
+            List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
                     .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
                     .orElse(columns);
-            List<OrcColumn> fileReadColumns = new ArrayList<>(readColumns.size());
-            List<Type> fileReadTypes = new ArrayList<>(readColumns.size());
-            List<ProjectedLayout> projectedLayouts = new ArrayList<>(readColumns.size());
-            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(readColumns.size());
+            List<OrcColumn> fileReadColumns = new ArrayList<>(readBaseColumns.size());
+            List<Type> fileReadTypes = new ArrayList<>(readBaseColumns.size());
+            List<ProjectedLayout> projectedLayouts = new ArrayList<>(readBaseColumns.size());
+            List<ColumnAdaptation> columnAdaptations = new ArrayList<>(readBaseColumns.size());
 
-            for (IcebergColumnHandle column : readColumns) {
+            for (IcebergColumnHandle column : readBaseColumns) {
                 verify(column.isBaseColumn(), "Column projections must be based from a root column");
                 OrcColumn orcColumn = fileColumnsByIcebergId.get(column.getId());
 
@@ -659,7 +659,7 @@ public class IcebergPageSourceProvider
                     memoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
-                    new IdBasedFieldMapperFactory(readColumns));
+                    new IdBasedFieldMapperFactory(readBaseColumns));
 
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
@@ -672,7 +672,7 @@ public class IcebergPageSourceProvider
                                     memoryUsage,
                                     stats,
                                     reader.getCompressionKind()),
-                            columnProjections),
+                            baseColumnProjections),
                     recordReader.getStartRowPosition(),
                     recordReader.getEndRowPosition());
         }
@@ -906,12 +906,12 @@ public class IcebergPageSourceProvider
                     .filter(field -> field.getId() != null)
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
 
-            Optional<ReaderColumns> columnProjections = projectColumns(regularColumns);
-            List<IcebergColumnHandle> readColumns = columnProjections
+            Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(regularColumns);
+            List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
                     .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
                     .orElse(regularColumns);
 
-            List<org.apache.parquet.schema.Type> parquetFields = readColumns.stream()
+            List<org.apache.parquet.schema.Type> parquetFields = readBaseColumns.stream()
                     .map(column -> parquetIdToField.get(column.getId()))
                     .collect(toList());
 
@@ -947,8 +947,8 @@ public class IcebergPageSourceProvider
             int parquetSourceChannel = 0;
 
             ImmutableList.Builder<Field> parquetColumnFieldsBuilder = ImmutableList.builder();
-            for (int columnIndex = 0; columnIndex < readColumns.size(); columnIndex++) {
-                IcebergColumnHandle column = readColumns.get(columnIndex);
+            for (int columnIndex = 0; columnIndex < readBaseColumns.size(); columnIndex++) {
+                IcebergColumnHandle column = readBaseColumns.get(columnIndex);
                 if (column.isIsDeletedColumn()) {
                     pageSourceBuilder.addConstantColumn(nativeValueToBlock(BOOLEAN, false));
                 }
@@ -1014,7 +1014,7 @@ public class IcebergPageSourceProvider
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
                             pageSourceBuilder.build(parquetReader),
-                            columnProjections),
+                            baseColumnProjections),
                     startRowPosition,
                     endRowPosition);
         }
@@ -1054,16 +1054,16 @@ public class IcebergPageSourceProvider
         ConstantPopulatingPageSource.Builder constantPopulatingPageSourceBuilder = ConstantPopulatingPageSource.builder();
         int avroSourceChannel = 0;
 
-        Optional<ReaderColumns> columnProjections = projectColumns(columns);
+        Optional<ReaderColumns> baseColumnProjections = projectBaseColumns(columns);
 
-        List<IcebergColumnHandle> readColumns = columnProjections
+        List<IcebergColumnHandle> readBaseColumns = baseColumnProjections
                 .map(readerColumns -> (List<IcebergColumnHandle>) readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toImmutableList()))
                 .orElse(columns);
 
         InputFile file = new ForwardingInputFile(inputFile);
         OptionalLong fileModifiedTime = OptionalLong.empty();
         try {
-            if (readColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
+            if (readBaseColumns.stream().anyMatch(IcebergColumnHandle::isFileModifiedTimeColumn)) {
                 fileModifiedTime = OptionalLong.of(inputFile.lastModified().toEpochMilli());
             }
         }
@@ -1087,7 +1087,7 @@ public class IcebergPageSourceProvider
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<Boolean> rowIndexChannels = ImmutableList.builder();
 
-            for (IcebergColumnHandle column : readColumns) {
+            for (IcebergColumnHandle column : readBaseColumns) {
                 verify(column.isBaseColumn(), "Column projections must be based from a root column");
                 org.apache.avro.Schema.Field field = fileColumnsByIcebergId.get(column.getId());
 
@@ -1138,7 +1138,7 @@ public class IcebergPageSourceProvider
                                     columnTypes.build(),
                                     rowIndexChannels.build(),
                                     newSimpleAggregatedMemoryContext())),
-                            columnProjections),
+                            baseColumnProjections),
                     Optional.empty(),
                     Optional.empty());
         }
@@ -1246,7 +1246,7 @@ public class IcebergPageSourceProvider
     /**
      * Creates a mapping between the input {@code columns} and base columns if required.
      */
-    public static Optional<ReaderColumns> projectColumns(List<IcebergColumnHandle> columns)
+    public static Optional<ReaderColumns> projectBaseColumns(List<IcebergColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
 
