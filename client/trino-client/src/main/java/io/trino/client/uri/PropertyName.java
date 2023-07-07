@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client.uri;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static java.lang.String.format;
 import static java.util.Arrays.stream;
 import static java.util.function.Function.identity;
 
@@ -84,11 +84,8 @@ public enum PropertyName
         return key;
     }
 
-    public static PropertyName get(String key)
+    public static Optional<PropertyName> findByKey(String key)
     {
-        if (!lookup.containsKey(key)) {
-            throw new IllegalArgumentException(format("Unrecognized connection property '%s'", key));
-        }
-        return lookup.get(key);
+        return Optional.ofNullable(lookup.get(key));
     }
 }
