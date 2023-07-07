@@ -458,23 +458,23 @@ class StatementAnalyzer
 
     public Scope analyze(Node node)
     {
-        return analyze(node, Optional.empty());
+        return analyze(node, Optional.empty(), true);
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)
     {
-        return analyze(node, Optional.of(outerQueryScope));
+        return analyze(node, Optional.of(outerQueryScope), false);
     }
 
-    private Scope analyze(Node node, Optional<Scope> outerQueryScope)
+    private Scope analyze(Node node, Optional<Scope> outerQueryScope, boolean isTopLevel)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.empty())
+        return new Visitor(outerQueryScope, warningCollector, Optional.empty(), isTopLevel)
                 .process(node, Optional.empty());
     }
 
     public Scope analyzeForUpdate(Relation relation, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
-        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
+        return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind), true)
                 .process(relation, Optional.empty());
     }
 
@@ -493,15 +493,17 @@ class StatementAnalyzer
     private final class Visitor
             extends AstVisitor<Scope, Optional<Scope>>
     {
+        private final boolean isTopLevel;
         private final Optional<Scope> outerQueryScope;
         private final WarningCollector warningCollector;
         private final Optional<UpdateKind> updateKind;
 
-        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind)
+        private Visitor(Optional<Scope> outerQueryScope, WarningCollector warningCollector, Optional<UpdateKind> updateKind, boolean isTopLevel)
         {
             this.outerQueryScope = requireNonNull(outerQueryScope, "outerQueryScope is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
             this.updateKind = requireNonNull(updateKind, "updateKind is null");
+            this.isTopLevel = isTopLevel;
         }
 
         @Override
@@ -1509,7 +1511,7 @@ class StatementAnalyzer
             if (node.getOrderBy().isPresent()) {
                 orderByExpressions = analyzeOrderBy(node, getSortItemsFromOrderBy(node.getOrderBy()), queryBodyScope);
 
-                if (queryBodyScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if ((queryBodyScope.getOuterQueryParent().isPresent() || !isTopLevel) && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(node.getOrderBy().get());
                     warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
@@ -3005,7 +3007,7 @@ class StatementAnalyzer
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
 
-                if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
+                if ((sourceScope.getOuterQueryParent().isPresent() || !isTopLevel) && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
                     warningCollector.add(new TrinoWarning(REDUNDANT_ORDER_BY, "ORDER BY in subquery may have no effect"));
