@@ -533,7 +533,6 @@ jobs:
       - name: Update PR check
         uses: ./.github/actions/update-check
         if: >-
-          always() &&
           github.event_name == 'repository_dispatch' &&
           github.event.client_payload.slash_command.args.named.sha != '' &&
           github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha
