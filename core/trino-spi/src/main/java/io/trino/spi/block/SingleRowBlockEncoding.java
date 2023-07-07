@@ -17,6 +17,8 @@ package io.trino.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 
+import java.util.List;
+
 public class SingleRowBlockEncoding
         implements BlockEncoding
 {
@@ -32,11 +34,12 @@ public class SingleRowBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleRowBlock singleRowBlock = (SingleRowBlock) block;
-        int numFields = singleRowBlock.getNumFields();
+        List<Block> fieldBlocks = singleRowBlock.getFieldBlocks();
+        int numFields = fieldBlocks.size();
         int rowIndex = singleRowBlock.getRowIndex();
         sliceOutput.appendInt(numFields);
         for (int i = 0; i < numFields; i++) {
-            blockEncodingSerde.writeBlock(sliceOutput, singleRowBlock.getRawFieldBlock(i).getRegion(rowIndex, 1));
+            blockEncodingSerde.writeBlock(sliceOutput, fieldBlocks.get(i).getRegion(rowIndex, 1));
         }
     }
 
