@@ -43,6 +43,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
@@ -51,6 +52,7 @@ import io.trino.split.SplitManager;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
+import io.trino.testing.containers.OpenTracingCollector;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
@@ -69,6 +71,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -77,6 +80,8 @@ import static io.airlift.log.Level.ERROR;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static java.lang.Boolean.parseBoolean;
+import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -118,7 +123,8 @@ public class DistributedQueryRunner
             Module additionalModule,
             Optional<Path> baseDataDir,
             List<SystemAccessControl> systemAccessControls,
-            List<EventListener> eventListeners)
+            List<EventListener> eventListeners,
+            List<AutoCloseable> extraCloseables)
             throws Exception
     {
         requireNonNull(defaultSession, "defaultSession is null");
@@ -129,6 +135,7 @@ public class DistributedQueryRunner
             long start = System.nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
+            closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
             registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, ImmutableList.of(), ImmutableList.of());
@@ -623,6 +630,7 @@ public class DistributedQueryRunner
         private Optional<Path> baseDataDir = Optional.empty();
         private List<SystemAccessControl> systemAccessControls = ImmutableList.of();
         private List<EventListener> eventListeners = ImmutableList.of();
+        private List<AutoCloseable> extraCloseables = ImmutableList.of();
 
         protected Builder(Session defaultSession)
         {
@@ -765,6 +773,24 @@ public class DistributedQueryRunner
             return self();
         }
 
+        public SELF withTracing()
+        {
+            OpenTracingCollector collector = new OpenTracingCollector();
+            collector.start();
+            extraCloseables = ImmutableList.of(collector);
+            this.addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+            this.setEventListener(new EventListener()
+            {
+                @Override
+                public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+                {
+                    String queryId = queryCompletedEvent.getMetadata().getQueryId();
+                    log.info("TRACING: %s :: %s", queryId, collector.searchForQueryId(queryId));
+                }
+            });
+            return self();
+        }
+
         @SuppressWarnings("unchecked")
         protected SELF self()
         {
@@ -774,6 +800,11 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
+            String tracingEnabled = firstNonNull(getenv("TRACING"), "false");
+            if (parseBoolean(tracingEnabled) || tracingEnabled.equals("1")) {
+                withTracing();
+            }
+
             DistributedQueryRunner queryRunner = new DistributedQueryRunner(
                     defaultSession,
                     nodeCount,
@@ -784,7 +815,8 @@ public class DistributedQueryRunner
                     additionalModule,
                     baseDataDir,
                     systemAccessControls,
-                    eventListeners);
+                    eventListeners,
+                    extraCloseables);
 
             try {
                 additionalSetup.accept(queryRunner);
