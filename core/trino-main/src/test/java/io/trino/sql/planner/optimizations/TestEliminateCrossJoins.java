@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.SystemSessionProperties;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;

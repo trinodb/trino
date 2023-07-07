@@ -28,7 +28,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;

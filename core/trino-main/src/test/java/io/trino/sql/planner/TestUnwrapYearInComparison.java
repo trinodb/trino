@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import io.trino.spi.type.LongTimestamp;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

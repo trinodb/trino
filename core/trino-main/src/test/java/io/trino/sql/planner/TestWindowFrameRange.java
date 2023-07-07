@@ -24,7 +24,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

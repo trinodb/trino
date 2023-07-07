@@ -31,7 +31,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.function.Predicate;

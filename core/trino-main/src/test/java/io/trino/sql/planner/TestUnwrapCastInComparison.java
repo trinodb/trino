@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;

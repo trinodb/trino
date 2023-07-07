@@ -25,7 +25,7 @@ import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
