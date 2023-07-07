@@ -154,6 +154,32 @@ public abstract class BaseMongoConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testPredicatePushdownOnJsonDateTimestampField()
+    {
+        Session session = sessionWithComplexExpressionPushdownEnabled();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_predicate_pushdown_on_json_date_timestamp_field",
+                "(id INT, col JSON)",
+                ImmutableList.of(
+                        "1, JSON '{ \"_date1\": \"1970-01-01\", \"_timestamp1\": \"1970-01-01T00:00:00.000Z\", \"_date2\": { \"$date\": \"1970-01-01\" }, \"_timestamp2\": { \"$date\": \"1970-01-01T00:00:00.000Z\" } }'"))) {
+            // col.$._date1 is String Date
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE from_iso8601_date(json_extract_scalar(col, '$._date1')) = timestamp '2003-01-01'"))
+                    .isFullyPushedDown();
+
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) = timestamp '1970-01-01 00:00:00.000Z'"))
+                    .isFullyPushedDown();
+
+            // col._date2["$date"] is ISODate
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._date2[\"$date\"]')) = timestamp '2003-01-01 00:00:00.000Z'"))
+                    .isFullyPushedDown();
+
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp2[\"$date\"]')) = timestamp '1970-01-01 00:00:00.000Z'"))
+                    .isFullyPushedDown();
+        }
+    }
+
     private Session sessionWithComplexExpressionPushdownEnabled()
     {
         return Session.builder(getSession())

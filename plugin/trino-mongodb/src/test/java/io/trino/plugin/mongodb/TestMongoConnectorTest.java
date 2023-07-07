@@ -1418,6 +1418,74 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
+    @Test(dataProvider = "comparisonOperator")
+    public void testPredicatePushdownOnJsonDateTimestampField(String operator)
+    {
+        String tableName = "test_predicate_pushdown_on_json_date_timestamp_field_" + randomNameSuffix();
+        String json1 = "JSON '{ \"_date1\": \"1970-01-01\", \"_timestamp1\": \"1970-01-01T00:00:00.000Z\", \"_date2\": { \"$date\": \"1970-01-01\" }, \"_timestamp2\": { \"$date\": \"1970-01-01T00:00:00.000Z\" } }'";
+        String json2 = "JSON '{ \"_date1\": null, \"_timestamp1\": \"1990-01-01T00:59:51.631Z\", \"_date2\": { \"$date\": \"1990-01-01\" }, \"_timestamp2\": { \"$date\": \"1990-01-01T00:59:51.631Z\" } }'";
+        String json3 = "JSON '{ \"_timestamp1\": null, \"_date2\": { \"$date\": \"2003-01-01\" }, \"_timestamp2\": { \"$date\": \"2003-01-01T05:27:35.495Z\" } }'";
+        String json4 = "JSON '{ \"_date1\": \"2023-01-01\", \"_date2\": { \"$date\": \"2023-01-01\" }, \"_timestamp2\": { \"$date\": \"2023-01-01T05:27:35.495Z\" } }'";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, col JSON)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, %s)".formatted(json1), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, %s)".formatted(json2), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(3, %s)".formatted(json3), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(4, %s)".formatted(json4), 1);
+
+        // col.$._date1 is String Date
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_date(json_extract_scalar(col, '$._date1')) " + operator + " timestamp '2003-01-01'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) " + operator + " timestamp '1970-01-01 00:00:00.000Z'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) " + operator + " timestamp '1990-01-01 00:00:00Z'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) " + operator + " timestamp '1990-01-01 00:59:51.631 UTC'"))
+                .isFullyPushedDown();
+
+        // col._date2["$date"] is ISODate
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._date2[\"$date\"]')) " + operator + " timestamp '2003-01-01 00:00:00.000Z'"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp2[\"$date\"]')) " + operator + " timestamp '1970-01-01 00:00:00.000Z'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp2[\"$date\"]')) " + operator + " timestamp '1990-01-01 00:00:00Z'"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp2[\"$date\"]')) " + operator + " timestamp '1990-01-01 00:59:51.631 UTC'"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPredicatePushdownOnJsonDateTimestampFieldNullCheck()
+    {
+        String tableName = "test_predicate_pushdown_on_json_date_timestamp_field_" + randomNameSuffix();
+        String json1 = "JSON '{ \"_date1\": \"1970-01-01\", \"_timestamp1\": \"1970-01-01T00:00:00.000Z\" }'";
+        String json2 = "JSON '{ \"_date1\": null, \"_timestamp1\": \"1990-01-01T00:59:51.631Z\" }'";
+        String json3 = "JSON '{ \"_timestamp1\": null }'";
+        String json4 = "JSON '{ \"_date1\": \"2023-01-01\" }'";
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INT, col JSON)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, %s)".formatted(json1), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(2, %s)".formatted(json2), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(3, %s)".formatted(json3), 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES(4, %s)".formatted(json4), 1);
+
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_date(json_extract_scalar(col, '$._date1')) IS NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_date(json_extract_scalar(col, '$._date1')) IS NOT NULL"))
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) IS NULL"))
+                .isFullyPushedDown();
+        assertThat(query("SELECT id FROM " + tableName + " WHERE from_iso8601_timestamp(json_extract_scalar(col, '$._timestamp1')) IS NOT NULL"))
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     public void testProjectionPushdownWithDifferentTypeInDocuments()
     {
@@ -1692,7 +1760,7 @@ public class TestMongoConnectorTest
             Session session = Session.builder(getSession())
                     .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown_enabled", "false")
                     .build();
-            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
                     .isNotFullyPushedDown(FilterNode.class);
 
             // json_extract_scalar returns NULL for JSON null or non-existent paths

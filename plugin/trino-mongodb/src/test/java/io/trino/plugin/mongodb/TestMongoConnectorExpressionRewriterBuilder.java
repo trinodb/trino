@@ -534,6 +534,113 @@ public class TestMongoConnectorExpressionRewriterBuilder
                 assignments);
     }
 
+    @Test
+    public void testRewriteFromIso8601Date()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", VARCHAR));
+        ConnectorExpression variable = new Variable("col", VARCHAR);
+        ConnectorExpression expression = new Call(DATE, new FunctionName("from_iso8601_date"), ImmutableList.of(variable));
+        assertRewrite(expression, toDate("$col"), assignments);
+    }
+
+    @Test
+    public void testRewriteFromIso8601Timestamp()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", VARCHAR));
+        ConnectorExpression variable = new Variable("col", VARCHAR);
+        ConnectorExpression expression = new Call(createTimestampWithTimeZoneType(3), new FunctionName("from_iso8601_timestamp"), ImmutableList.of(variable));
+        assertRewrite(expression, toDate("$col"), assignments);
+    }
+
+    @Test
+    public void testRewriteFromIso8601DateWithJsonExtractScalar()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.receivedTime", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        ConnectorExpression expression = new Call(DATE, new FunctionName("from_iso8601_date"), ImmutableList.of(jsonExtractScalar));
+        assertRewrite(expression, toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), assignments);
+    }
+
+    @Test
+    public void testRewriteFromIso8601TimestampWithJsonExtractScalar()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.receivedTime", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        ConnectorExpression expression = new Call(createTimestampWithTimeZoneType(3), new FunctionName("from_iso8601_timestamp"), ImmutableList.of(jsonExtractScalar));
+        assertRewrite(expression, toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), assignments);
+    }
+
+    @Test
+    public void testRewriteFromIso8601DateWithJsonExtractScalarComparison()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.receivedTime", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+        ConnectorExpression iso8601Date = new Call(DATE, new FunctionName("from_iso8601_date"), ImmutableList.of(jsonExtractScalar));
+
+        Constant dateValue = new Constant(LocalDate.of(2022, 10, 12).toEpochDay(), DATE);
+
+        ConnectorExpression expression = new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(expression, documentOf("$eq", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))), assignments);
+
+        expression = new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$ne", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))),
+                        documentOf("$gt", Arrays.asList(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), null)),
+                        documentOf("$gt", Arrays.asList(toDate("2022-10-12"), null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$lt", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))),
+                        documentOf("$gt", Arrays.asList(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), null)),
+                        documentOf("$gt", Arrays.asList(toDate("2022-10-12"), null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(expression, documentOf("$gt", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))), assignments);
+
+        expression = new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$lte", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))),
+                documentOf("$gt", Arrays.asList(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), null)),
+                documentOf("$gt", Arrays.asList(toDate("2022-10-12"), null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Date, dateValue));
+        assertRewrite(expression, documentOf("$gte", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2022-10-12"))), assignments);
+    }
+
+    @Test
+    public void testRewriteFromIso8601TimestampWithJsonExtractScalarComparison()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.receivedTime", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+        ConnectorExpression iso8601Timestamp = new Call(createTimestampWithTimeZoneType(3), new FunctionName("from_iso8601_timestamp"), ImmutableList.of(jsonExtractScalar));
+
+        TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse("2003-01-01T05:27:35.495Z");
+        long timestampWithZone = packDateTimeWithZone(parseResult.getLong(INSTANT_SECONDS) * 1000 + parseResult.getLong(MILLI_OF_SECOND), getTimeZoneKey(ZoneId.from(parseResult).getId()));
+        Constant timestampValue = new Constant(timestampWithZone, createTimestampWithTimeZoneType(3));
+
+        ConnectorExpression expression = new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(iso8601Timestamp, timestampValue));
+        assertRewrite(expression, documentOf("$eq", ImmutableList.of(toDate(ExpressionUtils.toString("$col.store.book.receivedTime")), toDate("2003-01-01T05:27:35.495"))), assignments);
+    }
+
     private void assertRewrite(ConnectorExpression expression, Object expectedValue)
     {
         assertRewrite(expression, expectedValue, ImmutableMap.of());

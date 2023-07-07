@@ -49,6 +49,8 @@ public class MongoConnectorExpressionRewriterBuilder
         add(new RewriteIsNull());
         add(new RewriteJsonPath(typeManager.getType(new TypeSignature("JsonPath"))));
         add(new RewriteJsonExtractScalar());
+        add(new RewriteFromIso8601Date());
+        add(new RewriteFromIso8601Timestamp());
 
         return this;
     }
