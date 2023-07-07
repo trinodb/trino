@@ -164,6 +164,13 @@ public class TestClientOptions
         assertEquals(uri.getSource(), Optional.of("my-client"));
     }
 
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Setting the password in the URL parameter is not allowed.*")
+    public void testURLPassword()
+    {
+        Console console = createConsole("trino://server.example:80?password=invalid");
+        console.clientOptions.toClientSession(console.clientOptions.getTrinoUri());
+    }
+
     @Test
     public void testOutputFormat()
     {
