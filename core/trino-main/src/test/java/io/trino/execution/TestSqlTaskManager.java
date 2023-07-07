@@ -48,9 +48,11 @@ import io.trino.spi.exchange.ExchangeId;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.version.EmbedVersion;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.util.List;
@@ -73,6 +75,7 @@ import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePosition
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -80,6 +83,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestSqlTaskManager
 {
     private static final TaskId TASK_ID = new TaskId(new StageId("query", 0), 1, 0);
@@ -88,7 +92,7 @@ public class TestSqlTaskManager
     private TaskExecutor taskExecutor;
     private TaskManagementExecutor taskManagementExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
@@ -96,7 +100,7 @@ public class TestSqlTaskManager
         taskManagementExecutor = new TaskManagementExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         taskExecutor.stop();
@@ -124,7 +128,8 @@ public class TestSqlTaskManager
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSimpleQuery()
             throws Exception
     {
@@ -205,7 +210,8 @@ public class TestSqlTaskManager
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testAbortResults()
             throws Exception
     {
