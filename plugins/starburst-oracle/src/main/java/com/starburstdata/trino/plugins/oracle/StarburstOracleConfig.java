@@ -12,9 +12,8 @@ package com.starburstdata.trino.plugins.oracle;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
-
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 import static com.starburstdata.trino.plugins.oracle.OracleParallelismType.NO_PARALLELISM;
 
