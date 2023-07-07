@@ -377,24 +377,24 @@ class TestLocation
         assertParentDirectoryFailure("scheme://userInfo@host//", "File location must contain a path: scheme://userInfo@host//");
         assertParentDirectoryFailure("scheme://userInfo@host:1234//", "File location must contain a path: scheme://userInfo@host:1234//");
 
-        assertParentDirectory("scheme://userInfo@host/path/name", Location.of("scheme://userInfo@host/path"));
+        assertParentDirectory("scheme://userInfo@host/path/name", Location.of("scheme://userInfo@host/path/"));
         assertParentDirectory("scheme://userInfo@host:1234/name", Location.of("scheme://userInfo@host:1234/"));
 
-        assertParentDirectory("scheme://userInfo@host/path//name", Location.of("scheme://userInfo@host/path/"));
-        assertParentDirectory("scheme://userInfo@host/path///name", Location.of("scheme://userInfo@host/path//"));
-        assertParentDirectory("scheme://userInfo@host/path:/name", Location.of("scheme://userInfo@host/path:"));
+        assertParentDirectory("scheme://userInfo@host/path//name", Location.of("scheme://userInfo@host/path//"));
+        assertParentDirectory("scheme://userInfo@host/path///name", Location.of("scheme://userInfo@host/path///"));
+        assertParentDirectory("scheme://userInfo@host/path:/name", Location.of("scheme://userInfo@host/path:/"));
 
         assertParentDirectoryFailure("/", "File location must contain a path: /");
         assertParentDirectoryFailure("//", "File location must contain a path: //");
-        assertParentDirectory("/path/name", Location.of("/path"));
+        assertParentDirectory("/path/name", Location.of("/path/"));
         assertParentDirectory("/name", Location.of("/"));
 
         assertParentDirectoryFailure("/path/name/", "File location cannot end with '/': /path/name/");
         assertParentDirectoryFailure("/name/", "File location cannot end with '/': /name/");
 
-        assertParentDirectory("/path//name", Location.of("/path/"));
-        assertParentDirectory("/path///name", Location.of("/path//"));
-        assertParentDirectory("/path:/name", Location.of("/path:"));
+        assertParentDirectory("/path//name", Location.of("/path//"));
+        assertParentDirectory("/path///name", Location.of("/path///"));
+        assertParentDirectory("/path:/name", Location.of("/path:/"));
 
         // all valid file locations must have a parent directory
         // invalid file locations are tested in testVerifyFileLocation

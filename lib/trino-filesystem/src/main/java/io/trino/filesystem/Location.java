@@ -197,7 +197,7 @@ public final class Location
             return withPath(newLocation, "");
         }
 
-        String newPath = path.substring(0, lastIndexOfSlash);
+        String newPath = path.substring(0, lastIndexOfSlash + 1);
         String newLocation = location.substring(0, location.length() - (path.length() - newPath.length()));
         return withPath(newLocation, newPath);
     }
