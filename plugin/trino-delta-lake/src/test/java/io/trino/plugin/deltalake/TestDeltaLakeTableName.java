@@ -71,13 +71,6 @@ public class TestDeltaLakeTableName
         assertEquals(DeltaLakeTableName.tableTypeFrom("abc$invalid"), Optional.empty());
     }
 
-    @Test
-    public void testTableNameWithType()
-    {
-        assertEquals(DeltaLakeTableName.tableNameWithType("abc", DATA), "abc$data");
-        assertEquals(DeltaLakeTableName.tableNameWithType("abc", HISTORY), "abc$history");
-    }
-
     private static void assertNoValidTableType(String inputName)
     {
         assertThat(DeltaLakeTableName.tableTypeFrom(inputName))
