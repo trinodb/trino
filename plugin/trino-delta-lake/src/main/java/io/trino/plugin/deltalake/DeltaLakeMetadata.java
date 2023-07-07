@@ -3015,40 +3015,42 @@ public class DeltaLakeMetadata
                 .map(systemTable -> new ClassLoaderSafeSystemTable(systemTable, getClass().getClassLoader()));
     }
 
-    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
+    private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName systemTableName)
     {
-        if (DeltaLakeTableName.isDataTable(tableName.getTableName())) {
+        Optional<DeltaLakeTableType> tableType = DeltaLakeTableName.tableTypeFrom(systemTableName.getTableName());
+        if (tableType.isEmpty() || tableType.get() == DeltaLakeTableType.DATA) {
             return Optional.empty();
         }
 
-        // Only when dealing with an actual system table proceed to retrieve the table handle
-        String name = DeltaLakeTableName.tableNameFrom(tableName.getTableName());
-        ConnectorTableHandle tableHandle;
+        String tableName = DeltaLakeTableName.tableNameFrom(systemTableName.getTableName());
+        Optional<DeltaMetastoreTable> table;
         try {
-            tableHandle = getTableHandle(session, new SchemaTableName(tableName.getSchemaName(), name));
+            table = metastore.getTable(systemTableName.getSchemaName(), tableName);
         }
         catch (NotADeltaLakeTableException e) {
-            // avoid dealing with non Delta Lake tables
             return Optional.empty();
         }
-        if (tableHandle == null) {
+        if (table.isEmpty()) {
             return Optional.empty();
         }
-        if (tableHandle instanceof CorruptedDeltaLakeTableHandle) {
-            return Optional.empty();
-        }
-        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) tableHandle;
 
-        Optional<DeltaLakeTableType> tableType = DeltaLakeTableName.tableTypeFrom(tableName.getTableName());
-        if (tableType.isEmpty()) {
-            return Optional.empty();
+        String tableLocation = table.get().location();
+        TableSnapshot tableSnapshot = getSnapshot(new SchemaTableName(systemTableName.getSchemaName(), tableName), tableLocation, session);
+        try {
+            transactionLogAccess.getMetadataEntry(tableSnapshot, session);
         }
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameWithType(name, tableType.get()));
+        catch (TrinoException e) {
+            if (e.getErrorCode().equals(DELTA_LAKE_INVALID_SCHEMA.toErrorCode())) {
+                return Optional.empty();
+            }
+            throw e;
+        }
+
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
             case HISTORY -> Optional.of(new DeltaLakeHistoryTable(
                     systemTableName,
-                    getCommitInfoEntries(handle.getSchemaTableName(), handle.getLocation(), session),
+                    getCommitInfoEntries(tableLocation, session),
                     typeManager));
         };
     }
@@ -3129,7 +3131,7 @@ public class DeltaLakeMetadata
         return metastore;
     }
 
-    private List<CommitInfoEntry> getCommitInfoEntries(SchemaTableName table, String tableLocation, ConnectorSession session)
+    private List<CommitInfoEntry> getCommitInfoEntries(String tableLocation, ConnectorSession session)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
@@ -3142,7 +3144,7 @@ public class DeltaLakeMetadata
             throw e;
         }
         catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries for " + table, e);
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + tableLocation, e);
         }
     }
 
