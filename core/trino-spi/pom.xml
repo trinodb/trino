@@ -298,6 +298,46 @@
                                     <old>class io.trino.spi.block.ArrayBlock</old>
                                     <new>class io.trino.spi.block.ArrayBlock</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractMapBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractSingleMapBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.MapBlock::getMapIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.MapBlock</old>
+                                    <new>class io.trino.spi.block.MapBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.class.nonPublicPartOfAPI</code>
+                                    <new>class io.trino.spi.block.SingleMapBlock.HashTableSupplier</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method void io.trino.spi.block.SingleMapBlock::&lt;init&gt;(int, int, io.trino.spi.block.AbstractMapBlock)</old>
+                                    <new>method void io.trino.spi.block.SingleMapBlock::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SingleMapBlock.HashTableSupplier, int, int)</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method int io.trino.spi.block.SingleMapBlock::getOffset()</old>
+                                    <new>method int io.trino.spi.block.SingleMapBlock::getOffset()</new>
+                                    <oldVisibility>public</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.SingleMapBlock</old>
+                                    <new>class io.trino.spi.block.SingleMapBlock</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

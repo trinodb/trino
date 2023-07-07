@@ -37,7 +37,7 @@ public class ColumnarMap
             return toColumnarMap(runLengthEncodedBlock);
         }
 
-        if (!(block instanceof AbstractMapBlock mapBlock)) {
+        if (!(block instanceof MapBlock mapBlock)) {
             throw new IllegalArgumentException("Invalid map block: " + block.getClass().getName());
         }
 
@@ -45,8 +45,9 @@ public class ColumnarMap
         int[] offsets = mapBlock.getOffsets();
 
         // get the keys and values for visible region
-        int firstEntryPosition = mapBlock.getOffset(0);
-        int totalEntryCount = mapBlock.getOffset(block.getPositionCount()) - firstEntryPosition;
+        int firstEntryPosition = offsets[offsetBase];
+        int position = block.getPositionCount();
+        int totalEntryCount = offsets[position + offsetBase] - firstEntryPosition;
         Block keysBlock = mapBlock.getRawKeyBlock().getRegion(firstEntryPosition, totalEntryCount);
         Block valuesBlock = mapBlock.getRawValueBlock().getRegion(firstEntryPosition, totalEntryCount);
 
