@@ -29,7 +29,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.tests.product.hive.Engine;
 import io.trino.tests.product.hive.TestHiveMetastoreClientFactory;
 import org.apache.thrift.TException;
-import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -1271,7 +1270,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (a INT, b INT, c INT) USING ICEBERG");
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " WRITE ORDERED BY b, c DESC NULLS LAST");
 
-        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
                 .contains("sorted_by = ARRAY['b ASC NULLS FIRST','c DESC NULLS LAST']");
 
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3, 2, 1), (1, 2, 3), (NULL, NULL, NULL)");
@@ -1292,7 +1291,7 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (a INT, b INT, c INT) USING ICEBERG");
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " WRITE ORDERED BY truncate(b, 3), a NULLS LAST");
 
-        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + trinoTableName).getOnlyValue())
                 .doesNotContain("sorted_by");
 
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (3, 2333, 1), (NULL, NULL, NULL), (1, 2222, 3)");
@@ -1357,7 +1356,7 @@ public class TestIcebergSparkCompatibility
                     .collect(toImmutableList());
 
             // At least one INSERT per round should succeed
-            Assertions.assertThat(allInserted).hasSizeBetween(insertsPerEngine, insertsPerEngine * 2);
+            assertThat(allInserted).hasSizeBetween(insertsPerEngine, insertsPerEngine * 2);
 
             // All Spark inserts should succeed (and not be obliterated)
             assertThat(onTrino().executeQuery("SELECT count(*) FROM " + trinoTableName + " WHERE e = 'spark'"))
@@ -2031,7 +2030,7 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
-        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
+        assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -2073,9 +2072,9 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')", trinoTableName));
 
         int updatedNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
-        Assertions.assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
+        assertThat(updatedNumberOfFiles).isLessThan(initialNumberOfFiles);
         int updatedNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
-        Assertions.assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
+        assertThat(updatedNumberOfMetadataFiles).isLessThan(initialNumberOfMetadataFiles);
 
         Row row = row(3006);
         String selectByString = "SELECT SUM(_bigint) FROM %s WHERE _string = 'a'";
@@ -2397,7 +2396,7 @@ public class TestIcebergSparkCompatibility
         List<String> metadataFiles = hdfsClient.listDirectory(tableLocation + "/metadata").stream()
                 .filter(file -> file.endsWith("metadata.json"))
                 .collect(toImmutableList());
-        Assertions.assertThat(metadataFiles)
+        assertThat(metadataFiles)
                 .isNotEmpty()
                 .filteredOn(file -> file.endsWith("gz.metadata.json"))
                 .isEqualTo(metadataFiles);
@@ -2422,8 +2421,8 @@ public class TestIcebergSparkCompatibility
         List<Object> partitioning = onTrino().executeQuery(format("SELECT partition, record_count FROM iceberg.default.\"%s$partitions\"", baseTableName))
                 .column(1);
         Set<String> partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        Assertions.assertThat(partitions.size()).isEqualTo(expectedValues.size());
-        Assertions.assertThat(partitions).containsAll(trinoResult);
+        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).containsAll(trinoResult);
         List<String> sparkResult = expectedValues.stream().map(m ->
                 m.entrySet().stream()
                         .map(entry -> format("\"%s\":%s", entry.getKey(), entry.getValue()))
@@ -2431,8 +2430,8 @@ public class TestIcebergSparkCompatibility
                 .collect(toImmutableList());
         partitioning = onSpark().executeQuery(format("SELECT partition from %s.files", sparkTableName)).column(1);
         partitions = partitioning.stream().map(String::valueOf).collect(toUnmodifiableSet());
-        Assertions.assertThat(partitions.size()).isEqualTo(expectedValues.size());
-        Assertions.assertThat(partitions).containsAll(sparkResult);
+        assertThat(partitions.size()).isEqualTo(expectedValues.size());
+        assertThat(partitions).containsAll(sparkResult);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -2517,10 +2516,10 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format("CALL iceberg.system.register_table ('%s', '%s', '%s')", TEST_SCHEMA_NAME, baseTableName, tableLocation));
 
-        Assertions.assertThat(getTableComment(baseTableName)).isEqualTo("my-table-comment");
-        Assertions.assertThat(getColumnComment(baseTableName, "a")).isEqualTo("a-comment");
-        Assertions.assertThat(getColumnComment(baseTableName, "b")).isEqualTo("b-comment");
-        Assertions.assertThat(getColumnComment(baseTableName, "c")).isEqualTo("c-comment");
+        assertThat(getTableComment(baseTableName)).isEqualTo("my-table-comment");
+        assertThat(getColumnComment(baseTableName, "a")).isEqualTo("a-comment");
+        assertThat(getColumnComment(baseTableName, "b")).isEqualTo("b-comment");
+        assertThat(getColumnComment(baseTableName, "c")).isEqualTo("c-comment");
         onTrino().executeQuery(format("DROP TABLE %s", trinoTableName));
     }
 

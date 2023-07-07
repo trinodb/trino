@@ -24,7 +24,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.tls.HandshakeCertificates;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -105,7 +104,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
             //Wait until the token expires. See: HydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS
             SECONDS.sleep(10);
@@ -115,7 +114,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
             }
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
         }
     }
 
@@ -131,7 +130,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
             //Wait until the refresh token expires (15s) . See: HydraIdentityProvider.TTL_REFRESH_TOKEN_IN_SECONDS
             SECONDS.sleep(20);
@@ -140,7 +139,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
             }
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);
         }
     }
 
@@ -156,7 +155,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 ResultSet results = statement.executeQuery()) {
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(1);
 
             //Wait until the internally issued token expires. See: http-server.authentication.oauth2.refresh-tokens.issued-token.timeout
             SECONDS.sleep(35);
@@ -166,7 +165,7 @@ public class TestExternalAuthorizerOAuth2RefreshToken
                 assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
             }
 
-            Assertions.assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);
+            assertThat(redirectHandler.getRedirectCount()).isEqualTo(2);
         }
     }
 

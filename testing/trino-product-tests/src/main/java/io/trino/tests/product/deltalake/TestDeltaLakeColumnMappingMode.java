@@ -18,7 +18,6 @@ import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -119,9 +118,9 @@ public class TestDeltaLakeColumnMappingMode
 
         createTable.accept(tableName);
 
-        Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.minReaderVersion"))
+        assertThat(getTablePropertyOnDelta("default", tableName, "delta.minReaderVersion"))
                 .isEqualTo("2");
-        Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.minWriterVersion"))
+        assertThat(getTablePropertyOnDelta("default", tableName, "delta.minWriterVersion"))
                 .isEqualTo("5");
 
         onTrino().executeQuery("DROP TABLE delta.default." + tableName);
@@ -685,7 +684,7 @@ public class TestDeltaLakeColumnMappingMode
             assertThat(onTrino().executeQuery("SELECT a_number, a_array[1], a_map['key'], a_row.x FROM delta.default." + tableName)).containsOnly(expectedRows);
 
             // 5 comes from 1 (a_number) + 1 (a_array) + 1 (a_map) + 2 (column & field of a_row)
-            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
                     .isEqualTo("5");
         }
         finally {
@@ -1450,14 +1449,14 @@ public class TestDeltaLakeColumnMappingMode
                 " TBLPROPERTIES ('delta.columnMapping.mode' = '" + mode + "')");
 
         try {
-            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
                     .isEqualTo("3");
             onTrino().executeQuery("INSERT INTO delta.default." + tableName + " VALUES (1, 10, 'part#1')");
 
             dropColumn.accept(tableName, "data");
             assertThatThrownBy(() -> dropColumn.accept(tableName, "part"))
                     .hasMessageMatching("(?s).*(Cannot drop partition column: part|Dropping partition columns \\(part\\) is not allowed).*");
-            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.columnMapping.maxColumnId"))
                     .isEqualTo("3");
 
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))

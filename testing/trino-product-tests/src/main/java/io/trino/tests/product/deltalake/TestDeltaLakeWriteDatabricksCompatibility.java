@@ -21,7 +21,6 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -365,21 +364,21 @@ public class TestDeltaLakeWriteDatabricksCompatibility
             onDelta().executeQuery("INSERT INTO " + tableName + " VALUES (1)");
             onDelta().executeQuery("UPDATE " + tableName + " SET a = 2");
 
-            Assertions.assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(1);
+            assertThat(s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries()).hasSize(1);
 
             // Vacuum procedure should remove files in _change_data directory
             // https://docs.delta.io/2.1.0/delta-change-data-feed.html#change-data-storage
             vacuumExecutor.accept(tableName);
 
             List<S3ObjectSummary> summaries = s3.listObjectsV2(bucketName, changeDataPrefix).getObjectSummaries();
-            Assertions.assertThat(summaries).hasSizeBetween(0, 1);
+            assertThat(summaries).hasSizeBetween(0, 1);
             if (!summaries.isEmpty()) {
                 // Databricks version >= 12.2 keep an empty _change_data directory
                 DatabricksVersion databricksRuntimeVersion = getDatabricksRuntimeVersion().orElseThrow();
-                Assertions.assertThat(databricksRuntimeVersion.isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
+                assertThat(databricksRuntimeVersion.isAtLeast(DATABRICKS_122_RUNTIME_VERSION)).isTrue();
                 S3ObjectSummary summary = summaries.get(0);
-                Assertions.assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
-                Assertions.assertThat(summary.getSize()).isEqualTo(0);
+                assertThat(summary.getKey()).endsWith(changeDataPrefix + "/");
+                assertThat(summary.getSize()).isEqualTo(0);
             }
         }
         finally {

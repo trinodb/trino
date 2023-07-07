@@ -38,7 +38,6 @@ import io.trino.testing.QueryRunner;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -245,7 +244,7 @@ public class TestDeltaLakeBasic
         MetadataEntry originalMetadata = loadMetadataEntry(0, tableLocation);
         JsonNode schema = OBJECT_MAPPER.readTree(originalMetadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
-        Assertions.assertThat(fields).hasSize(1);
+        assertThat(fields).hasSize(1);
         JsonNode column = fields.get(0);
         String physicalName = column.get("metadata").get("delta.columnMapping.physicalName").asText();
         int id = column.get("metadata").get("delta.columnMapping.id").asInt();
@@ -304,18 +303,18 @@ public class TestDeltaLakeBasic
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
-        Assertions.assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
+        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
                 .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
-        Assertions.assertThat(metadata.getSchemaString())
+        assertThat(metadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){6}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
 
         JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
-        Assertions.assertThat(fields).hasSize(2);
+        assertThat(fields).hasSize(2);
         JsonNode nestedColumn = fields.get(1);
         List<JsonNode> rowFields = ImmutableList.copyOf(nestedColumn.get("type").get("fields").elements());
-        Assertions.assertThat(rowFields).hasSize(3);
+        assertThat(rowFields).hasSize(3);
 
         // Drop 'x' column and verify that nested metadata and table configuration are preserved
         assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
@@ -323,12 +322,12 @@ public class TestDeltaLakeBasic
         MetadataEntry droppedMetadata = loadMetadataEntry(2, tableLocation);
         JsonNode droppedSchema = OBJECT_MAPPER.readTree(droppedMetadata.getSchemaString());
         List<JsonNode> droppedFields = ImmutableList.copyOf(droppedSchema.get("fields").elements());
-        Assertions.assertThat(droppedFields).hasSize(1);
-        Assertions.assertThat(droppedFields.get(0)).isEqualTo(nestedColumn);
+        assertThat(droppedFields).hasSize(1);
+        assertThat(droppedFields.get(0)).isEqualTo(nestedColumn);
 
-        Assertions.assertThat(droppedMetadata.getConfiguration())
+        assertThat(droppedMetadata.getConfiguration())
                 .isEqualTo(metadata.getConfiguration());
-        Assertions.assertThat(droppedMetadata.getSchemaString())
+        assertThat(droppedMetadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){5}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){5}");
     }

@@ -14,7 +14,6 @@
 package io.trino.tests.product.iceberg;
 
 import io.trino.tempto.ProductTest;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.function.Consumer;
@@ -74,7 +73,7 @@ public class TestIcebergProcedureCalls
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, "test"));
 
-        Assertions.assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
+        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + icebergTableName).getOnlyValue())
                         .contains("partitioning = ARRAY['part']");
 
         onTrino().executeQuery("DROP TABLE IF EXISTS " + icebergTableName);

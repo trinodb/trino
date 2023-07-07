@@ -21,7 +21,6 @@ import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -102,7 +101,7 @@ public class TestDeltaLakeTransactionLogCache
         DeleteObjectsResult deleteObjectsResult = s3.deleteObjects(
                 new DeleteObjectsRequest(bucketName)
                         .withKeys(transactionLogFilesToRemove));
-        Assertions.assertThat(
+        assertThat(
                         deleteObjectsResult.getDeletedObjects().stream()
                                 .map(DeleteObjectsResult.DeletedObject::getKey)
                                 .collect(Collectors.toList()))
