@@ -16,8 +16,6 @@ package io.trino.spi.block;
 import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 
-import java.util.Optional;
-
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -99,17 +97,14 @@ public class BufferedMapValueBuilder
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
         MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, 1, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
-        MapBlock mapBlock = MapBlock.createMapBlockInternal(
+
+        return new SingleMapBlock(
                 mapType,
-                0,
-                1,
-                Optional.empty(),
-                new int[] {0, keyBlock.getPositionCount()},
                 keyBlock,
                 valueBlock,
-                hashTables);
-
-        return new SingleMapBlock(0, keyBlock.getPositionCount() * 2, mapBlock);
+                new SingleMapBlock.HashTableSupplier(hashTables.get()),
+                0,
+                keyBlock.getPositionCount() * 2);
     }
 
     private boolean equalizeBlockBuilders()
