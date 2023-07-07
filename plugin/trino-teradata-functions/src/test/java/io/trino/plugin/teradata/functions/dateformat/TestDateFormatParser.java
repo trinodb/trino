@@ -17,7 +17,7 @@ import io.trino.spi.TrinoException;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 
