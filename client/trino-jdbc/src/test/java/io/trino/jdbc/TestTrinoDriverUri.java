@@ -19,19 +19,16 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
-import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.FULL;
-import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.NONE;
-import static io.trino.jdbc.PropertyName.CLIENT_TAGS;
-import static io.trino.jdbc.PropertyName.DISABLE_COMPRESSION;
-import static io.trino.jdbc.PropertyName.EXTRA_CREDENTIALS;
-import static io.trino.jdbc.PropertyName.HTTP_PROXY;
-import static io.trino.jdbc.PropertyName.SOCKS_PROXY;
-import static io.trino.jdbc.PropertyName.SSL_TRUST_STORE_PASSWORD;
-import static io.trino.jdbc.PropertyName.SSL_TRUST_STORE_PATH;
-import static io.trino.jdbc.PropertyName.SSL_TRUST_STORE_TYPE;
-import static io.trino.jdbc.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
-import static io.trino.jdbc.PropertyName.SSL_VERIFICATION;
+import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
+import static io.trino.client.uri.PropertyName.DISABLE_COMPRESSION;
+import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
+import static io.trino.client.uri.PropertyName.HTTP_PROXY;
+import static io.trino.client.uri.PropertyName.SOCKS_PROXY;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PASSWORD;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_PATH;
+import static io.trino.client.uri.PropertyName.SSL_TRUST_STORE_TYPE;
+import static io.trino.client.uri.PropertyName.SSL_USE_SYSTEM_TRUST_STORE;
+import static io.trino.client.uri.PropertyName.SSL_VERIFICATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -54,6 +51,9 @@ public class TestTrinoDriverUri
 
         // invalid scheme
         assertInvalid("jdbc:mysql://localhost", "Invalid JDBC URL: jdbc:mysql://localhost");
+
+        // invalid scheme
+        assertInvalid("jdbc:http://localhost", "Invalid JDBC URL: jdbc:http://localhost");
 
         // missing port
         assertInvalid("jdbc:trino://localhost/", "No port number specified:");
@@ -319,7 +319,7 @@ public class TestTrinoDriverUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), FULL.name());
+        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), "FULL");
     }
 
     @Test
@@ -330,7 +330,7 @@ public class TestTrinoDriverUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), CA.name());
+        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), "CA");
     }
 
     @Test
@@ -341,7 +341,7 @@ public class TestTrinoDriverUri
         assertUriPortScheme(parameters, 443, "https");
 
         Properties properties = parameters.getProperties();
-        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), NONE.name());
+        assertEquals(properties.getProperty(SSL_VERIFICATION.toString()), "NONE");
     }
 
     @Test
