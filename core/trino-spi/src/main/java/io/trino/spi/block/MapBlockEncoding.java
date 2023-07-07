@@ -39,7 +39,7 @@ public class MapBlockEncoding
     @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
-        AbstractMapBlock mapBlock = (AbstractMapBlock) block;
+        MapBlock mapBlock = (MapBlock) block;
 
         int positionCount = mapBlock.getPositionCount();
 
