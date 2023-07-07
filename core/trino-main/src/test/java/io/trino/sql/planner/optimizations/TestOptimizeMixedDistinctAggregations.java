@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.PlanOptimizers.columnPruningRules;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
@@ -128,7 +129,7 @@ public class TestOptimizeMixedDistinctAggregations
 
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
-        DistinctAggregationController distinctAggregationController = new DistinctAggregationController(new TaskCountEstimator(() -> 4));
+        DistinctAggregationController distinctAggregationController = new DistinctAggregationController(new TaskCountEstimator(() -> 4), createTestMetadataManager());
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(

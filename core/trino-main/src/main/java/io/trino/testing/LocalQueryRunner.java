@@ -1110,7 +1110,7 @@ public class LocalQueryRunner
                 estimatedExchangesCostCalculator,
                 new CostComparator(optimizerConfig),
                 taskCountEstimator,
-                new DistinctAggregationController(taskCountEstimator),
+                new DistinctAggregationController(taskCountEstimator, plannerContext.getMetadata()),
                 nodePartitioningManager,
                 new RuleStatsRecorder()).get();
     }

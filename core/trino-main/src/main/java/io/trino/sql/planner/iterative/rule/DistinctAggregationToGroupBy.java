@@ -99,13 +99,18 @@ public class DistinctAggregationToGroupBy
 
     public static boolean hasMultipleDistincts(AggregationNode aggregationNode)
     {
+        return distinctAggregationsUniqueArgumentCount(aggregationNode) > 1;
+    }
+
+    public static long distinctAggregationsUniqueArgumentCount(AggregationNode aggregationNode)
+    {
         return aggregationNode.getAggregations()
                 .values().stream()
                 .filter(Aggregation::isDistinct)
                 .map(Aggregation::getArguments)
                 .map(HashSet::new)
                 .distinct()
-                .count() > 1;
+                .count();
     }
 
     private static boolean hasMixedDistinctAndNonDistincts(AggregationNode aggregationNode)

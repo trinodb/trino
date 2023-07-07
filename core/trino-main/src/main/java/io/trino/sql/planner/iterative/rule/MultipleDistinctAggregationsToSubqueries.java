@@ -13,11 +13,9 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
@@ -28,13 +26,10 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.tree.Expression;
 
 import java.util.Comparator;
@@ -49,9 +44,6 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.SystemSessionProperties.distinctAggregationsStrategy;
-import static io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy.SPLIT_TO_SUBQUERIES;
-import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.Patterns.aggregation;
 import static java.util.Objects.requireNonNull;
@@ -89,20 +81,28 @@ public class MultipleDistinctAggregationsToSubqueries
         implements Rule<AggregationNode>
 {
     private static final Pattern<AggregationNode> PATTERN = aggregation()
-            .matching(
-                    Predicates.and(
-                            // TODO: we could support non-distinct aggregations if SingleDistinctAggregationToGroupBy supports it
-                            SingleDistinctAggregationToGroupBy::allDistinctAggregates,
-                            DistinctAggregationToGroupBy::hasMultipleDistincts,
-                            // if we have more than one grouping set, we can have duplicated grouping sets and handling this is complex
-                            aggregation -> aggregation.getGroupingSetCount() == 1,
-                            // hash symbol is added late in the planning, and handling it here would increase complexity
-                            aggregation -> aggregation.getHashSymbol().isEmpty()));
-    private final Metadata metadata;
+            .matching(MultipleDistinctAggregationsToSubqueries::isAggregationCandidateForSplittingToSubqueries);
 
-    public MultipleDistinctAggregationsToSubqueries(Metadata metadata)
+    // In addition to this check, DistinctAggregationController.isAggregationSourceSupportedForSubqueries, that accesses Metadata,
+    // needs also pass, for the plan to be applicable for this rule,
+    public static boolean isAggregationCandidateForSplittingToSubqueries(AggregationNode aggregationNode)
+    {
+        // TODO: we could support non-distinct aggregations if SingleDistinctAggregationToGroupBy supports it
+        return SingleDistinctAggregationToGroupBy.allDistinctAggregates(aggregationNode) &&
+                DistinctAggregationToGroupBy.hasMultipleDistincts(aggregationNode) &&
+                // if we have more than one grouping set, we can have duplicated grouping sets and handling this is complex
+                aggregationNode.getGroupingSetCount() == 1 &&
+                // hash symbol is added late in the planning, and handling it here would increase complexity
+                aggregationNode.getHashSymbol().isEmpty();
+    }
+
+    private final Metadata metadata;
+    private final DistinctAggregationController distinctAggregationController;
+
+    public MultipleDistinctAggregationsToSubqueries(Metadata metadata, DistinctAggregationController distinctAggregationController)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.distinctAggregationController = requireNonNull(distinctAggregationController, "distinctAggregationController is null");
     }
 
     @Override
@@ -112,15 +112,9 @@ public class MultipleDistinctAggregationsToSubqueries
     }
 
     @Override
-    public boolean isEnabled(Session session)
-    {
-        return distinctAggregationsStrategy(session).equals(SPLIT_TO_SUBQUERIES);
-    }
-
-    @Override
     public Result apply(AggregationNode aggregationNode, Captures captures, Context context)
     {
-        if (!isAggregationSourceSupported(aggregationNode.getSource(), context)) {
+        if (!distinctAggregationController.shouldSplitToSubqueries(aggregationNode, context)) {
             return Result.empty();
         }
         // group aggregations by arguments
@@ -212,29 +206,5 @@ public class MultipleDistinctAggregationsToSubqueries
                 Optional.empty(),
                 ImmutableMap.of(),
                 Optional.empty());
-    }
-
-    // PlanCopier.copyPlan must support all supported nodes here.
-    // Additionally, we should split the table scan only if reading single columns is efficient in the given connector.
-    private boolean isAggregationSourceSupported(PlanNode source, Context context)
-    {
-        if (searchFrom(source, context.getLookup())
-                .where(node -> !(node instanceof TableScanNode
-                        || node instanceof FilterNode
-                        || node instanceof ProjectNode
-                        || node instanceof UnionNode))
-                .findFirst()
-                .isPresent()) {
-            return false;
-        }
-
-        if (searchFrom(source, context.getLookup())
-                .whereIsInstanceOfAny(TableScanNode.class)
-                .findAll().stream()
-                .anyMatch(tableScanNode -> !metadata.isColumnarTableScan(context.getSession(), ((TableScanNode) tableScanNode).getTable()))) {
-            return false;
-        }
-
-        return true;
     }
 }

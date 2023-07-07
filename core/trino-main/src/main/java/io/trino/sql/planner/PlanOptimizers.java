@@ -456,7 +456,7 @@ public class PlanOptimizers
                                         new RemoveRedundantExists(),
                                         new RemoveRedundantWindow(),
                                         new ImplementFilteredAggregations(metadata),
-                                        new MultipleDistinctAggregationsToSubqueries(metadata),
+                                        new MultipleDistinctAggregationsToSubqueries(metadata, distinctAggregationController),
                                         new SingleDistinctAggregationToGroupBy(),
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
