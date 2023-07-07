@@ -32,7 +32,6 @@ import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -94,7 +93,7 @@ public class Analyzer
         StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
         try (var ignored = scopedSpan(tracer, "analyze")) {
-            analyzer.analyze(rewrittenStatement, Optional.empty());
+            analyzer.analyze(rewrittenStatement);
         }
 
         try (var ignored = scopedSpan(tracer, "access-control")) {

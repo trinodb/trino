@@ -456,12 +456,17 @@ class StatementAnalyzer
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
 
+    public Scope analyze(Node node)
+    {
+        return analyze(node, Optional.empty());
+    }
+
     public Scope analyze(Node node, Scope outerQueryScope)
     {
         return analyze(node, Optional.of(outerQueryScope));
     }
 
-    public Scope analyze(Node node, Optional<Scope> outerQueryScope)
+    private Scope analyze(Node node, Optional<Scope> outerQueryScope)
     {
         return new Visitor(outerQueryScope, warningCollector, Optional.empty())
                 .process(node, Optional.empty());
@@ -539,7 +544,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = analyze(insert.getQuery(), createScope(scope));
+            Scope queryScope = analyze(insert.getQuery());
 
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
@@ -921,7 +926,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            Scope queryScope = analyze(node.getQuery(), createScope(scope));
+            Scope queryScope = analyze(node.getQuery());
 
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
@@ -997,7 +1002,7 @@ class StatementAnalyzer
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery());
 
             accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
@@ -1212,7 +1217,7 @@ class StatementAnalyzer
                 }
             }
 
-            Scope tableScope = analyze(table, scope);
+            Scope tableScope = analyze(table);
 
             String catalogName = tableName.getCatalogName();
             CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName);
@@ -1396,7 +1401,7 @@ class StatementAnalyzer
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
 
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery());
 
             validateColumns(node, queryScope.getRelationType());
 
@@ -1590,7 +1595,7 @@ class StatementAnalyzer
         protected Scope visitLateral(Lateral node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
@@ -2969,7 +2974,7 @@ class StatementAnalyzer
         protected Scope visitTableSubquery(TableSubquery node, Optional<Scope> scope)
         {
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
-            Scope queryScope = analyzer.analyze(node.getQuery(), scope);
+            Scope queryScope = analyzer.analyze(node.getQuery(), scope.orElseThrow());
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
@@ -4581,7 +4586,7 @@ class StatementAnalyzer
                 StatementAnalyzer analyzer = statementAnalyzerFactory
                         .withSpecializedAccessControl(viewAccessControl)
                         .createStatementAnalyzer(analysis, viewSession, warningCollector, CorrelationSupport.ALLOWED);
-                Scope queryScope = analyzer.analyze(query, Scope.create());
+                Scope queryScope = analyzer.analyze(query);
                 return queryScope.getRelationType().withAlias(name.getObjectName(), null);
             }
             catch (RuntimeException e) {
@@ -4912,7 +4917,7 @@ class StatementAnalyzer
 
                 if (!isRecursive) {
                     Query query = withQuery.getQuery();
-                    process(query, withScopeBuilder.build());
+                    analyze(query, withScopeBuilder.build());
 
                     // check if all or none of the columns are explicitly alias
                     if (withQuery.getColumnNames().isPresent()) {
