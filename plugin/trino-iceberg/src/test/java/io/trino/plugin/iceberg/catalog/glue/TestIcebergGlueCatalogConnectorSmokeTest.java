@@ -90,6 +90,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.of(
+                                "iceberg.file-format", format.name(),
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
                                 "iceberg.register-table-procedure.enabled", "true",
@@ -125,7 +126,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "   comment varchar\n" +
                                 ")\n" +
                                 "WITH (\n" +
-                                "   format = 'ORC',\n" +
+                                "   format = 'PARQUET',\n" +
                                 "   format_version = 2,\n" +
                                 "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
                                 ")\\E",
