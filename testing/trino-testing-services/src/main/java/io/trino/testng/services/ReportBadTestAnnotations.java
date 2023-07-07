@@ -204,7 +204,7 @@ public class ReportBadTestAnnotations
 
     private static boolean isJUnitAnnotation(Class<? extends Annotation> clazz)
     {
-        return clazz.getPackage().getName().startsWith("org.junit.jupiter.ap");
+        return clazz.getPackage().getName().startsWith("org.junit.jupiter.api");
     }
 
     @VisibleForTesting
