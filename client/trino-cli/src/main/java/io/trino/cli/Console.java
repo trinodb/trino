@@ -18,9 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
+import io.trino.cli.ClientOptions.PropertyMapping;
 import io.trino.cli.Trino.VersionProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
+import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.TrinoUri;
 import io.trino.sql.parser.StatementSplitter;
 import org.jline.reader.EndOfFileException;
@@ -37,20 +39,21 @@ import picocli.CommandLine.Option;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.AbstractMap;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.CharMatcher.whitespace;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static io.trino.cli.Completion.commandCompleter;
@@ -106,8 +109,17 @@ public class Console
 
     public boolean run()
     {
-        // options set explicitly by the user cannot override URL params, and must not be set in the URL
-        TrinoUri uri = clientOptions.getTrinoUri(getProvidedOptions(spec));
+        CommandLine.ParseResult parseResult = spec.commandLine().getParseResult();
+
+        Map<PropertyName, String> restrictedOptions = spec.options().stream()
+                .filter(parseResult::hasMatchedOption)
+                .map(option -> getMapping(option.userObject())
+                        .map(value -> new AbstractMap.SimpleEntry<>(value, option.longestName())))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        TrinoUri uri = clientOptions.getTrinoUri(restrictedOptions);
         ClientSession session = clientOptions.toClientSession(uri);
         boolean hasQuery = clientOptions.execute != null;
         boolean isFromFile = !isNullOrEmpty(clientOptions.file);
@@ -192,14 +204,14 @@ public class Console
         }
     }
 
-    private static List<String> getProvidedOptions(CommandLine.Model.CommandSpec spec)
+    private static Optional<PropertyName> getMapping(Object userObject)
     {
-        CommandLine.ParseResult pr = spec.commandLine().getParseResult();
-        List<CommandLine.Model.OptionSpec> options = spec.options();
-        return options.stream()
-                .filter(pr::hasMatchedOption)
-                .map(CommandLine.Model.OptionSpec::longestName)
-                .collect(Collectors.toList());
+        if (userObject instanceof Field) {
+            return Optional.ofNullable(((Field) userObject).getAnnotation(PropertyMapping.class))
+                    .map(PropertyMapping::value);
+        }
+
+        return Optional.empty();
     }
 
     private static void runConsole(
