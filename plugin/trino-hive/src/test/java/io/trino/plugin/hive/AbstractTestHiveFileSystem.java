@@ -115,6 +115,7 @@ import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProvi
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
@@ -129,6 +130,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -504,6 +506,118 @@ public abstract class AbstractTestHiveFileSystem
                 .toList();
         // Should not include any hidden files, folders, or nested files
         assertEqualsIgnoreOrder(shallowListing, ImmutableList.of(baseFile));
+    }
+
+    @Test
+    public void testFileIteratorPartitionedListing()
+            throws Exception
+    {
+        Table.Builder tableBuilder = Table.builder()
+                .setDatabaseName(table.getSchemaName())
+                .setTableName(table.getTableName())
+                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty())))
+                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty())))
+                .setOwner(Optional.empty())
+                .setTableType("fake");
+        tableBuilder.getStorageBuilder()
+                .setStorageFormat(StorageFormat.fromHiveStorageFormat(HiveStorageFormat.CSV));
+        Table fakeTable = tableBuilder.build();
+
+        // Expected file system tree:
+        // test-file-iterator-partitioned-listing/
+        //      .hidden/
+        //          nested-file-in-hidden.txt
+        //      part=simple/
+        //          _hidden-file.txt
+        //          plain-file.txt
+        //      part=nested/
+        //          parent/
+        //             _nested-hidden-file.txt
+        //             nested-file.txt
+        //      part=plus+sign/
+        //          plus-file.txt
+        //      part=level1|level2/
+        //          pipe-file.txt
+        //          parent1/
+        //             parent2/
+        //                deeply-nested-file.txt
+        //      part=level1 | level2/
+        //          pipe-blanks-file.txt
+        //      empty-directory/
+        //      .hidden-in-base.txt
+        Path basePath = new Path(getBasePath(), "test-file-iterator-partitioned-listing");
+        FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+        TrinoFileSystem trinoFileSystem = new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()).create(SESSION);
+        fs.mkdirs(basePath);
+
+        // create file in hidden folder
+        Path fileInHiddenParent = new Path(new Path(basePath, ".hidden"), "nested-file-in-hidden.txt");
+        fs.createNewFile(fileInHiddenParent);
+        // create hidden file in non-hidden folder
+        Path hiddenFileUnderPartitionSimple = new Path(new Path(basePath, "part=simple"), "_hidden-file.txt");
+        fs.createNewFile(hiddenFileUnderPartitionSimple);
+        // create file in `part=simple` non-hidden folder
+        Path plainFilePartitionSimple = new Path(new Path(basePath, "part=simple"), "plain-file.txt");
+        fs.createNewFile(plainFilePartitionSimple);
+        Path nestedFilePartitionNested = new Path(new Path(new Path(basePath, "part=nested"), "parent"), "nested-file.txt");
+        fs.createNewFile(nestedFilePartitionNested);
+        // create hidden file in non-hidden folder
+        Path nestedHiddenFilePartitionNested = new Path(new Path(new Path(basePath, "part=nested"), "parent"), "_nested-hidden-file.txt");
+        fs.createNewFile(nestedHiddenFilePartitionNested);
+        // create file in `part=plus+sign` non-hidden folder (which contains `+` special character)
+        Path plainFilePartitionPlusSign = new Path(new Path(basePath, "part=plus+sign"), "plus-file.txt");
+        fs.createNewFile(plainFilePartitionPlusSign);
+        // create file in `part=level1|level2` non-hidden folder (which contains `|` special character)
+        Path plainFilePartitionPipeSign = new Path(new Path(basePath, "part=level1|level2"), "pipe-file.txt");
+        fs.createNewFile(plainFilePartitionPipeSign);
+        Path deeplyNestedFilePartitionPipeSign = new Path(new Path(new Path(new Path(basePath, "part=level1|level2"), "parent1"), "parent2"), "deeply-nested-file.txt");
+        fs.createNewFile(deeplyNestedFilePartitionPipeSign);
+        // create file in `part=level1 | level2` non-hidden folder (which contains `|` and blank space special characters)
+        Path plainFilePartitionPipeSignBlanks = new Path(new Path(basePath, "part=level1 | level2"), "pipe-blanks-file.txt");
+        fs.createNewFile(plainFilePartitionPipeSignBlanks);
+
+        // create empty subdirectory
+        Path emptyDirectory = new Path(basePath, "empty-directory");
+        fs.mkdirs(emptyDirectory);
+        // create hidden file in base path
+        Path hiddenBase = new Path(basePath, ".hidden-in-base.txt");
+        fs.createNewFile(hiddenBase);
+
+        // List recursively through hive file iterator
+        HiveFileIterator recursiveIterator = new HiveFileIterator(
+                fakeTable,
+                Location.of(basePath.toString()),
+                trinoFileSystem,
+                new FileSystemDirectoryLister(),
+                new HdfsNamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.RECURSE);
+
+        List<Path> recursiveListing = Streams.stream(recursiveIterator)
+                .map(TrinoFileStatus::getPath)
+                .map(Path::new)
+                .toList();
+        // Should not include directories, or files underneath hidden directories
+        assertThat(recursiveListing).containsExactlyInAnyOrder(
+                plainFilePartitionSimple,
+                nestedFilePartitionNested,
+                plainFilePartitionPlusSign,
+                plainFilePartitionPipeSign,
+                deeplyNestedFilePartitionPipeSign,
+                plainFilePartitionPipeSignBlanks);
+
+        HiveFileIterator shallowIterator = new HiveFileIterator(
+                fakeTable,
+                Location.of(basePath.toString()),
+                trinoFileSystem,
+                new FileSystemDirectoryLister(),
+                new HdfsNamenodeStats(),
+                HiveFileIterator.NestedDirectoryPolicy.IGNORED);
+        List<Path> shallowListing = Streams.stream(shallowIterator)
+                .map(TrinoFileStatus::getPath)
+                .map(Path::new)
+                .toList();
+        // Should not include any hidden files, folders, or nested files
+        assertThat(shallowListing).isEmpty();
     }
 
     @Test
