@@ -14,14 +14,13 @@
 package io.trino.array;
 
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestSliceBigArray
 {
     private static final long BIG_ARRAY_INSTANCE_SIZE = instanceSize(SliceBigArray.class) + new ReferenceCountMap().sizeOf() + new ObjectBigArray<Slice>().sizeOf();
