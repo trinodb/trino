@@ -76,8 +76,8 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeIn(int valuesCount)
+    @Test
+    public void testLargeIn()
     {
         throw new SkipException("This test should pass with H2, but takes too long (currently over a mninute) and is not that important");
     }

@@ -132,13 +132,9 @@ public abstract class BaseElasticsearchConnectorTest
      * @return the amount of clauses to be used in large queries
      */
     @Override
-    protected Object[][] largeInValuesCountData()
+    protected List<Integer> largeInValuesCountData()
     {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000}
-        };
+        return ImmutableList.of(200, 500, 1000);
     }
 
     @Test
