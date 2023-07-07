@@ -33,8 +33,8 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -59,7 +59,7 @@ public class TestDynamicFiltersChecker
     private TableScanNode ordersTableScanNode;
     private PlannerContext plannerContext;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         plannerContext = getQueryRunner().getPlannerContext();

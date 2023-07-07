@@ -22,7 +22,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

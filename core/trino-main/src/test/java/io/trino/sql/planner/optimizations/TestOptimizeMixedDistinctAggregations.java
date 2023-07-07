@@ -29,7 +29,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
 import io.trino.sql.tree.FunctionCall;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
