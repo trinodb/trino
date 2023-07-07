@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.block.AbstractArrayBlock;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -225,8 +225,8 @@ public class ArrayType
             return null;
         }
 
-        if (block instanceof AbstractArrayBlock) {
-            return ((AbstractArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+        if (block instanceof ArrayBlock) {
+            return ((ArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
         Block arrayBlock = block.getObject(position, Block.class);
         return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());
