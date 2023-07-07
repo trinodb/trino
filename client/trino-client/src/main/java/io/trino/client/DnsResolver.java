@@ -11,26 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client;
 
-import io.trino.client.auth.external.KnownToken;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.List;
 
-public enum KnownTokenCache
+public interface DnsResolver
 {
-    NONE {
-        @Override
-        KnownToken create()
-        {
-            return KnownToken.local();
-        }
-    },
-    MEMORY {
-        @Override
-        KnownToken create()
-        {
-            return KnownToken.memoryCached();
-        }
-    };
-
-    abstract KnownToken create();
+    List<InetAddress> lookup(String hostname)
+            throws UnknownHostException;
 }

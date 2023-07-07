@@ -88,22 +88,7 @@ public class NonRegisteringTrinoDriver
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
             throws SQLException
     {
-        Properties properties = urlProperties(url, info);
-
-        return ConnectionProperties.allProperties().stream()
-                .filter(property -> property.isAllowed(properties))
-                .map(property -> property.getDriverPropertyInfo(properties))
-                .toArray(DriverPropertyInfo[]::new);
-    }
-
-    private static Properties urlProperties(String url, Properties info)
-    {
-        try {
-            return TrinoDriverUri.create(url, info).getProperties();
-        }
-        catch (SQLException e) {
-            return info;
-        }
+        return TrinoDriverUri.getPropertyInfo(url, info);
     }
 
     @Override
