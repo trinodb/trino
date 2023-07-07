@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.DnsResolver;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;

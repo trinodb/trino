@@ -115,7 +115,7 @@ public class TrinoConnection
     TrinoConnection(TrinoDriverUri uri, Call.Factory httpCallFactory)
     {
         requireNonNull(uri, "uri is null");
-        this.jdbcUri = uri.getJdbcUri();
+        this.jdbcUri = uri.getUri();
         this.httpUri = uri.getHttpUri();
         uri.getSchema().ifPresent(schema::set);
         uri.getCatalog().ifPresent(catalog::set);

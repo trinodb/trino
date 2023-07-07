@@ -11,14 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client.uri;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.List;
+import java.sql.SQLException;
 
-public interface DnsResolver
+public class RestrictedPropertyException
+        extends SQLException
 {
-    List<InetAddress> lookup(String hostname)
-            throws UnknownHostException;
+    private final PropertyName name;
+
+    public RestrictedPropertyException(PropertyName name, String message)
+    {
+        super(message);
+        this.name = name;
+    }
+
+    public PropertyName getPropertyName()
+    {
+        return this.name;
+    }
 }

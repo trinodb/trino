@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client.uri;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
@@ -19,11 +19,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,10 +38,11 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
-import static io.trino.jdbc.AbstractConnectionProperty.Validator;
-import static io.trino.jdbc.AbstractConnectionProperty.checkedPredicate;
-import static io.trino.jdbc.AbstractConnectionProperty.validator;
+import static io.trino.client.uri.AbstractConnectionProperty.Validator;
+import static io.trino.client.uri.AbstractConnectionProperty.checkedPredicate;
+import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static java.lang.String.format;
+import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -583,7 +584,7 @@ final class ConnectionProperties
         {
             super(
                     PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS,
-                    Optional.of(Collections.singletonList(ExternalRedirectStrategy.OPEN)),
+                    Optional.of(singletonList(ExternalRedirectStrategy.OPEN)),
                     NOT_REQUIRED,
                     ALLOWED,
                     ExternalAuthenticationRedirectHandlers::parse);
