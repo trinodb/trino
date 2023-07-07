@@ -1,0 +1,8 @@
+[
+  {
+    "interfaces":["org.jline.terminal.impl.jna.osx.CLibrary"]
+  },
+  {
+    "interfaces":["sun.misc.SignalHandler"]
+  }
+]

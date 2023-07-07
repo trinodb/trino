@@ -1,0 +1,18 @@
+{
+  "resources":{
+  "includes":[
+    {
+      "pattern":"\\QMETA-INF/services/org.jline.terminal.spi.JnaSupport\\E"
+    }, 
+    {
+      "pattern":"\\Qcom/sun/jna/darwin-aarch64/libjnidispatch.jnilib\\E"
+    }, 
+    {
+      "pattern":"\\Qorg/jline/utils/capabilities.txt\\E"
+    }, 
+    {
+      "pattern":"\\Qorg/jline/utils/xterm-256color.caps\\E"
+    }
+  ]},
+  "bundles":[]
+}
