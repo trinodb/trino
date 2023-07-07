@@ -15,12 +15,14 @@ package io.trino.plugin.mongodb;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -36,12 +38,13 @@ public class MongoTableHandle
     private final RemoteTableName remoteTableName;
     private final Optional<String> filter;
     private final TupleDomain<ColumnHandle> constraint;
+    private final List<String> constraintExpressions;
     private final Set<MongoColumnHandle> projectedColumns;
     private final OptionalInt limit;
 
     public MongoTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, Optional<String> filter)
     {
-        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableSet.of(), OptionalInt.empty());
+        this(schemaTableName, remoteTableName, filter, TupleDomain.all(), ImmutableList.of(), ImmutableSet.of(), OptionalInt.empty());
     }
 
     @JsonCreator
@@ -50,6 +53,7 @@ public class MongoTableHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("filter") Optional<String> filter,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("constraintExpressions") List<String> constraintExpressions,
             @JsonProperty("projectedColumns") Set<MongoColumnHandle> projectedColumns,
             @JsonProperty("limit") OptionalInt limit)
     {
@@ -57,6 +61,7 @@ public class MongoTableHandle
         this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.filter = requireNonNull(filter, "filter is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.constraintExpressions = requireNonNull(constraintExpressions, "constraintExpressions is null");
         this.projectedColumns = ImmutableSet.copyOf(requireNonNull(projectedColumns, "projectedColumns is null"));
         this.limit = requireNonNull(limit, "limit is null");
     }
@@ -86,6 +91,12 @@ public class MongoTableHandle
     }
 
     @JsonProperty
+    public List<String> getConstraintExpressions()
+    {
+        return constraintExpressions;
+    }
+
+    @JsonProperty
     public Set<MongoColumnHandle> getProjectedColumns()
     {
         return projectedColumns;
@@ -104,6 +115,7 @@ public class MongoTableHandle
                 remoteTableName,
                 filter,
                 constraint,
+                constraintExpressions,
                 projectedColumns,
                 limit);
     }
@@ -111,7 +123,7 @@ public class MongoTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, filter, constraint, projectedColumns, limit);
+        return Objects.hash(schemaTableName, filter, constraint, constraintExpressions, projectedColumns, limit);
     }
 
     @Override
@@ -128,6 +140,7 @@ public class MongoTableHandle
                 Objects.equals(this.remoteTableName, other.remoteTableName) &&
                 Objects.equals(this.filter, other.filter) &&
                 Objects.equals(this.constraint, other.constraint) &&
+                Objects.equals(this.constraintExpressions, other.constraintExpressions) &&
                 Objects.equals(this.projectedColumns, other.projectedColumns) &&
                 Objects.equals(this.limit, other.limit);
     }
@@ -140,6 +153,7 @@ public class MongoTableHandle
                 .add("remoteTableName", remoteTableName)
                 .add("filter", filter)
                 .add("constraint", constraint)
+                .add("constraintExpressions", constraintExpressions)
                 .add("projectedColumns", projectedColumns)
                 .add("limit", limit)
                 .toString();

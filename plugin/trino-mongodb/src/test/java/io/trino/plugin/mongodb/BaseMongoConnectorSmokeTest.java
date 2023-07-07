@@ -14,6 +14,7 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -128,5 +129,22 @@ public abstract class BaseMongoConnectorSmokeTest
             assertQuery("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + testTable.getName() + " WHERE row1_t.row2_t.row3_t = ROW(16, 17)", "VALUES (11, 16)");
             assertQuery("SELECT id, row1_t.row2_t.row3_t.f1 FROM " + testTable.getName() + " WHERE row1_t = ROW(22, 23, ROW(24, 25, ROW(26, 27)))", "VALUES (21, 26)");
         }
+    }
+
+    @Test
+    public void testComplexExpressionPredicatePushdown()
+    {
+        Session session = sessionWithComplexExpressionPushdownEnabled();
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_complex_expression_predicate_pushdown", "AS SELECT 'India' col, 'Poland' another_col")) {
+            assertThat(query(session, "SELECT * FROM " + table.getName() + " WHERE col = 'India' OR another_col = 'Poland'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    private Session sessionWithComplexExpressionPushdownEnabled()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown_enabled", "true")
+                .build();
     }
 }

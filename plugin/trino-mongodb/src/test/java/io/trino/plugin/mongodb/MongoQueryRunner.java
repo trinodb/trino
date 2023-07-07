@@ -66,6 +66,7 @@ public final class MongoQueryRunner
 
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("mongodb.connection-url", server.getConnectionString().toString());
+            connectorProperties.putIfAbsent("mongodb.complex-expression-pushdown.enabled", "true");
 
             queryRunner.installPlugin(new MongoPlugin());
             queryRunner.createCatalog("mongodb", "mongodb", connectorProperties);

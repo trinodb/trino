@@ -333,6 +333,97 @@ public class TestMongoConnectorTest
         }
     }
 
+    @Test(dataProvider = "predicatePushdownProvider")
+    public void testComplexExpressionPredicatePushdown(String value, String operator)
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_complex_expression_predicate_pushdown", "AS SELECT %1$s col, %1$s another_col".formatted(value))) {
+            assertThat(query("SELECT * FROM %1$s WHERE col %2$s %3$s OR another_col %2$s %3$s".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM %1$s WHERE col %2$s %3$s OR another_col %2$s NULL".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM %s WHERE col %s %s OR another_col IS NULL".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM %s WHERE col %s %s OR another_col IS NOT NULL".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM %1$s WHERE col %2$s %3$s OR another_col IN (NULL, %3$s)".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT * FROM %1$s WHERE col %2$s %3$s OR another_col NOT IN (NULL, %3$s)".formatted(table.getName(), operator, value)))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test(dataProvider = "comparisonOperator")
+    public void testComplexExpressionPredicatePushdownWithNullAndMissingField(String operator)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_complex_expression_predicate_pushdown_with_null_and_missing_field",
+                "(id INT, discount INT)")) {
+            Document document1 = new Document("id", 1).append("discount", 10);
+            Document document2 = new Document("id", 2).append("discount", null);
+            Document document3 = new Document("id", 3);
+            Document document4 = new Document("id", 4).append("discount", 20);
+
+            MongoCollection<Document> collection = client.getDatabase(getSession().getSchema().orElseThrow()).getCollection(table.getName());
+            collection.insertMany(ImmutableList.of(document1, document2, document3, document4));
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR discount %2$s 10".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR 10 %2$s discount".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR id %2$s discount".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR discount %2$s id".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR discount %2$s null".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %2$s 1 OR null %2$s discount".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %s 1 OR discount IS NULL".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE id %s 1 OR discount IS NOT NULL".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test(dataProvider = "comparisonOperator")
+    public void testComplexExpressionPredicatePushdownWithMismatchedDataType(String operator)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_complex_expression_predicate_pushdown_with_mismatched_data_type",
+                "(id INT, discount INT)")) {
+            Document document1 = new Document("id", 1).append("discount", 8);
+            Document document2 = new Document("id", 2).append("discount", "9");
+            Document document3 = new Document("id", 3).append("discount", 11);
+            Document document4 = new Document("id", 4).append("discount", "16");
+
+            MongoCollection<Document> collection = client.getDatabase(getSession().getSchema().orElseThrow()).getCollection(table.getName());
+            collection.insertMany(ImmutableList.of(document1, document2, document3, document4));
+
+            if (operator.equals("!=") || operator.equals(">") || operator.equals(">=")) {
+                assertThat(query("SELECT id FROM %s WHERE id = 1 OR discount %s 10".formatted(table.getName(), operator)))
+                        .matches("VALUES 1, 2, 3, 4"); // TODO Enabling complex filter pushdown returns the mismatched datatype document as well
+            }
+            else {
+                assertThat(query("SELECT id FROM %s WHERE id = 1 OR discount %s 10".formatted(table.getName(), operator)))
+                        .isFullyPushedDown();
+            }
+        }
+    }
+
     @DataProvider
     public Object[][] predicatePushdownProvider()
     {
@@ -356,7 +447,8 @@ public class TestMongoConnectorTest
                 comparisonOperator());
     }
 
-    private Object[][] comparisonOperator()
+    @DataProvider
+    public Object[][] comparisonOperator()
     {
         return new Object[][] {
                 {"="},

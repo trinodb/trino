@@ -146,6 +146,8 @@ public class MongoSession
     private static final String LTE_OP = "$lte";
     private static final String IN_OP = "$in";
 
+    private static final String EXPR = "$expr";
+
     public static final String DATABASE_NAME = "databaseName";
     public static final String COLLECTION_NAME = "collectionName";
     public static final String ID = "id";
@@ -566,8 +568,20 @@ public class MongoSession
         // Use $and operator because Document.putAll method overwrites existing entries where the key already exists
         ImmutableList.Builder<Document> filter = ImmutableList.builder();
         table.getFilter().ifPresent(json -> filter.add(parseFilter(json)));
+        filter.add(buildFilterExpression(table.getConstraintExpressions()));
         filter.add(buildQuery(table.getConstraint()));
         return andPredicate(filter.build());
+    }
+
+    static Document buildFilterExpression(List<String> constraintExpression)
+    {
+        ImmutableList.Builder<Document> expressionFilterBuilder = ImmutableList.builder();
+        constraintExpression.forEach(json -> expressionFilterBuilder.add(parseFilter(json)));
+        List<Document> filterExpression = expressionFilterBuilder.build();
+        if (!filterExpression.isEmpty()) {
+            return documentOf(EXPR, andPredicate(filterExpression));
+        }
+        return new Document();
     }
 
     @VisibleForTesting
