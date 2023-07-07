@@ -3417,9 +3417,10 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, merge, "Cannot merge into a table with check constraints");
             }
 
-            Scope targetTableScope = analyzer.analyzeForUpdate(relation, scope, UpdateKind.MERGE);
-            Scope sourceTableScope = process(merge.getSource(), scope);
-            Scope joinScope = createAndAssignScope(merge, scope, targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
+            Scope mergeScope = createScope(scope);
+            Scope targetTableScope = analyzer.analyzeForUpdate(relation, Optional.of(mergeScope), UpdateKind.MERGE);
+            Scope sourceTableScope = process(merge.getSource(), mergeScope);
+            Scope joinScope = createAndAssignScope(merge, Optional.of(mergeScope), targetTableScope.getRelationType().joinWith(sourceTableScope.getRelationType()));
 
             for (ColumnSchema column : dataColumnSchemas) {
                 if (accessControl.getColumnMask(session.toSecurityContext(), tableName, column.getName(), column.getType()).isPresent()) {
