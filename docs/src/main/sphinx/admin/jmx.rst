@@ -20,7 +20,7 @@ in the :ref:`config.properties file <config_properties>`:
   that are useful for monitoring via JMX.
 
 You also have to configure a system property in the
-:ref:`jvm.config file <jvm_config>`:
+:ref:`jvm.config <jvm_config>` with the RMI server port:
 
 .. code-block:: text
 
