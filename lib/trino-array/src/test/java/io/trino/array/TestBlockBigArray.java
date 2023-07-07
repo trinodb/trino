@@ -18,7 +18,7 @@ import io.trino.spi.block.IntArrayBlockBuilder;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBlockBigArray
 {
@@ -47,6 +47,6 @@ public class TestBlockBigArray
                 + referenceCountMap.sizeOf()
                 + (new ObjectBigArray<>()).sizeOf()
                 + block.getRetainedSizeInBytes() + (arraySize - 1) * instanceSize(block.getClass());
-        assertEquals(blockBigArray.sizeOf(), expectedSize);
+        assertThat(blockBigArray.sizeOf()).isEqualTo(expectedSize);
     }
 }
