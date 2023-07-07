@@ -68,6 +68,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import org.bson.Document;
 
@@ -133,12 +134,14 @@ public class MongoMetadata
     private static final int MAX_QUALIFIED_IDENTIFIER_BYTE_LENGTH = 120;
 
     private final MongoSession mongoSession;
+    private final TypeManager typeManager;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public MongoMetadata(MongoSession mongoSession)
+    public MongoMetadata(MongoSession mongoSession, TypeManager typeManager)
     {
         this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+        this.typeManager = requireNonNull(typeManager, "mongoSession is null");
     }
 
     @Override
@@ -621,7 +624,7 @@ public class MongoMetadata
                 MongoColumnHandle columnHandle = (MongoColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
                 Type columnType = columnHandle.getType();
-                // TODO: Support predicate pushdown on more types including JSON
+                // TODO: Support predicate pushdown on more types
                 if (isPushdownSupportedType(columnType)) {
                     supported.put(entry.getKey(), entry.getValue());
                 }
@@ -684,7 +687,7 @@ public class MongoMetadata
     private Optional<MongoExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return MongoConnectorExpressionRewriterBuilder.newBuilder()
-                .addDefaultRules().build()
+                .addDefaultRules(typeManager).build()
                 .rewrite(session, expression, assignments);
     }
 

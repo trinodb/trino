@@ -34,6 +34,14 @@ public class ExpressionUtils
         return documentOf("$toObjectId", value);
     }
 
+    public static Document toString(Object value)
+    {
+        Document convertValue = documentOf("input", value)
+                .append("to", "string")
+                .append("onError", null);
+        return documentOf("$convert", convertValue);
+    }
+
     public static Document documentOf(String key, Object value)
     {
         return new Document(key, value);

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
+import io.trino.plugin.mongodb.expression.ExpressionUtils;
 import io.trino.plugin.mongodb.expression.MongoConnectorExpressionRewriterBuilder;
 import io.trino.plugin.mongodb.expression.MongoExpression;
 import io.trino.spi.connector.ColumnHandle;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
@@ -81,6 +83,9 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static io.trino.type.JsonPathType.JSON_PATH;
+import static io.trino.type.JsonType.JSON;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
@@ -97,7 +102,7 @@ public class TestMongoConnectorExpressionRewriterBuilder
     private TestMongoConnectorExpressionRewriterBuilder()
     {
         this.mongoExpressionRewriter = MongoConnectorExpressionRewriterBuilder.newBuilder()
-                .addDefaultRules()
+                .addDefaultRules(TESTING_TYPE_MANAGER)
                 .build();
         this.connectorSession = testSessionBuilder().build().toConnectorSession();
     }
@@ -339,6 +344,194 @@ public class TestMongoConnectorExpressionRewriterBuilder
 
         logicalExpression = new Call(BOOLEAN, AND_FUNCTION_NAME, ImmutableList.of(leftExpression, rightExpression));
         assertRewrite(logicalExpression, documentOf("$and", ImmutableList.of(documentOf("$eq", ImmutableList.of("$col1", 10)), documentOf("$eq", ImmutableList.of("$col2", 20)))), assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalar()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.book.store.name", JSON_PATH);
+        ConnectorExpression expression = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        assertRewrite(expression, ExpressionUtils.toString("$col.book.store.name"), assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarIsNull()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.contributors", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        ConnectorExpression expression = new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar));
+        assertRewrite(
+                expression,
+                documentOf("$or", ImmutableList.of(
+                        documentOf("$eq", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), null)),
+                        documentOf("$eq", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), documentOf("$undefined", true))))),
+                assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarIsNotNull()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.contributors", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        ConnectorExpression notExpression = new Call(BOOLEAN, IS_NULL_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar));
+        ConnectorExpression expression = new Call(BOOLEAN, NOT_FUNCTION_NAME, ImmutableList.of(notExpression));
+        assertRewrite(
+                expression,
+                documentOf("$not", ImmutableList.of(
+                        documentOf("$or", ImmutableList.of(
+                                documentOf("$eq", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), null)),
+                            documentOf("$eq", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), documentOf("$undefined", true))))))),
+                assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarComparison()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.store.book.contributors", JSON_PATH);
+        ConnectorExpression jsonExtractScalar = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+        ConnectorExpression value = new Constant(Slices.wrappedBuffer("Levin".getBytes(UTF_8)), VARCHAR);
+
+        ConnectorExpression expression = new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(expression, documentOf("$eq", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")), assignments);
+
+        expression = new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$ne", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")),
+                        documentOf("$gt", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), null)),
+                        documentOf("$gt", Arrays.asList("Levin", null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$lt", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")),
+                        documentOf("$gt", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), null)),
+                        documentOf("$gt", Arrays.asList("Levin", null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(expression, documentOf("$gt", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")), assignments);
+
+        expression = new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(
+                expression,
+                documentOf("$and", ImmutableList.of(
+                        documentOf("$lte", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")),
+                        documentOf("$gt", Arrays.asList(ExpressionUtils.toString("$col.store.book.contributors"), null)),
+                        documentOf("$gt", Arrays.asList("Levin", null)))),
+                assignments);
+
+        expression = new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar, value));
+        assertRewrite(expression, documentOf("$gte", ImmutableList.of(ExpressionUtils.toString("$col.store.book.contributors"), "Levin")), assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarLogicalExpression()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of(
+                "col1", createColumnHandle("col1", JSON),
+                "col2", createColumnHandle("col2", JSON));
+
+        ConnectorExpression jsonExtractScalar1 = new Call(
+                VARCHAR,
+                new FunctionName("json_extract_scalar"),
+                ImmutableList.of(
+                        new Variable("col1", JSON),
+                        new Constant("$.store.book.contributors", JSON_PATH)));
+        ConnectorExpression value1 = new Constant(Slices.wrappedBuffer("Levin".getBytes(UTF_8)), VARCHAR);
+
+        ConnectorExpression jsonExtractScalar2 = new Call(
+                VARCHAR,
+                new FunctionName("json_extract_scalar"),
+                ImmutableList.of(
+                        new Variable("col2", JSON),
+                        new Constant("$.store.bicycle.color", JSON_PATH)));
+        ConnectorExpression value2 = new Constant(Slices.wrappedBuffer("Red".getBytes(UTF_8)), VARCHAR);
+
+        ConnectorExpression leftExpression = new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar1, value1));
+        ConnectorExpression rightExpression = new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(jsonExtractScalar2, value2));
+
+        ConnectorExpression logicalExpression = new Call(BOOLEAN, OR_FUNCTION_NAME, ImmutableList.of(leftExpression, rightExpression));
+        assertRewrite(
+                logicalExpression,
+                documentOf(
+                        "$or",
+                        ImmutableList.of(
+                                documentOf("$eq", ImmutableList.of(ExpressionUtils.toString("$col1.store.book.contributors"), "Levin")),
+                                documentOf("$eq", ImmutableList.of(ExpressionUtils.toString("$col2.store.bicycle.color"), "Red")))),
+                assignments);
+
+        logicalExpression = new Call(BOOLEAN, AND_FUNCTION_NAME, ImmutableList.of(leftExpression, rightExpression));
+        assertRewrite(
+                logicalExpression,
+                documentOf("$and",
+                        ImmutableList.of(
+                                documentOf("$eq", ImmutableList.of(ExpressionUtils.toString("$col1.store.book.contributors"), "Levin")),
+                                documentOf("$eq", ImmutableList.of(ExpressionUtils.toString("$col2.store.bicycle.color"), "Red")))),
+                assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarWithIndex()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.book.0.store", JSON_PATH);
+        ConnectorExpression expression = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        assertRewrite(
+                expression,
+                documentOf(
+                        "$let", documentOf(
+                                "vars", documentOf("var_00000", documentOf(
+                                        "$cond", ImmutableList.of(documentOf(
+                                                "$eq", ImmutableList.of(documentOf("$type", "$col.book"), "array")),
+                                                documentOf("$arrayElemAt", ImmutableList.of("$col.book", 0)),
+                                                "$col.book.0"))))
+                                .append("in", ExpressionUtils.toString("$$var_00000.store"))),
+                assignments);
+    }
+
+    @Test
+    public void testRewriteJsonExtractScalarWithMultiLevelIndex()
+    {
+        Map<String, ColumnHandle> assignments = ImmutableMap.of("col", createColumnHandle("col", JSON));
+        ConnectorExpression json = new Variable("col", JSON);
+        ConnectorExpression jsonPath = new Constant("$.book.0.store.1", JSON_PATH);
+        ConnectorExpression expression = new Call(VARCHAR, new FunctionName("json_extract_scalar"), ImmutableList.of(json, jsonPath));
+
+        assertRewrite(
+                expression,
+                documentOf(
+                        "$let", documentOf(
+                                "vars", documentOf("var_00000", documentOf(
+                                        "$cond", ImmutableList.of(documentOf(
+                                                        "$eq", ImmutableList.of(documentOf("$type", "$col.book"), "array")),
+                                                documentOf("$arrayElemAt", ImmutableList.of("$col.book", 0)),
+                                                "$col.book.0"))))
+                                .append("in", documentOf(
+                                        "$let", documentOf(
+                                                "vars", documentOf("var_00001", documentOf(
+                                                        "$cond", ImmutableList.of(documentOf(
+                                                                        "$eq", ImmutableList.of(documentOf("$type", "$$var_00000.store"), "array")),
+                                                                documentOf("$arrayElemAt", ImmutableList.of("$$var_00000.store", 1)),
+                                                                "$$var_00000.store.1"))))
+                                                .append("in", ExpressionUtils.toString("$$var_00001"))))),
+                assignments);
     }
 
     private void assertRewrite(ConnectorExpression expression, Object expectedValue)

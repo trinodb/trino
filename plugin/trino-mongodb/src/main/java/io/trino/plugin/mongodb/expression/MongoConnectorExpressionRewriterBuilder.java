@@ -16,6 +16,8 @@ package io.trino.plugin.mongodb.expression;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 
 public class MongoConnectorExpressionRewriterBuilder
 {
@@ -28,7 +30,7 @@ public class MongoConnectorExpressionRewriterBuilder
 
     private MongoConnectorExpressionRewriterBuilder() {}
 
-    public MongoConnectorExpressionRewriterBuilder addDefaultRules()
+    public MongoConnectorExpressionRewriterBuilder addDefaultRules(TypeManager typeManager)
     {
         add(new RewriteVariable());
         add(new RewriteBooleanConstant());
@@ -45,6 +47,8 @@ public class MongoConnectorExpressionRewriterBuilder
         add(new RewriteIn());
         add(new RewriteNot());
         add(new RewriteIsNull());
+        add(new RewriteJsonPath(typeManager.getType(new TypeSignature("JsonPath"))));
+        add(new RewriteJsonExtractScalar());
 
         return this;
     }

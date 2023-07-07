@@ -41,6 +41,7 @@ import io.trino.spi.function.table.Descriptor;
 import io.trino.spi.function.table.ScalarArgument;
 import io.trino.spi.function.table.ScalarArgumentSpecification;
 import io.trino.spi.function.table.TableFunctionAnalysis;
+import io.trino.spi.type.TypeManager;
 import org.bson.Document;
 import org.bson.json.JsonParseException;
 
@@ -65,10 +66,11 @@ public class Query
     private final MongoSession session;
 
     @Inject
-    public Query(MongoSession session)
+    public Query(MongoSession session, TypeManager typeManager)
     {
         requireNonNull(session, "session is null");
-        this.metadata = new MongoMetadata(session);
+        requireNonNull(typeManager, "typeManager is null");
+        this.metadata = new MongoMetadata(session, typeManager);
         this.session = session;
     }
 

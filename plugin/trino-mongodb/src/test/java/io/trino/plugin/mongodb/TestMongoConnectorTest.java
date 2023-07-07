@@ -46,6 +46,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -1396,6 +1397,7 @@ public class TestMongoConnectorTest
     public void testFilterPushdownOnFieldInsideJson()
     {
         String tableName = "test_filter_pushdown_on_json_" + randomNameSuffix();
+
         assertUpdate("CREATE TABLE test." + tableName + " (id INT, col JSON)");
 
         assertUpdate("INSERT INTO test." + tableName + " VALUES (1, JSON '{\"name\": { \"first\": \"Monika\", \"last\": \"Geller\" }}')", 1);
@@ -1403,11 +1405,15 @@ public class TestMongoConnectorTest
 
         assertThat(query("SELECT json_extract_scalar(col, '$.name.first') FROM test." + tableName + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
                 .matches("SELECT varchar 'Monika'")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isNotFullyPushedDown(ProjectNode.class);
 
         assertThat(query("SELECT 1 FROM test." + tableName + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
                 .matches("SELECT 1")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isNotFullyPushedDown(ProjectNode.class);
+
+        assertThat(query("SELECT id FROM test." + tableName + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
+                .matches("SELECT 1")
+                .isFullyPushedDown();
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1672,6 +1678,302 @@ public class TestMongoConnectorTest
                 {new ObjectId("6216f0c6c432d45190f25e7c"), "ObjectId('6216f0c6c432d45190f25e7c')"},
                 {new Date(0), "timestamp '1970-01-01 00:00:00.000'"},
         };
+    }
+
+    @Test
+    public void testJsonExtractScalarPredicatePushdown()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test.test_json_extract_scalar_pushdown",
+                "(id VARCHAR, json_data JSON)",
+                ImmutableList.of(jsonExtractPushdownTestJsonData()))) {
+            // verify without enabling complex_expression_pushdown_enabled
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "complex_expression_pushdown_enabled", "false")
+                    .build();
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
+                    .isNotFullyPushedDown(FilterNode.class);
+
+            // json_extract_scalar returns NULL for JSON null or non-existent paths
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.nonexistent') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.null') IS NULL"))
+                    .isFullyPushedDown();
+
+            // scalar types
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.boolean') = 'true'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_1') = '123'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_2') = '3.14'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.number_3') = '1234567890123456789'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.string_1') = 'a string'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.string_2') = 'Bag full of 💰'"))
+                    .isFullyPushedDown();
+
+            // json_extract_scalar returns NULL for non-scalar types
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.object') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_1') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_2') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_3') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_4') IS NULL"))
+                    .isFullyPushedDown();
+
+            // array/object subscript
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.object.key') = 'value'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_1.0') IS NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_2.0') = '1'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_2.0') IS NOT NULL"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_3.0') = 'one'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.all_types.array_4.0') = '1'"))
+                    .isFullyPushedDown();
+
+            // nested array/object
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.book.0.contributors.0.1') = 'Levine'"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.book.0.contributors.0.1') IN ('Levine', 'Adam')"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.bicycle.price') = '19.95'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    private static String jsonExtractPushdownTestJsonData()
+    {
+        return """
+                'row-1',
+                JSON '{
+                       "store": {
+                         "book": [
+                           {
+                             "author": "Nigel Rees",
+                             "contributors": [
+                               ["Adam", "Levine"],
+                               ["Bob", "Strong"]
+                             ]
+                           },
+                           {
+                             "author": "Evelyn Waugh"
+                           }
+                         ],
+                         "bicycle": {
+                           "color": "red",
+                           "price": 19.95
+                         }
+                       },
+                       "all_types": {
+                         "null": null,
+                         "boolean": true,
+                         "number_1": 123,
+                         "number_2": 3.14,
+                         "number_3": 1234567890123456789,
+                         "string_1": "a string",
+                         "string_2": "Bag full of 💰",
+                         "object": {
+                            "key_1": "value_1",
+                            "key_2": "value_2"
+                         },
+                         "array_1": [],
+                         "array_2": [1, 2],
+                         "array_3": ["one", "two"],
+                         "array_4": [1, "two"]
+                       }
+                }'
+                """;
+    }
+
+    @Test
+    public void testJsonExtractScalarPredicatePushdownWithIndexAsObject()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_scalar_pushdown_with_index_as_object_",
+                "(id VARCHAR, json_data JSON)",
+                jsonExtractPushdownTestJsonDataWithIndexAsObject())) {
+            assertThat(query("SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(json_data, '$.store.book.0.contributors.0.1') = 'Levine'"))
+                    .isFullyPushedDown();
+        }
+    }
+
+    private static List<String> jsonExtractPushdownTestJsonDataWithIndexAsObject()
+    {
+        // "0" as Object
+        String jsonWithIndexAsObject = """
+                'row-1',
+                JSON '{
+                        "store": {
+                          "book": {
+                            "0": {
+                              "contributors": [
+                                [
+                                  "Adam",
+                                  "Levine"
+                                ],
+                                [
+                                  "Bob",
+                                  "Strong"
+                                ]
+                              ]
+                            }
+                          }
+                        }
+                      }'
+                """;
+        String jsonWithIndexAsArrayElement = """
+                'row-2',
+                JSON '{
+                        "store": {
+                          "book": [
+                            {
+                              "contributors": [
+                                [
+                                  "Adam",
+                                  "Levine"
+                                ],
+                                [
+                                  "Bob",
+                                  "Strong"
+                                ]
+                              ]
+                            }
+                          ]
+                        }
+                      }'
+                """;
+        return ImmutableList.of(jsonWithIndexAsObject, jsonWithIndexAsArrayElement);
+    }
+
+    @Test(dataProvider = "specialCharNameProvider")
+    public void testJsonExtractScalarPredicatePushdownWithSpecialCharVariable(String jsonVariableName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_scalar_pushdown_with_special_char_var",
+                "(id VARCHAR, _row ROW(%s JSON))".formatted(jsonVariableName),
+                ImmutableList.of(multiValueMapFields()))) {
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(_row.%s, '$.multiValueMap.0.Status.0') = 'FinalSentOK'".formatted(table.getName(), jsonVariableName)))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(_row.%s, '$.multiValueMap.0.transactionReference') = '211805SH-MW1P05529001-9'".formatted(table.getName(), jsonVariableName)))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @DataProvider
+    public Object[][] specialCharNameProvider()
+    {
+        return new Object[][] {
+                {"\"json!data\""},
+                {"\"json@data\""},
+                {"\"json#data\""},
+                {"\"json%data\""},
+                {"\"json^data\""},
+                {"\"json&data\""},
+                {"\"json*data\""},
+        };
+    }
+
+    @Test(dataProvider = "unSupportedSpecialCharNameProvider")
+    public void testJsonExtractScalarPredicatePushdownWithUnsupportedSpecialCharVariable(String jsonVariableName)
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_scalar_pushdown_with_unsupported_special_char_var",
+                "(id VARCHAR, _row ROW(%s JSON))".formatted(jsonVariableName),
+                ImmutableList.of(multiValueMapFields()))) {
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(_row.%s, '$.multiValueMap.0.Status.0') = 'FinalSentOK'".formatted(table.getName(), jsonVariableName)))
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(_row.%s, '$.multiValueMap.0.transactionReference') = '211805SH-MW1P05529001-9'".formatted(table.getName(), jsonVariableName)))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @DataProvider
+    public Object[][] unSupportedSpecialCharNameProvider()
+    {
+        return new Object[][] {
+                {"\"json.data\""},
+                {"\"json$data\""},
+        };
+    }
+
+    private static String multiValueMapFields()
+    {
+        return """
+                'row-1',
+                ROW(JSON '{
+                            "multiValueMap": [
+                              {
+                                "transactionReference": "211805SH-MW1P05529001-9",
+                                "Status": [
+                                  "FinalSentOK"
+                                ]
+                              }
+                            ]
+                          }')
+                """;
+    }
+
+    @Test(dataProvider = "comparisonOperator")
+    public void testJsonExtractScalarPredicatePushdownWithNullAndMissingField(String operator)
+    {
+        String document1 = "1, JSON '{\"country\": {\"name\": \"India\", \"capital\": \"New Delhi\" }}'";
+        String document2 = "2, JSON '{\"country\": {\"name\": null, \"capital\": null}}'";
+        String document3 = "3, JSON '{\"country\": {}}'";
+        String document4 = "4, JSON '{\"country\": {\"name\": \"Poland\", \"capital\": \"Warsaw\"}}'";
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_scalar_pushdown_with_null_and_missing_field",
+                "(id INT, col JSON)",
+                ImmutableList.of(document1, document2, document3, document4))) {
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.country.name') %s 'India'".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.country.name') %s 'India'".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE 'India' %2$s json_extract_scalar(col, '$.country.name')".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+
+            // TODO This returns null field and missing field document as well for = and >=
+//            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.country.name') %2$s json_extract_scalar(col, '$.country.capital')".formatted(table.getName(), operator)))
+//                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.country.name') IS NULL".formatted(table.getName())))
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.country.name') IS NOT NULL".formatted(table.getName())))
+                    .isFullyPushedDown();
+        }
+    }
+
+    @Test(dataProvider = "comparisonOperator")
+    public void testJsonExtractScalarPredicatePushdownWithMismatchedDataType(String operator)
+    {
+        String document1 = "1, JSON '{\"discount\": 8}'";
+        String document2 = "2, JSON '{\"discount\": \"9\"}'";
+        String document3 = "3, JSON '{\"discount\": 10}'";
+        String document4 = "4, JSON '{\"discount\": \"11\"}'";
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_scalar_pushdown_with_null_and_missing_field",
+                "(id INT, col JSON)",
+                ImmutableList.of(document1, document2, document3, document4))) {
+            assertThat(query("SELECT id FROM %s WHERE json_extract_scalar(col, '$.discount') %s '10'".formatted(table.getName(), operator)))
+                    .isFullyPushedDown();
+        }
     }
 
     @Override

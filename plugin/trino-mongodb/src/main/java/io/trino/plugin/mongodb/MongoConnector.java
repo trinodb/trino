@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Set;
@@ -45,6 +46,7 @@ public class MongoConnector
     private final MongoSplitManager splitManager;
     private final MongoPageSourceProvider pageSourceProvider;
     private final MongoPageSinkProvider pageSinkProvider;
+    private final TypeManager typeManager;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -56,6 +58,7 @@ public class MongoConnector
             MongoSplitManager splitManager,
             MongoPageSourceProvider pageSourceProvider,
             MongoPageSinkProvider pageSinkProvider,
+            TypeManager typeManager,
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
@@ -63,6 +66,7 @@ public class MongoConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
         this.sessionProperties = sessionPropertiesProviders.stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
@@ -74,7 +78,7 @@ public class MongoConnector
     {
         checkConnectorSupports(READ_UNCOMMITTED, isolationLevel);
         MongoTransactionHandle transaction = new MongoTransactionHandle();
-        transactions.put(transaction, new MongoMetadata(mongoSession));
+        transactions.put(transaction, new MongoMetadata(mongoSession, typeManager));
         return transaction;
     }
 

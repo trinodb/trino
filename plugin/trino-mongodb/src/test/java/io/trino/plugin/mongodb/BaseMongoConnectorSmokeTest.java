@@ -141,6 +141,19 @@ public abstract class BaseMongoConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testJsonExtractScalarPredicatePushdown()
+    {
+        Session session = sessionWithComplexExpressionPushdownEnabled();
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_json_extract_predicate_pushdown",
+                "AS SELECT BIGINT '1' id, JSON '{\"name\": { \"first\": \"Monika\", \"last\": \"Geller\" }}' col")) {
+            assertThat(query(session, "SELECT id FROM " + table.getName() + " WHERE json_extract_scalar(col, '$.name.last') = 'Geller'"))
+                    .isFullyPushedDown();
+        }
+    }
+
     private Session sessionWithComplexExpressionPushdownEnabled()
     {
         return Session.builder(getSession())
