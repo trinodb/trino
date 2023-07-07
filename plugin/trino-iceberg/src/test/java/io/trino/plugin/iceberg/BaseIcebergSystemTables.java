@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -26,19 +27,29 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public class TestIcebergSystemTables
+public abstract class BaseIcebergSystemTables
         extends AbstractTestQueryFramework
 {
+    private final IcebergFileFormat format;
+
+    protected BaseIcebergSystemTables(IcebergFileFormat format)
+    {
+        this.format = requireNonNull(format, "format is null");
+    }
+
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner();
+        return IcebergQueryRunner.builder()
+                .setIcebergProperties(ImmutableMap.of("iceberg.file-format", format.name()))
+                .build();
     }
 
     @BeforeClass
@@ -146,20 +157,20 @@ public class TestIcebergSystemTables
                 rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4),
                 new MaterializedRow(DEFAULT_PRECISION,
                         new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, 1L),
+                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
                         new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
         assertEquals(
                 rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4),
                 new MaterializedRow(DEFAULT_PRECISION,
                         new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
                         new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, 1L)));
+                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
         assertEquals(
                 rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4),
                 new MaterializedRow(DEFAULT_PRECISION,
                         new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, 2L),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, 2L)));
+                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
+                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
     }
 
     @Test
@@ -269,5 +280,11 @@ public class TestIcebergSystemTables
                         "('split_offsets', 'array(bigint)', '', '')," +
                         "('equality_ids', 'array(integer)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
+
+    private Long nanCount(long value)
+    {
+        // Parquet does not have nan count metrics
+        return format == PARQUET ? null : value;
     }
 }
