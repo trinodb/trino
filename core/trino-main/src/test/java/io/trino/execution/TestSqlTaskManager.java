@@ -87,14 +87,10 @@ public class TestSqlTaskManager
 
     private TaskExecutor taskExecutor;
     private TaskManagementExecutor taskManagementExecutor;
-    private LocalMemoryManager localMemoryManager;
-    private LocalSpillManager localSpillManager;
 
     @BeforeClass
     public void setUp()
     {
-        localMemoryManager = new LocalMemoryManager(new NodeMemoryConfig());
-        localSpillManager = new LocalSpillManager(new NodeSpillConfig());
         taskExecutor = new TaskExecutor(8, 16, 3, 4, Ticker.systemTicker());
         taskExecutor.start();
         taskManagementExecutor = new TaskManagementExecutor();
@@ -322,11 +318,11 @@ public class TestSqlTaskManager
                 taskExecutor,
                 createTestSplitMonitor(),
                 new NodeInfo("test"),
-                localMemoryManager,
+                new LocalMemoryManager(nodeMemoryConfig),
                 taskManagementExecutor,
                 taskManagerConfig,
                 nodeMemoryConfig,
-                localSpillManager,
+                new LocalSpillManager(new NodeSpillConfig()),
                 new NodeSpillConfig(),
                 new TestingGcMonitor(),
                 noopTracer(),
