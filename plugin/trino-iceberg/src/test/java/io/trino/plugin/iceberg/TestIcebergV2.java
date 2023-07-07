@@ -58,7 +58,6 @@ import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.parquet.Parquet;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -241,16 +240,16 @@ public class TestIcebergV2
         String tableName = "test_optimize_table_cleans_equality_delete_file_when_whole_table_is_scanned" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         List<String> updatedFiles = getActiveFiles(tableName);
-        Assertions.assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
+        assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
     }
 
     @Test
@@ -260,16 +259,16 @@ public class TestIcebergV2
         String tableName = "test_optimize_table_with_equality_delete_file_for_different_partition_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
         List<String> updatedFiles = getActiveFiles(tableName);
-        Assertions.assertThat(updatedFiles).doesNotContain(initialActiveFiles.stream().filter(path -> !path.contains("regionkey=1")).toArray(String[]::new));
+        assertThat(updatedFiles).doesNotContain(initialActiveFiles.stream().filter(path -> !path.contains("regionkey=1")).toArray(String[]::new));
     }
 
     @Test
@@ -282,7 +281,7 @@ public class TestIcebergV2
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
     }
 
     @Test
@@ -295,7 +294,7 @@ public class TestIcebergV2
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
     }
 
     @Test
@@ -305,16 +304,16 @@ public class TestIcebergV2
         String tableName = "test_optimize_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable);
         List<String> initialActiveFiles = getActiveFiles(tableName);
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         List<String> updatedFiles = getActiveFiles(tableName);
-        Assertions.assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
+        assertThat(updatedFiles).doesNotContain(initialActiveFiles.toArray(new String[0]));
     }
 
     @Test
@@ -324,7 +323,7 @@ public class TestIcebergV2
         String tableName = "test_optimize_partitioned_table_with_global_equality_delete_file_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        Assertions.assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
+        assertThat(icebergTable.currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
@@ -332,9 +331,9 @@ public class TestIcebergV2
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
-        Assertions.assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
+        assertThat(loadTable(tableName).currentSnapshot().summary().get("total-equality-deletes")).isEqualTo("1");
         List<String> updatedFiles = getActiveFiles(tableName);
-        Assertions.assertThat(updatedFiles)
+        assertThat(updatedFiles)
                 .doesNotContain(initialActiveFiles.stream()
                                 .filter(path -> !path.contains("regionkey=1"))
                                 .toArray(String[]::new));

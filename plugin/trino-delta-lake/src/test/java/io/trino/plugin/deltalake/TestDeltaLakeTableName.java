@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake;
 
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -22,6 +21,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableType.DATA;
 import static io.trino.plugin.deltalake.DeltaLakeTableType.HISTORY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -80,7 +80,7 @@ public class TestDeltaLakeTableName
 
     private static void assertNoValidTableType(String inputName)
     {
-        Assertions.assertThat(DeltaLakeTableName.tableTypeFrom(inputName))
+        assertThat(DeltaLakeTableName.tableTypeFrom(inputName))
                 .isEmpty();
     }
 

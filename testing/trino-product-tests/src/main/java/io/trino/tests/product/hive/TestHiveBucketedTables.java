@@ -24,7 +24,6 @@ import io.trino.tempto.fulfillment.table.hive.HiveTableDefinition;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -337,7 +336,7 @@ public class TestHiveBucketedTables
             QueryResult showCreateTableResult = onTrino().executeQuery("SHOW CREATE TABLE " + tableName);
             assertThat(showCreateTableResult)
                     .hasRowsCount(1);
-            Assertions.assertThat((String) showCreateTableResult.getOnlyValue())
+            assertThat((String) showCreateTableResult.getOnlyValue())
                     .matches(Pattern.compile(format("\\QCREATE TABLE hive.default.%s (\n" +
                                     "   n_integer integer,\n" +
                                     "   n_decimal decimal(9, 2),\n" +
