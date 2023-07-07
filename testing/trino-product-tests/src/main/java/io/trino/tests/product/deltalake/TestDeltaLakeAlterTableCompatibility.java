@@ -15,7 +15,6 @@ package io.trino.tests.product.deltalake;
 
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.testng.services.Flaky;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -297,7 +296,7 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN new_column INT");
 
-            Assertions.assertThat(getTablePropertyOnDelta("default", tableName, "delta.appendOnly"))
+            assertThat(getTablePropertyOnDelta("default", tableName, "delta.appendOnly"))
                     .isEqualTo("true");
         }
         finally {
@@ -388,7 +387,7 @@ public class TestDeltaLakeAlterTableCompatibility
             onTrino().executeQuery("COMMENT ON TABLE delta.default." + tableName + " IS 'test table comment'");
             onTrino().executeQuery("ALTER TABLE delta.default." + tableName + " ADD COLUMN c INT");
 
-            Assertions.assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+            assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                             .contains((getDatabricksRuntimeVersion().orElseThrow().equals(DATABRICKS_91_RUNTIME_VERSION) ? "`b`" : "b") + " INT GENERATED ALWAYS AS ( a * 2 )");
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a, c) VALUES (1, 3)");
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
@@ -437,7 +436,7 @@ public class TestDeltaLakeAlterTableCompatibility
             assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO delta.default." + tableName + " t USING delta.default." + tableName + " s " + "ON (t.a = s.a) WHEN MATCHED THEN UPDATE SET b = 1"))
                     .hasMessageMatching(failureMessage);
 
-            Assertions.assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
+            assertThat((String) onDelta().executeQuery("SHOW CREATE TABLE default." + tableName).getOnlyValue())
                     .contains("b BIGINT GENERATED ALWAYS AS IDENTITY");
             onDelta().executeQuery("INSERT INTO default." + tableName + " (a) VALUES (0)");
 

@@ -27,7 +27,6 @@ import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.hive.util.TemporaryHiveTable;
-import org.assertj.core.api.Assertions;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -573,7 +572,7 @@ public class TestHiveTransactionalTable
 
             // ensure that we treat ACID tables as implicitly bucketed on INSERT
             String explainOutput = (String) onTrino().executeQuery("EXPLAIN " + insertQuery).getOnlyValue();
-            Assertions.assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
+            assertThat(explainOutput).contains("Output partitioning: hive:HivePartitioningHandle{buckets=1");
 
             onTrino().executeQuery(insertQuery);
 

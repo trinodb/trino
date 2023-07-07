@@ -18,7 +18,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -83,7 +82,7 @@ public class TestIcebergInsert
                     .collect(toImmutableList());
 
             // At least one INSERT per round should succeed
-            Assertions.assertThat(allInserted).hasSizeBetween(insertsPerThread, threads * insertsPerThread);
+            assertThat(allInserted).hasSizeBetween(insertsPerThread, threads * insertsPerThread);
 
             assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(allInserted.stream()

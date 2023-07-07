@@ -30,7 +30,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.JdbcDriverUtils;
 import org.apache.parquet.hadoop.ParquetWriter;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.SoftAssertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -293,7 +292,7 @@ public class TestHiveStorageFormats
     {
         String formatsDescription = (String) onTrino().executeQuery("SELECT description FROM system.metadata.table_properties WHERE catalog_name = CURRENT_CATALOG AND property_name = 'format'").getOnlyValue();
         Pattern pattern = Pattern.compile("Hive storage format for the table. Possible values: \\[([A-Z]+(, [A-z]+)+)]");
-        Assertions.assertThat(formatsDescription).matches(pattern);
+        assertThat(formatsDescription).matches(pattern);
         Matcher matcher = pattern.matcher(formatsDescription);
         verify(matcher.matches());
 
@@ -311,7 +310,7 @@ public class TestHiveStorageFormats
                 .filter(format -> !"OPENX_JSON".equals(format))
                 .collect(toImmutableSet());
 
-        Assertions.assertThat(ImmutableSet.copyOf(storageFormats()))
+        assertThat(ImmutableSet.copyOf(storageFormats()))
                 .isEqualTo(allFormatsToTest);
     }
 
@@ -620,7 +619,7 @@ public class TestHiveStorageFormats
             catch (QueryExecutionException e) {
                 if ("AVRO".equals(format)) {
                     // TODO (https://github.com/trinodb/trino/issues/9285) Some versions of Hive cannot read Avro nested structs written by Trino
-                    Assertions.assertThat(e.getCause())
+                    assertThat(e.getCause())
                             .hasToString("java.sql.SQLException: java.io.IOException: org.apache.avro.AvroTypeException: Found default.record_1, expecting union");
                 }
                 else {

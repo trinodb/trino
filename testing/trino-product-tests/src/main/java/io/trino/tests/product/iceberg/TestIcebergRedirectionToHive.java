@@ -18,7 +18,6 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import org.assertj.core.api.AbstractStringAssert;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -350,7 +349,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " ADD COLUMN some_new_column double");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + hiveTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + hiveTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey", "comment", "some_new_column");
 
         assertResultsEqual(
@@ -370,7 +369,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " RENAME COLUMN nationkey TO nation_key");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nation_key", "name", "regionkey", "comment");
 
         assertResultsEqual(
@@ -391,7 +390,7 @@ public class TestIcebergRedirectionToHive
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment");
 
-        Assertions.assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
+        assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey");
 
         // After dropping the column from the Hive metastore, access ORC columns by name
@@ -602,7 +601,7 @@ public class TestIcebergRedirectionToHive
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
+        return assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)

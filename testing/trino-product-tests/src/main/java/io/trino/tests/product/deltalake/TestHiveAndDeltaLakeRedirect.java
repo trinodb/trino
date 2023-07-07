@@ -19,7 +19,6 @@ import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import org.assertj.core.api.AbstractStringAssert;
-import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.DataProvider;
@@ -926,7 +925,7 @@ public class TestHiveAndDeltaLakeRedirect
 
     private static AbstractStringAssert<?> assertTableComment(String catalog, String schema, String tableName)
     {
-        return Assertions.assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
+        return assertThat((String) readTableComment(catalog, schema, tableName).getOnlyValue());
     }
 
     private static QueryResult readTableComment(String catalog, String schema, String tableName)
@@ -940,7 +939,7 @@ public class TestHiveAndDeltaLakeRedirect
 
     private static AbstractStringAssert<?> assertColumnComment(String catalog, String schema, String tableName, String columnName)
     {
-        return Assertions.assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
+        return assertThat((String) readColumnComment(catalog, schema, tableName, columnName).getOnlyValue());
     }
 
     private static QueryResult readColumnComment(String catalog, String schema, String tableName, String columnName)

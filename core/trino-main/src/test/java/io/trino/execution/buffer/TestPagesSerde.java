@@ -30,7 +30,6 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
-import org.assertj.core.api.Assertions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -51,6 +50,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -277,7 +277,7 @@ public class TestPagesSerde
         VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
         VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
 
-        Assertions.assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
+        assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
     }
 
     private static Page createTestPage(int numberOfEntries)
