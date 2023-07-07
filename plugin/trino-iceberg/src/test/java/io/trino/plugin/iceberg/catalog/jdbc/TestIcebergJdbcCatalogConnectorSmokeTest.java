@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.PASSWORD;
 import static io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer.USER;
 import static java.lang.String.format;
@@ -42,6 +43,7 @@ import static org.apache.iceberg.CatalogProperties.CATALOG_IMPL;
 import static org.apache.iceberg.CatalogProperties.URI;
 import static org.apache.iceberg.CatalogProperties.WAREHOUSE_LOCATION;
 import static org.apache.iceberg.CatalogUtil.buildIcebergCatalog;
+import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.jdbc.JdbcCatalog.PROPERTY_PREFIX;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -173,6 +175,9 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
+        if (format == PARQUET) {
+            return checkParquetFileSorting(fileSystem.newInputFile(path), sortColumnName);
+        }
         return checkOrcFileSorting(fileSystem, path, sortColumnName);
     }
 }

@@ -416,7 +416,7 @@ public class TestIcebergV2
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
         table = loadTable(tableName);
         assertEquals(table.operations().current().formatVersion(), 2);
-        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
+        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
         assertTrue(table.spec().isUnpartitioned());
         assertTrue(table.sortOrder().isUnsorted());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
@@ -563,12 +563,12 @@ public class TestIcebergV2
                 """
                                VALUES
                                        (0,
-                                        'ORC',
+                                        'PARQUET',
                                         25L,
-                                        null,
+                                        JSON '{"1":141,"2":220,"3":99,"4":807}',
                                         JSON '{"1":25,"2":25,"3":25,"4":25}',
-                                        JSON '{"1":0,"2":0,"3":0,"4":0}',
-                                        null,
+                                        jSON '{"1":0,"2":0,"3":0,"4":0}',
+                                        jSON '{}',
                                         JSON '{"1":"0","2":"ALGERIA","3":"0","4":" haggle. careful"}',
                                         JSON '{"1":"24","2":"VIETNAM","3":"4","4":"y final packaget"}',
                                         null,

@@ -572,7 +572,7 @@ public class TestIcebergMetadataFileOperations
             if (path.endsWith(".stats")) {
                 return STATS;
             }
-            if (path.contains("/data/") && path.endsWith(".orc")) {
+            if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
                 return DATA;
             }
             throw new IllegalArgumentException("File not recognized: " + path);

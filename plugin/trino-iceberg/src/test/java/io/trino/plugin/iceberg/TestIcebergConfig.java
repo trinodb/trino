@@ -41,7 +41,7 @@ public class TestIcebergConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
-                .setFileFormat(ORC)
+                .setFileFormat(PARQUET)
                 .setCompressionCodec(ZSTD)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
@@ -68,7 +68,7 @@ public class TestIcebergConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("iceberg.file-format", "Parquet")
+                .put("iceberg.file-format", "ORC")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
@@ -92,7 +92,7 @@ public class TestIcebergConfig
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
-                .setFileFormat(PARQUET)
+                .setFileFormat(ORC)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
