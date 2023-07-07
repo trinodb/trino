@@ -338,6 +338,44 @@
                                     <old>class io.trino.spi.block.SingleMapBlock</old>
                                     <new>class io.trino.spi.block.SingleMapBlock</new>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractRowBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractSingleRowBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.field.visibilityReduced</code>
+                                    <old>field io.trino.spi.block.AbstractRowBlock.numFields @ io.trino.spi.block.RowBlock</old>
+                                    <new>field io.trino.spi.block.RowBlock.numFields</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>private</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
+                                    <new>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRowIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.RowBlock</old>
+                                    <new>class io.trino.spi.block.RowBlock</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.SingleRowBlock::getRawFieldBlock(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.SingleRowBlock</old>
+                                    <new>class io.trino.spi.block.SingleRowBlock</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
