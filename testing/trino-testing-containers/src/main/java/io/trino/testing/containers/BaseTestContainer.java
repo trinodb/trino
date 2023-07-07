@@ -13,6 +13,7 @@
  */
 package io.trino.testing.containers;
 
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -20,6 +21,7 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;
 import io.trino.testing.ResourcePresence;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -111,6 +113,16 @@ public abstract class BaseTestContainer
                                 // and mounted from there.
                                 .getResolvedPath()),
                 dockerPath);
+    }
+
+    protected void mountDirectory(String hostPath, String dockerPath)
+    {
+        container.addFileSystemBind(hostPath, dockerPath, BindMode.READ_WRITE);
+    }
+
+    protected void withCreateContainerModifier(Consumer<CreateContainerCmd> modifier)
+    {
+        container.withCreateContainerCmdModifier(modifier);
     }
 
     protected HostAndPort getMappedHostAndPortForExposedPort(int exposedPort)
