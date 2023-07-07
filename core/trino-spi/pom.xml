@@ -279,6 +279,25 @@
                                     <code>java.class.removed</code>
                                     <old>class io.trino.spi.block.AbstractSingleArrayBlock</old>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractArrayBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.method.parameterTypeChanged</code>
+                                    <old>parameter &lt;T&gt; T io.trino.spi.block.AbstractArrayBlock::apply(===io.trino.spi.block.AbstractArrayBlock.ArrayBlockFunction&lt;T&gt;===, int) @ io.trino.spi.block.ArrayBlock</old>
+                                    <new>parameter &lt;T&gt; T io.trino.spi.block.ArrayBlock::apply(===io.trino.spi.block.ArrayBlock.ArrayBlockFunction&lt;T&gt;===, int)</new>
+                                    <parameterIndex>0</parameterIndex>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean[] io.trino.spi.block.ArrayBlock::getValueIsNull()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.noLongerInheritsFromClass</code>
+                                    <old>class io.trino.spi.block.ArrayBlock</old>
+                                    <new>class io.trino.spi.block.ArrayBlock</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
