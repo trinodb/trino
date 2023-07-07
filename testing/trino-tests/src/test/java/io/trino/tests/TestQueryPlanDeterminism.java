@@ -265,7 +265,7 @@ public class TestQueryPlanDeterminism
     }
 
     @Override
-    public void testLargeIn(int valuesCount)
+    public void testLargeIn()
     {
         // testLargeIn is expensive
         throw new SkipException("Skipping testLargeIn");
