@@ -960,7 +960,7 @@ public final class HttpRemoteTask
                     // if cleanup operation has not at least started task termination, mark the task failed
                     TaskState taskState = getTaskInfo().getTaskStatus().getState();
                     if (!taskState.isTerminatingOrDone()) {
-                        fatalUnacknowledgedFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
+                        fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), format("Unable to %s task at %s, last known state was: %s", action, request.getUri(), taskState)));
                     }
                 }
             }
@@ -977,7 +977,7 @@ public final class HttpRemoteTask
                 if (t instanceof RejectedExecutionException && httpClient.isClosed()) {
                     String message = format("Unable to %s task at %s. HTTP client is closed.", action, request.getUri());
                     logError(t, message);
-                    fatalUnacknowledgedFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
+                    fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
                     return;
                 }
 
@@ -985,7 +985,7 @@ public final class HttpRemoteTask
                 if (cleanupBackoff.failure()) {
                     String message = format("Unable to %s task at %s. Back off depleted.", action, request.getUri());
                     logError(t, message);
-                    fatalUnacknowledgedFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
+                    fatalAsyncCleanupFailure(new TrinoTransportException(REMOTE_TASK_ERROR, fromUri(request.getUri()), message));
                     return;
                 }
 
@@ -996,6 +996,29 @@ public final class HttpRemoteTask
                 }
                 else {
                     errorScheduledExecutor.schedule(() -> doScheduleAsyncCleanupRequest(cleanupBackoff, request, action), delayNanos, NANOSECONDS);
+                }
+            }
+
+            private void fatalAsyncCleanupFailure(TrinoTransportException cause)
+            {
+                synchronized (HttpRemoteTask.this) {
+                    try (SetThreadName ignored = new SetThreadName("HttpRemoteTask-%s", taskId)) {
+                        TaskStatus taskStatus = getTaskStatus();
+                        if (taskStatus.getState().isDone()) {
+                            log.warn("Task %s already in terminal state %s; cannot overwrite with FAILED due to %s",
+                                    taskStatus.getTaskId(),
+                                    taskStatus.getState(),
+                                    cause);
+                        }
+                        else {
+                            List<ExecutionFailureInfo> failures = ImmutableList.<ExecutionFailureInfo>builderWithExpectedSize(taskStatus.getFailures().size() + 1)
+                                    .add(toFailure(cause))
+                                    .addAll(taskStatus.getFailures())
+                                    .build();
+                            taskStatus = failWith(taskStatus, FAILED, failures);
+                        }
+                        updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+                    }
                 }
             }
         }, executor);
