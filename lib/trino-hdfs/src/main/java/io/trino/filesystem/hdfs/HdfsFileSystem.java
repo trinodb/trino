@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.hdfs;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -48,6 +49,13 @@ import static java.util.stream.Collectors.toList;
 class HdfsFileSystem
         implements TrinoFileSystem
 {
+    private static final Map<String, Boolean> KNOWN_HIERARCHICAL_FILESYSTEMS = ImmutableMap.<String, Boolean>builder()
+            .put("s3", false)
+            .put("s3a", false)
+            .put("s3n", false)
+            .put("hdfs", true)
+            .buildOrThrow();
+
     private final HdfsEnvironment environment;
     private final HdfsContext context;
     private final TrinoHdfsFileSystemStats stats;
@@ -224,6 +232,11 @@ class HdfsFileSystem
 
     private boolean hierarchical(FileSystem fileSystem, Location rootLocation)
     {
+        Boolean knownResult = KNOWN_HIERARCHICAL_FILESYSTEMS.get(fileSystem.getScheme());
+        if (knownResult != null) {
+            return knownResult;
+        }
+
         Boolean cachedResult = hierarchicalFileSystemCache.get(fileSystem);
         if (cachedResult != null) {
             return cachedResult;

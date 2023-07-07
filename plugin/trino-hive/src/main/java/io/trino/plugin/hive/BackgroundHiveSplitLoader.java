@@ -563,12 +563,12 @@ public class BackgroundHiveSplitLoader
 
     private List<TrinoFileStatus> listBucketFiles(TrinoFileSystem fs, Location location, String partitionName)
     {
-        if (!ignoreAbsentPartitions) {
-            checkPartitionLocationExists(fs, location);
-        }
-
         try {
-            return ImmutableList.copyOf(new HiveFileIterator(table, location, fs, directoryLister, hdfsNamenodeStats, FAIL));
+            HiveFileIterator fileIterator = new HiveFileIterator(table, location, fs, directoryLister, hdfsNamenodeStats, FAIL);
+            if (!fileIterator.hasNext() && !ignoreAbsentPartitions) {
+                checkPartitionLocationExists(fs, location);
+            }
+            return ImmutableList.copyOf(fileIterator);
         }
         catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
             // Fail here to be on the safe side. This seems to be the same as what Hive does
@@ -651,9 +651,11 @@ public class BackgroundHiveSplitLoader
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
         Location location = Location.of(parent.toString());
 
-        checkPartitionLocationExists(trinoFileSystem, location);
         Map<Path, TrinoFileStatus> fileStatuses = new HashMap<>();
         HiveFileIterator fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, hdfsNamenodeStats, IGNORED);
+        if (!fileStatusIterator.hasNext()) {
+            checkPartitionLocationExists(trinoFileSystem, location);
+        }
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(getPathWithoutSchemeAndAuthority(new Path(status.getPath())), status));
 
         List<TrinoFileStatus> locatedFileStatuses = new ArrayList<>();
@@ -814,11 +816,10 @@ public class BackgroundHiveSplitLoader
 
     private Iterator<InternalHiveSplit> createInternalHiveSplitIterator(TrinoFileSystem fileSystem, Location location, InternalHiveSplitFactory splitFactory, boolean splittable, Optional<AcidInfo> acidInfo)
     {
-        if (!ignoreAbsentPartitions) {
+        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, location, fileSystem, directoryLister, hdfsNamenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED);
+        if (!iterator.hasNext() && !ignoreAbsentPartitions) {
             checkPartitionLocationExists(fileSystem, location);
         }
-
-        Iterator<TrinoFileStatus> iterator = new HiveFileIterator(table, location, fileSystem, directoryLister, hdfsNamenodeStats, recursiveDirWalkerEnabled ? RECURSE : IGNORED);
         return createInternalHiveSplitIterator(splitFactory, splittable, acidInfo, Streams.stream(iterator));
     }
 
