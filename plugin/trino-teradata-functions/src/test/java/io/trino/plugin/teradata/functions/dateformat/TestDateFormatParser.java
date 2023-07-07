@@ -22,6 +22,7 @@ import org.testng.annotations.Test;
 import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestDateFormatParser
@@ -50,16 +51,18 @@ public class TestDateFormatParser
                 asList(DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED));
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testInvalidTokenCreate1()
     {
-        DateFormatParser.createDateTimeFormatter("ala");
+        assertThatThrownBy(() -> DateFormatParser.createDateTimeFormatter("ala"))
+                .isInstanceOf(TrinoException.class);
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testInvalidTokenCreate2()
     {
-        DateFormatParser.createDateTimeFormatter("yyym/mm/dd");
+        assertThatThrownBy(() -> DateFormatParser.createDateTimeFormatter("yyym/mm/dd"))
+                .isInstanceOf(TrinoException.class);
     }
 
     @Test
