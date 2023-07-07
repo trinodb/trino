@@ -275,6 +275,10 @@
                                     <code>java.method.removed</code>
                                     <old>method void io.trino.spi.security.SystemAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.security.SystemSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.CatalogSchemaRoutineName, io.trino.spi.security.TrinoPrincipal, boolean)</old>
                                 </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.AbstractSingleArrayBlock</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
