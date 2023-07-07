@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.trino.client.uri;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import org.ietf.jgss.GSSCredential;
 
@@ -37,9 +38,9 @@ import static com.google.common.collect.Maps.immutableEntry;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.client.ClientSelectedRole.Type.ALL;
 import static io.trino.client.ClientSelectedRole.Type.NONE;
-import static io.trino.jdbc.AbstractConnectionProperty.Validator;
-import static io.trino.jdbc.AbstractConnectionProperty.checkedPredicate;
-import static io.trino.jdbc.AbstractConnectionProperty.validator;
+import static io.trino.client.uri.AbstractConnectionProperty.Validator;
+import static io.trino.client.uri.AbstractConnectionProperty.checkedPredicate;
+import static io.trino.client.uri.AbstractConnectionProperty.validator;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
