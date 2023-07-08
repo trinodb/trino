@@ -96,9 +96,11 @@ import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Duration;
 import java.util.List;
@@ -206,8 +208,9 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
@@ -3052,7 +3055,8 @@ public class TestAnalyzer
         analyze("SELECT CAST('1' as CHAR(1)) LIKE '1'");
     }
 
-    @Test(enabled = false) // TODO: need to support widening conversion for numbers
+    @Test // TODO: need to support widening conversion for numbers
+    @Disabled
     public void testInWithNumericTypes()
     {
         analyze("SELECT * FROM t1 WHERE 1 IN (1, 2, 3.5)");
@@ -6689,7 +6693,7 @@ public class TestAnalyzer
                 .hasMessage("line 1:46: UNNEST cannot contain aggregations, window functions or grouping operations: [COUNT(t.a)]");
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         closer = Closer.create();
@@ -7011,7 +7015,7 @@ public class TestAnalyzer
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
