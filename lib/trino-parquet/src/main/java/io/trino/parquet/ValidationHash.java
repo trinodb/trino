@@ -114,11 +114,15 @@ class ValidationHash
 
     private static long mapHash(MapType type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
     {
-        SqlMap map = type.getObject(block, position);
+        SqlMap sqlMap = type.getObject(block, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         long hash = 0;
-        for (int i = 0; i < map.getPositionCount(); i += 2) {
-            hash = 31 * hash + keyHash.hash(map, i);
-            hash = 31 * hash + valueHash.hash(map, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            hash = 31 * hash + keyHash.hash(rawKeyBlock, rawOffset + i);
+            hash = 31 * hash + valueHash.hash(rawValueBlock, rawOffset + i);
         }
         return hash;
     }

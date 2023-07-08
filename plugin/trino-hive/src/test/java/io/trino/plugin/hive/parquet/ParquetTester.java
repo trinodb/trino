@@ -580,9 +580,13 @@ public class ParquetTester
 
     private static Map<?, ?> toMapValue(SqlMap sqlMap, Type keyType, Type valueType)
     {
-        Map<Object, Object> map = new HashMap<>(sqlMap.getPositionCount() * 2);
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            map.put(keyType.getObjectValue(SESSION, sqlMap, i), valueType.getObjectValue(SESSION, sqlMap, i + 1));
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(keyType.getObjectValue(SESSION, rawKeyBlock, rawOffset + i), valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + i));
         }
         return Collections.unmodifiableMap(map);
     }

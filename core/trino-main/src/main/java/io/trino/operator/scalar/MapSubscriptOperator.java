@@ -108,41 +108,41 @@ public class MapSubscriptOperator
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, SqlMap sqlMap, boolean key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, SqlMap sqlMap, long key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, SqlMap sqlMap, double key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, SqlMap sqlMap, Object key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     private static class MissingKeyExceptionFactory

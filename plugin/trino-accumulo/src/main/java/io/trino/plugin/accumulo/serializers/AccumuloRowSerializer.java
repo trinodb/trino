@@ -511,11 +511,15 @@ public interface AccumuloRowSerializer
      */
     static Map<Object, Object> getMapFromSqlMap(Type type, SqlMap sqlMap)
     {
-        Map<Object, Object> map = new HashMap<>(sqlMap.getPositionCount() / 2);
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
         Type keyType = Types.getKeyType(type);
         Type valueType = Types.getValueType(type);
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            map.put(readObject(keyType, sqlMap, i), readObject(valueType, sqlMap, i + 1));
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(readObject(keyType, rawKeyBlock, rawOffset + i), readObject(valueType, rawValueBlock, rawOffset + i));
         }
         return map;
     }

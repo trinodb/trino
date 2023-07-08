@@ -49,7 +49,7 @@ public class SqlMapBlockEncoding
         if (hashTable.isPresent()) {
             int hashTableLength = size * HASH_MULTIPLIER;
             sliceOutput.appendInt(hashTableLength);  // hashtable length
-            sliceOutput.writeInts(hashTable.get(), offset / 2 * HASH_MULTIPLIER, hashTableLength);
+            sliceOutput.writeInts(hashTable.get(), offset * HASH_MULTIPLIER, hashTableLength);
         }
         else {
             // if the hashTable is null, we write the length -1

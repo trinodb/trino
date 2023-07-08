@@ -1379,20 +1379,27 @@ public final class MathFunctions
 
     private static double mapDotProduct(BlockPositionIsDistinctFrom varcharDistinct, BlockPositionHashCode varcharHashCode, SqlMap leftMap, SqlMap rightMap)
     {
-        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharDistinct, varcharHashCode, rightMap.getPositionCount() / 2);
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawKeyBlock = rightMap.getRawKeyBlock();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
 
-        for (int i = 0; i < rightMap.getPositionCount(); i += 2) {
-            rightMapKeys.add(rightMap, i);
+        BlockSet rightMapKeys = new BlockSet(VARCHAR, varcharDistinct, varcharHashCode, rightMap.getSize());
+
+        for (int i = 0; i < rightMap.getSize(); i++) {
+            rightMapKeys.add(rightRawKeyBlock, rightRawOffset + i);
         }
 
         double result = 0.0;
 
-        for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
-            int position = rightMapKeys.positionOf(leftMap, i);
+        for (int leftIndex = 0; leftIndex < leftMap.getSize(); leftIndex++) {
+            int rightIndex = rightMapKeys.positionOf(leftRawKeyBlock, leftRawOffset + leftIndex);
 
-            if (position != -1) {
-                result += DOUBLE.getDouble(leftMap, i + 1) *
-                        DOUBLE.getDouble(rightMap, 2 * position + 1);
+            if (rightIndex != -1) {
+                result += DOUBLE.getDouble(leftRawValueBlock, leftRawOffset + leftIndex) *
+                        DOUBLE.getDouble(rightRawValueBlock, rightRawOffset + rightIndex);
             }
         }
 
@@ -1401,13 +1408,16 @@ public final class MathFunctions
 
     private static Double mapL2Norm(SqlMap map)
     {
+        int rawOffset = map.getRawOffset();
+        Block rawValueBlock = map.getRawValueBlock();
+
         double norm = 0.0;
 
-        for (int i = 1; i < map.getPositionCount(); i += 2) {
-            if (map.isNull(i)) {
+        for (int i = 0; i < map.getSize(); i++) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
                 return null;
             }
-            norm += DOUBLE.getDouble(map, i) * DOUBLE.getDouble(map, i);
+            norm += DOUBLE.getDouble(rawValueBlock, rawOffset + i) * DOUBLE.getDouble(rawValueBlock, rawOffset + i);
         }
 
         return Math.sqrt(norm);

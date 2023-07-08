@@ -102,40 +102,40 @@ public class MapElementAtFunction
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, SqlMap sqlMap, boolean key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             return null;
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, SqlMap sqlMap, long key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             return null;
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, SqlMap sqlMap, double key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             return null;
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 
     @UsedByGeneratedCode
     public static Object elementAt(Type valueType, SqlMap sqlMap, Object key)
     {
-        int valuePosition = sqlMap.seekKeyExact(key);
-        if (valuePosition == -1) {
+        int index = sqlMap.seekKeyExact(key);
+        if (index == -1) {
             return null;
         }
-        return readNativeValue(valueType, sqlMap, valuePosition);
+        return readNativeValue(valueType, sqlMap.getRawValueBlock(), sqlMap.getRawOffset() + index);
     }
 }

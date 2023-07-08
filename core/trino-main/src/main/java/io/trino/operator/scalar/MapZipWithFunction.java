@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
@@ -96,37 +97,47 @@ public final class MapZipWithFunction
     {
         Type outputValueType = outputMapType.getValueType();
 
-        int maxOutputSize = (leftMap.getPositionCount() + rightMap.getPositionCount()) / 2;
+        int leftSize = leftMap.getSize();
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+
+        int rightSize = rightMap.getSize();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawKeyBlock = rightMap.getRawKeyBlock();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
+
+        int maxOutputSize = (leftSize + rightSize);
         BufferedMapValueBuilder mapValueBuilder = (BufferedMapValueBuilder) state;
         return mapValueBuilder.build(maxOutputSize, (keyBuilder, valueBuilder) -> {
-            // seekKey() can take non-trivial time when key is complicated value, such as a long VARCHAR or ROW.
-            boolean[] keyFound = new boolean[rightMap.getPositionCount()];
-            for (int leftKeyPosition = 0; leftKeyPosition < leftMap.getPositionCount(); leftKeyPosition += 2) {
-                Object key = readNativeValue(keyType, leftMap, leftKeyPosition);
-                Object leftValue = readNativeValue(leftValueType, leftMap, leftKeyPosition + 1);
+            // seekKey() can take non-trivial time when key is a complicated value, such as a long VARCHAR or ROW.
+            boolean[] keyFound = new boolean[rightSize];
+            for (int leftIndex = 0; leftIndex < leftSize; leftIndex++) {
+                Object key = readNativeValue(keyType, leftRawKeyBlock, leftRawOffset + leftIndex);
+                Object leftValue = readNativeValue(leftValueType, leftRawValueBlock, leftRawOffset + leftIndex);
 
-                int rightValuePosition = rightMap.seekKey(key);
+                int rightIndex = rightMap.seekKey(key);
                 Object rightValue = null;
-                if (rightValuePosition != -1) {
-                    rightValue = readNativeValue(rightValueType, rightMap, rightValuePosition);
-                    keyFound[rightValuePosition / 2] = true;
+                if (rightIndex != -1) {
+                    rightValue = readNativeValue(rightValueType, rightRawValueBlock, rightRawOffset + rightIndex);
+                    keyFound[rightIndex] = true;
                 }
 
                 Object outputValue = function.apply(key, leftValue, rightValue);
 
-                keyType.appendTo(leftMap, leftKeyPosition, keyBuilder);
+                keyType.appendTo(leftRawKeyBlock, leftRawOffset + leftIndex, keyBuilder);
                 writeNativeValue(outputValueType, valueBuilder, outputValue);
             }
 
             // iterate over keys that only exists in rightMap
-            for (int rightKeyPosition = 0; rightKeyPosition < rightMap.getPositionCount(); rightKeyPosition += 2) {
-                if (!keyFound[rightKeyPosition / 2]) {
-                    Object key = readNativeValue(keyType, rightMap, rightKeyPosition);
-                    Object rightValue = readNativeValue(rightValueType, rightMap, rightKeyPosition + 1);
+            for (int rightIndex = 0; rightIndex < rightSize; rightIndex++) {
+                if (!keyFound[rightIndex]) {
+                    Object key = readNativeValue(keyType, rightRawKeyBlock, rightRawOffset + rightIndex);
+                    Object rightValue = readNativeValue(rightValueType, rightRawValueBlock, rightRawOffset + rightIndex);
 
                     Object outputValue = function.apply(key, null, rightValue);
 
-                    keyType.appendTo(rightMap, rightKeyPosition, keyBuilder);
+                    keyType.appendTo(rightRawKeyBlock, rightRawOffset + rightIndex, keyBuilder);
                     writeNativeValue(outputValueType, valueBuilder, outputValue);
                 }
             }

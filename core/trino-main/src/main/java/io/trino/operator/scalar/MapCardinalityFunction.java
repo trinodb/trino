@@ -31,6 +31,6 @@ public final class MapCardinalityFunction
     @SqlType(StandardTypes.BIGINT)
     public static long mapCardinality(@SqlType("map(K,V)") SqlMap sqlMap)
     {
-        return sqlMap.getPositionCount() / 2;
+        return sqlMap.getSize();
     }
 }

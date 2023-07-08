@@ -129,26 +129,30 @@ public final class AvroDecoderTestUtil
 
         Map<?, ?> expected = (Map<?, ?>) value;
 
-        assertEquals(sqlMap.getPositionCount(), expected.size() * 2);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        assertEquals(sqlMap.getSize(), expected.size());
         Type valueType = ((MapType) type).getValueType();
-        for (int index = 0; index < sqlMap.getPositionCount(); index += 2) {
-            String actualKey = VARCHAR.getSlice(sqlMap, index).toStringUtf8();
+        for (int index = 0; index < sqlMap.getSize(); index++) {
+            String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + index).toStringUtf8();
             assertTrue(expected.containsKey(actualKey));
-            if (sqlMap.isNull(index + 1)) {
+            if (rawValueBlock.isNull(rawOffset + index)) {
                 assertNull(expected.get(actualKey));
                 continue;
             }
             if (valueType instanceof ArrayType arrayType) {
-                checkArrayValues(arrayType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
+                checkArrayValues(arrayType.getObject(rawValueBlock, rawOffset + index), valueType, expected.get(actualKey));
             }
             else if (valueType instanceof MapType mapType) {
-                checkMapValues(mapType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
+                checkMapValues(mapType.getObject(rawValueBlock, rawOffset + index), valueType, expected.get(actualKey));
             }
             else if (valueType instanceof RowType rowType) {
-                checkRowValues(rowType.getObject(sqlMap, index + 1), valueType, expected.get(actualKey));
+                checkRowValues(rowType.getObject(rawValueBlock, rawOffset + index), valueType, expected.get(actualKey));
             }
             else {
-                checkPrimitiveValue(valueType.getObjectValue(SESSION, sqlMap, index + 1), expected.get(actualKey));
+                checkPrimitiveValue(valueType.getObjectValue(SESSION, rawValueBlock, rawOffset + index), expected.get(actualKey));
             }
         }
     }
