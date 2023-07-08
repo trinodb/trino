@@ -21,6 +21,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 
 import java.lang.reflect.InvocationTargetException;
@@ -203,8 +204,12 @@ public final class ModelUtils
         Map<Integer, Double> features = new HashMap<>();
 
         if (sqlMap != null) {
-            for (int position = 0; position < sqlMap.getPositionCount(); position += 2) {
-                features.put((int) BIGINT.getLong(sqlMap, position), DOUBLE.getDouble(sqlMap, position + 1));
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                features.put((int) BIGINT.getLong(rawKeyBlock, rawOffset + i), DOUBLE.getDouble(rawValueBlock, rawOffset + i));
             }
         }
         return new FeatureVector(features);

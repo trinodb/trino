@@ -307,18 +307,21 @@ public class TestMapBlock
 
         assertFalse(mapBlock.isNull(position));
         SqlMap sqlMap = mapType.getObject(mapBlock, position);
-        assertEquals(sqlMap.getPositionCount(), map.size() * 2);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+        assertEquals(sqlMap.getSize(), map.size());
 
         // Test new/hash-index access: assert inserted keys
         for (Map.Entry<String, Long> entry : map.entrySet()) {
-            int pos = sqlMap.seekKey(utf8Slice(entry.getKey()));
-            assertNotEquals(pos, -1);
+            int index = sqlMap.seekKey(utf8Slice(entry.getKey()));
+            assertNotEquals(index, -1);
             if (entry.getValue() == null) {
-                assertTrue(sqlMap.isNull(pos));
+                assertTrue(rawValueBlock.isNull(rawOffset + index));
             }
             else {
-                assertFalse(sqlMap.isNull(pos));
-                assertEquals(BIGINT.getLong(sqlMap, pos), (long) entry.getValue());
+                assertFalse(rawValueBlock.isNull(rawOffset + index));
+                assertEquals(BIGINT.getLong(rawValueBlock, rawOffset + index), (long) entry.getValue());
             }
         }
         // Test new/hash-index access: assert non-existent keys
@@ -327,14 +330,14 @@ public class TestMapBlock
         }
 
         // Test legacy/iterative access
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            String actualKey = VARCHAR.getSlice(sqlMap, i).toStringUtf8();
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            String actualKey = VARCHAR.getSlice(rawKeyBlock, rawOffset + i).toStringUtf8();
             Long actualValue;
-            if (sqlMap.isNull(i + 1)) {
+            if (rawValueBlock.isNull(rawOffset + i)) {
                 actualValue = null;
             }
             else {
-                actualValue = BIGINT.getLong(sqlMap, i + 1);
+                actualValue = BIGINT.getLong(rawValueBlock, rawOffset + i);
             }
             assertTrue(map.containsKey(actualKey));
             assertEquals(actualValue, map.get(actualKey));

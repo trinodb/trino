@@ -199,10 +199,14 @@ public class OpenXJsonSerializer
             Type valueType = mapType.getValueType();
             SqlMap sqlMap = mapType.getObject(block, position);
 
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
             Map<String, Object> jsonMap = new LinkedHashMap<>();
-            for (int mapIndex = 0; mapIndex < sqlMap.getPositionCount(); mapIndex += 2) {
+            for (int mapIndex = 0; mapIndex < sqlMap.getSize(); mapIndex++) {
                 try {
-                    Object key = writeValue(keyType, sqlMap, mapIndex);
+                    Object key = writeValue(keyType, rawKeyBlock, rawOffset + mapIndex);
                     if (key == null) {
                         throw new RuntimeException("OpenX JsonSerDe can not write a null map key");
                     }
@@ -217,7 +221,7 @@ public class OpenXJsonSerializer
                         fieldName = key.toString();
                     }
 
-                    Object value = writeValue(valueType, sqlMap, mapIndex + 1);
+                    Object value = writeValue(valueType, rawValueBlock, rawOffset + mapIndex);
                     jsonMap.put(fieldName, value);
                 }
                 catch (InvalidJsonException ignored) {
