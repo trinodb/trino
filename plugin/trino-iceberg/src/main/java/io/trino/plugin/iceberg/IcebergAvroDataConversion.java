@@ -212,10 +212,14 @@ public final class IcebergAvroDataConversion
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
 
             SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-                Object key = toIcebergAvroObject(keyType, keyIcebergType, sqlMap, i);
-                Object value = toIcebergAvroObject(valueType, valueIcebergType, sqlMap, i + 1);
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                Object key = toIcebergAvroObject(keyType, keyIcebergType, rawKeyBlock, rawOffset + i);
+                Object value = toIcebergAvroObject(valueType, valueIcebergType, rawValueBlock, rawOffset + i);
                 map.put(key, value);
             }
 

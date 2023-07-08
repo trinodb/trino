@@ -1313,10 +1313,17 @@ public class PostgreSqlClient
 
     private ObjectWriteFunction hstoreWriteFunction(ConnectorSession session)
     {
-        return ObjectWriteFunction.of(SqlMap.class, (statement, index, block) -> {
+        return ObjectWriteFunction.of(SqlMap.class, (statement, index, sqlMap) -> {
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
+
+            Type keyType = varcharMapType.getKeyType();
+            Type valueType = varcharMapType.getValueType();
+
             Map<Object, Object> map = new HashMap<>();
-            for (int i = 0; i < block.getPositionCount(); i += 2) {
-                map.put(varcharMapType.getKeyType().getObjectValue(session, block, i), varcharMapType.getValueType().getObjectValue(session, block, i + 1));
+            for (int i = 0; i < sqlMap.getSize(); i++) {
+                map.put(keyType.getObjectValue(session, rawKeyBlock, rawOffset + i), valueType.getObjectValue(session, rawValueBlock, rawOffset + i));
             }
             statement.setObject(index, Collections.unmodifiableMap(map));
         });

@@ -607,16 +607,21 @@ public final class JsonUtil
             }
             else {
                 SqlMap sqlMap = type.getObject(block, position);
+
+                int rawOffset = sqlMap.getRawOffset();
+                Block rawKeyBlock = sqlMap.getRawKeyBlock();
+                Block rawValueBlock = sqlMap.getRawValueBlock();
+
                 Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-                for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-                    String objectKey = keyProvider.getObjectKey(sqlMap, i);
-                    orderedKeyToValuePosition.put(objectKey, i + 1);
+                for (int i = 0; i < sqlMap.getSize(); i++) {
+                    String objectKey = keyProvider.getObjectKey(rawKeyBlock, rawOffset + i);
+                    orderedKeyToValuePosition.put(objectKey, i);
                 }
 
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    valueWriter.writeJsonValue(jsonGenerator, sqlMap, entry.getValue());
+                    valueWriter.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }

@@ -217,9 +217,14 @@ public class PrometheusRecordCursor
         MapType mapType = (MapType) type;
         Type keyType = mapType.getKeyType();
         Type valueType = mapType.getValueType();
-        Map<Object, Object> map = new HashMap<>(sqlMap.getPositionCount() / 2);
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            map.put(readObject(keyType, sqlMap, i), readObject(valueType, sqlMap, i + 1));
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        Map<Object, Object> map = new HashMap<>(sqlMap.getSize());
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            map.put(readObject(keyType, rawKeyBlock, rawOffset + i), readObject(valueType, rawValueBlock, rawOffset + i));
         }
         return map;
     }

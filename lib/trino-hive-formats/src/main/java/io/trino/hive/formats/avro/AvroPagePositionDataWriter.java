@@ -464,14 +464,16 @@ public class AvroPagePositionDataWriter
                 throws IOException
         {
             SqlMap sqlMap = type.getObject(block, position);
-            keyBlockPositionEncoder.setBlock(sqlMap);
-            valueBlockPositionEncoder.setBlock(sqlMap);
+            keyBlockPositionEncoder.setBlock(sqlMap.getRawKeyBlock());
+            valueBlockPositionEncoder.setBlock(sqlMap.getRawValueBlock());
             encoder.writeMapStart();
-            encoder.setItemCount(sqlMap.getPositionCount() / 2);
-            for (int mapIndex = 0; mapIndex < sqlMap.getPositionCount(); mapIndex += 2) {
+            encoder.setItemCount(sqlMap.getSize());
+
+            int rawOffset = sqlMap.getRawOffset();
+            for (int i = 0; i < sqlMap.getSize(); i++) {
                 encoder.startItem();
-                keyBlockPositionEncoder.encode(mapIndex, encoder);
-                valueBlockPositionEncoder.encode(mapIndex + 1, encoder);
+                keyBlockPositionEncoder.encode(rawOffset + i, encoder);
+                valueBlockPositionEncoder.encode(rawOffset + i, encoder);
             }
             encoder.writeMapEnd();
         }

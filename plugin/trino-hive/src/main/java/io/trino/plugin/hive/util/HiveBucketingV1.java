@@ -204,9 +204,14 @@ final class HiveBucketingV1
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         int result = 0;
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            result += hash(keyTypeInfo, sqlMap, i) ^ hash(valueTypeInfo, sqlMap, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            result += hash(keyTypeInfo, rawKeyBlock, rawOffset + i) ^ hash(valueTypeInfo, rawValueBlock, rawOffset + i);
         }
         return result;
     }

@@ -48,18 +48,21 @@ public class MapEntriesFunction
             @SqlType("map(K,V)") SqlMap sqlMap)
     {
         verify(rowType.getTypeParameters().size() == 2);
-        verify(sqlMap.getPositionCount() % 2 == 0);
 
         Type keyType = rowType.getTypeParameters().get(0);
         Type valueType = rowType.getTypeParameters().get(1);
 
-        int entryCount = sqlMap.getPositionCount() / 2;
-        return arrayValueBuilder.build(entryCount, valueBuilder -> {
-            for (int i = 0; i < entryCount; i++) {
-                int position = 2 * i;
+        int size = sqlMap.getSize();
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
+        return arrayValueBuilder.build(size, valueBuilder -> {
+            for (int i = 0; i < size; i++) {
+                int offset = rawOffset + i;
                 ((RowBlockBuilder) valueBuilder).buildEntry(fieldBuilders -> {
-                    keyType.appendTo(sqlMap, position, fieldBuilders.get(0));
-                    valueType.appendTo(sqlMap, position + 1, fieldBuilders.get(1));
+                    keyType.appendTo(rawKeyBlock, offset, fieldBuilders.get(0));
+                    valueType.appendTo(rawValueBlock, offset, fieldBuilders.get(1));
                 });
             }
         });

@@ -34,8 +34,12 @@ public interface HistogramState
     default void merge(HistogramState other)
     {
         SqlMap serializedState = ((SingleHistogramState) other).removeTempSerializedState();
-        for (int i = 0; i < serializedState.getPositionCount(); i += 2) {
-            add(serializedState, i, BIGINT.getLong(serializedState, i + 1));
+        int rawOffset = serializedState.getRawOffset();
+        Block rawKeyBlock = serializedState.getRawKeyBlock();
+        Block rawValueBlock = serializedState.getRawValueBlock();
+
+        for (int i = 0; i < serializedState.getSize(); i++) {
+            add(rawKeyBlock, rawOffset + i, BIGINT.getLong(rawValueBlock, rawOffset + i));
         }
     }
 
