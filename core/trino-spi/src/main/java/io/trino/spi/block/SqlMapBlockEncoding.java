@@ -40,14 +40,14 @@ public class SqlMapBlockEncoding
         SqlMap sqlMap = (SqlMap) block;
         blockEncodingSerde.writeType(sliceOutput, sqlMap.getMapType());
 
-        int offset = sqlMap.getOffset();
-        int positionCount = sqlMap.getPositionCount();
-        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawKeyBlock().getRegion(offset / 2, positionCount / 2));
-        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawValueBlock().getRegion(offset / 2, positionCount / 2));
+        int offset = sqlMap.getRawOffset();
+        int size = sqlMap.getSize();
+        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawKeyBlock().getRegion(offset, size));
+        blockEncodingSerde.writeBlock(sliceOutput, sqlMap.getRawValueBlock().getRegion(offset, size));
 
         Optional<int[]> hashTable = sqlMap.tryGetHashTable();
         if (hashTable.isPresent()) {
-            int hashTableLength = positionCount / 2 * HASH_MULTIPLIER;
+            int hashTableLength = size * HASH_MULTIPLIER;
             sliceOutput.appendInt(hashTableLength);  // hashtable length
             sliceOutput.writeInts(hashTable.get(), offset / 2 * HASH_MULTIPLIER, hashTableLength);
         }
@@ -90,6 +90,6 @@ public class SqlMapBlockEncoding
                 valueBlock,
                 new SqlMap.HashTableSupplier(hashTable),
                 0,
-                keyBlock.getPositionCount() * 2);
+                keyBlock.getPositionCount());
     }
 }
