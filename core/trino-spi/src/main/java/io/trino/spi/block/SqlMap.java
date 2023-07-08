@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
@@ -34,7 +35,9 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.computePosition;
+import static io.trino.spi.block.MapHashTables.createSingleTable;
 import static java.lang.String.format;
+import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 public class SqlMap
@@ -47,16 +50,33 @@ public class SqlMap
     private final Block rawValueBlock;
     private final HashTableSupplier hashTablesSupplier;
     private final int offset;
-    private final int positionCount;    // The number of keys in this single map * 2
+    private final int size;
 
-    public SqlMap(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int positionCount)
+    public SqlMap(MapType mapType, HashBuildMode mode, Block keyBlock, Block valueBlock)
     {
-        this.mapType = mapType;
-        this.rawKeyBlock = rawKeyBlock;
-        this.rawValueBlock = rawValueBlock;
-        this.hashTablesSupplier = hashTablesSupplier;
+        this.mapType = requireNonNull(mapType, "mapType is null");
+        if (keyBlock.getPositionCount() != valueBlock.getPositionCount()) {
+            throw new IllegalArgumentException(format("Key and value blocks have different size: %s %s", keyBlock.getPositionCount(), valueBlock.getPositionCount()));
+        }
+        this.rawKeyBlock = keyBlock;
+        this.rawValueBlock = valueBlock;
+        this.offset = 0;
+        this.size = keyBlock.getPositionCount();
+
+        this.hashTablesSupplier = new HashTableSupplier(createSingleTable(mapType, mode, keyBlock).get());
+    }
+
+    public SqlMap(MapType mapType, Block rawKeyBlock, Block rawValueBlock, HashTableSupplier hashTablesSupplier, int offset, int size)
+    {
+        this.mapType = requireNonNull(mapType, "mapType is null");
+        this.rawKeyBlock = requireNonNull(rawKeyBlock, "rawKeyBlock is null");
+        this.rawValueBlock = requireNonNull(rawValueBlock, "rawValueBlock is null");
+        this.hashTablesSupplier = requireNonNull(hashTablesSupplier, "hashTablesSupplier is null");
+
+        checkFromIndexSize(offset, size, rawKeyBlock.getPositionCount());
+        checkFromIndexSize(offset, size, rawValueBlock.getPositionCount());
         this.offset = offset;
-        this.positionCount = positionCount;
+        this.size = size;
     }
 
     @Override
@@ -73,7 +93,7 @@ public class SqlMap
     @Override
     public int getPositionCount()
     {
-        return positionCount;
+        return size * 2;
     }
 
     @Override
@@ -85,9 +105,9 @@ public class SqlMap
     @Override
     public long getSizeInBytes()
     {
-        return rawKeyBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
-                rawValueBlock.getRegionSizeInBytes(offset / 2, positionCount / 2) +
-                sizeOfIntArray(positionCount / 2 * HASH_MULTIPLIER);
+        return rawKeyBlock.getRegionSizeInBytes(offset, size) +
+                rawValueBlock.getRegionSizeInBytes(offset, size) +
+                sizeOfIntArray(size * HASH_MULTIPLIER);
     }
 
     @Override
@@ -112,17 +132,22 @@ public class SqlMap
         return SqlMapBlockEncoding.NAME;
     }
 
-    int getOffset()
+    public int getSize()
+    {
+        return size;
+    }
+
+    public int getRawOffset()
     {
         return offset;
     }
 
-    Block getRawKeyBlock()
+    public Block getRawKeyBlock()
     {
         return rawKeyBlock;
     }
 
-    Block getRawValueBlock()
+    public Block getRawValueBlock()
     {
         return rawValueBlock;
     }
@@ -136,7 +161,7 @@ public class SqlMap
     @Override
     public String toString()
     {
-        return format("SqlMap{positionCount=%d}", getPositionCount());
+        return format("SqlMap{size=%d}", size);
     }
 
     @Override
@@ -157,19 +182,19 @@ public class SqlMap
         if (loadedValueBlock == rawValueBlock) {
             return this;
         }
-        return new SqlMap(mapType, rawKeyBlock, loadedValueBlock, hashTablesSupplier, offset, positionCount);
+        return new SqlMap(mapType, rawKeyBlock, loadedValueBlock, hashTablesSupplier, offset, size);
     }
 
-    private int getAbsolutePosition(int position)
+    private int getAbsoluteBlockPosition(int position)
     {
         checkReadablePosition(this, position);
-        return position + offset;
+        return position + offset * 2;
     }
 
     @Override
     public boolean isNull(int position)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             if (rawKeyBlock.isNull(position / 2)) {
                 throw new IllegalStateException("Map key is null");
@@ -182,7 +207,7 @@ public class SqlMap
     @Override
     public byte getByte(int position, int offset)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getByte(position / 2, offset);
         }
@@ -192,7 +217,7 @@ public class SqlMap
     @Override
     public short getShort(int position, int offset)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getShort(position / 2, offset);
         }
@@ -202,7 +227,7 @@ public class SqlMap
     @Override
     public int getInt(int position, int offset)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getInt(position / 2, offset);
         }
@@ -212,7 +237,7 @@ public class SqlMap
     @Override
     public long getLong(int position, int offset)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getLong(position / 2, offset);
         }
@@ -222,7 +247,7 @@ public class SqlMap
     @Override
     public Slice getSlice(int position, int offset, int length)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getSlice(position / 2, offset, length);
         }
@@ -232,7 +257,7 @@ public class SqlMap
     @Override
     public void writeSliceTo(int position, int offset, int length, SliceOutput output)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             rawKeyBlock.writeSliceTo(position / 2, offset, length, output);
         }
@@ -244,7 +269,7 @@ public class SqlMap
     @Override
     public int getSliceLength(int position)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getSliceLength(position / 2);
         }
@@ -254,7 +279,7 @@ public class SqlMap
     @Override
     public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
         }
@@ -264,7 +289,7 @@ public class SqlMap
     @Override
     public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
         }
@@ -274,7 +299,7 @@ public class SqlMap
     @Override
     public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
         }
@@ -284,7 +309,7 @@ public class SqlMap
     @Override
     public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
         }
@@ -294,7 +319,7 @@ public class SqlMap
     @Override
     public long hash(int position, int offset, int length)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.hash(position / 2, offset, length);
         }
@@ -304,7 +329,7 @@ public class SqlMap
     @Override
     public <T> T getObject(int position, Class<T> clazz)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getObject(position / 2, clazz);
         }
@@ -314,7 +339,7 @@ public class SqlMap
     @Override
     public Block getSingleValueBlock(int position)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getSingleValueBlock(position / 2);
         }
@@ -324,7 +349,7 @@ public class SqlMap
     @Override
     public long getEstimatedDataSizeForStats(int position)
     {
-        position = getAbsolutePosition(position);
+        position = getAbsoluteBlockPosition(position);
         if (position % 2 == 0) {
             return rawKeyBlock.getEstimatedDataSizeForStats(position / 2);
         }
@@ -371,7 +396,7 @@ public class SqlMap
      */
     public int seekKey(Object nativeValue)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -389,8 +414,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -398,7 +423,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -412,7 +437,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {
@@ -423,7 +448,7 @@ public class SqlMap
 
     public int seekKey(MethodHandle keyEqualOperator, MethodHandle keyHashOperator, Block targetKeyBlock, int targetKeyPosition)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -438,8 +463,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -447,7 +472,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -460,7 +485,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {
@@ -474,7 +499,7 @@ public class SqlMap
 
     public int seekKeyExact(long nativeValue)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -488,8 +513,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -497,7 +522,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -510,7 +535,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {
@@ -521,7 +546,7 @@ public class SqlMap
 
     public int seekKeyExact(boolean nativeValue)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -535,8 +560,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -544,7 +569,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -557,7 +582,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {
@@ -568,7 +593,7 @@ public class SqlMap
 
     public int seekKeyExact(double nativeValue)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -582,8 +607,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -591,7 +616,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -604,7 +629,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {
@@ -615,7 +640,7 @@ public class SqlMap
 
     public int seekKeyExact(Object nativeValue)
     {
-        if (positionCount == 0) {
+        if (size == 0) {
             return -1;
         }
 
@@ -633,8 +658,8 @@ public class SqlMap
             throw handleThrowable(throwable);
         }
 
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
+        int hashTableOffset = offset * HASH_MULTIPLIER;
+        int hashTableSize = size * HASH_MULTIPLIER;
         int position = computePosition(hashCode, hashTableSize);
         while (true) {
             int keyPosition = hashTable[hashTableOffset + position];
@@ -642,7 +667,7 @@ public class SqlMap
                 return -1;
             }
 
-            int rawKeyPosition = offset / 2 + keyPosition;
+            int rawKeyPosition = offset + keyPosition;
             checkKeyNotNull(rawKeyBlock, rawKeyPosition);
 
             Boolean match;
@@ -655,7 +680,7 @@ public class SqlMap
             }
             checkNotIndeterminate(match);
             if (match) {
-                return keyPosition * 2 + 1;
+                return keyPosition;
             }
             position++;
             if (position == hashTableSize) {

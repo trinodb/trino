@@ -550,8 +550,8 @@ public class MapBlock
                 keyBlock,
                 valueBlock,
                 new SqlMap.HashTableSupplier(this),
-                startEntryOffset * 2,
-                (endEntryOffset - startEntryOffset) * 2));
+                startEntryOffset,
+                (endEntryOffset - startEntryOffset)));
     }
 
     @Override
