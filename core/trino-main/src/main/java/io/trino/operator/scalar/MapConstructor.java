@@ -34,6 +34,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.block.MapHashTables.HashBuildMode.STRICT_NOT_DISTINCT_FROM;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -42,7 +44,6 @@ import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
-import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
 import static io.trino.util.Reflection.constructorMethodHandle;
@@ -96,7 +97,7 @@ public final class MapConstructor
         MethodHandle keyIndeterminate = functionDependencies.getOperatorImplementation(
                 INDETERMINATE,
                 ImmutableList.of(mapType.getKeyType()),
-                simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+                simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)).getMethodHandle();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(keyIndeterminate);
@@ -118,25 +119,22 @@ public final class MapConstructor
             Block valueBlock)
     {
         checkCondition(keyBlock.getPositionCount() == valueBlock.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "Key and value arrays must be the same length");
-        try {
-            return state.getMapValueBuilder().build(keyBlock.getPositionCount(), (keyBuilder, valueBuilder) -> {
-                for (int i = 0; i < keyBlock.getPositionCount(); i++) {
-                    if (keyBlock.isNull(i)) {
-                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
-                    }
-                    Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
-                    try {
-                        if ((boolean) keyIndeterminate.invoke(keyObject)) {
-                            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
-                        }
-                    }
-                    catch (Throwable t) {
-                        throw internalError(t);
-                    }
-                    mapType.getKeyType().appendTo(keyBlock, i, keyBuilder);
-                    mapType.getValueType().appendTo(valueBlock, i, valueBuilder);
+        for (int i = 0; i < keyBlock.getPositionCount(); i++) {
+            if (keyBlock.isNull(i)) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+            }
+            try {
+                if ((boolean) keyIndeterminate.invoke(keyBlock, i)) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
                 }
-            });
+            }
+            catch (Throwable t) {
+                throw internalError(t);
+            }
+        }
+
+        try {
+            return new SqlMap(mapType, STRICT_NOT_DISTINCT_FROM, keyBlock, valueBlock);
         }
         catch (DuplicateMapKeyException e) {
             throw e.withDetailedMessage(mapType.getKeyType(), session);
