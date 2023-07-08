@@ -216,13 +216,17 @@ public class MongoPageSink
             Type valueType = mapType.getValueType();
 
             SqlMap sqlMap = block.getObject(position, SqlMap.class);
+            int size = sqlMap.getSize();
+            int rawOffset = sqlMap.getRawOffset();
+            Block rawKeyBlock = sqlMap.getRawKeyBlock();
+            Block rawValueBlock = sqlMap.getRawValueBlock();
 
             // map type is converted into list of fixed keys document
-            List<Object> values = new ArrayList<>(sqlMap.getPositionCount() / 2);
-            for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+            List<Object> values = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
                 Map<String, Object> mapValue = new HashMap<>();
-                mapValue.put("key", getObjectValue(keyType, sqlMap, i));
-                mapValue.put("value", getObjectValue(valueType, sqlMap, i + 1));
+                mapValue.put("key", getObjectValue(keyType, rawKeyBlock, rawOffset + i));
+                mapValue.put("value", getObjectValue(valueType, rawValueBlock, rawOffset + i));
                 values.add(mapValue);
             }
 

@@ -27,6 +27,7 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.MapHashTables;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.reflect.Array;
@@ -95,7 +96,7 @@ public abstract class AbstractTestBlock
                     continue;
                 }
                 Class<?> type = field.getType();
-                if (type.isPrimitive()) {
+                if (type.isPrimitive() || Type.class.isAssignableFrom(type)) {
                     continue;
                 }
 
@@ -151,6 +152,10 @@ public abstract class AbstractTestBlock
                     // and they are shared among blocks created by the same MapType.
                     // So we don't account for the memory held onto by MethodHandle instances.
                     // Otherwise, we will be counting it multiple times.
+                }
+                else if (field.getName().equals("fieldBlocksList")) {
+                    // RowBlockBuilder fieldBlockBuildersList is a simple wrapper around the
+                    // array already accounted for in the instance
                 }
                 else {
                     throw new IllegalArgumentException(format("Unknown type encountered: %s", type));

@@ -62,20 +62,28 @@ public final class StructuralTestUtil
 
     public static boolean sqlMapEqual(Type keyType, Type valueType, SqlMap leftMap, SqlMap rightMap)
     {
-        if (leftMap.getPositionCount() != rightMap.getPositionCount()) {
+        if (leftMap.getSize() != rightMap.getSize()) {
             return false;
         }
 
+        int leftRawOffset = leftMap.getRawOffset();
+        Block leftRawKeyBlock = leftMap.getRawKeyBlock();
+        Block leftRawValueBlock = leftMap.getRawValueBlock();
+        int rightRawOffset = rightMap.getRawOffset();
+        Block rightRawKeyBlock = rightMap.getRawKeyBlock();
+        Block rightRawValueBlock = rightMap.getRawValueBlock();
+
         BlockPositionEqual keyEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(keyType);
         BlockPositionEqual valueEqualOperator = TYPE_OPERATORS_CACHE.getEqualOperator(valueType);
-        for (int i = 0; i < leftMap.getPositionCount(); i += 2) {
-            if (leftMap.isNull(i) != rightMap.isNull(i) || leftMap.isNull(i + 1) != rightMap.isNull(i + 1)) {
+        for (int i = 0; i < leftMap.getSize(); i++) {
+            if (leftRawKeyBlock.isNull(leftRawOffset + i) != rightRawKeyBlock.isNull(rightRawOffset + i) ||
+                    leftRawValueBlock.isNull(leftRawOffset + i) != rightRawValueBlock.isNull(rightRawOffset + i)) {
                 return false;
             }
-            if (!leftMap.isNull(i) && !keyEqualOperator.equal(leftMap, i, rightMap, i)) {
+            if (!leftRawKeyBlock.isNull(leftRawOffset + i) && !keyEqualOperator.equal(leftRawKeyBlock, leftRawOffset + i, rightRawKeyBlock, rightRawOffset + i)) {
                 return false;
             }
-            if (!leftMap.isNull(i + 1) && !valueEqualOperator.equal(leftMap, i + 1, rightMap, i + 1)) {
+            if (!leftRawValueBlock.isNull(leftRawOffset + i) && !valueEqualOperator.equal(leftRawValueBlock, leftRawOffset + i, rightRawValueBlock, rightRawOffset + i)) {
                 return false;
             }
         }

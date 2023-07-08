@@ -56,10 +56,8 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.and;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
-import static io.airlift.bytecode.expression.BytecodeExpressions.divide;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
-import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -140,8 +138,7 @@ public final class MapFilterFunction
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
         BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, filterKeyValue, ImmutableList.of(map, function));
-        BytecodeExpression entryCount = divide(map.invoke("getPositionCount", int.class), constantInt(2));
-        body.append(mapValueBuilder.invoke("build", SqlMap.class, entryCount, mapEntryBuilder).ret());
+        body.append(mapValueBuilder.invoke("build", SqlMap.class, map.invoke("getSize", int.class), mapEntryBuilder).ret());
 
         Class<?> generatedClass = defineClass(definition, Object.class, binder.getBindings(), MapFilterFunction.class.getClassLoader());
         return methodHandle(generatedClass, "filter", Object.class, SqlMap.class, BinaryFunctionInterface.class);
@@ -167,20 +164,21 @@ public final class MapFilterFunction
         Class<?> keyJavaType = Primitives.wrap(keyType.getJavaType());
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
 
-        Variable positionCount = scope.declareVariable(int.class, "positionCount");
-        Variable position = scope.declareVariable(int.class, "position");
+        Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
+        Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
+        Variable rawKeyBlock = scope.declareVariable("rawKeyBlock", body, map.invoke("getRawKeyBlock", Block.class));
+        Variable rawValueBlock = scope.declareVariable("rawValueBlock", body, map.invoke("getRawValueBlock", Block.class));
+
+        Variable index = scope.declareVariable(int.class, "index");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
         Variable keep = scope.declareVariable(Boolean.class, "keep");
-
-        // invoke map.getPositionCount()
-        body.append(positionCount.set(map.invoke("getPositionCount", int.class)));
 
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
             // key element must be non-null
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(map.cast(Block.class), position).cast(keyJavaType)));
+            loadKeyElement = keyElement.set(keySqlType.getValue(rawKeyBlock, add(index, rawOffset)).cast(keyJavaType));
         }
         else {
             loadKeyElement = new BytecodeBlock().append(keyElement.set(constantNull(keyJavaType)));
@@ -190,18 +188,18 @@ public final class MapFilterFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(map.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(rawValueBlock.invoke("isNull", boolean.class, add(index, rawOffset)))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(map.cast(Block.class), add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(rawValueBlock, add(index, rawOffset)).cast(valueJavaType)));
         }
         else {
             loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
         }
 
         body.append(new ForLoop()
-                .initialize(position.set(constantInt(0)))
-                .condition(lessThan(position, positionCount))
-                .update(incrementVariable(position, (byte) 2))
+                .initialize(index.set(constantInt(0)))
+                .condition(lessThan(index, size))
+                .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)
@@ -209,8 +207,8 @@ public final class MapFilterFunction
                         .append(new IfStatement("if (keep != null && keep) ...")
                                 .condition(and(notEqual(keep, constantNull(Boolean.class)), keep.cast(boolean.class)))
                                 .ifTrue(new BytecodeBlock()
-                                        .append(keySqlType.invoke("appendTo", void.class, map.cast(Block.class), position, keyBuilder))
-                                        .append(valueSqlType.invoke("appendTo", void.class, map.cast(Block.class), add(position, constantInt(1)), valueBuilder))))));
+                                        .append(keySqlType.invoke("appendTo", void.class, rawKeyBlock, add(index, rawOffset), keyBuilder))
+                                        .append(valueSqlType.invoke("appendTo", void.class, rawValueBlock, add(index, rawOffset), valueBuilder))))));
         body.ret();
 
         return method;
