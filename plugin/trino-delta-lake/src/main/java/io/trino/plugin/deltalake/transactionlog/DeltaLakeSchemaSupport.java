@@ -258,46 +258,46 @@ public final class DeltaLakeSchemaSupport
         return fieldContents.buildOrThrow();
     }
 
-    public static Object serializeColumnType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, Type columnType)
+    public static Object serializeColumnType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, Type columnType, String columnName)
     {
         if (columnType instanceof ArrayType) {
-            return serializeArrayType(columnMappingMode, maxColumnId, (ArrayType) columnType);
+            return serializeArrayType(columnMappingMode, maxColumnId, (ArrayType) columnType, columnName);
         }
         if (columnType instanceof RowType) {
-            return serializeStructType(columnMappingMode, maxColumnId, (RowType) columnType);
+            return serializeStructType(columnMappingMode, maxColumnId, (RowType) columnType, columnName);
         }
         if (columnType instanceof MapType) {
-            return serializeMapType(columnMappingMode, maxColumnId, (MapType) columnType);
+            return serializeMapType(columnMappingMode, maxColumnId, (MapType) columnType, columnName);
         }
         return serializePrimitiveType(columnType);
     }
 
-    private static Map<String, Object> serializeArrayType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, ArrayType arrayType)
+    private static Map<String, Object> serializeArrayType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, ArrayType arrayType, String columnName)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#array-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "array");
-        fields.put("elementType", serializeColumnType(columnMappingMode, maxColumnId, arrayType.getElementType()));
+        fields.put("elementType", serializeColumnType(columnMappingMode, maxColumnId, arrayType.getElementType(), columnName));
         fields.put("containsNull", true);
 
         return fields.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeMapType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, MapType mapType)
+    private static Map<String, Object> serializeMapType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, MapType mapType, String columnName)
     {
         // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#map-type
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
         fields.put("type", "map");
-        fields.put("keyType", serializeColumnType(columnMappingMode, maxColumnId, mapType.getKeyType()));
-        fields.put("valueType", serializeColumnType(columnMappingMode, maxColumnId, mapType.getValueType()));
+        fields.put("keyType", serializeColumnType(columnMappingMode, maxColumnId, mapType.getKeyType(), columnName));
+        fields.put("valueType", serializeColumnType(columnMappingMode, maxColumnId, mapType.getValueType(), columnName));
         fields.put("valueContainsNull", true);
 
         return fields.buildOrThrow();
     }
 
-    private static Map<String, Object> serializeStructType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, RowType rowType)
+    private static Map<String, Object> serializeStructType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, RowType rowType, String columnName)
     {
         ImmutableMap.Builder<String, Object> fields = ImmutableMap.builder();
 
@@ -305,8 +305,8 @@ public final class DeltaLakeSchemaSupport
         fields.put("fields", rowType.getFields().stream()
                 .map(field -> {
                     String fieldName = field.getName()
-                            .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Anonymous row type is not supported in Delta Lake connector"));
-                    Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType());
+                            .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Anonymous row type is not supported in Delta Lake connector for column: " + columnName));
+                    Object fieldType = serializeColumnType(columnMappingMode, maxColumnId, field.getType(), columnName);
                     Map<String, Object> metadata = generateColumnMetadata(columnMappingMode, maxColumnId);
                     return serializeStructField(fieldName, fieldType, null, null, metadata);
                 })

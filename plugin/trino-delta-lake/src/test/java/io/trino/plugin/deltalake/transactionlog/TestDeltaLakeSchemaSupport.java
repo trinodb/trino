@@ -239,7 +239,7 @@ public class TestDeltaLakeSchemaSupport
         ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(columnHandles.size());
         for (DeltaLakeColumnHandle column : columnHandles) {
             columnNames.add(column.getColumnName());
-            columnTypes.put(column.getColumnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getBaseType()));
+            columnTypes.put(column.getColumnName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getBaseType(), column.getColumnName()));
         }
 
         String jsonEncoding = serializeSchemaAsJson(columnNames.build(), columnTypes.buildOrThrow(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
@@ -261,7 +261,7 @@ public class TestDeltaLakeSchemaSupport
         ImmutableMap.Builder<String, Object> columnTypes = ImmutableMap.builderWithExpectedSize(schema.size());
         for (ColumnMetadata column : schema) {
             columnNames.add(column.getName());
-            columnTypes.put(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType()));
+            columnTypes.put(column.getName(), serializeColumnType(ColumnMappingMode.NONE, new AtomicInteger(), column.getType(), column.getName()));
         }
 
         ObjectMapper objectMapper = new ObjectMapper();

@@ -2856,7 +2856,7 @@ public class TestDeltaLakeConnectorTest
     public void testAnonymousRowTypeFailure()
     {
         String tableName = "test_table_anonymous_row_type_" + randomNameSuffix();
-        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT ROW(123) AS c1", "Anonymous row type is not supported in Delta Lake connector");
+        assertQueryFails("CREATE TABLE " + tableName + " AS SELECT ROW(123) AS c1", "Anonymous row type is not supported in Delta Lake connector for column: (\\w+)");
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_anonymous_row_type_", "(c1 INTEGER)")) {
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN c2 ROW(INTEGER)", "Unable to add '(\\w+)' column for: (\\w+\\.\\w+)");

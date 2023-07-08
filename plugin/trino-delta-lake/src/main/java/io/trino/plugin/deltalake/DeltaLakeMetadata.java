@@ -917,7 +917,7 @@ public class DeltaLakeMetadata
                 boolean containsTimestampType = false;
                 for (ColumnMetadata column : tableMetadata.getColumns()) {
                     columnNames.add(column.getName());
-                    columnTypes.put(column.getName(), serializeColumnType(columnMappingMode, fieldId, column.getType()));
+                    columnTypes.put(column.getName(), serializeColumnType(columnMappingMode, fieldId, column.getType(), column.getName()));
                     columnsMetadata.put(column.getName(), generateColumnMetadata(columnMappingMode, fieldId));
                     if (!containsTimestampType) {
                         containsTimestampType = containsTimestampType(column.getType());
@@ -1053,7 +1053,7 @@ public class DeltaLakeMetadata
             columnNullabilities.put(column.getName(), column.isNullable());
             containsTimestampType |= containsTimestampType(column.getType());
 
-            Object serializedType = serializeColumnType(columnMappingMode, fieldId, column.getType());
+            Object serializedType = serializeColumnType(columnMappingMode, fieldId, column.getType(), column.getName());
             Type physicalType = deserializeType(typeManager, serializedType, usePhysicalName);
             columnTypes.put(column.getName(), serializedType);
 
@@ -1428,7 +1428,7 @@ public class DeltaLakeMetadata
             columnsNullability.put(newColumnMetadata.getName(), newColumnMetadata.isNullable());
             Map<String, Object> columnTypes = ImmutableMap.<String, Object>builderWithExpectedSize(columnNames.size())
                     .putAll(getColumnTypes(handle.getMetadataEntry()))
-                    .put(Map.entry(newColumnMetadata.getName(), serializeColumnType(columnMappingMode, maxColumnId, newColumnMetadata.getType())))
+                    .put(Map.entry(newColumnMetadata.getName(), serializeColumnType(columnMappingMode, maxColumnId, newColumnMetadata.getType(), newColumnMetadata.getName())))
                     .buildOrThrow();
 
             ImmutableMap.Builder<String, Map<String, Object>> columnMetadata = ImmutableMap.builder();

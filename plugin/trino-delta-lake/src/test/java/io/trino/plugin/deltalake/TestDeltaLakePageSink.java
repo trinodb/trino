@@ -162,7 +162,7 @@ public class TestDeltaLakePageSink
         String schemaString = serializeSchemaAsJson(
                 getColumnHandles().stream().map(DeltaLakeColumnHandle::getColumnName).collect(toImmutableList()),
                 getColumnHandles().stream()
-                        .map(column -> Map.entry(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType())))
+                        .map(column -> Map.entry(column.getColumnName(), serializeColumnType(NONE, new AtomicInteger(), column.getType(), column.getColumnName())))
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
