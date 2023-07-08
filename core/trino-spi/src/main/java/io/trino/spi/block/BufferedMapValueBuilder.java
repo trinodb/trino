@@ -96,15 +96,7 @@ public class BufferedMapValueBuilder
         // build the map block
         Block keyBlock = keyBlockBuilder.build().getRegion(startSize, endSize - startSize);
         Block valueBlock = valueBlockBuilder.build().getRegion(startSize, endSize - startSize);
-        MapHashTables hashTables = MapHashTables.create(hashBuildMode, mapType, 1, keyBlock, new int[]{0, keyBlock.getPositionCount()}, null);
-
-        return new SqlMap(
-                mapType,
-                keyBlock,
-                valueBlock,
-                new SqlMap.HashTableSupplier(hashTables.get()),
-                0,
-                keyBlock.getPositionCount() * 2);
+        return new SqlMap(mapType, hashBuildMode, keyBlock, valueBlock);
     }
 
     private boolean equalizeBlockBuilders()
