@@ -45,6 +45,9 @@ Property name                                             Required   Description
                                                                      `Kubernetes <https://kubernetes.io/>`_ this needs to point to the controller
                                                                      service endpoint. The Pinot broker and server must be accessible via DNS as
                                                                      Pinot returns hostnames and not IP addresses.
+``pinot.broker-url``                                      No         A host and port of broker. If broker URL exposed by Pinot
+                                                                     controller API is not accessible, this property can be used to specify the
+                                                                     broker endpoint. Enabling this property will disable broker discovery.
 ``pinot.connection-timeout``                              No         Pinot connection timeout, default is ``15s``.
 ``pinot.metadata-expiry``                                 No         Pinot metadata expiration time, default is ``2m``.
 ``pinot.controller.authentication.type``                  No         Pinot authentication method for controller requests. Allowed values are

@@ -118,6 +118,7 @@ public class PinotClient
     private static final String QUERY_URL_PATH = "query/sql";
 
     private final List<URI> controllerUrls;
+    private final Optional<HostAndPort> brokerHostAndPort;
     private final HttpClient httpClient;
     private final PinotHostMapper pinotHostMapper;
     private final String scheme;
@@ -169,6 +170,7 @@ public class PinotClient
                 asyncReloading(CacheLoader.from(this::getAllTables), executor));
         this.controllerAuthenticationProvider = controllerAuthenticationProvider;
         this.brokerAuthenticationProvider = brokerAuthenticationProvider;
+        brokerHostAndPort = config.getBrokerUrl();
     }
 
     public static void addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -380,6 +382,11 @@ public class PinotClient
 
     public String getBrokerHost(String table)
     {
+        // Use global broker URI if provided explicitly via config
+        if (brokerHostAndPort.isPresent()) {
+            return brokerHostAndPort.get().toString();
+        }
+        // or fallback to broker discovery mechanism
         try {
             List<String> brokers = brokersForTableCache.get(table);
             if (brokers.isEmpty()) {
