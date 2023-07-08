@@ -14,7 +14,6 @@
 package io.trino.operator.scalar;
 
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
@@ -35,10 +34,6 @@ public final class MapValues
             @TypeParameter("V") Type valueType,
             @SqlType("map(K,V)") SqlMap sqlMap)
     {
-        BlockBuilder blockBuilder = valueType.createBlockBuilder(null, sqlMap.getPositionCount() / 2);
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
-            valueType.appendTo(sqlMap, i + 1, blockBuilder);
-        }
-        return blockBuilder.build();
+        return sqlMap.getRawValueBlock().getRegion(sqlMap.getRawOffset(), sqlMap.getSize());
     }
 }

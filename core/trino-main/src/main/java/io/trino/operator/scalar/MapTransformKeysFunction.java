@@ -62,12 +62,10 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.add;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
-import static io.airlift.bytecode.expression.BytecodeExpressions.divide;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.getStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
-import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -155,11 +153,10 @@ public final class MapTransformKeysFunction
         body.append(mapValueBuilder.set(state.cast(BufferedMapValueBuilder.class)));
 
         BytecodeExpression mapEntryBuilder = generateMetafactory(MapValueBuilder.class, transformMap, ImmutableList.of(session, map, function));
-        BytecodeExpression entryCount = divide(map.invoke("getPositionCount", int.class), constantInt(2));
 
         Variable duplicateKeyException = scope.declareVariable(DuplicateMapKeyException.class, "e");
         body.append(new TryCatch(
-                mapValueBuilder.invoke("build", SqlMap.class, entryCount, mapEntryBuilder).ret(),
+                mapValueBuilder.invoke("build", SqlMap.class, map.invoke("getSize", int.class), mapEntryBuilder).ret(),
                 ImmutableList.of(
                         new TryCatch.CatchBlock(
                                 new BytecodeBlock()
@@ -192,14 +189,15 @@ public final class MapTransformKeysFunction
         Class<?> transformedKeyJavaType = Primitives.wrap(transformedKeyType.getJavaType());
         Class<?> valueJavaType = Primitives.wrap(valueType.getJavaType());
 
-        Variable positionCount = scope.declareVariable(int.class, "positionCount");
-        Variable position = scope.declareVariable(int.class, "position");
+        Variable size = scope.declareVariable("size", body, map.invoke("getSize", int.class));
+        Variable rawOffset = scope.declareVariable("rawOffset", body, map.invoke("getRawOffset", int.class));
+        Variable rawKeyBlock = scope.declareVariable("rawKeyBlock", body, map.invoke("getRawKeyBlock", Block.class));
+        Variable rawValueBlock = scope.declareVariable("rawValueBlock", body, map.invoke("getRawValueBlock", Block.class));
+
+        Variable index = scope.declareVariable(int.class, "index");
         Variable keyElement = scope.declareVariable(keyJavaType, "keyElement");
         Variable transformedKeyElement = scope.declareVariable(transformedKeyJavaType, "transformedKeyElement");
         Variable valueElement = scope.declareVariable(valueJavaType, "valueElement");
-
-        // invoke block.getPositionCount()
-        body.append(positionCount.set(map.invoke("getPositionCount", int.class)));
 
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
@@ -212,7 +210,7 @@ public final class MapTransformKeysFunction
         SqlTypeBytecodeExpression keySqlType = constantType(binder, keyType);
         BytecodeNode loadKeyElement;
         if (!keyType.equals(UNKNOWN)) {
-            loadKeyElement = new BytecodeBlock().append(keyElement.set(keySqlType.getValue(map.cast(Block.class), position).cast(keyJavaType)));
+            loadKeyElement = keyElement.set(keySqlType.getValue(rawKeyBlock, add(index, rawOffset)).cast(keyJavaType));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time but,
@@ -228,13 +226,13 @@ public final class MapTransformKeysFunction
         BytecodeNode loadValueElement;
         if (!valueType.equals(UNKNOWN)) {
             loadValueElement = new IfStatement()
-                    .condition(map.invoke("isNull", boolean.class, add(position, constantInt(1))))
+                    .condition(rawValueBlock.invoke("isNull", boolean.class, add(index, rawOffset)))
                     .ifTrue(valueElement.set(constantNull(valueJavaType)))
-                    .ifFalse(valueElement.set(valueSqlType.getValue(map.cast(Block.class), add(position, constantInt(1))).cast(valueJavaType)));
+                    .ifFalse(valueElement.set(valueSqlType.getValue(rawValueBlock, add(index, rawOffset)).cast(valueJavaType)));
         }
         else {
             // make sure invokeExact will not take uninitialized keys during compile time
-            loadValueElement = new BytecodeBlock().append(valueElement.set(constantNull(valueJavaType)));
+            loadValueElement = valueElement.set(constantNull(valueJavaType));
         }
 
         BytecodeNode writeKeyElement;
@@ -246,7 +244,7 @@ public final class MapTransformKeysFunction
                             .ifTrue(throwNullKeyException)
                             .ifFalse(new BytecodeBlock()
                                     .append(constantType(binder, transformedKeyType).writeValue(keyBuilder, transformedKeyElement.cast(transformedKeyType.getJavaType())))
-                                    .append(valueSqlType.invoke("appendTo", void.class, map.cast(Block.class), add(position, constantInt(1)), valueBuilder))));
+                                    .append(valueSqlType.invoke("appendTo", void.class, rawValueBlock, add(index, rawOffset), valueBuilder))));
         }
         else {
             // key cannot be unknown
@@ -255,9 +253,9 @@ public final class MapTransformKeysFunction
         }
 
         body.append(new ForLoop()
-                .initialize(position.set(constantInt(0)))
-                .condition(lessThan(position, positionCount))
-                .update(incrementVariable(position, (byte) 2))
+                .initialize(index.set(constantInt(0)))
+                .condition(lessThan(index, size))
+                .update(index.increment())
                 .body(new BytecodeBlock()
                         .append(loadKeyElement)
                         .append(loadValueElement)

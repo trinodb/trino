@@ -32,8 +32,12 @@ public interface MapAggregationState
     default void merge(MapAggregationState other)
     {
         SqlMap serializedState = ((SingleMapAggregationState) other).removeTempSerializedState();
-        for (int i = 0; i < serializedState.getPositionCount(); i += 2) {
-            add(serializedState, i, serializedState, i + 1);
+        int rawOffset = serializedState.getRawOffset();
+        Block rawKeyBlock = serializedState.getRawKeyBlock();
+        Block rawValueBlock = serializedState.getRawValueBlock();
+
+        for (int i = 0; i < serializedState.getSize(); i++) {
+            add(rawKeyBlock, rawOffset + i, rawValueBlock, rawOffset + i);
         }
     }
 

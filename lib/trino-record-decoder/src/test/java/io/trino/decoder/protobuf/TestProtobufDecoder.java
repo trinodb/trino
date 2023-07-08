@@ -431,8 +431,8 @@ public class TestProtobufDecoder
         assertEquals(VARCHAR.getSlice(listBlock, 0).toStringUtf8(), "Presto");
 
         SqlMap sqlMap = (SqlMap) decodedRow.get(mapColumn).getObject();
-        assertEquals(VARCHAR.getSlice(sqlMap, 0).toStringUtf8(), "Key");
-        assertEquals(VARCHAR.getSlice(sqlMap, 1).toStringUtf8(), "Value");
+        assertEquals(VARCHAR.getSlice(sqlMap.getRawKeyBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Key");
+        assertEquals(VARCHAR.getSlice(sqlMap.getRawValueBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Value");
 
         Block rowBlock = (Block) decodedRow.get(rowColumn).getObject();
         ConnectorSession session = TestingSession.testSessionBuilder().build().toConnectorSession();

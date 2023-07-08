@@ -122,11 +122,15 @@ class ValidationHash
 
     private static long mapSkipNullKeysHash(MapType type, ValidationHash keyHash, ValidationHash valueHash, Block block, int position)
     {
-        SqlMap map = type.getObject(block, position);
+        SqlMap sqlMap = type.getObject(block, position);
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         long hash = 0;
-        for (int i = 0; i < map.getPositionCount(); i += 2) {
-            if (!map.isNull(i)) {
-                hash += keyHash.hash(map, i) ^ valueHash.hash(map, i + 1);
+        for (int i = 0; i < sqlMap.getSize(); i++) {
+            if (!rawKeyBlock.isNull(rawOffset + i)) {
+                hash += keyHash.hash(rawKeyBlock, rawOffset + i) ^ valueHash.hash(rawValueBlock, rawOffset + i);
             }
         }
         return hash;

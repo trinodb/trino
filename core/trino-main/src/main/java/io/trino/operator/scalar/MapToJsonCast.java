@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionMetadata;
@@ -92,10 +93,14 @@ public class MapToJsonCast
     public static Slice toJson(ObjectKeyProvider provider, JsonGeneratorWriter writer, SqlMap map)
     {
         try {
+            int rawOffset = map.getRawOffset();
+            Block rawKeyBlock = map.getRawKeyBlock();
+            Block rawValueBlock = map.getRawValueBlock();
+
             Map<String, Integer> orderedKeyToValuePosition = new TreeMap<>();
-            for (int i = 0; i < map.getPositionCount(); i += 2) {
-                String objectKey = provider.getObjectKey(map, i);
-                orderedKeyToValuePosition.put(objectKey, i + 1);
+            for (int i = 0; i < map.getSize(); i++) {
+                String objectKey = provider.getObjectKey(rawKeyBlock, rawOffset + i);
+                orderedKeyToValuePosition.put(objectKey, i);
             }
 
             SliceOutput output = new DynamicSliceOutput(40);
@@ -103,7 +108,7 @@ public class MapToJsonCast
                 jsonGenerator.writeStartObject();
                 for (Map.Entry<String, Integer> entry : orderedKeyToValuePosition.entrySet()) {
                     jsonGenerator.writeFieldName(entry.getKey());
-                    writer.writeJsonValue(jsonGenerator, map, entry.getValue());
+                    writer.writeJsonValue(jsonGenerator, rawValueBlock, rawOffset + entry.getValue());
                 }
                 jsonGenerator.writeEndObject();
             }

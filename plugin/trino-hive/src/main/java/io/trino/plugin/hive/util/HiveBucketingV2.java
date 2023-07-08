@@ -206,11 +206,16 @@ final class HiveBucketingV2
     {
         TypeInfo keyTypeInfo = type.getMapKeyTypeInfo();
         TypeInfo valueTypeInfo = type.getMapValueTypeInfo();
+
+        int rawOffset = sqlMap.getRawOffset();
+        Block rawKeyBlock = sqlMap.getRawKeyBlock();
+        Block rawValueBlock = sqlMap.getRawValueBlock();
+
         int result = 0;
-        for (int i = 0; i < sqlMap.getPositionCount(); i += 2) {
+        for (int i = 0; i < sqlMap.getSize(); i++) {
             // Sic! we're hashing map keys with v2 but map values with v1 just as in
             // https://github.com/apache/hive/blob/7dc47faddba9f079bbe2698aaa4d8712e7654f87/serde/src/java/org/apache/hadoop/hive/serde2/objectinspector/ObjectInspectorUtils.java#L903-L904
-            result += hash(keyTypeInfo, sqlMap, i) ^ HiveBucketingV1.hash(valueTypeInfo, sqlMap, i + 1);
+            result += hash(keyTypeInfo, rawKeyBlock, rawOffset + i) ^ HiveBucketingV1.hash(valueTypeInfo, rawValueBlock, rawOffset + i);
         }
         return result;
     }
