@@ -23,7 +23,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.OptionalInt;

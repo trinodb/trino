@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
