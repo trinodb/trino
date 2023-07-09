@@ -25,6 +25,7 @@ import io.trino.plugin.pinot.query.PinotProxyGrpcRequestBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.PreDestroy;
 import org.apache.pinot.common.config.GrpcConfig;
+import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.datatable.DataTableFactory;
 import org.apache.pinot.common.proto.Server;
 import org.apache.pinot.common.utils.grpc.GrpcQueryClient;
@@ -32,7 +33,6 @@ import org.apache.pinot.spi.utils.CommonConstants.Query.Response.MetadataKeys;
 import org.apache.pinot.spi.utils.CommonConstants.Query.Response.ResponseType;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
@@ -40,7 +40,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static java.lang.Boolean.FALSE;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.pinot.common.config.GrpcConfig.CONFIG_MAX_INBOUND_MESSAGE_BYTES_SIZE;
 import static org.apache.pinot.common.config.GrpcConfig.CONFIG_USE_PLAIN_TEXT;
@@ -254,17 +257,24 @@ public class PinotGrpcDataFetcher
                 grpcRequestBuilder.setHostName(mappedHostAndPort.getHost()).setPort(grpcPort);
             }
             Server.ServerRequest serverRequest = grpcRequestBuilder.build();
-            return new ResponseIterator(client.submit(serverRequest));
+            return new ResponseIterator(client.submit(serverRequest), query);
         }
 
         public static class ResponseIterator
                 extends AbstractIterator<PinotDataTableWithSize>
         {
             private final Iterator<Server.ServerResponse> responseIterator;
+            private final String query;
 
             public ResponseIterator(Iterator<Server.ServerResponse> responseIterator)
             {
+                this(responseIterator, "unknown sql");
+            }
+
+            public ResponseIterator(Iterator<Server.ServerResponse> responseIterator, String query)
+            {
                 this.responseIterator = requireNonNull(responseIterator, "responseIterator is null");
+                this.query = query;
             }
 
             @Override
@@ -275,16 +285,22 @@ public class PinotGrpcDataFetcher
                 }
                 Server.ServerResponse response = responseIterator.next();
                 String responseType = response.getMetadataMap().get(MetadataKeys.RESPONSE_TYPE);
+                ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
+                DataTable dataTable = null;
+                try {
+                    dataTable = DataTableFactory.getDataTable(buffer);
+                    List<String> exceptions = dataTable.getExceptions().entrySet().stream().map(Map.Entry::getValue).collect(toImmutableList());
+                    if (!exceptions.isEmpty()) {
+                        throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Encountered %d pinot exceptions : %s", exceptions.size(), exceptions));
+                    }
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
                 if (responseType.equals(ResponseType.METADATA)) {
                     return endOfData();
                 }
-                ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
-                try {
-                    return new PinotDataTableWithSize(DataTableFactory.getDataTable(buffer), buffer.remaining());
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
+                return new PinotDataTableWithSize(dataTable, buffer.remaining());
             }
         }
     }
