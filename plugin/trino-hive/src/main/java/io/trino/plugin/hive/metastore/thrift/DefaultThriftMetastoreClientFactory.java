@@ -93,7 +93,8 @@ public class DefaultThriftMetastoreClientFactory
                         Optional.ofNullable(config.getKeystorePath()),
                         Optional.ofNullable(config.getKeystorePassword()),
                         config.getTruststorePath(),
-                        Optional.ofNullable(config.getTruststorePassword())),
+                        Optional.ofNullable(config.getTruststorePassword()),
+                        config.isDisableHostNameVerification()),
                 Optional.ofNullable(config.getSocksProxy()),
                 config.getMetastoreTimeout(),
                 metastoreAuthentication,
@@ -129,12 +130,40 @@ public class DefaultThriftMetastoreClientFactory
         return Transport.create(address, sslContext, socksProxy, timeoutMillis, metastoreAuthentication, delegationToken);
     }
 
+    private static TrustManager[] getTrustAllCertsTrustManager()
+    {
+        TrustManager[] trustAllCerts = new TrustManager[] {
+                new X509TrustManager()
+                {
+                    @Override
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers()
+                    {
+                        return new X509Certificate[0];
+                    }
+
+                    @Override
+                    public void checkClientTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType)
+                    {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(
+                            java.security.cert.X509Certificate[] certs, String authType)
+                    {
+                    }
+                }
+        };
+        return trustAllCerts;
+    }
+
     private static Optional<SSLContext> buildSslContext(
             boolean tlsEnabled,
             Optional<File> keyStorePath,
             Optional<String> keyStorePassword,
             File trustStorePath,
-            Optional<String> trustStorePassword)
+            Optional<String> trustStorePassword,
+            boolean disableHostNameVerification)
     {
         if (!tlsEnabled) {
             return Optional.empty();
@@ -169,10 +198,18 @@ public class DefaultThriftMetastoreClientFactory
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             trustManagerFactory.init(trustStore);
 
-            // get X509TrustManager
-            TrustManager[] trustManagers = trustManagerFactory.getTrustManagers();
-            if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
-                throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
+            // get the right TrustManager
+            TrustManager[] trustManagers;
+            if (disableHostNameVerification) {
+                // get a TrustManager that does not verify HostNames on the client side.
+                trustManagers = getTrustAllCertsTrustManager();
+            }
+            else {
+                // get X509TrustManager
+                trustManagers = trustManagerFactory.getTrustManagers();
+                if (trustManagers.length != 1 || !(trustManagers[0] instanceof X509TrustManager)) {
+                    throw new RuntimeException("Unexpected default trust managers:" + Arrays.toString(trustManagers));
+                }
             }
 
             // create SSLContext

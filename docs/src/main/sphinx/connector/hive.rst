@@ -451,6 +451,9 @@ properties:
    * - ``hive.metastore.thrift.client.ssl.trust-certificate-password``
      - Password for the trust store.
      -
+   * - ``hive.metastore.thrift.client.ssl.disable-hostname-verification``
+     - Disable Hostname Verification when SSL is enabled.
+     -
    * - ``hive.metastore.service.principal``
      - The Kerberos principal of the Hive metastore service.
      -

@@ -56,7 +56,8 @@ public class TestThriftMetastoreConfig
                 .setDeleteFilesOnDrop(false)
                 .setMaxWaitForTransactionLock(new Duration(10, MINUTES))
                 .setAssumeCanonicalPartitionKeys(false)
-                .setWriteStatisticsThreads(20));
+                .setWriteStatisticsThreads(20)
+                .setDisableHostNameVerification(false));
     }
 
     @Test
@@ -87,6 +88,7 @@ public class TestThriftMetastoreConfig
                 .put("hive.metastore.thrift.write-statistics-threads", "10")
                 .put("hive.metastore.thrift.assume-canonical-partition-keys", "true")
                 .put("hive.metastore.thrift.use-spark-table-statistics-fallback", "false")
+                .put("hive.metastore.thrift.client.ssl.disable-hostname-verification", "true")
                 .buildOrThrow();
 
         ThriftMetastoreConfig expected = new ThriftMetastoreConfig()
@@ -109,7 +111,8 @@ public class TestThriftMetastoreConfig
                 .setMaxWaitForTransactionLock(new Duration(5, MINUTES))
                 .setAssumeCanonicalPartitionKeys(true)
                 .setWriteStatisticsThreads(10)
-                .setUseSparkTableStatisticsFallback(false);
+                .setUseSparkTableStatisticsFallback(false)
+                .setDisableHostNameVerification(true);
 
         assertFullMapping(properties, expected);
     }

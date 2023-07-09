@@ -45,6 +45,7 @@ public class ThriftMetastoreConfig
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     private boolean tlsEnabled;
+    private boolean disableHostNameVerification;
     private File keystorePath;
     private String keystorePassword;
     private File truststorePath;
@@ -237,6 +238,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
+        return this;
+    }
+
+    public boolean isDisableHostNameVerification()
+    {
+        return disableHostNameVerification;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.disable-hostname-verification")
+    @ConfigDescription("Whether TLS Hostname verification is enabled")
+    public ThriftMetastoreConfig setDisableHostNameVerification(boolean disableHostNameVerification)
+    {
+        this.disableHostNameVerification = disableHostNameVerification;
         return this;
     }
 
