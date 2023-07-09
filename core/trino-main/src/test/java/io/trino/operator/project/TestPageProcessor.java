@@ -33,8 +33,9 @@ import io.trino.spi.type.Type;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.relational.CallExpression;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -70,17 +71,19 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestPageProcessor
 {
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
