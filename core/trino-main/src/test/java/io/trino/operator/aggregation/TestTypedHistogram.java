@@ -21,7 +21,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
 import io.trino.type.BlockTypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.function.IntUnaryOperator;
 import java.util.stream.IntStream;

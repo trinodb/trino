@@ -22,7 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.block.BlockAssertions.createArrayBigintBlock;

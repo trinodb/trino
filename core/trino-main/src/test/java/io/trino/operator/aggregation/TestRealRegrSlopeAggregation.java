@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.commons.math3.stat.regression.SimpleRegression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

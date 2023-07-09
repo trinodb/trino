@@ -19,7 +19,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -29,7 +29,6 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.lang.Float.floatToRawIntBits;
 
-@Test(singleThreaded = true)
 public class TestRealAverageAggregation
         extends AbstractTestAggregationFunction
 {
