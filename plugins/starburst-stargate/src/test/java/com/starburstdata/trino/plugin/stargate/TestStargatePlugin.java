@@ -52,20 +52,20 @@ public class TestStargatePlugin
         // connection-url not set
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
-                .hasMessageContaining("Invalid configuration property connection-url: may not be null");
+                .hasMessageContaining("Invalid configuration property connection-url: must not be null");
 
         // connection-url is empty
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "", "connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 // We need only one validation error, but we currently have more than one.
-                .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
+                .hasMessageContaining("Invalid configuration property connection-url: must match")
                 .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL, sample format: jdbc:trino://localhost:8080/catalog_name");
 
         // connection-url is bogus
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "test", "connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 // We need only one validation error, but we currently have more than one.
-                .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
+                .hasMessageContaining("Invalid configuration property connection-url: must match")
                 .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL, sample format: jdbc:trino://localhost:8080/catalog_name");
 
         // catalog not set

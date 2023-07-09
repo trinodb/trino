@@ -10,8 +10,7 @@
 package com.starburstdata.trino.plugin.stargate;
 
 import io.trino.plugin.jdbc.credential.CredentialConfig;
-
-import javax.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.AssertTrue;
 
 public class StargateCredentialConfig
         extends CredentialConfig
