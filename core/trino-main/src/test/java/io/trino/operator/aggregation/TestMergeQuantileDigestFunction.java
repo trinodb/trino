@@ -24,7 +24,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.sql.tree.QualifiedName;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
