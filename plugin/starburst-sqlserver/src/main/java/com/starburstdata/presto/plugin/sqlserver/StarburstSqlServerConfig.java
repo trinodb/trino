@@ -13,9 +13,8 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.annotation.Nullable;
 import jakarta.annotation.PostConstruct;
-
-import javax.validation.constraints.Max;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
 
