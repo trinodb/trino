@@ -410,6 +410,44 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewOnExpiredTable()
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
+                .build();
+
+        assertUpdate("CREATE TABLE mv_on_expired_base_table AS SELECT 10 a", 1);
+        assertUpdate("""
+                CREATE MATERIALIZED VIEW mv_on_expired_the_mv
+                GRACE PERIOD INTERVAL '0' SECOND
+                AS SELECT sum(a) s FROM mv_on_expired_base_table""");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_expired_the_mv", 1);
+        // View is fresh
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '10'");
+
+        // Create two new snapshots
+        assertUpdate("INSERT INTO mv_on_expired_base_table VALUES 7", 1);
+        assertUpdate("INSERT INTO mv_on_expired_base_table VALUES 5", 1);
+
+        // Expire snapshots, so that the original one is not live and not parent of any live
+        computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE mv_on_expired_base_table EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
+
+        // View still can be queried
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '22'");
+
+        // View can also be refreshed
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_expired_the_mv", 1);
+        assertThat(query("TABLE mv_on_expired_the_mv"))
+                .matches("VALUES BIGINT '22'");
+
+        assertUpdate("DROP TABLE mv_on_expired_base_table");
+        assertUpdate("DROP MATERIALIZED VIEW mv_on_expired_the_mv");
+    }
+
+    @Test
     public void testSqlFeatures()
     {
         String schema = getSession().getSchema().orElseThrow();
