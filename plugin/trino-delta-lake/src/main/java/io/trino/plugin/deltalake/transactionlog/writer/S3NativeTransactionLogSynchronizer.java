@@ -79,7 +79,7 @@ public class S3NativeTransactionLogSynchronizer
     public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        Location locksDirectory = newLogEntryPath.parentDirectory().appendPath(LOCK_DIRECTORY);
+        Location locksDirectory = newLogEntryPath.sibling(LOCK_DIRECTORY);
         String newEntryFilename = newLogEntryPath.fileName();
         Optional<LockInfo> myLockInfo = Optional.empty();
 
