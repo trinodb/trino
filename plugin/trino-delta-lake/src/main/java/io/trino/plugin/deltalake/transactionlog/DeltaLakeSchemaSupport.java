@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
@@ -443,6 +444,17 @@ public final class DeltaLakeSchemaSupport
     public static Map<String, Boolean> getColumnsNullability(MetadataEntry metadataEntry)
     {
         return getColumnProperties(metadataEntry, node -> node.get("nullable").asBoolean());
+    }
+
+    public static Map<String, Boolean> getColumnIdentities(MetadataEntry metadataEntry)
+    {
+        return getColumnProperties(metadataEntry, DeltaLakeSchemaSupport::isIdentityColumn);
+    }
+
+    private static boolean isIdentityColumn(JsonNode node)
+    {
+        return Streams.stream(node.get("metadata").fieldNames())
+                .anyMatch(name -> name.startsWith("delta.identity."));
     }
 
     public static Map<String, String> getColumnInvariants(MetadataEntry metadataEntry)
