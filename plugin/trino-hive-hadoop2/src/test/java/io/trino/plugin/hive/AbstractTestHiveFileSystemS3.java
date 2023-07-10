@@ -170,6 +170,10 @@ public abstract class AbstractTestHiveFileSystemS3
         //             nested-file.txt
         //      part=plus+sign/
         //          plus-file.txt
+        //      part=percent%sign/
+        //          percent-file.txt
+        //      part=url%20encoded/
+        //          url-encoded-file.txt
         //      part=level1|level2/
         //          pipe-file.txt
         //          parent1/
@@ -186,6 +190,8 @@ public abstract class AbstractTestHiveFileSystemS3
         createFile(writableBucket, format("%s/part=nested/parent/_nested-hidden-file.txt", basePrefix));
         createFile(writableBucket, format("%s/part=nested/parent/nested-file.txt", basePrefix));
         createFile(writableBucket, format("%s/part=plus+sign/plus-file.txt", basePrefix));
+        createFile(writableBucket, format("%s/part=percent%%sign/percent-file.txt", basePrefix));
+        createFile(writableBucket, format("%s/part=url%%20encoded/url-encoded-file.txt", basePrefix));
         createFile(writableBucket, format("%s/part=level1|level2/pipe-file.txt", basePrefix));
         createFile(writableBucket, format("%s/part=level1|level2/parent1/parent2/deeply-nested-file.txt", basePrefix));
         createFile(writableBucket, format("%s/part=level1 | level2/pipe-blanks-file.txt", basePrefix));
@@ -209,6 +215,8 @@ public abstract class AbstractTestHiveFileSystemS3
                 format("%s/part=simple/plain-file.txt", basePath),
                 format("%s/part=nested/parent/nested-file.txt", basePath),
                 format("%s/part=plus+sign/plus-file.txt", basePath),
+                format("%s/part=percent%%sign/percent-file.txt", basePath),
+                format("%s/part=url%%20encoded/url-encoded-file.txt", basePath),
                 format("%s/part=level1|level2/pipe-file.txt", basePath),
                 format("%s/part=level1|level2/parent1/parent2/deeply-nested-file.txt", basePath),
                 format("%s/part=level1 | level2/pipe-blanks-file.txt", basePath));

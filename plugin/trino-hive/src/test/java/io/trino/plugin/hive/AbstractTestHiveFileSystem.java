@@ -536,6 +536,10 @@ public abstract class AbstractTestHiveFileSystem
         //             nested-file.txt
         //      part=plus+sign/
         //          plus-file.txt
+        //      part=percent%sign/
+        //          percent-file.txt
+        //      part=url%20encoded/
+        //          url-encoded-file.txt
         //      part=level1|level2/
         //          pipe-file.txt
         //          parent1/
@@ -567,6 +571,12 @@ public abstract class AbstractTestHiveFileSystem
         // create file in `part=plus+sign` non-hidden folder (which contains `+` special character)
         Path plainFilePartitionPlusSign = new Path(new Path(basePath, "part=plus+sign"), "plus-file.txt");
         fs.createNewFile(plainFilePartitionPlusSign);
+        // create file in `part=percent%sign` non-hidden folder (which contains `%` special character)
+        Path plainFilePartitionPercentSign = new Path(new Path(basePath, "part=percent%sign"), "percent-file.txt");
+        fs.createNewFile(plainFilePartitionPercentSign);
+        // create file in `part=url%20encoded` non-hidden folder (which contains `%` special character)
+        Path plainFilePartitionUrlEncoded = new Path(new Path(basePath, "part=url%20encoded"), "url-encoded-file.txt");
+        fs.createNewFile(plainFilePartitionUrlEncoded);
         // create file in `part=level1|level2` non-hidden folder (which contains `|` special character)
         Path plainFilePartitionPipeSign = new Path(new Path(basePath, "part=level1|level2"), "pipe-file.txt");
         fs.createNewFile(plainFilePartitionPipeSign);
@@ -601,6 +611,8 @@ public abstract class AbstractTestHiveFileSystem
                 plainFilePartitionSimple,
                 nestedFilePartitionNested,
                 plainFilePartitionPlusSign,
+                plainFilePartitionPercentSign,
+                plainFilePartitionUrlEncoded,
                 plainFilePartitionPipeSign,
                 deeplyNestedFilePartitionPipeSign,
                 plainFilePartitionPipeSignBlanks);
