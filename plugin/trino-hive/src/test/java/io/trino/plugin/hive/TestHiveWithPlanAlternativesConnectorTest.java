@@ -18,6 +18,8 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.regex.Pattern;
+
 import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 
 public class TestHiveWithPlanAlternativesConnectorTest
@@ -56,6 +58,18 @@ public class TestHiveWithPlanAlternativesConnectorTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
         }
+    }
+
+    @Test
+    public void testExplain()
+    {
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation WHERE nationkey = 8",
+                "ChooseAlternativeNode",
+                "ScanProject",  // filter is subsumed by the connector
+                Pattern.quote("\"nationkey\" = BIGINT '8'"),  // filter is not subsumed by the connector
+                "Estimates: \\{rows: .* \\(.*\\), cpu: .*, memory: .*, network: .*}",
+                "Trino version: .*");
     }
 
     @Override
