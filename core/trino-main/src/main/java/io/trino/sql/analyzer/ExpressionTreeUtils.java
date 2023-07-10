@@ -52,9 +52,22 @@ public final class ExpressionTreeUtils
                 .build();
     }
 
+    static List<Expression> extractWindowExpressions(Iterable<? extends Node> nodes, Session session, Metadata metadata)
+    {
+        return ImmutableList.<Expression>builder()
+                .addAll(extractWindowFunctions(nodes, session, metadata))
+                .addAll(extractWindowMeasures(nodes))
+                .build();
+    }
+
     static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes)
     {
         return extractExpressions(nodes, FunctionCall.class, ExpressionTreeUtils::isWindowFunction);
+    }
+
+    static List<FunctionCall> extractWindowFunctions(Iterable<? extends Node> nodes, Session session, Metadata metadata)
+    {
+        return extractExpressions(nodes, FunctionCall.class, function -> isWindow(function, session, metadata));
     }
 
     static List<WindowOperation> extractWindowMeasures(Iterable<? extends Node> nodes)
@@ -74,6 +87,12 @@ public final class ExpressionTreeUtils
         return ((metadata.isAggregationFunction(session, functionCall.getName()) || functionCall.getFilter().isPresent())
                 && functionCall.getWindow().isEmpty())
                 || functionCall.getOrderBy().isPresent();
+    }
+
+    private static boolean isWindow(FunctionCall functionCall, Session session, Metadata metadata)
+    {
+        return functionCall.getWindow().isPresent()
+                || metadata.isWindowFunction(session, functionCall.getName());
     }
 
     private static boolean isWindowFunction(FunctionCall functionCall)

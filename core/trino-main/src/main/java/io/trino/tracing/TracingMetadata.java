@@ -1153,6 +1153,16 @@ public class TracingMetadata
     }
 
     @Override
+    public boolean isWindowFunction(Session session, QualifiedName name)
+    {
+        Span span = startSpan("isWindowFunction")
+                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, extractFunctionName(name)));
+        try (var ignored = scopedSpan(span)) {
+            return delegate.isWindowFunction(session, name);
+        }
+    }
+
+    @Override
     public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getFunctionMetadata")
