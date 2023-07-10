@@ -49,7 +49,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
