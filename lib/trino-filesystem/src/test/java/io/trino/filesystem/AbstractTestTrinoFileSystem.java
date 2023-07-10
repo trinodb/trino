@@ -46,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @TestInstance(Lifecycle.PER_CLASS)
 public abstract class AbstractTestTrinoFileSystem
 {
+    protected static final String TEST_BLOB_CONTENT_PREFIX = "test blob content for ";
     private static final int MEGABYTE = 1024 * 1024;
 
     protected abstract boolean isHierarchical();
@@ -544,11 +545,11 @@ public abstract class AbstractTestTrinoFileSystem
 
         try (TempBlob absolute = new TempBlob(createLocation("b"))) {
             try (TempBlob alias = new TempBlob(createLocation("a/../b"))) {
-                absolute.createOrOverwrite(absolute.location().toString());
+                absolute.createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + absolute.location().toString());
                 assertThat(alias.exists()).isTrue();
                 assertThat(absolute.exists()).isTrue();
 
-                assertThat(alias.read()).isEqualTo(absolute.location().toString());
+                assertThat(alias.read()).isEqualTo(TEST_BLOB_CONTENT_PREFIX + absolute.location().toString());
 
                 assertThat(listPath("")).containsExactly(absolute.location());
 
@@ -567,20 +568,20 @@ public abstract class AbstractTestTrinoFileSystem
             assertThat(inputFile.location()).isEqualTo(tempBlob.location());
             assertThat(inputFile.exists()).isFalse();
 
-            tempBlob.createOrOverwrite(tempBlob.location().toString());
-            assertThat(inputFile.length()).isEqualTo(tempBlob.location().toString().length());
-            assertThat(tempBlob.read()).isEqualTo(tempBlob.location().toString());
+            tempBlob.createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
+            assertThat(inputFile.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + tempBlob.location().toString().length());
+            assertThat(tempBlob.read()).isEqualTo(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
 
             assertThat(listPath("test/..")).containsExactly(tempBlob.location());
 
             if (supportsRenameFile()) {
                 getFileSystem().renameFile(tempBlob.location(), createLocation("file"));
                 assertThat(inputFile.exists()).isFalse();
-                assertThat(readLocation(createLocation("file"))).isEqualTo(tempBlob.location().toString());
+                assertThat(readLocation(createLocation("file"))).isEqualTo(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
 
                 getFileSystem().renameFile(createLocation("file"), tempBlob.location());
                 assertThat(inputFile.exists()).isTrue();
-                assertThat(tempBlob.read()).isEqualTo(tempBlob.location().toString());
+                assertThat(tempBlob.read()).isEqualTo(TEST_BLOB_CONTENT_PREFIX + tempBlob.location().toString());
             }
 
             getFileSystem().deleteFile(tempBlob.location());
@@ -873,7 +874,7 @@ public abstract class AbstractTestTrinoFileSystem
         while (fileIterator.hasNext()) {
             FileEntry fileEntry = fileIterator.next();
             Location location = fileEntry.location();
-            assertThat(fileEntry.length()).isEqualTo(location.toString().length());
+            assertThat(fileEntry.length()).isEqualTo(TEST_BLOB_CONTENT_PREFIX.length() + location.toString().length());
             locations.add(location);
         }
         return locations;
@@ -901,7 +902,7 @@ public abstract class AbstractTestTrinoFileSystem
     private Location createBlob(Closer closer, String path)
     {
         Location location = createLocation(path);
-        closer.register(new TempBlob(location)).createOrOverwrite(location.toString());
+        closer.register(new TempBlob(location)).createOrOverwrite(TEST_BLOB_CONTENT_PREFIX + location.toString());
         return location;
     }
 
