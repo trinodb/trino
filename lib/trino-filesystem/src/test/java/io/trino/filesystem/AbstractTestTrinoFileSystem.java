@@ -14,6 +14,7 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.Ordering;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -821,6 +822,57 @@ public abstract class AbstractTestTrinoFileSystem
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName))).contains(true);
                 assertThat(getFileSystem().directoryExists(createLocation(UUID.randomUUID().toString()))).isEmpty();
                 assertThat(getFileSystem().directoryExists(createLocation(directoryName).appendPath(fileName))).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    public void testFileWithTrailingWhitespace()
+            throws IOException
+    {
+        try (Closer closer = Closer.create()) {
+            Location location = createBlob(closer, "dir/whitespace ");
+
+            // Verify listing
+            assertThat(listPath("dir")).isEqualTo(List.of(location));
+
+            // Verify reading
+            TrinoInputFile inputFile = getFileSystem().newInputFile(location);
+            assertThat(inputFile.exists()).as("exists").isTrue();
+            try (TrinoInputStream inputStream = inputFile.newStream()) {
+                byte[] bytes = ByteStreams.toByteArray(inputStream);
+                assertThat(bytes).isEqualTo(("test blob content for " + location).getBytes(UTF_8));
+            }
+
+            // Verify writing
+            byte[] newContents = "bar bar baz new content".getBytes(UTF_8);
+            try (OutputStream outputStream = getFileSystem().newOutputFile(location).createOrOverwrite()) {
+                outputStream.write(newContents.clone());
+            }
+            try (TrinoInputStream inputStream = inputFile.newStream()) {
+                byte[] bytes = ByteStreams.toByteArray(inputStream);
+                assertThat(bytes).isEqualTo(newContents);
+            }
+
+            // Verify deleting
+            getFileSystem().deleteFile(location);
+            assertThat(inputFile.exists()).as("exists after delete").isFalse();
+
+            // Verify renames
+            if (supportsRenameFile()) {
+                Location source = createBlob(closer, "dir/another trailing whitespace ");
+                Location target = getRootLocation().appendPath("dir/after rename still whitespace ");
+                getFileSystem().renameFile(source, target);
+                assertThat(getFileSystem().newInputFile(source).exists()).as("source exists after rename").isFalse();
+                assertThat(getFileSystem().newInputFile(target).exists()).as("target exists after rename").isTrue();
+
+                try (TrinoInputStream inputStream = getFileSystem().newInputFile(target).newStream()) {
+                    byte[] bytes = ByteStreams.toByteArray(inputStream);
+                    assertThat(bytes).isEqualTo(("test blob content for " + source).getBytes(UTF_8));
+                }
+
+                getFileSystem().deleteFile(target);
+                assertThat(getFileSystem().newInputFile(target).exists()).as("target exists after delete").isFalse();
             }
         }
     }

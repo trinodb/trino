@@ -63,8 +63,11 @@ public abstract class AbstractTestS3FileSystem
         fileSystemFactory = null;
     }
 
+    /**
+     * Tests same things as {@link #testFileWithTrailingWhitespace()} but with setup and assertions using {@link S3Client}.
+     */
     @Test
-    public void testFileWithTrailingWhitespace()
+    public void testFileWithTrailingWhitespaceAgainstNativeClient()
             throws IOException
     {
         try (S3Client s3Client = createS3Client()) {
