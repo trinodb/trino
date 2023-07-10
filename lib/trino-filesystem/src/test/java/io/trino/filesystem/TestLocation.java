@@ -314,17 +314,18 @@ class TestLocation
     {
         Location.of("scheme://userInfo@host/name").verifyValidFileLocation();
         Location.of("scheme://userInfo@host/path/name").verifyValidFileLocation();
+        Location.of("scheme://userInfo@host/name ").verifyValidFileLocation();
 
         Location.of("/name").verifyValidFileLocation();
         Location.of("/path/name").verifyValidFileLocation();
+        Location.of("/path/name ").verifyValidFileLocation();
+        Location.of("/name ").verifyValidFileLocation();
 
         assertInvalidFileLocation("scheme://userInfo@host/", "File location must contain a path: scheme://userInfo@host/");
         assertInvalidFileLocation("scheme://userInfo@host/name/", "File location cannot end with '/': scheme://userInfo@host/name/");
-        assertInvalidFileLocation("scheme://userInfo@host/name ", "File location cannot end with whitespace: scheme://userInfo@host/name ");
 
         assertInvalidFileLocation("/", "File location must contain a path: /");
         assertInvalidFileLocation("/name/", "File location cannot end with '/': /name/");
-        assertInvalidFileLocation("/name ", "File location cannot end with whitespace: /name ");
     }
 
     private static void assertInvalidFileLocation(String locationString, String expectedErrorMessage)

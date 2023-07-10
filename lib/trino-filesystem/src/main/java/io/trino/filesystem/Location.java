@@ -23,7 +23,6 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getLast;
-import static java.lang.Character.isWhitespace;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.not;
@@ -266,7 +265,7 @@ public final class Location
     }
 
     /**
-     * Verifies the location is valid for a file reference.  Specifically, the path must not be empty, must not end with a slash or whitespace.
+     * Verifies the location is valid for a file reference.  Specifically, the path must not be empty and must not end with a slash.
      *
      * @throws IllegalStateException if the location is not a valid file location
      */
@@ -277,8 +276,6 @@ public final class Location
         checkState(!path.isEmpty() && !path.equals("/"), "File location must contain a path: %s", location);
         // file path cannot end with a slash
         checkState(!path.endsWith("/"), "File location cannot end with '/': %s", location);
-        // file path cannot end with whitespace
-        checkState(!isWhitespace(path.charAt(path.length() - 1)), "File location cannot end with whitespace: %s", location);
     }
 
     @Override
