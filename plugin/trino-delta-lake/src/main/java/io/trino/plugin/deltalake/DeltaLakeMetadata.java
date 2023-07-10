@@ -479,7 +479,7 @@ public class DeltaLakeMetadata
             }
             throw e;
         }
-        ProtocolEntry protocolEntry = getProtocolEntry(session, tableSnapshot);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         if (protocolEntry.getMinReaderVersion() > MAX_READER_VERSION) {
             LOG.debug("Skip %s because the reader version is unsupported: %d", dataTableName, protocolEntry.getMinReaderVersion());
             return null;
@@ -2148,14 +2148,7 @@ public class DeltaLakeMetadata
 
     private ProtocolEntry getProtocolEntry(ConnectorSession session, DeltaLakeTableHandle handle)
     {
-        return getProtocolEntry(session, getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
-    }
-
-    private ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
-    {
-        return transactionLogAccess.getProtocolEntries(tableSnapshot, session)
-                .reduce((first, second) -> second)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        return transactionLogAccess.getProtocolEntry(session, getSnapshot(handle.getSchemaTableName(), handle.getLocation(), session));
     }
 
     private TableSnapshot getSnapshot(SchemaTableName schemaTableName, String tableLocation, ConnectorSession session)
