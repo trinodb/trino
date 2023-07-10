@@ -19,6 +19,7 @@ import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.CanonicalColumnName;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.SqlMap;
 
 import java.util.List;
 import java.util.Map;
@@ -113,7 +114,7 @@ public class DeltaLakeParquetFileStatistics
         if (contents == null) {
             return Optional.empty();
         }
-        if (contents instanceof List || contents instanceof Map || contents instanceof Block) {
+        if (contents instanceof List || contents instanceof Map || contents instanceof Block || contents instanceof SqlMap) {
             log.debug("Skipping statistics value for column with complex value type: %s", columnName);
             return Optional.empty();
         }

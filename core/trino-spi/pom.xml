@@ -403,6 +403,21 @@
                                     <old>method io.trino.spi.block.Block io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</old>
                                     <new>method io.trino.spi.block.SqlMap io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.Block io.trino.spi.block.BufferedMapValueBuilder::build(int, io.trino.spi.block.MapValueBuilder&lt;E&gt;) throws E</old>
+                                    <new>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.SqlMap io.trino.spi.block.BufferedMapValueBuilder::build(int, io.trino.spi.block.MapValueBuilder&lt;E&gt;) throws E</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.Block io.trino.spi.block.MapValueBuilder&lt;E extends java.lang.Throwable&gt;::buildMapValue(io.trino.spi.type.MapType, int, io.trino.spi.block.MapValueBuilder&lt;E&gt;) throws E</old>
+                                    <new>method &lt;E extends java.lang.Throwable&gt; io.trino.spi.block.SqlMap io.trino.spi.block.MapValueBuilder&lt;E extends java.lang.Throwable&gt;::buildMapValue(io.trino.spi.type.MapType, int, io.trino.spi.block.MapValueBuilder&lt;E&gt;) throws E</new>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</old>
+                                    <new>method io.trino.spi.block.SqlMap io.trino.spi.type.MapType::getObject(io.trino.spi.block.Block, int)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
