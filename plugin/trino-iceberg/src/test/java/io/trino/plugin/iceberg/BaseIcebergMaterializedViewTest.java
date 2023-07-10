@@ -450,6 +450,37 @@ public abstract class BaseIcebergMaterializedViewTest
     }
 
     @Test
+    public void testMaterializedViewOnTableRolledBack()
+    {
+        assertUpdate("CREATE TABLE mv_on_rolled_back_base_table(a integer)");
+        assertUpdate("""
+                CREATE MATERIALIZED VIEW mv_on_rolled_back_the_mv
+                GRACE PERIOD INTERVAL '0' SECOND
+                AS SELECT sum(a) s FROM mv_on_rolled_back_base_table""");
+
+        // Create some snapshots
+        assertUpdate("INSERT INTO mv_on_rolled_back_base_table VALUES 4", 1);
+        long firstSnapshot = getLatestSnapshotId("mv_on_rolled_back_base_table");
+        assertUpdate("INSERT INTO mv_on_rolled_back_base_table VALUES 8", 1);
+
+        // Base MV on a snapshot "in the future"
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
+        assertUpdate(format("CALL system.rollback_to_snapshot(CURRENT_SCHEMA, 'mv_on_rolled_back_base_table', %s)", firstSnapshot));
+
+        // View still can be queried
+        assertThat(query("TABLE mv_on_rolled_back_the_mv"))
+                .matches("VALUES BIGINT '4'");
+
+        // View can also be refreshed
+        assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
+        assertThat(query("TABLE mv_on_rolled_back_the_mv"))
+                .matches("VALUES BIGINT '4'");
+
+        assertUpdate("DROP TABLE mv_on_rolled_back_base_table");
+        assertUpdate("DROP MATERIALIZED VIEW mv_on_rolled_back_the_mv");
+    }
+
+    @Test
     public void testSqlFeatures()
     {
         String schema = getSession().getSchema().orElseThrow();
@@ -762,5 +793,10 @@ public abstract class BaseIcebergMaterializedViewTest
                 .getMaterializedView(session, new QualifiedObjectName(catalogName, schemaName, materializedViewName));
         assertThat(materializedView).isPresent();
         return materializedView.get().getStorageTable().get().getSchemaTableName();
+    }
+
+    private long getLatestSnapshotId(String tableName)
+    {
+        return (long) computeScalar(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName));
     }
 }
