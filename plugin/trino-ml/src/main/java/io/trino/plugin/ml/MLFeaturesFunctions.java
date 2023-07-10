@@ -14,7 +14,6 @@
 package io.trino.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BufferedMapValueBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.function.ScalarFunction;
@@ -64,7 +63,7 @@ public final class MLFeaturesFunctions
         }
 
         @SqlType(MAP_BIGINT_DOUBLE)
-        public Block features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
+        public SqlMap features(@SqlType(StandardTypes.DOUBLE) double f1, @SqlType(StandardTypes.DOUBLE) double f2)
         {
             return featuresHelper(mapValueBuilder, f1, f2);
         }

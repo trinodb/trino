@@ -15,24 +15,19 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.SizeOf;
-import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.MapHashTables.HashBuildMode;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.block.BlockUtil.checkReadablePosition;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.computePosition;
 import static io.trino.spi.block.MapHashTables.createSingleTable;
@@ -41,7 +36,6 @@ import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
 
 public class SqlMap
-        implements Block
 {
     private static final int INSTANCE_SIZE = instanceSize(SqlMap.class);
 
@@ -79,57 +73,9 @@ public class SqlMap
         this.size = size;
     }
 
-    @Override
-    public final List<Block> getChildren()
-    {
-        return List.of(rawKeyBlock, rawValueBlock);
-    }
-
     public Type getMapType()
     {
         return mapType;
-    }
-
-    @Override
-    public int getPositionCount()
-    {
-        return size * 2;
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty();
-    }
-
-    @Override
-    public long getSizeInBytes()
-    {
-        return rawKeyBlock.getRegionSizeInBytes(offset, size) +
-                rawValueBlock.getRegionSizeInBytes(offset, size) +
-                sizeOfIntArray(size * HASH_MULTIPLIER);
-    }
-
-    @Override
-    public long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + rawKeyBlock.getRetainedSizeInBytes() +
-                rawValueBlock.getRetainedSizeInBytes() +
-                hashTablesSupplier.tryGetHashTable().map(SizeOf::sizeOf).orElse(0L);
-    }
-
-    @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
-    {
-        consumer.accept(rawKeyBlock, rawKeyBlock.getRetainedSizeInBytes());
-        consumer.accept(rawValueBlock, rawValueBlock.getRetainedSizeInBytes());
-        consumer.accept(this, INSTANCE_SIZE);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return SqlMapBlockEncoding.NAME;
     }
 
     public int getSize()
@@ -153,242 +99,9 @@ public class SqlMap
     }
 
     @Override
-    public Block copyWithAppendedNull()
-    {
-        throw new UnsupportedOperationException("SqlMap does not support newBlockWithAppendedNull()");
-    }
-
-    @Override
     public String toString()
     {
         return format("SqlMap{size=%d}", size);
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        return rawKeyBlock.isLoaded() && rawValueBlock.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        if (rawKeyBlock != rawKeyBlock.getLoadedBlock()) {
-            // keyBlock has to be loaded since MapBlock constructs hash table eagerly.
-            throw new IllegalStateException();
-        }
-
-        Block loadedValueBlock = rawValueBlock.getLoadedBlock();
-        if (loadedValueBlock == rawValueBlock) {
-            return this;
-        }
-        return new SqlMap(mapType, rawKeyBlock, loadedValueBlock, hashTablesSupplier, offset, size);
-    }
-
-    private int getAbsoluteBlockPosition(int position)
-    {
-        checkReadablePosition(this, position);
-        return position + offset * 2;
-    }
-
-    @Override
-    public boolean isNull(int position)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            if (rawKeyBlock.isNull(position / 2)) {
-                throw new IllegalStateException("Map key is null");
-            }
-            return false;
-        }
-        return rawValueBlock.isNull(position / 2);
-    }
-
-    @Override
-    public byte getByte(int position, int offset)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getByte(position / 2, offset);
-        }
-        return rawValueBlock.getByte(position / 2, offset);
-    }
-
-    @Override
-    public short getShort(int position, int offset)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getShort(position / 2, offset);
-        }
-        return rawValueBlock.getShort(position / 2, offset);
-    }
-
-    @Override
-    public int getInt(int position, int offset)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getInt(position / 2, offset);
-        }
-        return rawValueBlock.getInt(position / 2, offset);
-    }
-
-    @Override
-    public long getLong(int position, int offset)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getLong(position / 2, offset);
-        }
-        return rawValueBlock.getLong(position / 2, offset);
-    }
-
-    @Override
-    public Slice getSlice(int position, int offset, int length)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getSlice(position / 2, offset, length);
-        }
-        return rawValueBlock.getSlice(position / 2, offset, length);
-    }
-
-    @Override
-    public void writeSliceTo(int position, int offset, int length, SliceOutput output)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            rawKeyBlock.writeSliceTo(position / 2, offset, length, output);
-        }
-        else {
-            rawValueBlock.writeSliceTo(position / 2, offset, length, output);
-        }
-    }
-
-    @Override
-    public int getSliceLength(int position)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getSliceLength(position / 2);
-        }
-        return rawValueBlock.getSliceLength(position / 2);
-    }
-
-    @Override
-    public int compareTo(int position, int offset, int length, Block otherBlock, int otherPosition, int otherOffset, int otherLength)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
-        }
-        return rawValueBlock.compareTo(position / 2, offset, length, otherBlock, otherPosition, otherOffset, otherLength);
-    }
-
-    @Override
-    public boolean bytesEqual(int position, int offset, Slice otherSlice, int otherOffset, int length)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
-        }
-        return rawValueBlock.bytesEqual(position / 2, offset, otherSlice, otherOffset, length);
-    }
-
-    @Override
-    public int bytesCompare(int position, int offset, int length, Slice otherSlice, int otherOffset, int otherLength)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
-        }
-        return rawValueBlock.bytesCompare(position / 2, offset, length, otherSlice, otherOffset, otherLength);
-    }
-
-    @Override
-    public boolean equals(int position, int offset, Block otherBlock, int otherPosition, int otherOffset, int length)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
-        }
-        return rawValueBlock.equals(position / 2, offset, otherBlock, otherPosition, otherOffset, length);
-    }
-
-    @Override
-    public long hash(int position, int offset, int length)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.hash(position / 2, offset, length);
-        }
-        return rawValueBlock.hash(position / 2, offset, length);
-    }
-
-    @Override
-    public <T> T getObject(int position, Class<T> clazz)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getObject(position / 2, clazz);
-        }
-        return rawValueBlock.getObject(position / 2, clazz);
-    }
-
-    @Override
-    public Block getSingleValueBlock(int position)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getSingleValueBlock(position / 2);
-        }
-        return rawValueBlock.getSingleValueBlock(position / 2);
-    }
-
-    @Override
-    public long getEstimatedDataSizeForStats(int position)
-    {
-        position = getAbsoluteBlockPosition(position);
-        if (position % 2 == 0) {
-            return rawKeyBlock.getEstimatedDataSizeForStats(position / 2);
-        }
-        return rawValueBlock.getEstimatedDataSizeForStats(position / 2);
-    }
-
-    @Override
-    public long getRegionSizeInBytes(int position, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Block copyPositions(int[] positions, int offset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Block getRegion(int positionOffset, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Block copyRegion(int position, int length)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    public Optional<int[]> tryGetHashTable()
-    {
-        return hashTablesSupplier.tryGetHashTable();
     }
 
     /**
@@ -712,6 +425,30 @@ public class SqlMap
         if (equalResult == null) {
             throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
         }
+    }
+
+    public long getSizeInBytes()
+    {
+        return rawKeyBlock.getRegionSizeInBytes(offset, size) +
+                rawValueBlock.getRegionSizeInBytes(offset, size) +
+                sizeOfIntArray(size * HASH_MULTIPLIER);
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        long size = INSTANCE_SIZE +
+                rawKeyBlock.getRetainedSizeInBytes() +
+                rawValueBlock.getRetainedSizeInBytes() +
+                hashTablesSupplier.tryGetHashTable().map(SizeOf::sizeOf).orElse(0L);
+        return size;
+    }
+
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    {
+        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(rawKeyBlock, rawKeyBlock.getRetainedSizeInBytes());
+        consumer.accept(rawValueBlock, rawValueBlock.getRetainedSizeInBytes());
+        hashTablesSupplier.tryGetHashTable().ifPresent(hashTables -> consumer.accept(hashTables, SizeOf.sizeOf(hashTables)));
     }
 
     static class HashTableSupplier
