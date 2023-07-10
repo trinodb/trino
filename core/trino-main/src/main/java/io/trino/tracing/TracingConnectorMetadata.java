@@ -19,7 +19,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -769,16 +768,6 @@ public class TracingConnectorMetadata
         Span span = startSpan("getSchemaProperties", schemaName);
         try (var ignored = scopedSpan(span)) {
             return delegate.getSchemaProperties(session, schemaName);
-        }
-    }
-
-    @SuppressWarnings("removal")
-    @Override
-    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        Span span = startSpan("getSchemaOwner", schemaName.getSchemaName());
-        try (var ignored = scopedSpan(span)) {
-            return delegate.getSchemaOwner(session, schemaName);
         }
     }
 

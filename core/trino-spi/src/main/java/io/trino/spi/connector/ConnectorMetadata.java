@@ -803,21 +803,10 @@ public interface ConnectorMetadata
 
     /**
      * Get the schema properties for the specified schema.
-     *
-     * @deprecated use {@link #getSchemaOwner(ConnectorSession, String)}
-     */
-    @Deprecated(forRemoval = true)
-    default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
-    {
-        return Optional.empty();
-    }
-
-    /**
-     * Get the schema properties for the specified schema.
      */
     default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, String schemaName)
     {
-        return getSchemaOwner(session, new CatalogSchemaName("invalid", schemaName));
+        return Optional.empty();
     }
 
     /**
